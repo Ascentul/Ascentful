@@ -244,6 +244,13 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         pro: true,
       },
       {
+        id: 'interview-practice',
+        title: 'Interview Practice',
+        icon: <Mic className="h-5 w-5" />,
+        href: '/interview-practice',
+        pro: true,
+      },
+      {
         id: 'career-profile',
         title: 'Career Profile',
         icon: <UserIcon className="h-5 w-5" />,

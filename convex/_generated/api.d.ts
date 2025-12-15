@@ -48,6 +48,7 @@ import type * as feature_flags from "../feature_flags.js";
 import type * as followups from "../followups.js";
 import type * as gdpr from "../gdpr.js";
 import type * as goals from "../goals.js";
+import type * as interview_practice from "../interview_practice.js";
 import type * as interviews from "../interviews.js";
 import type * as investor_metrics from "../investor_metrics.js";
 import type * as jobs from "../jobs.js";
@@ -142,6 +143,7 @@ declare const fullApi: ApiFromModules<{
   followups: typeof followups;
   gdpr: typeof gdpr;
   goals: typeof goals;
+  interview_practice: typeof interview_practice;
   interviews: typeof interviews;
   investor_metrics: typeof investor_metrics;
   jobs: typeof jobs;

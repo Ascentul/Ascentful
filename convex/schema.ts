@@ -334,6 +334,221 @@ export default defineSchema({
     .index('by_user', ['user_id'])
     .index('by_scheduled_at', ['scheduled_at']),
 
+  // ============================================================================
+  // INTERVIEW PRACTICE FEATURE
+  // Mock interview practice with AI-generated questions and coaching feedback
+  // ============================================================================
+
+  // Role profiles for interview practice - defines the job being practiced for
+  interview_role_profiles: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    // Input method used to create this profile
+    input_type: v.union(
+      v.literal('title_company'), // User entered job title + company
+      v.literal('jd_text'), // User pasted job description text
+      v.literal('jd_link'), // User provided link to job posting
+    ),
+    // Job identification
+    job_title: v.string(),
+    company_name: v.optional(v.string()),
+    job_level: v.optional(v.string()), // entry, mid, senior, lead, etc.
+    job_description_text: v.optional(v.string()), // Full JD text (if provided)
+    job_url: v.optional(v.string()), // Link to job posting (if provided)
+    // AI-extracted/processed data
+    role_summary: v.optional(v.string()), // Brief summary of the role
+    competencies: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          weight: v.number(), // 1-5 importance
+          description: v.optional(v.string()),
+        }),
+      ),
+    ),
+    extracted_keywords: v.optional(v.array(v.string())),
+    interview_type: v.optional(
+      v.union(
+        v.literal('behavioral'),
+        v.literal('technical'),
+        v.literal('case'),
+        v.literal('mixed'),
+      ),
+    ),
+    // Metadata
+    source_notes: v.optional(v.string()), // Notes about the source (no full JD copy)
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_university', ['university_id'])
+    .index('by_created_at', ['created_at']),
+
+  // Interview practice sessions - each mock interview attempt
+  interview_practice_sessions: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    role_profile_id: v.id('interview_role_profiles'),
+    // Session state
+    status: v.union(
+      v.literal('setup'), // User configuring session
+      v.literal('in_progress'), // Active interview
+      v.literal('completed'), // Interview finished
+      v.literal('abandoned'), // User quit early
+    ),
+    mode: v.union(
+      v.literal('neutral'), // Standard interview
+      v.literal('supportive'), // Encouraging tone
+      v.literal('pressure'), // Challenging tone
+    ),
+    // Configuration
+    camera_enabled: v.boolean(),
+    question_count_target: v.number(),
+    current_question_index: v.number(), // 0-indexed
+    // Agent state for dynamic question generation (JSON)
+    agent_state: v.optional(v.any()), // { coveredCompetencies, openThreads, difficultyLevel, etc. }
+    // Consent tracking for GDPR/privacy
+    consent: v.object({
+      mic: v.boolean(),
+      camera: v.boolean(),
+      timestamp: v.number(),
+    }),
+    // Timing
+    started_at: v.optional(v.number()),
+    ended_at: v.optional(v.number()),
+    total_duration_ms: v.optional(v.number()),
+    // Aggregate scores (populated after completion) - 1-100 scale
+    overall_score: v.optional(v.number()),
+    dimension_scores: v.optional(
+      v.object({
+        communication: v.optional(v.number()),
+        relevance: v.optional(v.number()),
+        specificity: v.optional(v.number()),
+        structure: v.optional(v.number()),
+        confidence: v.optional(v.number()),
+      }),
+    ),
+    // Coaching summary
+    coach_summary: v.optional(v.string()),
+    key_takeaways: v.optional(v.array(v.string())),
+    improvement_priorities: v.optional(v.array(v.string())),
+    hire_signal: v.optional(
+      v.union(
+        v.literal('strong_yes'),
+        v.literal('yes'),
+        v.literal('mixed'),
+        v.literal('no'),
+        v.literal('strong_no'),
+      ),
+    ),
+    // Metadata
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_status', ['user_id', 'status'])
+    .index('by_university', ['university_id'])
+    .index('by_role_profile', ['role_profile_id'])
+    .index('by_created_at', ['created_at']),
+
+  // Interview practice turns - each question/answer pair in a session
+  interview_practice_turns: defineTable({
+    session_id: v.id('interview_practice_sessions'),
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    turn_index: v.number(), // 0-indexed position in session
+    // Question details
+    question_text: v.string(),
+    question_type: v.union(
+      v.literal('behavioral'), // "Tell me about a time..."
+      v.literal('technical'), // Technical/skill-based
+      v.literal('situational'), // "What would you do if..."
+      v.literal('role_specific'), // Specific to the job role
+      v.literal('culture'), // Culture fit questions
+      v.literal('follow_up'), // Follow-up to previous answer
+    ),
+    question_intent: v.optional(v.string()), // What the question is trying to assess
+    target_competencies: v.optional(v.array(v.string())), // Competency IDs being assessed
+    evaluation_focus: v.optional(v.array(v.string())), // What to evaluate in response
+    tts_audio_url: v.optional(v.string()), // TTS audio URL for question
+    // User response
+    user_audio_storage_id: v.optional(v.id('_storage')), // Convex storage ID for audio
+    transcript_text: v.optional(v.string()), // Transcribed response text
+    response_duration_ms: v.optional(v.number()),
+    // Transcript analysis metadata
+    transcript_meta: v.optional(
+      v.object({
+        words_per_minute: v.optional(v.number()),
+        filler_count: v.optional(v.number()),
+        filler_words: v.optional(v.any()), // Record<string, number>
+        pauses: v.optional(
+          v.object({
+            count: v.number(),
+            avg_ms: v.number(),
+            max_ms: v.number(),
+          }),
+        ),
+        duration_sec: v.optional(v.number()),
+      }),
+    ),
+    // Content signals from response
+    content_signals: v.optional(
+      v.object({
+        metrics_count: v.optional(v.number()), // Number of metrics/numbers mentioned
+        examples_count: v.optional(v.number()), // Number of concrete examples
+        star_structure_score: v.optional(v.number()), // 1-5 STAR method adherence
+        relevance_score: v.optional(v.number()), // 1-5 relevance to question
+        role_relevance_score: v.optional(v.number()), // 1-5 relevance to role
+      }),
+    ),
+    // Per-turn scores (1-5 scale)
+    scores: v.optional(
+      v.object({
+        communication: v.optional(v.number()),
+        specificity: v.optional(v.number()),
+        structure: v.optional(v.number()),
+        role_fit: v.optional(v.number()),
+        overall: v.optional(v.number()),
+      }),
+    ),
+    // Coaching feedback
+    strengths: v.optional(v.array(v.string())),
+    improvements: v.optional(v.array(v.string())),
+    ideal_answer: v.optional(v.string()), // Example of a strong answer
+    keywords_to_include: v.optional(v.array(v.string())), // Keywords that should be mentioned
+    // Follow-up tracking for agent state
+    follow_up_threads_created: v.optional(v.array(v.string())),
+    follow_up_threads_resolved: v.optional(v.array(v.string())),
+    // Timing
+    asked_at: v.number(),
+    answered_at: v.optional(v.number()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_session', ['session_id'])
+    .index('by_session_turn', ['session_id', 'turn_index'])
+    .index('by_user', ['user_id'])
+    .index('by_university', ['university_id']),
+
+  // Interview presence samples - camera-based presence analysis (V2 feature)
+  interview_presence_samples: defineTable({
+    session_id: v.id('interview_practice_sessions'),
+    turn_id: v.optional(v.id('interview_practice_turns')),
+    user_id: v.id('users'),
+    // Presence metrics captured during response
+    timestamp: v.number(),
+    eye_contact_score: v.optional(v.number()), // 0-100
+    posture_score: v.optional(v.number()), // 0-100
+    expressiveness_score: v.optional(v.number()), // 0-100
+    distraction_flags: v.optional(v.array(v.string())), // e.g., ['looking_away', 'fidgeting']
+    // Privacy-minded: no raw video/image data stored
+    created_at: v.number(),
+  })
+    .index('by_session', ['session_id'])
+    .index('by_turn', ['turn_id'])
+    .index('by_user', ['user_id']),
+
   // Job searches table to track user job searches
   job_searches: defineTable({
     user_id: v.id('users'),

@@ -1,0 +1,563 @@
+'use client';
+
+import { useUser } from '@clerk/nextjs';
+import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowLeft,
+  Award,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Download,
+  Lightbulb,
+  Loader2,
+  MessageSquare,
+  Mic,
+  Share2,
+  Star,
+  Target,
+  ThumbsUp,
+  TrendingUp,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/ClerkAuthProvider';
+import { apiRequest } from '@/lib/queryClient';
+
+interface Turn {
+  _id: string;
+  turn_index: number;
+  question_text: string;
+  question_type: string;
+  transcript_text?: string;
+  response_duration_ms?: number;
+  scores?: {
+    communication?: number;
+    specificity?: number;
+    structure?: number;
+    role_fit?: number;
+    overall?: number;
+  };
+  strengths?: string[];
+  improvements?: string[];
+  ideal_answer?: string;
+}
+
+interface Session {
+  _id: string;
+  status: string;
+  mode: string;
+  question_count_target: number;
+  current_question_index: number;
+  overall_score?: number;
+  dimension_scores?: {
+    communication?: number;
+    relevance?: number;
+    specificity?: number;
+    structure?: number;
+    confidence?: number;
+  };
+  coach_summary?: string;
+  key_takeaways?: string[];
+  hire_signal?: string;
+  started_at?: number;
+  ended_at?: number;
+  roleProfile?: {
+    job_title: string;
+    company_name?: string;
+  };
+}
+
+function getScoreColor(score: number) {
+  if (score >= 4) return 'text-green-600';
+  if (score >= 3) return 'text-blue-600';
+  if (score >= 2) return 'text-amber-600';
+  return 'text-red-600';
+}
+
+function getScoreBg(score: number) {
+  if (score >= 4) return 'bg-green-50';
+  if (score >= 3) return 'bg-blue-50';
+  if (score >= 2) return 'bg-amber-50';
+  return 'bg-red-50';
+}
+
+function getHireSignalColor(signal?: string) {
+  switch (signal) {
+    case 'strong_yes':
+      return 'bg-green-500 text-white';
+    case 'yes':
+      return 'bg-green-100 text-green-800';
+    case 'mixed':
+      return 'bg-amber-100 text-amber-800';
+    case 'no':
+      return 'bg-red-100 text-red-800';
+    case 'strong_no':
+      return 'bg-red-500 text-white';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getHireSignalLabel(signal?: string) {
+  switch (signal) {
+    case 'strong_yes':
+      return 'Strong Hire';
+    case 'yes':
+      return 'Hire';
+    case 'mixed':
+      return 'Mixed Signals';
+    case 'no':
+      return 'Not Ready';
+    case 'strong_no':
+      return 'Needs Work';
+    default:
+      return 'Pending';
+  }
+}
+
+function ScoreRing({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
+  const percentage = (score / 5) * 100;
+  const sizeClasses = {
+    sm: 'w-16 h-16 text-lg',
+    md: 'w-24 h-24 text-2xl',
+    lg: 'w-32 h-32 text-3xl',
+  };
+  const strokeWidth = size === 'lg' ? 8 : size === 'md' ? 6 : 4;
+  const radius = size === 'lg' ? 58 : size === 'md' ? 44 : 30;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className={`relative ${sizeClasses[size]} flex items-center justify-center`}>
+      <svg className="w-full h-full -rotate-90">
+        <circle
+          cx="50%"
+          cy="50%"
+          r={radius}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx="50%"
+          cy="50%"
+          r={radius}
+          fill="none"
+          stroke={
+            score >= 4 ? '#22c55e' : score >= 3 ? '#3b82f6' : score >= 2 ? '#f59e0b' : '#ef4444'
+          }
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          className="transition-all duration-1000 ease-out"
+        />
+      </svg>
+      <span className={`absolute font-bold ${getScoreColor(score)}`}>{score.toFixed(1)}</span>
+    </div>
+  );
+}
+
+function TurnCard({ turn, index }: { turn: Turn; index: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader
+        className="cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-xs">
+                Q{index + 1}
+              </Badge>
+              <Badge variant="secondary" className="text-xs capitalize">
+                {turn.question_type?.replace('_', ' ')}
+              </Badge>
+            </div>
+            <CardTitle className="text-base font-medium">{turn.question_text}</CardTitle>
+          </div>
+          <div className="flex items-center gap-3 ml-4">
+            {turn.scores?.overall && (
+              <div className={`text-lg font-bold ${getScoreColor(turn.scores.overall)}`}>
+                {turn.scores.overall.toFixed(1)}
+              </div>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      {isExpanded && (
+        <CardContent className="pt-0 space-y-6">
+          {/* Your Response */}
+          {turn.transcript_text && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Your Response
+              </h4>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm leading-relaxed">{turn.transcript_text}</p>
+                {turn.response_duration_ms && (
+                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>{Math.round(turn.response_duration_ms / 1000)} seconds</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Scores Breakdown */}
+          {turn.scores && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">Score Breakdown</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(turn.scores)
+                  .filter(([key]) => key !== 'overall')
+                  .map(([key, value]) => (
+                    <div key={key} className={`p-3 rounded-lg ${getScoreBg(value as number)}`}>
+                      <p className="text-xs text-muted-foreground capitalize mb-1">
+                        {key.replace('_', ' ')}
+                      </p>
+                      <p className={`text-lg font-bold ${getScoreColor(value as number)}`}>
+                        {(value as number).toFixed(1)}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Strengths */}
+          {turn.strengths && turn.strengths.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <ThumbsUp className="h-4 w-4 text-green-500" />
+                Strengths
+              </h4>
+              <ul className="space-y-1">
+                {turn.strengths.map((strength, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Areas for Improvement */}
+          {turn.improvements && turn.improvements.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-amber-500" />
+                Areas for Improvement
+              </h4>
+              <ul className="space-y-1">
+                {turn.improvements.map((improvement, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span>{improvement}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Ideal Answer */}
+          {turn.ideal_answer && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <Star className="h-4 w-4 text-primary" />
+                Sample Strong Answer
+              </h4>
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <p className="text-sm leading-relaxed italic">{turn.ideal_answer}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+export default function InterviewReportPage() {
+  const params = useParams();
+  const sessionId = params.id as string;
+  const { user: clerkUser, isLoaded } = useUser();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Fetch session with turns
+  const { data, isLoading } = useQuery({
+    queryKey: ['/api/interview-practice/session/report', sessionId],
+    queryFn: async () => {
+      const [sessionResponse, turnsResponse] = await Promise.all([
+        apiRequest('GET', `/api/interview-practice/session?id=${sessionId}`),
+        apiRequest('GET', `/api/interview-practice/session?id=${sessionId}&includeTurns=true`),
+      ]);
+      const sessionData = await sessionResponse.json();
+      const turnsData = await turnsResponse.json();
+      return {
+        session: sessionData.session,
+        turns: turnsData.turns || [],
+      };
+    },
+    enabled: !!user?.clerkId && !!sessionId,
+  });
+
+  const session = data?.session as Session | undefined;
+  const turns = (data?.turns || []) as Turn[];
+
+  if (!isLoaded || !clerkUser || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading your coaching report...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <p className="text-muted-foreground">Session not found</p>
+            <Button asChild className="mt-4">
+              <Link href="/interview-practice">Back to Interview Practice</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const sessionDuration =
+    session.started_at && session.ended_at
+      ? Math.round((session.ended_at - session.started_at) / 60000)
+      : null;
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-5xl">
+      {/* Header */}
+      <div className="mb-8">
+        <Button variant="ghost" asChild className="mb-4">
+          <Link href="/interview-practice">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Interview Practice
+          </Link>
+        </Button>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB] mb-2">
+              Coaching Report
+            </h1>
+            <p className="text-muted-foreground">
+              {session.roleProfile?.job_title}
+              {session.roleProfile?.company_name && ` at ${session.roleProfile.company_name}`}
+            </p>
+            {session.started_at && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {new Date(session.started_at).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button variant="outline" size="sm">
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {/* Overall Score */}
+        <Card className="md:col-span-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-6">
+              <ScoreRing score={session.overall_score || 0} size="lg" />
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Overall Performance</p>
+                <Badge className={`${getHireSignalColor(session.hire_signal)} text-sm`}>
+                  {getHireSignalLabel(session.hire_signal)}
+                </Badge>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Based on {turns.length} questions answered
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Stats */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                <Mic className="h-5 w-5 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{turns.length}</p>
+                <p className="text-sm text-muted-foreground">Questions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{sessionDuration || '-'}</p>
+                <p className="text-sm text-muted-foreground">Minutes</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dimension Scores */}
+      {session.dimension_scores && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Performance Breakdown
+            </CardTitle>
+            <CardDescription>Scores across key interview dimensions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+              {Object.entries(session.dimension_scores).map(([key, value]) => (
+                <div key={key} className="text-center">
+                  <ScoreRing score={value || 0} size="sm" />
+                  <p className="text-sm font-medium capitalize mt-2">{key}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Coach Summary */}
+      {session.coach_summary && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Coach&apos;s Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground leading-relaxed">{session.coach_summary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Key Takeaways */}
+      {session.key_takeaways && session.key_takeaways.length > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Award className="h-5 w-5" />
+              Key Takeaways
+            </CardTitle>
+            <CardDescription>Focus on these areas for your next practice session</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3">
+              {session.key_takeaways.map((takeaway, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10"
+                >
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">{i + 1}</span>
+                  </div>
+                  <p className="text-sm">{takeaway}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Question-by-Question Breakdown */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Question-by-Question Breakdown</h2>
+        <div className="space-y-4">
+          {turns.map((turn, index) => (
+            <TurnCard key={turn._id} turn={turn} index={index} />
+          ))}
+        </div>
+      </div>
+
+      {/* Practice Again CTA */}
+      <Card className="bg-gradient-to-r from-violet-500 to-purple-600 border-0">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between text-white">
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Ready to improve?</h3>
+              <p className="text-white/80 text-sm">
+                Practice makes perfect. Start another session to work on your interview skills.
+              </p>
+            </div>
+            <Button variant="secondary" asChild>
+              <Link href="/interview-practice/new">
+                Practice Again
+                <Mic className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
