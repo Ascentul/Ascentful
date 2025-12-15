@@ -11,7 +11,7 @@ import { Id } from 'convex/_generated/dataModel';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { convexServer } from '@/lib/convex-server';
-import type { SessionCreateInput, SessionMode } from '@/lib/interview-practice/types';
+import type { RoleSnapshot, SessionCreateInput, SessionMode } from '@/lib/interview-practice/types';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -51,13 +51,23 @@ export async function POST(request: NextRequest) {
     log.debug('User authenticated', { event: 'auth.success', clerkId: userId });
 
     const body = (await request.json()) as SessionCreateInput;
-    const { role_profile_id, mode, camera_enabled, question_count_target, consent } = body;
+    const { role_profile_id, role_snapshot, mode, camera_enabled, question_count_target, consent } =
+      body;
 
-    // Validation
-    if (!role_profile_id) {
-      log.warn('Missing role profile ID', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
+    // Validation: must have either role_profile_id or role_snapshot
+    if (!role_profile_id && !role_snapshot) {
+      log.warn('Missing role data', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
       return NextResponse.json(
-        { error: 'Role profile ID is required' },
+        { error: 'Either role_profile_id or role_snapshot is required' },
+        { status: 400, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
+    // Validate role_snapshot has required fields if provided
+    if (role_snapshot && !role_snapshot.job_title) {
+      log.warn('Invalid role snapshot', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
+      return NextResponse.json(
+        { error: 'Role snapshot must include job_title' },
         { status: 400, headers: { 'x-correlation-id': correlationId } },
       );
     }
@@ -86,11 +96,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session in Convex
+    // Create session in Convex - either with role_profile_id or role_snapshot
     const sessionId = await convexServer.mutation(
       api.interview_practice.createSession,
       {
-        role_profile_id: role_profile_id as Id<'interview_role_profiles'>,
+        role_profile_id: role_profile_id
+          ? (role_profile_id as Id<'interview_role_profiles'>)
+          : undefined,
+        role_snapshot: role_snapshot as RoleSnapshot | undefined,
         mode: mode as SessionMode,
         camera_enabled: camera_enabled ?? false,
         question_count_target,
@@ -138,7 +151,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/interview-practice/session
- * List user's sessions
+ * List user's sessions OR get single session by ID
  */
 export async function GET(request: NextRequest) {
   const correlationId = getCorrelationIdFromRequest(request);
@@ -149,7 +162,6 @@ export async function GET(request: NextRequest) {
   });
 
   const startTime = Date.now();
-  log.info('Sessions list request started', { event: 'request.start' });
 
   try {
     const { userId, getToken } = await auth();
@@ -170,6 +182,75 @@ export async function GET(request: NextRequest) {
 
     // Parse query params
     const url = new URL(request.url);
+    const sessionId = url.searchParams.get('id');
+    const includeTurns = url.searchParams.get('includeTurns') === 'true';
+
+    // If session ID provided, fetch single session
+    if (sessionId) {
+      log.info('Single session request started', {
+        event: 'request.start',
+        extra: { sessionId, includeTurns },
+      });
+
+      // If includeTurns, fetch session with turns
+      if (includeTurns) {
+        const sessionWithTurns = await convexServer.query(
+          api.interview_practice.getSessionWithTurns,
+          { sessionId: sessionId as Id<'interview_practice_sessions'> },
+          token,
+        );
+
+        if (!sessionWithTurns) {
+          return NextResponse.json(
+            { error: 'Session not found' },
+            { status: 404, headers: { 'x-correlation-id': correlationId } },
+          );
+        }
+
+        const durationMs = Date.now() - startTime;
+        log.info('Session with turns retrieved', {
+          event: 'request.success',
+          httpStatus: 200,
+          durationMs,
+          extra: { sessionId, turnsCount: sessionWithTurns.turns?.length ?? 0 },
+        });
+
+        return NextResponse.json(
+          { session: sessionWithTurns, turns: sessionWithTurns.turns ?? [] },
+          { status: 200, headers: { 'x-correlation-id': correlationId } },
+        );
+      }
+
+      const session = await convexServer.query(
+        api.interview_practice.getSession,
+        { sessionId: sessionId as Id<'interview_practice_sessions'> },
+        token,
+      );
+
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Session not found' },
+          { status: 404, headers: { 'x-correlation-id': correlationId } },
+        );
+      }
+
+      const durationMs = Date.now() - startTime;
+      log.info('Session retrieved', {
+        event: 'request.success',
+        httpStatus: 200,
+        durationMs,
+        extra: { sessionId },
+      });
+
+      return NextResponse.json(
+        { session },
+        { status: 200, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
+    // Otherwise, list sessions
+    log.info('Sessions list request started', { event: 'request.start' });
+
     const status = url.searchParams.get('status') as
       | 'setup'
       | 'in_progress'

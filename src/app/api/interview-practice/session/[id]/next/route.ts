@@ -133,6 +133,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       log.info('Interview complete', { event: 'interview.complete' });
       return NextResponse.json(
         {
+          isComplete: true,
           interviewComplete: true,
           message: 'All questions have been asked',
           currentIndex: session.current_question_index,
@@ -246,6 +247,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       token,
     );
 
+    // Fetch the created turn to return to frontend
+    const turn = await convexServer.query(
+      api.interview_practice.getTurn,
+      { turnId: turnId as Id<'interview_practice_turns'> },
+      token,
+    );
+
     // Update agent state
     const updatedQuestionHistory = [
       ...(agentState.questionHistory ?? []),
@@ -278,9 +286,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         turnId,
+        turn: turn
+          ? {
+              _id: turn._id,
+              turn_index: turn.turn_index,
+              question_text: turn.question_text,
+              question_type: turn.question_type,
+              tts_audio_url: turn.tts_audio_url,
+              transcript_text: turn.transcript_text,
+              answered_at: turn.answered_at,
+            }
+          : null,
         question,
         currentIndex: nextIndex,
         totalQuestions: session.question_count_target,
+        isComplete: false,
         isLastQuestion: nextIndex >= session.question_count_target - 1,
       },
       { status: 200, headers: { 'x-correlation-id': correlationId } },

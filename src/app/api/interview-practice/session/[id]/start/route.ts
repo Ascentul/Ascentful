@@ -186,6 +186,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       token,
     );
 
+    // Fetch the created turn to return to frontend
+    const turn = await convexServer.query(
+      api.interview_practice.getTurn,
+      { turnId: turnId as Id<'interview_practice_turns'> },
+      token,
+    );
+
     // Update agent state with first question
     const updatedAgentState = {
       coveredCompetencies: {},
@@ -222,6 +229,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         sessionId,
         turnId,
+        turn: turn
+          ? {
+              _id: turn._id,
+              turn_index: turn.turn_index,
+              question_text: turn.question_text,
+              question_type: turn.question_type,
+              tts_audio_url: turn.tts_audio_url,
+              transcript_text: turn.transcript_text,
+              answered_at: turn.answered_at,
+            }
+          : null,
         question,
         currentIndex: 0,
         totalQuestions: session.question_count_target,

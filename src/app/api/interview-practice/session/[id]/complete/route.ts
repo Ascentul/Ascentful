@@ -12,8 +12,19 @@ import OpenAI from 'openai';
 
 import { evaluate } from '@/lib/ai-evaluation';
 import { convexServer } from '@/lib/convex-server';
-import { buildSessionSummaryPrompt, SUMMARY_SYSTEM_PROMPT } from '@/lib/interview-practice/prompts';
-import type { HireSignal, SessionSummary } from '@/lib/interview-practice/types';
+import {
+  buildResponseEvaluationPrompt,
+  buildSessionSummaryPrompt,
+  buildTranscriptAnalysisPrompt,
+  EVALUATOR_SYSTEM_PROMPT,
+  SUMMARY_SYSTEM_PROMPT,
+} from '@/lib/interview-practice/prompts';
+import type {
+  HireSignal,
+  ResponseEvaluation,
+  SessionSummary,
+  TranscriptMeta,
+} from '@/lib/interview-practice/types';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -90,10 +101,178 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const turns = session.turns ?? [];
     const roleProfile = session.role_profile;
 
-    // Generate summary with AI
+    // Step 1: Evaluate all turns that haven't been evaluated yet
+    log.info('Evaluating turns', { event: 'evaluate.start', extra: { turnCount: turns.length } });
+
+    const evaluatedTurns: Array<{
+      _id: string;
+      question_text: string;
+      question_type: string;
+      transcript_text?: string;
+      scores?: ResponseEvaluation['scores'];
+      strengths?: string[];
+      improvements?: string[];
+      ideal_answer?: string;
+      transcript_meta?: TranscriptMeta;
+    }> = [];
+
+    for (const turn of turns) {
+      // Skip turns without transcripts
+      if (!turn.transcript_text) {
+        evaluatedTurns.push({
+          _id: turn._id,
+          question_text: turn.question_text,
+          question_type: turn.question_type,
+          transcript_text: turn.transcript_text ?? undefined,
+        });
+        continue;
+      }
+
+      // Skip turns that already have evaluation scores
+      if (turn.scores?.overall) {
+        evaluatedTurns.push({
+          _id: turn._id,
+          question_text: turn.question_text,
+          question_type: turn.question_type,
+          transcript_text: turn.transcript_text ?? undefined,
+          scores: turn.scores ?? undefined,
+          strengths: turn.strengths ?? undefined,
+          improvements: turn.improvements ?? undefined,
+        });
+        continue;
+      }
+
+      // Evaluate this turn
+      if (openai) {
+        try {
+          // Analyze transcript metadata
+          let transcriptMeta: TranscriptMeta | undefined;
+          try {
+            const analysisPrompt = buildTranscriptAnalysisPrompt(turn.transcript_text);
+            const analysisCompletion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: analysisPrompt }],
+              temperature: 0.3,
+              response_format: { type: 'json_object' },
+            });
+
+            const analysisContent = analysisCompletion.choices[0]?.message?.content;
+            if (analysisContent) {
+              const analysis = JSON.parse(analysisContent);
+              transcriptMeta = {
+                words_per_minute: analysis.estimated_wpm,
+                filler_count: analysis.filler_count,
+                filler_words: analysis.filler_words,
+                duration_sec: turn.response_duration_ms
+                  ? turn.response_duration_ms / 1000
+                  : undefined,
+              };
+            }
+          } catch (analysisError) {
+            log.warn('Transcript analysis failed for turn', {
+              event: 'analysis.error',
+              extra: { turnId: turn._id },
+            });
+          }
+
+          // Evaluate response
+          const evalPrompt = buildResponseEvaluationPrompt({
+            question: turn.question_text,
+            questionType: turn.question_type,
+            transcript: turn.transcript_text,
+            targetCompetencies: turn.target_competencies ?? undefined,
+            roleProfile: {
+              job_title: roleProfile?.job_title ?? 'Unknown',
+              competencies: roleProfile?.competencies ?? undefined,
+            },
+          });
+
+          const evalCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: EVALUATOR_SYSTEM_PROMPT },
+              { role: 'user', content: evalPrompt },
+            ],
+            temperature: 0.5,
+            response_format: { type: 'json_object' },
+          });
+
+          const evalContent = evalCompletion.choices[0]?.message?.content;
+          if (evalContent) {
+            const evaluation = JSON.parse(evalContent) as ResponseEvaluation;
+
+            // Evaluate the AI evaluation
+            await evaluate({
+              tool_id: 'interview-response-evaluation',
+              input: { question: turn.question_text, transcript: turn.transcript_text },
+              output: evaluation as unknown as Record<string, unknown>,
+              user_id: userId,
+            });
+
+            // Save evaluation to turn
+            await convexServer.mutation(
+              api.interview_practice.saveTurnResponse,
+              {
+                turn_id: turn._id as Id<'interview_practice_turns'>,
+                transcript_meta: transcriptMeta,
+                content_signals: evaluation.content_signals,
+                scores: evaluation.scores,
+                strengths: evaluation.strengths,
+                improvements: evaluation.improvements,
+                ideal_answer: evaluation.ideal_answer,
+                keywords_to_include: evaluation.keywords_to_include,
+              },
+              token,
+            );
+
+            evaluatedTurns.push({
+              _id: turn._id,
+              question_text: turn.question_text,
+              question_type: turn.question_type,
+              transcript_text: turn.transcript_text ?? undefined,
+              scores: evaluation.scores,
+              strengths: evaluation.strengths,
+              improvements: evaluation.improvements,
+              ideal_answer: evaluation.ideal_answer,
+              transcript_meta: transcriptMeta,
+            });
+
+            log.info('Turn evaluated', {
+              event: 'evaluate.turn.success',
+              extra: { turnId: turn._id, score: evaluation.scores?.overall },
+            });
+          }
+        } catch (evalError) {
+          log.error('Turn evaluation failed', toErrorCode(evalError), {
+            event: 'evaluate.turn.error',
+            extra: { turnId: turn._id },
+          });
+          evaluatedTurns.push({
+            _id: turn._id,
+            question_text: turn.question_text,
+            question_type: turn.question_type,
+            transcript_text: turn.transcript_text ?? undefined,
+          });
+        }
+      } else {
+        evaluatedTurns.push({
+          _id: turn._id,
+          question_text: turn.question_text,
+          question_type: turn.question_type,
+          transcript_text: turn.transcript_text ?? undefined,
+        });
+      }
+    }
+
+    log.info('All turns evaluated', {
+      event: 'evaluate.complete',
+      extra: { evaluatedCount: evaluatedTurns.filter((t) => t.scores).length },
+    });
+
+    // Step 2: Generate summary with AI
     let summary: SessionSummary;
 
-    if (openai && turns.length > 0) {
+    if (openai && evaluatedTurns.length > 0) {
       log.info('Generating session summary with AI', { event: 'ai.request' });
 
       try {
@@ -103,7 +282,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             company_name: roleProfile?.company_name ?? undefined,
             competencies: roleProfile?.competencies ?? undefined,
           },
-          turns: turns.map((t) => ({
+          turns: evaluatedTurns.map((t) => ({
             question_text: t.question_text,
             question_type: t.question_type,
             transcript_text: t.transcript_text ?? undefined,
@@ -134,7 +313,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Evaluate the summary
         await evaluate({
           tool_id: 'interview-session-summary',
-          input: { turns, roleProfile },
+          input: { turns: evaluatedTurns, roleProfile },
           output: summary as unknown as Record<string, unknown>,
           user_id: userId,
         });
@@ -146,11 +325,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       } catch (aiError) {
         log.error('AI summary generation failed', toErrorCode(aiError), { event: 'ai.error' });
         // Generate fallback summary from turn scores
-        summary = generateFallbackSummary(turns);
+        summary = generateFallbackSummary(evaluatedTurns);
       }
     } else {
       // Generate fallback summary
-      summary = generateFallbackSummary(turns);
+      summary = generateFallbackSummary(evaluatedTurns);
     }
 
     // Complete the session

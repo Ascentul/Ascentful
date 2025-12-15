@@ -48,6 +48,23 @@ export interface RoleProfileInput {
   job_url?: string;
 }
 
+/**
+ * Role snapshot for sessions without saved role profiles
+ * Same structure as RoleProfile but without _id, user_id, etc.
+ */
+export interface RoleSnapshot {
+  input_type: InputType;
+  job_title: string;
+  company_name?: string;
+  job_level?: string;
+  job_description_text?: string;
+  job_url?: string;
+  role_summary?: string;
+  competencies?: Competency[];
+  extracted_keywords?: string[];
+  interview_type?: InterviewType;
+}
+
 export interface RoleProfileAnalysis {
   role_summary: string;
   competencies: Competency[];
@@ -102,7 +119,9 @@ export interface InterviewSession {
   _id: Id<'interview_practice_sessions'>;
   user_id: Id<'users'>;
   university_id?: Id<'universities'>;
-  role_profile_id: Id<'interview_role_profiles'>;
+  // Either role_profile_id OR role_snapshot (one must be present)
+  role_profile_id?: Id<'interview_role_profiles'>;
+  role_snapshot?: RoleSnapshot;
   status: SessionStatus;
   mode: SessionMode;
   camera_enabled: boolean;
@@ -121,12 +140,14 @@ export interface InterviewSession {
   hire_signal?: HireSignal;
   created_at: number;
   updated_at: number;
-  // Joined data
-  role_profile?: RoleProfile | null;
+  // Joined data - normalized role info (from profile or snapshot)
+  role_profile?: RoleProfile | RoleSnapshot | null;
 }
 
 export interface SessionCreateInput {
-  role_profile_id: Id<'interview_role_profiles'>;
+  // Either role_profile_id OR role_snapshot (one must be present)
+  role_profile_id?: Id<'interview_role_profiles'>;
+  role_snapshot?: RoleSnapshot;
   mode: SessionMode;
   camera_enabled: boolean;
   question_count_target: number;

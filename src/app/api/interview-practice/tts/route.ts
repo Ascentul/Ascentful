@@ -79,10 +79,15 @@ export async function POST(request: NextRequest) {
       voice,
       input: truncatedText,
       response_format: 'mp3',
+      speed: 1.15, // Slightly faster speech for interview flow
     });
 
     // Get the audio as a buffer
     const audioBuffer = Buffer.from(await mp3Response.arrayBuffer());
+
+    // Convert to base64 data URL for easy client-side playback
+    const base64Audio = audioBuffer.toString('base64');
+    const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
 
     const durationMs = Date.now() - startTime;
     log.info('TTS audio generated', {
@@ -92,16 +97,17 @@ export async function POST(request: NextRequest) {
       extra: { audioSize: audioBuffer.length },
     });
 
-    // Return the audio directly
-    return new NextResponse(audioBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
-        'x-correlation-id': correlationId,
+    // Return JSON with the audio URL
+    return NextResponse.json(
+      { audioUrl },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+          'x-correlation-id': correlationId,
+        },
       },
-    });
+    );
   } catch (error) {
     const durationMs = Date.now() - startTime;
     log.error('TTS generation failed', toErrorCode(error), {

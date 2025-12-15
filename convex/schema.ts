@@ -389,7 +389,40 @@ export default defineSchema({
   interview_practice_sessions: defineTable({
     user_id: v.id('users'),
     university_id: v.optional(v.id('universities')), // For tenant isolation
-    role_profile_id: v.id('interview_role_profiles'),
+    // Role reference OR embedded role data (one must be present)
+    role_profile_id: v.optional(v.id('interview_role_profiles')), // Reference to saved role profile
+    // Embedded role snapshot for sessions without saved role profiles
+    // These fields are populated when role_profile_id is null
+    role_snapshot: v.optional(
+      v.object({
+        input_type: v.union(v.literal('title_company'), v.literal('jd_text'), v.literal('jd_link')),
+        job_title: v.string(),
+        company_name: v.optional(v.string()),
+        job_level: v.optional(v.string()),
+        job_description_text: v.optional(v.string()),
+        job_url: v.optional(v.string()),
+        role_summary: v.optional(v.string()),
+        competencies: v.optional(
+          v.array(
+            v.object({
+              id: v.string(),
+              name: v.string(),
+              weight: v.number(),
+              description: v.optional(v.string()),
+            }),
+          ),
+        ),
+        extracted_keywords: v.optional(v.array(v.string())),
+        interview_type: v.optional(
+          v.union(
+            v.literal('behavioral'),
+            v.literal('technical'),
+            v.literal('case'),
+            v.literal('mixed'),
+          ),
+        ),
+      }),
+    ),
     // Session state
     status: v.union(
       v.literal('setup'), // User configuring session

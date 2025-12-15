@@ -10,14 +10,7 @@ import { Id } from 'convex/_generated/dataModel';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-import { evaluate } from '@/lib/ai-evaluation';
 import { convexServer } from '@/lib/convex-server';
-import {
-  buildResponseEvaluationPrompt,
-  buildTranscriptAnalysisPrompt,
-  EVALUATOR_SYSTEM_PROMPT,
-} from '@/lib/interview-practice/prompts';
-import type { ResponseEvaluation, TranscriptMeta } from '@/lib/interview-practice/types';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -68,6 +61,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let audioStorageId: string | undefined;
     let providedTranscript: string | undefined;
     let responseDurationMs: number | undefined;
+    let audioFile: File | null = null;
 
     const contentType = request.headers.get('content-type') ?? '';
 
@@ -78,12 +72,54 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       providedTranscript = formData.get('transcript') as string | undefined;
       const durationStr = formData.get('responseDurationMs') as string | undefined;
       responseDurationMs = durationStr ? parseInt(durationStr, 10) : undefined;
+
+      // Check for raw audio file
+      const audioData = formData.get('audio');
+      if (audioData instanceof File) {
+        audioFile = audioData;
+      }
     } else {
       const body = await request.json();
       turnId = body.turnId;
       audioStorageId = body.audioStorageId;
       providedTranscript = body.transcript;
       responseDurationMs = body.responseDurationMs;
+    }
+
+    // If we have raw audio file but no storage ID, upload to Convex storage first
+    if (audioFile && !audioStorageId) {
+      log.info('Uploading audio to Convex storage', { event: 'upload.start' });
+      try {
+        // Get upload URL from Convex
+        const uploadUrl = await convexServer.mutation(
+          api.interview_practice.generateAudioUploadUrl,
+          {},
+          token,
+        );
+
+        // Upload the audio file
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': audioFile.type || 'audio/webm',
+          },
+          body: audioFile,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload audio: ${uploadResponse.statusText}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        audioStorageId = uploadResult.storageId;
+        log.info('Audio uploaded to Convex storage', {
+          event: 'upload.success',
+          extra: { storageId: audioStorageId },
+        });
+      } catch (uploadError) {
+        log.error('Audio upload failed', toErrorCode(uploadError), { event: 'upload.error' });
+        // Continue without audio storage - we might still have transcript
+      }
     }
 
     if (!turnId) {
@@ -128,30 +164,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Transcribe audio if we have storage ID and no provided transcript
+    // Transcribe audio if we have storage ID or raw audio file and no provided transcript
     let transcript = providedTranscript;
 
-    if (!transcript && audioStorageId && openai) {
+    if (!transcript && openai) {
       log.info('Transcribing audio', { event: 'transcribe.start' });
 
       try {
-        // Get audio URL from Convex storage
-        const audioUrl = await convexServer.query(
-          api.interview_practice.getAudioUrl,
-          { storageId: audioStorageId as Id<'_storage'> },
-          token,
-        );
+        let audioToTranscribe: File | null = null;
 
-        if (audioUrl) {
-          // Download audio and transcribe
-          const audioResponse = await fetch(audioUrl);
-          const audioBlob = await audioResponse.blob();
+        // Option 1: Use raw audio file directly if available
+        if (audioFile) {
+          audioToTranscribe = audioFile;
+          log.info('Using raw audio file for transcription', { event: 'transcribe.source.raw' });
+        }
+        // Option 2: Download from Convex storage
+        else if (audioStorageId) {
+          const audioUrl = await convexServer.query(
+            api.interview_practice.getAudioUrl,
+            { storageId: audioStorageId as Id<'_storage'> },
+            token,
+          );
 
-          // Create a File object for OpenAI
-          const audioFile = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
+          if (audioUrl) {
+            const audioResponse = await fetch(audioUrl);
+            const audioBlob = await audioResponse.blob();
+            audioToTranscribe = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
+            log.info('Downloaded audio from storage for transcription', {
+              event: 'transcribe.source.storage',
+            });
+          }
+        }
 
+        if (audioToTranscribe) {
           const transcription = await openai.audio.transcriptions.create({
-            file: audioFile,
+            file: audioToTranscribe,
             model: 'whisper-1',
             language: 'en',
           });
@@ -170,91 +217,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Analyze transcript metadata
-    let transcriptMeta: TranscriptMeta | undefined;
-    let evaluation: ResponseEvaluation | undefined;
-
-    if (transcript && openai) {
-      // Analyze transcript for delivery metrics
-      try {
-        log.info('Analyzing transcript', { event: 'analysis.start' });
-
-        const analysisPrompt = buildTranscriptAnalysisPrompt(transcript);
-        const analysisCompletion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: analysisPrompt }],
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-        });
-
-        const analysisContent = analysisCompletion.choices[0]?.message?.content;
-        if (analysisContent) {
-          const analysis = JSON.parse(analysisContent);
-          transcriptMeta = {
-            words_per_minute: analysis.estimated_wpm,
-            filler_count: analysis.filler_count,
-            filler_words: analysis.filler_words,
-            duration_sec: responseDurationMs ? responseDurationMs / 1000 : undefined,
-          };
-        }
-      } catch (analysisError) {
-        log.warn('Transcript analysis failed', {
-          event: 'analysis.error',
-          errorCode: toErrorCode(analysisError),
-        });
-      }
-
-      // Evaluate response
-      try {
-        log.info('Evaluating response', { event: 'evaluate.start' });
-
-        const roleProfile = session.role_profile;
-        const evalPrompt = buildResponseEvaluationPrompt({
-          question: turn.question_text,
-          questionType: turn.question_type,
-          transcript,
-          targetCompetencies: turn.target_competencies ?? undefined,
-          roleProfile: {
-            job_title: roleProfile?.job_title ?? 'Unknown',
-            competencies: roleProfile?.competencies ?? undefined,
-          },
-        });
-
-        const evalCompletion = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: EVALUATOR_SYSTEM_PROMPT },
-            { role: 'user', content: evalPrompt },
-          ],
-          temperature: 0.5,
-          response_format: { type: 'json_object' },
-        });
-
-        const evalContent = evalCompletion.choices[0]?.message?.content;
-        if (evalContent) {
-          evaluation = JSON.parse(evalContent) as ResponseEvaluation;
-
-          // Evaluate the AI evaluation
-          await evaluate({
-            tool_id: 'interview-response-evaluation',
-            input: { question: turn.question_text, transcript },
-            output: evaluation as unknown as Record<string, unknown>,
-            user_id: userId,
-          });
-
-          log.info('Response evaluated', {
-            event: 'evaluate.success',
-            extra: { overallScore: evaluation.scores?.overall },
-          });
-        }
-      } catch (evalError) {
-        log.error('Response evaluation failed', toErrorCode(evalError), {
-          event: 'evaluate.error',
-        });
-      }
-    }
-
-    // Save turn response
+    // Save turn response (only transcript - evaluation happens at session completion)
     await convexServer.mutation(
       api.interview_practice.saveTurnResponse,
       {
@@ -262,45 +225,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         user_audio_storage_id: audioStorageId ? (audioStorageId as Id<'_storage'>) : undefined,
         transcript_text: transcript,
         response_duration_ms: responseDurationMs,
-        transcript_meta: transcriptMeta,
-        content_signals: evaluation?.content_signals,
-        scores: evaluation?.scores,
-        strengths: evaluation?.strengths,
-        improvements: evaluation?.improvements,
-        ideal_answer: evaluation?.ideal_answer,
-        keywords_to_include: evaluation?.keywords_to_include,
       },
       token,
     );
-
-    // Update agent state with this response
-    const currentAgentState = session.agent_state as {
-      coveredCompetencies: Record<string, number>;
-      questionHistory: Array<{ question: string; type: string }>;
-    } | null;
-
-    if (currentAgentState && turn.target_competencies) {
-      const updatedCoverage = { ...currentAgentState.coveredCompetencies };
-      const score = evaluation?.scores?.overall ?? 3;
-      const coverageIncrease = (score / 5) * 25; // 0-25% coverage per question
-
-      for (const compId of turn.target_competencies) {
-        const current = updatedCoverage[compId] ?? 0;
-        updatedCoverage[compId] = Math.min(100, current + coverageIncrease);
-      }
-
-      await convexServer.mutation(
-        api.interview_practice.updateAgentState,
-        {
-          sessionId: sessionId as Id<'interview_practice_sessions'>,
-          agent_state: {
-            ...currentAgentState,
-            coveredCompetencies: updatedCoverage,
-          },
-        },
-        token,
-      );
-    }
 
     // Check if this is the last question
     const isLastQuestion = turn.turn_index >= session.question_count_target - 1;
@@ -310,15 +237,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       event: 'request.success',
       httpStatus: 200,
       durationMs,
-      extra: { turnId, hasTranscript: !!transcript, hasEvaluation: !!evaluation },
+      extra: { turnId, hasTranscript: !!transcript },
     });
 
     return NextResponse.json(
       {
         turnId,
         transcript: transcript ?? null,
-        evaluation: evaluation ?? null,
-        transcriptMeta: transcriptMeta ?? null,
         nextQuestionAvailable: !isLastQuestion,
         isLastQuestion,
       },

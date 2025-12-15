@@ -218,6 +218,68 @@ export const deleteRoleProfile = mutation({
   },
 });
 
+/**
+ * Save a role from a session's embedded snapshot
+ * Creates a new role profile from the session's role_snapshot data
+ * Optionally links the session to the new profile
+ */
+export const saveRoleFromSession = mutation({
+  args: {
+    sessionId: v.id('interview_practice_sessions'),
+    linkToSession: v.optional(v.boolean()), // Whether to update session.role_profile_id
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const session = await ctx.db.get(args.sessionId);
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    assertResourceOwnership(user, session.user_id);
+
+    if (!session.role_snapshot) {
+      throw new Error('Session does not have embedded role data to save');
+    }
+
+    if (session.role_profile_id) {
+      throw new Error('Session already has a saved role profile');
+    }
+
+    const now = Date.now();
+    const snapshot = session.role_snapshot;
+
+    // Create the role profile from the snapshot
+    const profileId = await ctx.db.insert('interview_role_profiles', {
+      user_id: user._id,
+      university_id: user.university_id ?? undefined,
+      input_type: snapshot.input_type,
+      job_title: snapshot.job_title,
+      company_name: snapshot.company_name,
+      job_level: snapshot.job_level,
+      job_description_text: snapshot.job_description_text,
+      job_url: snapshot.job_url,
+      role_summary: snapshot.role_summary,
+      competencies: snapshot.competencies,
+      extracted_keywords: snapshot.extracted_keywords,
+      interview_type: snapshot.interview_type,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Optionally link the session to the new profile
+    if (args.linkToSession !== false) {
+      await ctx.db.patch(args.sessionId, {
+        role_profile_id: profileId,
+        // Keep role_snapshot for historical record
+        updated_at: now,
+      });
+    }
+
+    return profileId;
+  },
+});
+
 // ============================================================================
 // SESSIONS
 // ============================================================================
@@ -241,7 +303,7 @@ export const getSessions = query({
     const user = await getAuthenticatedUser(ctx);
     const limit = args.limit ?? 50;
 
-    let sessionsQuery = ctx.db
+    const sessionsQuery = ctx.db
       .query('interview_practice_sessions')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
       .order('desc');
@@ -251,14 +313,25 @@ export const getSessions = query({
     // Filter by status if provided
     const filtered = args.status ? sessions.filter((s) => s.status === args.status) : sessions;
 
-    // Fetch role profiles for each session
-    const profileIds = [...new Set(filtered.map((s) => s.role_profile_id))];
+    // Fetch role profiles for sessions that have one
+    const profileIds = [
+      ...new Set(
+        filtered
+          .map((s) => s.role_profile_id)
+          .filter((id): id is Id<'interview_role_profiles'> => id !== undefined),
+      ),
+    ];
     const profiles = await Promise.all(profileIds.map((id) => ctx.db.get(id)));
     const profileMap = new Map(profiles.filter(Boolean).map((p) => [p!._id, p]));
 
     return filtered.map((session) => ({
       ...session,
-      role_profile: profileMap.get(session.role_profile_id) ?? null,
+      // Provide role_profile from saved profile OR from embedded snapshot
+      role_profile: session.role_profile_id
+        ? (profileMap.get(session.role_profile_id) ?? null)
+        : session.role_snapshot
+          ? { ...session.role_snapshot, _id: null, _creationTime: session.created_at }
+          : null,
     }));
   },
 });
@@ -285,8 +358,12 @@ export const getSession = query({
       }
     }
 
-    // Fetch role profile
-    const roleProfile = await ctx.db.get(session.role_profile_id);
+    // Fetch role profile if referenced, otherwise use snapshot
+    const roleProfile = session.role_profile_id
+      ? await ctx.db.get(session.role_profile_id)
+      : session.role_snapshot
+        ? { ...session.role_snapshot, _id: null, _creationTime: session.created_at }
+        : null;
 
     return {
       ...session,
@@ -317,8 +394,12 @@ export const getSessionWithTurns = query({
       }
     }
 
-    // Fetch role profile
-    const roleProfile = await ctx.db.get(session.role_profile_id);
+    // Fetch role profile if referenced, otherwise use snapshot
+    const roleProfile = session.role_profile_id
+      ? await ctx.db.get(session.role_profile_id)
+      : session.role_snapshot
+        ? { ...session.role_snapshot, _id: null, _creationTime: session.created_at }
+        : null;
 
     // Fetch all turns
     const turns = await ctx.db
@@ -337,10 +418,45 @@ export const getSessionWithTurns = query({
 
 /**
  * Create a new session
+ * Supports two modes:
+ * 1. Reference a saved role profile (role_profile_id)
+ * 2. Embed role data directly (role_snapshot) for unsaved roles
  */
 export const createSession = mutation({
   args: {
-    role_profile_id: v.id('interview_role_profiles'),
+    // Either provide a saved role profile ID...
+    role_profile_id: v.optional(v.id('interview_role_profiles')),
+    // ...OR embed role data directly
+    role_snapshot: v.optional(
+      v.object({
+        input_type: v.union(v.literal('title_company'), v.literal('jd_text'), v.literal('jd_link')),
+        job_title: v.string(),
+        company_name: v.optional(v.string()),
+        job_level: v.optional(v.string()),
+        job_description_text: v.optional(v.string()),
+        job_url: v.optional(v.string()),
+        role_summary: v.optional(v.string()),
+        competencies: v.optional(
+          v.array(
+            v.object({
+              id: v.string(),
+              name: v.string(),
+              weight: v.number(),
+              description: v.optional(v.string()),
+            }),
+          ),
+        ),
+        extracted_keywords: v.optional(v.array(v.string())),
+        interview_type: v.optional(
+          v.union(
+            v.literal('behavioral'),
+            v.literal('technical'),
+            v.literal('case'),
+            v.literal('mixed'),
+          ),
+        ),
+      }),
+    ),
     mode: v.union(v.literal('neutral'), v.literal('supportive'), v.literal('pressure')),
     camera_enabled: v.boolean(),
     question_count_target: v.number(),
@@ -353,12 +469,24 @@ export const createSession = mutation({
   handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
 
-    // Verify role profile exists and belongs to user
-    const roleProfile = await ctx.db.get(args.role_profile_id);
-    if (!roleProfile) {
-      throw new Error('Role profile not found');
+    // Validate: must have either role_profile_id or role_snapshot
+    if (!args.role_profile_id && !args.role_snapshot) {
+      throw new Error('Either role_profile_id or role_snapshot is required');
     }
-    assertResourceOwnership(user, roleProfile.user_id);
+
+    // If using role_profile_id, verify it exists and belongs to user
+    if (args.role_profile_id) {
+      const roleProfile = await ctx.db.get(args.role_profile_id);
+      if (!roleProfile) {
+        throw new Error('Role profile not found');
+      }
+      assertResourceOwnership(user, roleProfile.user_id);
+    }
+
+    // Validate role_snapshot has required fields
+    if (args.role_snapshot && !args.role_snapshot.job_title) {
+      throw new Error('Role snapshot must include job_title');
+    }
 
     const now = Date.now();
 
@@ -376,6 +504,7 @@ export const createSession = mutation({
       user_id: user._id,
       university_id: user.university_id ?? undefined,
       role_profile_id: args.role_profile_id,
+      role_snapshot: args.role_snapshot,
       status: 'setup',
       mode: args.mode,
       camera_enabled: args.camera_enabled,
@@ -773,14 +902,24 @@ export const getStudentSessions = query({
       sessions = sessions.filter((s) => s.status === args.status);
     }
 
-    // Fetch role profiles
-    const profileIds = [...new Set(sessions.map((s) => s.role_profile_id))];
+    // Fetch role profiles for sessions that have one
+    const profileIds = [
+      ...new Set(
+        sessions
+          .map((s) => s.role_profile_id)
+          .filter((id): id is Id<'interview_role_profiles'> => id !== undefined),
+      ),
+    ];
     const profiles = await Promise.all(profileIds.map((id) => ctx.db.get(id)));
     const profileMap = new Map(profiles.filter(Boolean).map((p) => [p!._id, p]));
 
     return sessions.map((session) => ({
       ...session,
-      role_profile: profileMap.get(session.role_profile_id) ?? null,
+      role_profile: session.role_profile_id
+        ? (profileMap.get(session.role_profile_id) ?? null)
+        : session.role_snapshot
+          ? { ...session.role_snapshot, _id: null, _creationTime: session.created_at }
+          : null,
     }));
   },
 });
@@ -810,8 +949,12 @@ export const getStudentSessionReport = query({
       throw new Error('Unauthorized: You do not have access to this session');
     }
 
-    // Fetch role profile
-    const roleProfile = await ctx.db.get(session.role_profile_id);
+    // Fetch role profile if referenced, otherwise use snapshot
+    const roleProfile = session.role_profile_id
+      ? await ctx.db.get(session.role_profile_id)
+      : session.role_snapshot
+        ? { ...session.role_snapshot, _id: null, _creationTime: session.created_at }
+        : null;
 
     // Fetch all turns
     const turns = await ctx.db

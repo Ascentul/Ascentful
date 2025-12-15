@@ -1,10 +1,11 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Award,
+  Bookmark,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -20,17 +21,18 @@ import {
   Target,
   ThumbsUp,
   TrendingUp,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
+import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
 interface Turn {
@@ -52,6 +54,11 @@ interface Turn {
   ideal_answer?: string;
 }
 
+interface RoleSnapshot {
+  job_title: string;
+  company_name?: string;
+}
+
 interface Session {
   _id: string;
   status: string;
@@ -71,10 +78,13 @@ interface Session {
   hire_signal?: string;
   started_at?: number;
   ended_at?: number;
-  roleProfile?: {
+  role_profile_id?: string;
+  role_snapshot?: RoleSnapshot;
+  role_profile?: {
+    _id?: string | null;
     job_title: string;
     company_name?: string;
-  };
+  } | null;
 }
 
 function getScoreColor(score: number) {
@@ -125,8 +135,19 @@ function getHireSignalLabel(signal?: string) {
   }
 }
 
-function ScoreRing({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
-  const percentage = (score / 5) * 100;
+function ScoreRing({
+  score,
+  size = 'md',
+  maxScore = 5,
+}: {
+  score: number;
+  size?: 'sm' | 'md' | 'lg';
+  maxScore?: number;
+}) {
+  // Normalize score to 0-100 percentage
+  const percentage = maxScore === 100 ? score : (score / maxScore) * 100;
+  // Display score (if maxScore is 100, show as percentage)
+  const displayScore = maxScore === 100 ? Math.round(score) : score.toFixed(1);
   const sizeClasses = {
     sm: 'w-16 h-16 text-lg',
     md: 'w-24 h-24 text-2xl',
@@ -154,7 +175,13 @@ function ScoreRing({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' |
           r={radius}
           fill="none"
           stroke={
-            score >= 4 ? '#22c55e' : score >= 3 ? '#3b82f6' : score >= 2 ? '#f59e0b' : '#ef4444'
+            percentage >= 80
+              ? '#22c55e'
+              : percentage >= 60
+                ? '#3b82f6'
+                : percentage >= 40
+                  ? '#f59e0b'
+                  : '#ef4444'
           }
           strokeWidth={strokeWidth}
           strokeLinecap="round"
@@ -163,7 +190,12 @@ function ScoreRing({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' |
           className="transition-all duration-1000 ease-out"
         />
       </svg>
-      <span className={`absolute font-bold ${getScoreColor(score)}`}>{score.toFixed(1)}</span>
+      <span
+        className={`absolute font-bold ${percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-blue-600' : percentage >= 40 ? 'text-amber-600' : 'text-red-600'}`}
+      >
+        {displayScore}
+        {maxScore === 100 && <span className="text-xs">%</span>}
+      </span>
     </div>
   );
 }
@@ -305,28 +337,60 @@ export default function InterviewReportPage() {
   const sessionId = params.id as string;
   const { user: clerkUser, isLoaded } = useUser();
   const { user } = useAuth();
-  const router = useRouter();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [saveRolePromptDismissed, setSaveRolePromptDismissed] = useState(false);
 
   // Fetch session with turns
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['/api/interview-practice/session/report', sessionId],
     queryFn: async () => {
-      const [sessionResponse, turnsResponse] = await Promise.all([
-        apiRequest('GET', `/api/interview-practice/session?id=${sessionId}`),
-        apiRequest('GET', `/api/interview-practice/session?id=${sessionId}&includeTurns=true`),
-      ]);
-      const sessionData = await sessionResponse.json();
-      const turnsData = await turnsResponse.json();
+      const response = await apiRequest(
+        'GET',
+        `/api/interview-practice/session?id=${sessionId}&includeTurns=true`,
+      );
+      const data = await response.json();
       return {
-        session: sessionData.session,
-        turns: turnsData.turns || [],
+        session: data.session,
+        turns: data.turns || [],
       };
     },
     enabled: !!user?.clerkId && !!sessionId,
   });
 
+  // Save role mutation
+  const saveRoleMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        'POST',
+        `/api/interview-practice/session/${sessionId}/save-role`,
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/interview-practice/role-profile'] });
+      refetch(); // Refresh session to update role_profile_id
+      toast({
+        title: 'Role Saved',
+        description: 'This role has been saved for future practice sessions.',
+        variant: 'success',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: (error as Error).message || 'Failed to save role',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const session = data?.session as Session | undefined;
   const turns = (data?.turns || []) as Turn[];
+
+  // Check if session has an unsaved role
+  const hasUnsavedRole = session && !session.role_profile_id && session.role_snapshot;
 
   if (!isLoaded || !clerkUser || !user) {
     return (
@@ -386,8 +450,8 @@ export default function InterviewReportPage() {
               Coaching Report
             </h1>
             <p className="text-muted-foreground">
-              {session.roleProfile?.job_title}
-              {session.roleProfile?.company_name && ` at ${session.roleProfile.company_name}`}
+              {session.role_profile?.job_title}
+              {session.role_profile?.company_name && ` at ${session.role_profile.company_name}`}
             </p>
             {session.started_at && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -401,11 +465,11 @@ export default function InterviewReportPage() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled title="Coming soon">
               <Download className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled title="Coming soon">
               <Share2 className="h-4 w-4 mr-2" />
               Share
             </Button>
@@ -413,13 +477,52 @@ export default function InterviewReportPage() {
         </div>
       </div>
 
+      {/* Save Role Prompt (for unsaved roles) */}
+      {hasUnsavedRole && !saveRolePromptDismissed && (
+        <Alert className="mb-6 border-primary/30 bg-primary/5">
+          <Bookmark className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary">Save this role for later?</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-muted-foreground">
+              Save &quot;{session.role_snapshot?.job_title}&quot;
+              {session.role_snapshot?.company_name &&
+                ` at ${session.role_snapshot.company_name}`}{' '}
+              to practice with again.
+            </span>
+            <div className="flex gap-2 ml-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSaveRolePromptDismissed(true)}
+                disabled={saveRoleMutation.isPending}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Dismiss
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => saveRoleMutation.mutate()}
+                disabled={saveRoleMutation.isPending}
+              >
+                {saveRoleMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Bookmark className="h-3 w-3 mr-1" />
+                )}
+                Save Role
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         {/* Overall Score */}
         <Card className="md:col-span-2">
           <CardContent className="pt-6">
             <div className="flex items-center gap-6">
-              <ScoreRing score={session.overall_score || 0} size="lg" />
+              <ScoreRing score={session.overall_score || 0} size="lg" maxScore={100} />
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Overall Performance</p>
                 <Badge className={`${getHireSignalColor(session.hire_signal)} text-sm`}>
@@ -477,7 +580,7 @@ export default function InterviewReportPage() {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               {Object.entries(session.dimension_scores).map(([key, value]) => (
                 <div key={key} className="text-center">
-                  <ScoreRing score={value || 0} size="sm" />
+                  <ScoreRing score={value || 0} size="sm" maxScore={100} />
                   <p className="text-sm font-medium capitalize mt-2">{key}</p>
                 </div>
               ))}

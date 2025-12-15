@@ -140,6 +140,7 @@ export default function NewInterviewPracticePage() {
       mode: InterviewMode;
       question_count_target: number;
       camera_enabled: boolean;
+      consent: { mic: boolean; camera: boolean; timestamp: number };
     }) => {
       const response = await apiRequest('POST', '/api/interview-practice/session', data);
       return response.json();
@@ -266,6 +267,11 @@ export default function NewInterviewPracticePage() {
       mode,
       question_count_target: questionCount,
       camera_enabled: cameraEnabled,
+      consent: {
+        mic: hasMicPermission === true,
+        camera: cameraEnabled && hasCameraPermission === true,
+        timestamp: Date.now(),
+      },
     });
   };
 

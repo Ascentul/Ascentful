@@ -3,10 +3,15 @@
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowRight,
+  BookOpen,
+  Briefcase,
   Calendar,
   ChevronRight,
   Loader2,
   Mic,
+  MoreHorizontal,
+  Play,
   PlayCircle,
   Plus,
   Target,
@@ -15,10 +20,18 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import { NewPracticeSessionModal } from '@/components/interview-practice/NewPracticeSessionModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -31,9 +44,16 @@ interface RoleProfile {
   created_at: number;
 }
 
+interface RoleSnapshot {
+  job_title: string;
+  company_name?: string;
+}
+
 interface PracticeSession {
   _id: string;
-  role_profile_id: string;
+  role_profile_id?: string;
+  role_snapshot?: RoleSnapshot;
+  role_profile?: RoleProfile | RoleSnapshot | null;
   status: 'setup' | 'in_progress' | 'completed' | 'abandoned';
   mode: 'neutral' | 'supportive' | 'pressure';
   question_count_target: number;
@@ -43,7 +63,6 @@ interface PracticeSession {
   started_at?: number;
   ended_at?: number;
   created_at: number;
-  roleProfile?: RoleProfile;
 }
 
 function getHireSignalColor(signal?: string) {
@@ -80,17 +99,54 @@ function getHireSignalLabel(signal?: string) {
   }
 }
 
-function getStatusColor(status: string) {
+function getStatusBadge(status: string) {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-800';
+      return { color: 'bg-green-100 text-green-800', label: 'Completed' };
     case 'in_progress':
-      return 'bg-blue-100 text-blue-800';
+      return { color: 'bg-blue-100 text-blue-800', label: 'In Progress' };
+    case 'setup':
+      return { color: 'bg-yellow-100 text-yellow-800', label: 'Setup' };
     case 'abandoned':
-      return 'bg-gray-100 text-gray-500';
+      return { color: 'bg-gray-100 text-gray-500', label: 'Abandoned' };
     default:
-      return 'bg-yellow-100 text-yellow-800';
+      return { color: 'bg-gray-100 text-gray-700', label: status };
   }
+}
+
+// Sort sessions: in_progress first, then setup, then completed (by date)
+function sortSessions(sessions: PracticeSession[]) {
+  const statusOrder: Record<string, number> = {
+    in_progress: 0,
+    setup: 1,
+    completed: 2,
+    abandoned: 3,
+  };
+
+  return [...sessions].sort((a, b) => {
+    const orderA = statusOrder[a.status] ?? 4;
+    const orderB = statusOrder[b.status] ?? 4;
+    if (orderA !== orderB) return orderA - orderB;
+    // Within same status, sort by date (most recent first)
+    return (b.created_at ?? 0) - (a.created_at ?? 0);
+  });
+}
+
+// Get role info from session (either from role_profile or role_snapshot)
+function getSessionRoleInfo(session: PracticeSession) {
+  if (session.role_profile) {
+    return {
+      job_title: session.role_profile.job_title,
+      company_name: session.role_profile.company_name,
+    };
+  }
+  if (session.role_snapshot) {
+    return {
+      job_title: session.role_snapshot.job_title,
+      company_name: session.role_snapshot.company_name,
+    };
+  }
+  return { job_title: 'Interview Session', company_name: undefined };
 }
 
 export default function InterviewPracticePage() {
@@ -99,6 +155,9 @@ export default function InterviewPracticePage() {
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [selectedRoleForSession, setSelectedRoleForSession] = useState<string | undefined>();
 
   // Fetch role profiles
   const { data: roleProfiles = [], isLoading: isLoadingProfiles } = useQuery({
@@ -134,20 +193,21 @@ export default function InterviewPracticePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/interview-practice/role-profile'] });
       toast({
-        title: 'Role Profile Deleted',
-        description: 'The role profile has been removed.',
+        title: 'Role Deleted',
+        description: 'The saved role has been removed.',
         variant: 'success',
       });
     },
     onError: (error) => {
       toast({
         title: 'Error',
-        description: (error as Error).message || 'Failed to delete role profile',
+        description: (error as Error).message || 'Failed to delete role',
         variant: 'destructive',
       });
     },
   });
 
+  const sortedSessions = sortSessions(sessions);
   const completedSessions = sessions.filter((s: PracticeSession) => s.status === 'completed');
   const inProgressSessions = sessions.filter((s: PracticeSession) => s.status === 'in_progress');
   const averageScore =
@@ -157,6 +217,12 @@ export default function InterviewPracticePage() {
           0,
         ) / completedSessions.length
       : null;
+
+  // Start practice with a saved role
+  const handlePracticeWithRole = (roleId: string) => {
+    setSelectedRoleForSession(roleId);
+    setIsNewSessionModalOpen(true);
+  };
 
   if (!isLoaded || !clerkUser || !user) {
     return (
@@ -195,11 +261,14 @@ export default function InterviewPracticePage() {
               </p>
             </div>
           </div>
-          <Button asChild>
-            <Link href="/interview-practice/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Practice Session
-            </Link>
+          <Button
+            onClick={() => {
+              setSelectedRoleForSession(undefined);
+              setIsNewSessionModalOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Practice Session
           </Button>
         </div>
       </div>
@@ -254,74 +323,9 @@ export default function InterviewPracticePage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Role Profiles Section */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Role Profiles</CardTitle>
-                  <CardDescription>Saved job roles for practice</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/interview-practice/new">
-                    <Plus className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : roleProfiles.length === 0 ? (
-                <div className="text-center py-8">
-                  <Target className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No role profiles yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Create one to start practicing
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {roleProfiles.map((profile: RoleProfile) => (
-                    <div
-                      key={profile._id}
-                      className="p-3 rounded-lg border hover:bg-gray-50 transition-colors group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{profile.job_title}</p>
-                          {profile.company_name && (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {profile.company_name}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(profile.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => deleteProfileMutation.mutate(profile._id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sessions Section */}
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Sessions Section (Main Content) */}
+        <div className="lg:col-span-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Practice Sessions</CardTitle>
@@ -332,7 +336,7 @@ export default function InterviewPracticePage() {
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : sessions.length === 0 ? (
+              ) : sortedSessions.length === 0 ? (
                 <div className="text-center py-12">
                   <Mic className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
                   <h3 className="text-lg font-medium mb-2">No practice sessions yet</h3>
@@ -340,42 +344,38 @@ export default function InterviewPracticePage() {
                     Start practicing your interview skills with AI-powered mock interviews. Get
                     real-time feedback and improve your performance.
                   </p>
-                  <Button asChild>
-                    <Link href="/interview-practice/new">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Start Your First Session
-                    </Link>
+                  <Button onClick={() => setIsNewSessionModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Start Your First Session
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sessions.map((session: PracticeSession) => (
-                    <Link
-                      key={session._id}
-                      href={
-                        session.status === 'completed'
-                          ? `/interview-practice/session/${session._id}/report`
-                          : `/interview-practice/session/${session._id}`
-                      }
-                      className="block"
-                    >
-                      <div className="p-4 rounded-lg border hover:bg-gray-50 hover:border-gray-300 transition-colors group">
+                  {sortedSessions.map((session: PracticeSession) => {
+                    const roleInfo = getSessionRoleInfo(session);
+                    const statusBadge = getStatusBadge(session.status);
+
+                    return (
+                      <div
+                        key={session._id}
+                        className="p-4 rounded-lg border hover:bg-gray-50 hover:border-gray-300 transition-colors group"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium truncate">
-                                {session.roleProfile?.job_title || 'Interview Session'}
-                              </p>
-                              <Badge variant="secondary" className={getStatusColor(session.status)}>
-                                {session.status === 'in_progress'
-                                  ? 'In Progress'
-                                  : session.status.charAt(0).toUpperCase() +
-                                    session.status.slice(1)}
+                              <p className="font-medium truncate">{roleInfo.job_title}</p>
+                              <Badge variant="secondary" className={statusBadge.color}>
+                                {statusBadge.label}
                               </Badge>
+                              {!session.role_profile_id && session.role_snapshot && (
+                                <Badge variant="outline" className="text-xs">
+                                  Unsaved Role
+                                </Badge>
+                              )}
                             </div>
-                            {session.roleProfile?.company_name && (
+                            {roleInfo.company_name && (
                               <p className="text-sm text-muted-foreground mb-1">
-                                {session.roleProfile.company_name}
+                                {roleInfo.company_name}
                               </p>
                             )}
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -391,7 +391,7 @@ export default function InterviewPracticePage() {
                           </div>
                           <div className="flex items-center gap-3">
                             {session.status === 'completed' && (
-                              <div className="text-right">
+                              <div className="text-right mr-2">
                                 {session.overall_score && (
                                   <p className="text-lg font-bold text-primary">
                                     {session.overall_score.toFixed(1)}
@@ -405,12 +405,132 @@ export default function InterviewPracticePage() {
                                 </Badge>
                               </div>
                             )}
-                            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+
+                            {/* Explicit Action Buttons Based on Status */}
+                            {session.status === 'setup' && (
+                              <Button size="sm" asChild>
+                                <Link href={`/interview-practice/session/${session._id}`}>
+                                  <Play className="h-3 w-3 mr-1" />
+                                  Finish Setup
+                                </Link>
+                              </Button>
+                            )}
+                            {session.status === 'in_progress' && (
+                              <Button size="sm" asChild>
+                                <Link href={`/interview-practice/session/${session._id}`}>
+                                  <ArrowRight className="h-3 w-3 mr-1" />
+                                  Continue
+                                </Link>
+                              </Button>
+                            )}
+                            {session.status === 'completed' && (
+                              <Button size="sm" variant="outline" asChild>
+                                <Link href={`/interview-practice/session/${session._id}/report`}>
+                                  <BookOpen className="h-3 w-3 mr-1" />
+                                  Review
+                                </Link>
+                              </Button>
+                            )}
+                            {session.status === 'abandoned' && (
+                              <Button size="sm" variant="ghost" asChild>
+                                <Link href={`/interview-practice/session/${session._id}/report`}>
+                                  <ChevronRight className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Saved Roles Panel (Sidebar) */}
+        <div className="lg:col-span-1">
+          <Card className="border-dashed">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Saved Roles</CardTitle>
+                </div>
+              </div>
+              <CardDescription className="text-xs">
+                Quick access to frequently practiced roles
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : roleProfiles.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-xs text-muted-foreground">
+                    No saved roles yet. Roles you save during practice will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {roleProfiles.slice(0, 5).map((profile: RoleProfile) => (
+                    <div
+                      key={profile._id}
+                      className="p-2 rounded-md border hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{profile.job_title}</p>
+                          {profile.company_name && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {profile.company_name}
+                            </p>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlePracticeWithRole(profile._id)}>
+                              <Play className="h-3 w-3 mr-2" />
+                              Practice this role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deleteProfileMutation.mutate(profile._id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-3 w-3 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-1 h-7 text-xs"
+                        onClick={() => handlePracticeWithRole(profile._id)}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Practice
+                      </Button>
+                    </div>
                   ))}
+                  {roleProfiles.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      +{roleProfiles.length - 5} more saved roles
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -418,7 +538,7 @@ export default function InterviewPracticePage() {
         </div>
       </div>
 
-      {/* Feature Highlights */}
+      {/* Feature Highlights (only show when no sessions) */}
       {sessions.length === 0 && (
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-dashed">
@@ -459,6 +579,13 @@ export default function InterviewPracticePage() {
           </Card>
         </div>
       )}
+
+      {/* New Practice Session Modal */}
+      <NewPracticeSessionModal
+        open={isNewSessionModalOpen}
+        onOpenChange={setIsNewSessionModalOpen}
+        defaultRoleProfileId={selectedRoleForSession}
+      />
     </div>
   );
 }
