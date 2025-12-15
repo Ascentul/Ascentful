@@ -18,7 +18,6 @@ import {
   Clock,
   FileEdit,
   FileText,
-  FolderGit2,
   GitBranch,
   GraduationCap,
   HelpCircle,
@@ -186,62 +185,10 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         href: '/applications',
       },
       {
-        id: 'my-path',
-        title: 'My Path',
-        icon: <Target className="h-5 w-5" />,
-        items: [
-          {
-            href: '/goals',
-            icon: <Target className="h-4 w-4" />,
-            label: 'Goals',
-          },
-          {
-            href: '/career-path',
-            icon: <GitBranch className="h-4 w-4" />,
-            label: 'Career Path Explorer',
-          },
-        ],
-      },
-      {
-        id: 'portfolio',
-        title: 'Portfolio',
-        icon: <FolderGit2 className="h-5 w-5" />,
-        items: [
-          {
-            href: '/resumes',
-            icon: <FileText className="h-4 w-4" />,
-            label: 'Resume Studio',
-          },
-          {
-            href: '/cover-letters',
-            icon: <Mail className="h-4 w-4" />,
-            label: 'Cover Letter Coach',
-          },
-          {
-            href: '/projects',
-            icon: <FolderGit2 className="h-4 w-4" />,
-            label: 'Projects',
-          },
-        ],
-      },
-      {
-        id: 'connections',
-        title: 'Connections',
-        icon: <UserRound className="h-5 w-5" />,
-        items: [
-          {
-            href: '/contacts',
-            icon: <UserRound className="h-4 w-4" />,
-            label: 'Network Hub',
-          },
-        ],
-      },
-      {
-        id: 'career-coach',
-        title: 'Career Coach',
-        icon: <Bot className="h-5 w-5" />,
-        href: '/career-coach',
-        pro: true,
+        id: 'resume-studio',
+        title: 'Resume Studio',
+        icon: <FileText className="h-5 w-5" />,
+        href: '/resume-studio',
       },
       {
         id: 'interview-practice',
@@ -251,10 +198,29 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         pro: true,
       },
       {
-        id: 'career-profile',
-        title: 'Career Profile',
-        icon: <UserIcon className="h-5 w-5" />,
-        href: '/profile',
+        id: 'career-path',
+        title: 'Career Path Explorer',
+        icon: <GitBranch className="h-5 w-5" />,
+        href: '/career-path',
+      },
+      {
+        id: 'career-coach',
+        title: 'Career Coach',
+        icon: <Bot className="h-5 w-5" />,
+        href: '/career-coach',
+        pro: true,
+      },
+      {
+        id: 'network-hub',
+        title: 'Network Hub',
+        icon: <UserRound className="h-5 w-5" />,
+        href: '/contacts',
+      },
+      {
+        id: 'goals',
+        title: 'Goals',
+        icon: <Target className="h-5 w-5" />,
+        href: '/goals',
       },
     ],
     [],

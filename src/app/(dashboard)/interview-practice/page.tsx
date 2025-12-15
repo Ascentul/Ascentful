@@ -165,7 +165,7 @@ export default function InterviewPracticePage() {
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/interview-practice/role-profile');
       const data = await response.json();
-      return data.roleProfiles || [];
+      return data.profiles || [];
     },
     enabled: !!user?.clerkId,
   });

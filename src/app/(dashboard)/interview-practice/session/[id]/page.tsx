@@ -33,38 +33,6 @@ const IDEAL_TIME_MAX = 120; // 2 minutes
 const MAX_TIME_WARNING = 180; // 3 minutes - warn user
 const MIN_AUDIO_SIZE_BYTES = 1000; // Minimum 1KB to ensure valid audio
 
-// Audio waveform visualization component
-function AudioWaveform({ isActive }: { isActive: boolean }) {
-  const bars = 12;
-  return (
-    <div className="flex items-center justify-center gap-0.5 h-8" aria-hidden="true">
-      {Array.from({ length: bars }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-1 rounded-full transition-all duration-150 ${
-            isActive ? 'bg-red-400' : 'bg-white/20'
-          }`}
-          style={{
-            height: isActive ? `${Math.random() * 24 + 8}px` : '4px',
-            animationDelay: `${i * 50}ms`,
-            animation: isActive ? 'waveform 0.5s ease-in-out infinite alternate' : 'none',
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes waveform {
-          0% {
-            height: 8px;
-          }
-          100% {
-            height: ${Math.random() * 16 + 16}px;
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 interface Turn {
   _id: string;
   turn_index: number;
@@ -73,19 +41,6 @@ interface Turn {
   tts_audio_url?: string;
   transcript_text?: string;
   answered_at?: number;
-}
-
-interface Session {
-  _id: string;
-  status: 'setup' | 'in_progress' | 'completed' | 'abandoned';
-  mode: 'neutral' | 'supportive' | 'pressure';
-  question_count_target: number;
-  current_question_index: number;
-  camera_enabled: boolean;
-  roleProfile?: {
-    job_title: string;
-    company_name?: string;
-  };
 }
 
 type SessionState =
@@ -634,10 +589,10 @@ export default function InterviewSessionPage() {
 
   // Get time indicator color based on recording duration
   const getTimeIndicatorColor = useCallback((seconds: number) => {
-    if (seconds < IDEAL_TIME_MIN) return 'text-yellow-400'; // Too short
-    if (seconds <= IDEAL_TIME_MAX) return 'text-green-400'; // Ideal
-    if (seconds <= MAX_TIME_WARNING) return 'text-yellow-400'; // Getting long
-    return 'text-red-400'; // Too long
+    if (seconds < IDEAL_TIME_MIN) return 'text-amber-500'; // Too short
+    if (seconds <= IDEAL_TIME_MAX) return 'text-green-600'; // Ideal
+    if (seconds <= MAX_TIME_WARNING) return 'text-amber-500'; // Getting long
+    return 'text-red-500'; // Too long
   }, []);
 
   // Get time guidance text
@@ -748,10 +703,10 @@ export default function InterviewSessionPage() {
 
   if (isLoadingSession || sessionState === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="flex items-center justify-center min-h-screen bg-neutral-100">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-white" />
-          <p className="text-white/70">Preparing your interview...</p>
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Preparing your interview...</p>
         </div>
       </div>
     );
@@ -759,7 +714,7 @@ export default function InterviewSessionPage() {
 
   if (sessionState === 'complete') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="flex items-center justify-center min-h-screen bg-neutral-100">
         <Card className="max-w-md w-full mx-4">
           <CardContent className="pt-8 pb-6 text-center">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
@@ -798,25 +753,25 @@ export default function InterviewSessionPage() {
     ((session?.current_question_index || 0) / (session?.question_count_target || 1)) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col">
+    <div className="min-h-screen bg-neutral-100 flex flex-col">
       {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-white/10">
+      <header className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 bg-white">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center">
-            <Mic className="h-5 w-5 text-violet-400" />
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Mic className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-white font-semibold">
+            <h1 className="text-neutral-900 font-semibold">
               {session?.roleProfile?.job_title || 'Interview Practice'}
             </h1>
             {session?.roleProfile?.company_name && (
-              <p className="text-white/60 text-sm">{session.roleProfile.company_name}</p>
+              <p className="text-muted-foreground text-sm">{session.roleProfile.company_name}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-white/60 text-sm">
+            <p className="text-muted-foreground text-sm">
               Question {(session?.current_question_index || 0) + 1} of{' '}
               {session?.question_count_target}
             </p>
@@ -825,7 +780,7 @@ export default function InterviewSessionPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-white/60 hover:text-white hover:bg-white/10"
+            className="text-muted-foreground hover:text-neutral-900 hover:bg-neutral-100"
             onClick={() => setShowEndConfirm(true)}
           >
             <X className="h-5 w-5" />
@@ -837,7 +792,7 @@ export default function InterviewSessionPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         {/* Video Preview (if enabled) */}
         {session?.camera_enabled && (
-          <div className="absolute top-24 right-6 w-48 h-36 rounded-lg overflow-hidden bg-black/50 border border-white/10">
+          <div className="absolute top-24 right-6 w-48 h-36 rounded-lg overflow-hidden bg-neutral-900 border border-neutral-200 shadow-lg">
             <video
               ref={videoRef}
               autoPlay
@@ -850,10 +805,10 @@ export default function InterviewSessionPage() {
 
         {/* Question Display */}
         <div className="max-w-2xl w-full text-center mb-12">
-          <p className="text-white/40 text-sm uppercase tracking-wide mb-4">
+          <p className="text-muted-foreground text-sm uppercase tracking-wide mb-4">
             {currentTurn?.question_type?.replace('_', ' ')} Question
           </p>
-          <h2 className="text-2xl md:text-3xl font-medium text-white leading-relaxed">
+          <h2 className="text-2xl md:text-3xl font-medium text-neutral-900 leading-relaxed">
             {currentTurn?.question_text || 'Loading question...'}
           </h2>
         </div>
@@ -862,7 +817,7 @@ export default function InterviewSessionPage() {
         <div className="flex flex-col items-center gap-6">
           {/* TTS Generation Progress */}
           {sessionState === 'generating_tts' && (
-            <div className="flex flex-col items-center gap-3 text-white/70">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
               <div className="w-48">
                 <div className="flex justify-between text-xs mb-1">
                   <span>Generating audio...</span>
@@ -870,18 +825,13 @@ export default function InterviewSessionPage() {
                 </div>
                 <Progress value={ttsProgress} className="h-2" />
               </div>
-              <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           )}
 
           {/* Play Question Button */}
           {sessionState === 'ready' && !isRecording && !audioBlob && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={playQuestionAudio}
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
-            >
+            <Button variant="outline" size="lg" onClick={playQuestionAudio}>
               <Volume2 className="h-5 w-5 mr-2" />
               Play Question Audio
             </Button>
@@ -889,12 +839,12 @@ export default function InterviewSessionPage() {
 
           {/* Playing Audio Indicator */}
           {isPlayingAudio && (
-            <div className="flex items-center gap-3 text-white/70">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <div className="flex gap-1">
-                <span className="w-1 h-4 bg-violet-400 rounded animate-pulse" />
-                <span className="w-1 h-6 bg-violet-400 rounded animate-pulse delay-75" />
-                <span className="w-1 h-3 bg-violet-400 rounded animate-pulse delay-150" />
-                <span className="w-1 h-5 bg-violet-400 rounded animate-pulse delay-200" />
+                <span className="w-1 h-4 bg-primary rounded animate-pulse" />
+                <span className="w-1 h-6 bg-primary rounded animate-pulse delay-75" />
+                <span className="w-1 h-3 bg-primary rounded animate-pulse delay-150" />
+                <span className="w-1 h-5 bg-primary rounded animate-pulse delay-200" />
               </div>
               <span>Playing question...</span>
             </div>
@@ -915,8 +865,8 @@ export default function InterviewSessionPage() {
                 }
               }}
               disabled={isPlayingAudio || sessionState === 'processing'}
-              className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-violet-500 hover:bg-violet-600'
+              className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-primary-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isRecording ? (
@@ -935,7 +885,7 @@ export default function InterviewSessionPage() {
                 {Array.from({ length: 16 }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-1 rounded-full bg-red-400 transition-all duration-75"
+                    className="w-1 rounded-full bg-red-500 transition-all duration-75"
                     style={{
                       height: `${Math.max(4, Math.min(32, audioLevel * 60 * (0.5 + Math.sin(Date.now() / 100 + i) * 0.5)))}px`,
                     }}
@@ -943,7 +893,7 @@ export default function InterviewSessionPage() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 text-red-400">
+              <div className="flex items-center gap-2 text-red-500">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-xl font-semibold" aria-live="polite">
                   {formatDuration(recordingDuration)}
@@ -957,30 +907,30 @@ export default function InterviewSessionPage() {
                 </span>
               </div>
               {/* Visual progress bar for ideal time */}
-              <div className="w-56 h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="w-56 h-2 bg-neutral-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${
                     recordingDuration < IDEAL_TIME_MIN
-                      ? 'bg-yellow-400'
+                      ? 'bg-amber-500'
                       : recordingDuration <= IDEAL_TIME_MAX
-                        ? 'bg-green-400'
+                        ? 'bg-green-500'
                         : recordingDuration <= MAX_TIME_WARNING
-                          ? 'bg-yellow-400'
-                          : 'bg-red-400'
+                          ? 'bg-amber-500'
+                          : 'bg-red-500'
                   }`}
                   style={{
                     width: `${Math.min((recordingDuration / IDEAL_TIME_MAX) * 100, 100)}%`,
                   }}
                 />
               </div>
-              <span className="text-white/40 text-xs">Ideal: 1-2 minutes</span>
+              <span className="text-muted-foreground text-xs">Ideal: 1-2 minutes</span>
             </div>
           )}
 
           {/* Recording Hint and Skip Option */}
           {sessionState === 'ready' && !isRecording && !audioBlob && (
             <div className="flex flex-col items-center gap-3">
-              <p className="text-white/40 text-sm">
+              <p className="text-muted-foreground text-sm">
                 {isPlayingAudio
                   ? 'Wait for question to finish, then record your answer'
                   : 'Click the microphone to start recording your answer'}
@@ -990,7 +940,7 @@ export default function InterviewSessionPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowSkipConfirm(true)}
-                  className="text-white/40 hover:text-white/70 hover:bg-white/5"
+                  className="text-muted-foreground hover:text-neutral-700"
                 >
                   <SkipForward className="h-4 w-4 mr-2" />
                   Skip Question
@@ -1002,7 +952,7 @@ export default function InterviewSessionPage() {
           {/* Audio Preview & Submit */}
           {audioBlob && !isRecording && sessionState !== 'processing' && (
             <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-3 text-white/70 bg-white/5 px-4 py-2 rounded-full">
+              <div className="flex items-center gap-3 text-muted-foreground bg-neutral-200 px-4 py-2 rounded-full">
                 <span className="font-mono">{formatDuration(recordingDuration)}</span>
                 <span>recorded</span>
               </div>
@@ -1013,7 +963,6 @@ export default function InterviewSessionPage() {
                     setAudioBlob(null);
                     setRecordingDuration(0);
                   }}
-                  className="bg-white/5 border-white/20 text-white hover:bg-white/10"
                 >
                   <MicOff className="h-4 w-4 mr-2" />
                   Re-record
@@ -1028,13 +977,13 @@ export default function InterviewSessionPage() {
 
           {/* Processing State with Steps */}
           {sessionState === 'processing' && (
-            <div className="flex flex-col items-center gap-6 text-white/70">
-              <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+            <div className="flex flex-col items-center gap-6 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <div className="flex flex-col gap-3 min-w-[200px]">
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                      processingStep === 'uploading' ? 'bg-violet-500' : 'bg-green-500'
+                      processingStep === 'uploading' ? 'bg-primary' : 'bg-green-500'
                     }`}
                   >
                     {processingStep === 'uploading' ? (
@@ -1043,7 +992,11 @@ export default function InterviewSessionPage() {
                       <CheckCircle2 className="h-3 w-3 text-white" />
                     )}
                   </div>
-                  <span className={processingStep === 'uploading' ? 'text-white' : 'text-white/50'}>
+                  <span
+                    className={
+                      processingStep === 'uploading' ? 'text-neutral-900' : 'text-muted-foreground'
+                    }
+                  >
                     Uploading audio
                   </span>
                 </div>
@@ -1051,9 +1004,9 @@ export default function InterviewSessionPage() {
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center ${
                       processingStep === 'transcribing'
-                        ? 'bg-violet-500'
+                        ? 'bg-primary'
                         : processingStep === 'uploading'
-                          ? 'bg-white/20'
+                          ? 'bg-neutral-300'
                           : 'bg-green-500'
                     }`}
                   >
@@ -1066,10 +1019,10 @@ export default function InterviewSessionPage() {
                   <span
                     className={
                       processingStep === 'transcribing'
-                        ? 'text-white'
+                        ? 'text-neutral-900'
                         : processingStep === 'uploading'
-                          ? 'text-white/30'
-                          : 'text-white/50'
+                          ? 'text-neutral-400'
+                          : 'text-muted-foreground'
                     }
                   >
                     Transcribing speech
@@ -1079,10 +1032,10 @@ export default function InterviewSessionPage() {
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center ${
                       processingStep === 'saving'
-                        ? 'bg-violet-500'
+                        ? 'bg-primary'
                         : processingStep === 'loading_next'
                           ? 'bg-green-500'
-                          : 'bg-white/20'
+                          : 'bg-neutral-300'
                     }`}
                   >
                     {processingStep === 'saving' ? (
@@ -1094,10 +1047,10 @@ export default function InterviewSessionPage() {
                   <span
                     className={
                       processingStep === 'saving'
-                        ? 'text-white'
+                        ? 'text-neutral-900'
                         : processingStep === 'loading_next'
-                          ? 'text-white/50'
-                          : 'text-white/30'
+                          ? 'text-muted-foreground'
+                          : 'text-neutral-400'
                     }
                   >
                     Saving response
@@ -1106,7 +1059,7 @@ export default function InterviewSessionPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                      processingStep === 'loading_next' ? 'bg-violet-500' : 'bg-white/20'
+                      processingStep === 'loading_next' ? 'bg-primary' : 'bg-neutral-300'
                     }`}
                   >
                     {processingStep === 'loading_next' ? (
@@ -1114,7 +1067,9 @@ export default function InterviewSessionPage() {
                     ) : null}
                   </div>
                   <span
-                    className={processingStep === 'loading_next' ? 'text-white' : 'text-white/30'}
+                    className={
+                      processingStep === 'loading_next' ? 'text-neutral-900' : 'text-neutral-400'
+                    }
                   >
                     Loading next question
                   </span>
@@ -1188,46 +1143,58 @@ export default function InterviewSessionPage() {
 
       {/* Keyboard Shortcuts Panel */}
       {showKeyboardHints && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-800/95 backdrop-blur border border-white/10 rounded-lg p-4 z-40 shadow-xl">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-white backdrop-blur border border-neutral-200 rounded-lg p-4 z-40 shadow-xl">
           <div className="flex items-center gap-2 mb-3">
-            <Keyboard className="h-4 w-4 text-violet-400" />
-            <span className="text-white font-medium text-sm">Keyboard Shortcuts</span>
+            <Keyboard className="h-4 w-4 text-primary" />
+            <span className="text-neutral-900 font-medium text-sm">Keyboard Shortcuts</span>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">Space</kbd>
-              <span className="text-white/60">Start/Stop recording</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                Space
+              </kbd>
+              <span className="text-muted-foreground">Start/Stop recording</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">R</kbd>
-              <span className="text-white/60">Re-record</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                R
+              </kbd>
+              <span className="text-muted-foreground">Re-record</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">Enter</kbd>
-              <span className="text-white/60">Submit answer</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                Enter
+              </kbd>
+              <span className="text-muted-foreground">Submit answer</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">S</kbd>
-              <span className="text-white/60">Skip question</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                S
+              </kbd>
+              <span className="text-muted-foreground">Skip question</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">Esc</kbd>
-              <span className="text-white/60">Stop audio playback</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                Esc
+              </kbd>
+              <span className="text-muted-foreground">Stop audio playback</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-2 py-0.5 bg-white/10 rounded text-white/80">?</kbd>
-              <span className="text-white/60">Toggle this panel</span>
+              <kbd className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-700">
+                ?
+              </kbd>
+              <span className="text-muted-foreground">Toggle this panel</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Footer */}
-      <footer className="px-6 py-4 border-t border-white/10">
+      <footer className="px-6 py-4 border-t border-neutral-200 bg-white">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6 text-white/40 text-sm">
+          <div className="flex items-center gap-6 text-muted-foreground text-sm">
             <div className="flex items-center gap-2">
-              {isRecording ? <Mic className="h-4 w-4 text-red-400" /> : <Mic className="h-4 w-4" />}
+              {isRecording ? <Mic className="h-4 w-4 text-red-500" /> : <Mic className="h-4 w-4" />}
               <span className="hidden sm:inline">
                 Microphone {isRecording ? 'Recording' : 'Ready'}
               </span>
@@ -1242,7 +1209,7 @@ export default function InterviewSessionPage() {
           </div>
           <button
             onClick={() => setShowKeyboardHints((prev) => !prev)}
-            className="flex items-center gap-1.5 text-white/40 hover:text-white/70 text-sm transition-colors"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-neutral-700 text-sm transition-colors"
             title="Keyboard shortcuts (?)"
           >
             <Keyboard className="h-4 w-4" />

@@ -251,13 +251,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   } catch (error) {
     const durationMs = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log.error('Turn submission failed', toErrorCode(error), {
       event: 'request.error',
       httpStatus: 500,
       durationMs,
+      extra: { errorMessage, stack: error instanceof Error ? error.stack : undefined },
     });
     return NextResponse.json(
-      { error: 'Failed to submit turn' },
+      { error: errorMessage || 'Failed to submit turn' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }

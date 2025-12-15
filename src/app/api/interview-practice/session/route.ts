@@ -51,6 +51,16 @@ export async function POST(request: NextRequest) {
     log.debug('User authenticated', { event: 'auth.success', clerkId: userId });
 
     const body = (await request.json()) as SessionCreateInput;
+    log.debug('Request body received', {
+      event: 'request.body',
+      extra: {
+        hasRoleProfileId: !!body.role_profile_id,
+        hasRoleSnapshot: !!body.role_snapshot,
+        mode: body.mode,
+        questionCount: body.question_count_target,
+        consent: body.consent,
+      },
+    });
     const { role_profile_id, role_snapshot, mode, camera_enabled, question_count_target, consent } =
       body;
 
@@ -97,22 +107,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session in Convex - either with role_profile_id or role_snapshot
+    // Build args object conditionally to avoid sending undefined values
+    const createSessionArgs: {
+      role_profile_id?: Id<'interview_role_profiles'>;
+      role_snapshot?: RoleSnapshot;
+      mode: SessionMode;
+      camera_enabled: boolean;
+      question_count_target: number;
+      consent: { mic: boolean; camera: boolean; timestamp: number };
+    } = {
+      mode: mode as SessionMode,
+      camera_enabled: camera_enabled ?? false,
+      question_count_target,
+      consent: {
+        mic: consent.mic,
+        camera: consent.camera ?? false,
+        timestamp: consent.timestamp ?? Date.now(),
+      },
+    };
+
+    // Only include role_profile_id if it's provided
+    if (role_profile_id) {
+      createSessionArgs.role_profile_id = role_profile_id as Id<'interview_role_profiles'>;
+    }
+
+    // Only include role_snapshot if it's provided
+    if (role_snapshot) {
+      createSessionArgs.role_snapshot = role_snapshot as RoleSnapshot;
+    }
+
     const sessionId = await convexServer.mutation(
       api.interview_practice.createSession,
-      {
-        role_profile_id: role_profile_id
-          ? (role_profile_id as Id<'interview_role_profiles'>)
-          : undefined,
-        role_snapshot: role_snapshot as RoleSnapshot | undefined,
-        mode: mode as SessionMode,
-        camera_enabled: camera_enabled ?? false,
-        question_count_target,
-        consent: {
-          mic: consent.mic,
-          camera: consent.camera ?? false,
-          timestamp: consent.timestamp ?? Date.now(),
-        },
-      },
+      createSessionArgs,
       token,
     );
 
@@ -137,13 +163,15 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     const durationMs = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log.error('Session creation failed', toErrorCode(error), {
       event: 'request.error',
       httpStatus: 500,
       durationMs,
+      extra: { errorMessage },
     });
     return NextResponse.json(
-      { error: 'Failed to create session' },
+      { error: errorMessage || 'Failed to create session' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }
