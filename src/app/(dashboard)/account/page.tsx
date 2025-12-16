@@ -23,6 +23,7 @@ import React, { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { AutoUpdatesSettings } from '@/components/account/AutoUpdatesSettings';
 import { CareerProfileContent } from '@/components/career-profile/CareerProfileContent';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -663,6 +664,8 @@ function AccountPageContent() {
               </div>
             </CardContent>
           </Card>
+
+          <AutoUpdatesSettings />
 
           {/* GDPR Data Rights */}
           <Card>

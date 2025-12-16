@@ -86,6 +86,10 @@ export const getUserDataForExport = query({
       studentProfile,
       stripePayments,
       notifications,
+      emailIntegrations,
+      emailScanEvents,
+      emailApplicationSignals,
+      applicationStageEvents,
     ] = await Promise.all([
       ctx.db
         .query('applications')
@@ -162,6 +166,22 @@ export const getUserDataForExport = query({
         .collect(),
       ctx.db
         .query('notifications')
+        .withIndex('by_user', (q) => q.eq('user_id', userId))
+        .collect(),
+      ctx.db
+        .query('email_integrations')
+        .withIndex('by_user', (q) => q.eq('user_id', userId))
+        .collect(),
+      ctx.db
+        .query('email_scan_events')
+        .withIndex('by_user', (q) => q.eq('user_id', userId))
+        .collect(),
+      ctx.db
+        .query('email_application_signals')
+        .withIndex('by_user_created_at', (q) => q.eq('user_id', userId))
+        .collect(),
+      ctx.db
+        .query('application_stage_events')
         .withIndex('by_user', (q) => q.eq('user_id', userId))
         .collect(),
     ]);
@@ -254,6 +274,42 @@ export const getUserDataForExport = query({
           _id: String(js._id),
           user_id: undefined,
         })),
+        emailAutoUpdates: {
+          integrations: emailIntegrations.map((i) => ({
+            ...i,
+            _id: String(i._id),
+            user_id: undefined,
+            encrypted_refresh_token: undefined,
+            token_cipher_version: undefined,
+          })),
+          scanEvents: emailScanEvents.map((e) => ({
+            ...e,
+            _id: String(e._id),
+            user_id: undefined,
+            integration_id: String(e.integration_id),
+          })),
+          signals: emailApplicationSignals.map((s) => ({
+            ...s,
+            _id: String(s._id),
+            user_id: undefined,
+            integration_id: String(s.integration_id),
+            matched_application_id: s.matched_application_id
+              ? String(s.matched_application_id)
+              : undefined,
+            applied_stage_event_id: s.applied_stage_event_id
+              ? String(s.applied_stage_event_id)
+              : undefined,
+          })),
+          stageEvents: applicationStageEvents
+            .filter((e) => e.source === 'email_auto_update')
+            .map((e) => ({
+              ...e,
+              _id: String(e._id),
+              user_id: undefined,
+              application_id: String(e.application_id),
+              signal_id: e.signal_id ? String(e.signal_id) : undefined,
+            })),
+        },
       },
       networkingData: {
         contacts: networkingContacts.map((c) => ({

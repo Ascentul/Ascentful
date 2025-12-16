@@ -16,6 +16,7 @@ import {
   ChevronsLeft,
   ClipboardList,
   Clock,
+  Compass,
   FileEdit,
   FileText,
   GitBranch,
@@ -202,6 +203,12 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         title: 'Career Path Explorer',
         icon: <GitBranch className="h-5 w-5" />,
         href: '/career-path',
+      },
+      {
+        id: 'career-explorer',
+        title: 'Career Explorer 2.0',
+        icon: <Compass className="h-5 w-5" />,
+        href: '/career-explorer',
       },
       {
         id: 'career-coach',
