@@ -327,13 +327,25 @@ export default function JobSearchPage() {
                   {recent.map((s: any) => (
                     <div
                       key={s._id}
-                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 cursor-pointer"
+                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setQuery(s.keywords || '');
                         setLocation(s.location || '');
                         setJobType(s.search_data?.jobType || 'all');
                         if (s.search_data?.experience) setExperience(s.search_data.experience);
                         setSearchTab('search');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setQuery(s.keywords || '');
+                          setLocation(s.location || '');
+                          setJobType(s.search_data?.jobType || 'all');
+                          if (s.search_data?.experience) setExperience(s.search_data.experience);
+                          setSearchTab('search');
+                        }
                       }}
                     >
                       <div className="text-sm">

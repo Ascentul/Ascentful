@@ -389,6 +389,9 @@ export default function ResumeStudioPage() {
           description: 'Could not extract text from PDF. The file may be image-based or corrupted.',
           variant: 'destructive',
         });
+        if (importFileInputRef.current) {
+          importFileInputRef.current.value = '';
+        }
         return;
       }
 
@@ -1941,14 +1944,22 @@ export default function ResumeStudioPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      navigator.clipboard.writeText(
-                                        clAnalysisResult.optimizedLetter || '',
-                                      );
-                                      toast({
-                                        title: 'Copied!',
-                                        description: 'Optimized letter copied to clipboard',
-                                        variant: 'success',
-                                      });
+                                      navigator.clipboard
+                                        .writeText(clAnalysisResult.optimizedLetter || '')
+                                        .then(() => {
+                                          toast({
+                                            title: 'Copied!',
+                                            description: 'Optimized letter copied to clipboard',
+                                            variant: 'success',
+                                          });
+                                        })
+                                        .catch(() => {
+                                          toast({
+                                            title: 'Copy Failed',
+                                            description: 'Unable to copy to clipboard',
+                                            variant: 'destructive',
+                                          });
+                                        });
                                     }}
                                   >
                                     <Copy className="mr-2 h-4 w-4" />

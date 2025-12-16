@@ -140,6 +140,14 @@ export function QuizStep({ question, value, onChange }: QuizStepProps) {
             <Card
               key={option.value}
               onClick={() => handleRankItem(option.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleRankItem(option.value);
+                }
+              }}
+              role="button"
+              tabIndex={0}
               className={cn(
                 'flex items-center gap-3 p-4 cursor-pointer transition-all',
                 isRanked && 'border-primary-500 bg-primary-50',

@@ -17,11 +17,16 @@ interface PathGalaxyViewProps {
   isLoading?: boolean;
 }
 
-// Layout calculation constants
+const BRIDGE_NODE_WIDTH = 160;
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 const HORIZONTAL_GAP = 100;
 const VERTICAL_GAP = 80;
+
+const getNodeWidth = (nodeId: string, nodes: PathNodeType[]) => {
+  const node = nodes.find((n) => n.id === nodeId);
+  return node?.type === 'bridge' ? BRIDGE_NODE_WIDTH : NODE_WIDTH;
+};
 
 function calculateNodePositions(nodes: PathNodeType[]): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
@@ -257,12 +262,15 @@ export function PathGalaxyView({
                   const targetPos = nodePositions.get(edge.target);
                   if (!sourcePos || !targetPos) return null;
 
+                  const sourceWidth = getNodeWidth(edge.source, graph.nodes);
+                  const targetWidth = getNodeWidth(edge.target, graph.nodes);
+
                   return (
                     <PathEdge
                       key={edge.id}
-                      sourceX={sourcePos.x + NODE_WIDTH / 2}
+                      sourceX={sourcePos.x + sourceWidth / 2}
                       sourceY={sourcePos.y + NODE_HEIGHT / 2}
-                      targetX={targetPos.x + NODE_WIDTH / 2}
+                      targetX={targetPos.x + targetWidth / 2}
                       targetY={targetPos.y + NODE_HEIGHT / 2}
                       label={edge.label}
                       isMainPath={edge.is_main_path}
