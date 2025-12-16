@@ -50,6 +50,7 @@ export function AutoUpdatesSettings() {
 
   const setEnabled = useMutation(api.email_auto_updates.setEmailAutoUpdatesEnabled);
   const setMode = useMutation(api.email_auto_updates.setEmailAutoUpdatesMode);
+  const triggerScan = useMutation(api.email_auto_updates.triggerManualScan);
   const disconnect = useMutation(api.email_auto_updates.disconnectEmailIntegration);
   const deleteData = useMutation(api.email_auto_updates.deleteEmailAutoUpdateData);
   const approve = useMutation(api.email_auto_updates.approveSuggestedUpdate);
@@ -76,6 +77,7 @@ export function AutoUpdatesSettings() {
   >({});
 
   const [includeStageEvents, setIncludeStageEvents] = useState(false);
+  const [scanningProvider, setScanningProvider] = useState<Provider | null>(null);
 
   const handleToggleEnabled = async (provider: Provider, enabled: boolean) => {
     try {
@@ -91,6 +93,27 @@ export function AutoUpdatesSettings() {
         description: e?.message || 'Failed to update setting.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleScanNow = async (provider: Provider) => {
+    try {
+      setScanningProvider(provider);
+      await triggerScan({ provider });
+      toast({
+        title: 'Scan Started',
+        description: 'Scanning your inbox for application updates. Results will appear shortly.',
+        variant: 'success',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Error',
+        description: e?.message || 'Failed to trigger scan.',
+        variant: 'destructive',
+      });
+    } finally {
+      // Keep scanning indicator for a few seconds to indicate processing
+      setTimeout(() => setScanningProvider(null), 3000);
     }
   };
 
@@ -145,14 +168,31 @@ export function AutoUpdatesSettings() {
     }
   };
 
-  const handleApprove = async (signalId: Id<'email_application_signals'>) => {
+  const handleApprove = async (
+    signalId: Id<'email_application_signals'>,
+    matchedAppId?: string,
+  ) => {
     const selected = selectedApplicationBySignal[String(signalId)];
+    // If user explicitly selected __CREATE_NEW__, or if there's no selection AND no matched app, create new
+    const isCreateNew = selected === '__CREATE_NEW__' || (!selected && !matchedAppId);
+    const applicationId = selected && selected !== '__CREATE_NEW__' ? selected : matchedAppId;
     try {
       await approve({
         signalId,
-        applicationId: selected ? (selected as Id<'applications'>) : undefined,
+        applicationId: isCreateNew
+          ? undefined
+          : applicationId
+            ? (applicationId as Id<'applications'>)
+            : undefined,
+        createNew: isCreateNew,
       });
-      toast({ title: 'Applied', description: 'Update applied.', variant: 'success' });
+      toast({
+        title: isCreateNew ? 'Application Created' : 'Update Applied',
+        description: isCreateNew
+          ? 'New application created from email.'
+          : 'Update applied to application.',
+        variant: 'success',
+      });
     } catch (e: any) {
       toast({
         title: 'Error',
@@ -213,9 +253,7 @@ export function AutoUpdatesSettings() {
                   {!connected ? (
                     <Button
                       variant="outline"
-                      onClick={() =>
-                        (window.location.href = oauthStartUrl(provider, 'metadata_only'))
-                      }
+                      onClick={() => (window.location.href = oauthStartUrl(provider, 'enhanced'))}
                     >
                       Connect {providerLabel(provider)}
                     </Button>
@@ -273,14 +311,24 @@ export function AutoUpdatesSettings() {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={() => handleToggleEnabled(provider, true)}
-                        disabled={enabled}
+                        onClick={() =>
+                          enabled ? handleScanNow(provider) : handleToggleEnabled(provider, true)
+                        }
+                        disabled={scanningProvider === provider}
                       >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Enable & Scan
+                        <RefreshCw
+                          className={`h-4 w-4 mr-2 ${scanningProvider === provider ? 'animate-spin' : ''}`}
+                        />
+                        {scanningProvider === provider
+                          ? 'Scanning...'
+                          : enabled
+                            ? 'Scan Now'
+                            : 'Enable & Scan'}
                       </Button>
                       <div className="text-xs text-muted-foreground">
-                        Polling runs every ~5 minutes when enabled.
+                        {enabled
+                          ? 'Trigger a manual scan immediately.'
+                          : 'Polling runs every ~5 minutes when enabled.'}
                       </div>
                     </div>
                   </div>
@@ -325,7 +373,7 @@ export function AutoUpdatesSettings() {
                             {matchedApp.job_title}
                           </div>
                         ) : (
-                          <div className="text-muted-foreground">No confident match.</div>
+                          <div className="text-muted-foreground">No confident match found.</div>
                         )}
                       </div>
 
@@ -333,7 +381,8 @@ export function AutoUpdatesSettings() {
                         <Label className="text-xs">Apply to application</Label>
                         <Select
                           value={
-                            selectedAppId || (matchedApp?._id ? String(matchedApp._id) : undefined)
+                            selectedAppId ||
+                            (matchedApp?._id ? String(matchedApp._id) : '__CREATE_NEW__')
                           }
                           onValueChange={(value) =>
                             setSelectedApplicationBySignal((prev) => ({
@@ -343,9 +392,17 @@ export function AutoUpdatesSettings() {
                           }
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select application" />
+                            <SelectValue placeholder="Select or create application" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__CREATE_NEW__" className="font-medium text-primary">
+                              + Create new application
+                            </SelectItem>
+                            {(applications || []).length > 0 && (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                Or select existing:
+                              </div>
+                            )}
                             {(applications || []).map((a) => (
                               <SelectItem key={String(a._id)} value={String(a._id)}>
                                 {a.company} — {a.job_title}
@@ -360,7 +417,18 @@ export function AutoUpdatesSettings() {
                       <Button variant="outline" onClick={() => handleDismiss(item._id as any)}>
                         Dismiss
                       </Button>
-                      <Button onClick={() => handleApprove(item._id as any)}>Apply</Button>
+                      <Button
+                        onClick={() =>
+                          handleApprove(
+                            item._id as any,
+                            matchedApp?._id ? String(matchedApp._id) : undefined,
+                          )
+                        }
+                      >
+                        {selectedAppId === '__CREATE_NEW__' || (!selectedAppId && !matchedApp)
+                          ? 'Create Application'
+                          : 'Apply Update'}
+                      </Button>
                     </div>
                   </div>
                 );

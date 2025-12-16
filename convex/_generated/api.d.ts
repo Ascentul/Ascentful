@@ -33,6 +33,7 @@ import type * as analytics from "../analytics.js";
 import type * as applications from "../applications.js";
 import type * as audit_logs from "../audit_logs.js";
 import type * as avatar from "../avatar.js";
+import type * as career_explorer from "../career_explorer.js";
 import type * as career_paths from "../career_paths.js";
 import type * as constants_advisor_flags from "../constants/advisor_flags.js";
 import type * as contact_interactions from "../contact_interactions.js";
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   applications: typeof applications;
   audit_logs: typeof audit_logs;
   avatar: typeof avatar;
+  career_explorer: typeof career_explorer;
   career_paths: typeof career_paths;
   "constants/advisor_flags": typeof constants_advisor_flags;
   contact_interactions: typeof contact_interactions;

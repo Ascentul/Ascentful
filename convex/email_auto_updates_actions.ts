@@ -128,7 +128,9 @@ async function postForm<T>(url: string, body: Record<string, string>): Promise<T
     body: new URLSearchParams(body).toString(),
   });
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    const errorBody = await res.text().catch(() => 'Could not read error body');
+    console.error(`[postForm] HTTP ${res.status} for ${url}:`, errorBody);
+    throw new Error(`HTTP ${res.status}: ${errorBody}`);
   }
   return (await res.json()) as T;
 }
@@ -138,7 +140,9 @@ async function getJson<T>(url: string, accessToken: string): Promise<T> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    const errorBody = await res.text().catch(() => 'Could not read error body');
+    console.error(`[getJson] HTTP ${res.status} for ${url}:`, errorBody);
+    throw new Error(`HTTP ${res.status}: ${errorBody}`);
   }
   return (await res.json()) as T;
 }
@@ -240,6 +244,7 @@ export const completeOAuthConnection = action({
       const clientId = requireEnv('GOOGLE_OAUTH_CLIENT_ID');
       const clientSecret = requireEnv('GOOGLE_OAUTH_CLIENT_SECRET');
 
+      console.log('[completeOAuthConnection] Exchanging code for token...');
       const token = await postForm<GoogleTokenResponse>('https://oauth2.googleapis.com/token', {
         code: args.code,
         client_id: clientId,
@@ -247,6 +252,8 @@ export const completeOAuthConnection = action({
         redirect_uri: args.redirectUri,
         grant_type: 'authorization_code',
       });
+
+      console.log('[completeOAuthConnection] Token exchange successful, scopes:', token.scope);
 
       if (!token.refresh_token) {
         throw new Error(
@@ -260,10 +267,46 @@ export const completeOAuthConnection = action({
         .split(' ')
         .filter(Boolean);
 
-      const profile = await getJson<GmailProfileResponse>(
-        'https://gmail.googleapis.com/gmail/v1/users/me/profile',
-        token.access_token,
+      console.log('[completeOAuthConnection] Fetching Gmail profile with access token...');
+
+      // Check if Gmail scope was actually granted
+      const grantedScopes = (token.scope || '').split(' ');
+      const hasGmailScope = grantedScopes.some((s) => s.includes('gmail.'));
+      console.log(
+        '[completeOAuthConnection] Gmail scope granted:',
+        hasGmailScope,
+        'All scopes:',
+        grantedScopes,
       );
+
+      let profile: GmailProfileResponse;
+      if (hasGmailScope) {
+        try {
+          profile = await getJson<GmailProfileResponse>(
+            'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+            token.access_token,
+          );
+        } catch (gmailError) {
+          console.error(
+            '[completeOAuthConnection] Gmail profile fetch failed, trying userinfo fallback:',
+            gmailError,
+          );
+          // Fallback to userinfo endpoint if Gmail API fails
+          const userinfo = await getJson<{ email: string }>(
+            'https://www.googleapis.com/oauth2/v2/userinfo',
+            token.access_token,
+          );
+          profile = { emailAddress: userinfo.email };
+        }
+      } else {
+        // No Gmail scope, use userinfo endpoint
+        console.log('[completeOAuthConnection] No Gmail scope, using userinfo endpoint...');
+        const userinfo = await getJson<{ email: string }>(
+          'https://www.googleapis.com/oauth2/v2/userinfo',
+          token.access_token,
+        );
+        profile = { emailAddress: userinfo.email };
+      }
 
       let watchExpiration: number | undefined;
       let watchHistoryId: string | undefined;
@@ -665,15 +708,50 @@ async function scanGmailInbox(input: {
   applications: ApplicationForMatching[];
 }): Promise<{ results: any[]; newLastScanAt: number }> {
   const afterSeconds = Math.floor(input.sinceMs / 1000);
+  let effectiveMode = input.mode;
+
   const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
   listUrl.searchParams.set('labelIds', 'INBOX');
   listUrl.searchParams.set('maxResults', '25');
-  listUrl.searchParams.set('q', `after:${afterSeconds}`);
 
-  const listed = await getJson<GmailListResponse>(listUrl.toString(), input.accessToken);
+  // Only use 'q' parameter in enhanced mode - metadata scope doesn't support it
+  if (input.mode === 'enhanced') {
+    listUrl.searchParams.set('q', `after:${afterSeconds}`);
+  }
+
+  console.log(
+    '[scanGmailInbox] Scanning for emails after:',
+    new Date(input.sinceMs).toISOString(),
+    'mode:',
+    input.mode,
+  );
+
+  let listed: GmailListResponse;
+  try {
+    listed = await getJson<GmailListResponse>(listUrl.toString(), input.accessToken);
+  } catch (error: any) {
+    // If we get a scope error in enhanced mode, fall back to metadata-only behavior
+    if (input.mode === 'enhanced' && error?.message?.includes('Metadata scope')) {
+      console.log(
+        '[scanGmailInbox] Enhanced mode failed due to scope mismatch, falling back to metadata-only mode',
+      );
+      effectiveMode = 'metadata_only';
+      listUrl.searchParams.delete('q');
+      listed = await getJson<GmailListResponse>(listUrl.toString(), input.accessToken);
+    } else {
+      throw error;
+    }
+  }
   const messages = listed.messages || [];
 
-  const openai = getOpenAiClientIfEnabled(input.mode);
+  console.log(
+    '[scanGmailInbox] Found',
+    messages.length,
+    'messages to process, effectiveMode:',
+    effectiveMode,
+  );
+
+  const openai = getOpenAiClientIfEnabled(effectiveMode);
   const aiConfig = getEmailAiExtractorConfig();
   let aiCallsRemaining = openai ? aiConfig.maxCallsPerScan : 0;
   let aiErrorLogged = false;
@@ -683,7 +761,7 @@ async function scanGmailInbox(input: {
 
   for (const m of messages) {
     const msgUrl = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}`);
-    msgUrl.searchParams.set('format', input.mode === 'enhanced' ? 'full' : 'metadata');
+    msgUrl.searchParams.set('format', effectiveMode === 'enhanced' ? 'full' : 'metadata');
     msgUrl.searchParams.append('metadataHeaders', 'Subject');
     msgUrl.searchParams.append('metadataHeaders', 'From');
     msgUrl.searchParams.append('metadataHeaders', 'Date');
@@ -695,11 +773,31 @@ async function scanGmailInbox(input: {
     const receivedAt = msg.internalDate ? Number(msg.internalDate) : Date.now();
     if (receivedAt > newLastScanAt) newLastScanAt = receivedAt;
 
+    // In metadata mode, filter by date client-side since we can't use 'q' parameter
+    if (effectiveMode === 'metadata_only' && receivedAt < input.sinceMs) {
+      console.log('[scanGmailInbox] Skipping old email:', {
+        subject,
+        receivedAt: new Date(receivedAt).toISOString(),
+      });
+      continue;
+    }
+
     const gate = subjectGate({ subject, from });
+    console.log('[scanGmailInbox] Processing email:', {
+      subject,
+      from,
+      gatePassed: gate.passed,
+      matchedPatterns: gate.matchedPatterns,
+    });
     if (!gate.passed) continue;
 
-    const snippet = input.mode === 'enhanced' ? limitSnippet(msg.snippet) : undefined;
+    const snippet = effectiveMode === 'enhanced' ? limitSnippet(msg.snippet) : undefined;
     const baseClassification = classifyEmail({ subject, from, snippet });
+    console.log('[scanGmailInbox] Classification:', {
+      eventType: baseClassification.eventType,
+      confidence: baseClassification.confidence,
+      reason: baseClassification.reason,
+    });
     if (
       baseClassification.confidence < SUGGEST_CONFIDENCE_THRESHOLD ||
       !baseClassification.eventType

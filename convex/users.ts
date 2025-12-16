@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 
 import { api } from './_generated/api';
-import { mutation, MutationCtx, query } from './_generated/server';
+import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { logPermissionChange } from './lib/auditLogger';
 import { isServiceRequest } from './lib/roles';
 
@@ -1212,5 +1212,32 @@ export const toggleHideProgressCard = mutation({
     });
 
     return user._id;
+  },
+});
+
+/**
+ * Internal mutation to reactivate a deleted/suspended user account.
+ * Used for admin recovery operations via CLI.
+ */
+export const reactivateUserAccount = internalMutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error(`User not found with clerkId: ${args.clerkId}`);
+    }
+
+    await ctx.db.patch(user._id, {
+      account_status: 'active',
+      updated_at: Date.now(),
+    });
+
+    return { success: true, userId: user._id, previousStatus: user.account_status };
   },
 });

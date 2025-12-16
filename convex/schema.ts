@@ -1952,7 +1952,7 @@ export default defineSchema({
     thread_id: v.optional(v.string()),
     signal_id: v.optional(v.id('email_application_signals')),
 
-    previous_stage: v.string(),
+    previous_stage: v.optional(v.string()),
     new_stage: v.string(),
     previous_status: v.optional(v.string()),
     new_status: v.optional(v.string()),

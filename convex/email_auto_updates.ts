@@ -236,6 +236,71 @@ export const setEmailAutoUpdatesEnabled = mutation({
   },
 });
 
+export const triggerManualScan = mutation({
+  args: {
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+    scanLastHours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await auth.getAuthenticatedUser(ctx);
+    const now = nowMs();
+
+    const integration = await ctx.db
+      .query('email_integrations')
+      .withIndex('by_user_provider', (q) => q.eq('user_id', user._id).eq('provider', args.provider))
+      .unique();
+
+    if (!integration || integration.status !== 'connected') {
+      throw new Error('Integration not connected');
+    }
+
+    if (!integration.enabled) {
+      throw new Error('Auto updates must be enabled to scan');
+    }
+
+    // Check if a scan is already in progress (locked)
+    const locked = integration.scan_lock_until && integration.scan_lock_until > now;
+    if (locked) {
+      return { success: true, message: 'Scan already in progress' };
+    }
+
+    // Allow scanning older emails by resetting last_scan_at
+    // Default to last 24 hours if scanLastHours is provided
+    const scanLastHours = args.scanLastHours ?? 24;
+    const newLastScanAt = now - scanLastHours * 60 * 60 * 1000;
+
+    // Force enqueue by clearing the last_scan_enqueued_at and resetting last_scan_at
+    await ctx.db.patch(integration._id, {
+      last_scan_enqueued_at: undefined,
+      last_scan_at: newLastScanAt,
+      updated_at: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.email_auto_updates.enqueueIntegrationScan, {
+      integrationId: integration._id,
+      reason: 'user_manual',
+    });
+
+    await safeLogAudit(ctx, {
+      category: 'user_action',
+      action: 'account.settings_updated',
+      actorUserId: user._id,
+      actorRole: user.role,
+      actorUniversityId: user.university_id ?? undefined,
+      targetType: 'email_integration',
+      targetId: integration._id,
+      metadata: {
+        feature: 'email_auto_updates',
+        provider: args.provider,
+        action: 'manual_scan',
+        scanLastHours,
+      },
+    });
+
+    return { success: true, message: `Scan triggered for last ${scanLastHours} hours` };
+  },
+});
+
 export const setEmailAutoUpdatesMode = mutation({
   args: {
     provider: v.union(v.literal('gmail'), v.literal('outlook')),
@@ -379,6 +444,7 @@ export const approveSuggestedUpdate = mutation({
   args: {
     signalId: v.id('email_application_signals'),
     applicationId: v.optional(v.id('applications')),
+    createNew: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await auth.getAuthenticatedUser(ctx);
@@ -390,11 +456,22 @@ export const approveSuggestedUpdate = mutation({
       throw new Error('Only suggested updates can be approved');
     }
 
+    // If createNew is true, create a new application from the signal
+    if (args.createNew) {
+      const result = await createApplicationFromSignal(ctx, {
+        signal,
+        userId: user._id,
+        universityId: user.university_id ?? undefined,
+      });
+      return result;
+    }
+
+    // Otherwise, update an existing application
     const applicationId = (args.applicationId ?? signal.matched_application_id) as
       | Id<'applications'>
       | undefined;
     if (!applicationId) {
-      throw new Error('Select an application to apply this update');
+      throw new Error('Select an application to apply this update, or create a new one');
     }
 
     const result = await applyStageChangeFromSignal(ctx, {
@@ -1081,6 +1158,137 @@ async function applyStageChangeFromSignal(
   }
 
   return { applied: true, stageEventId };
+}
+
+async function createApplicationFromSignal(
+  ctx: any,
+  args: {
+    signal: Doc<'email_application_signals'>;
+    userId: Id<'users'>;
+    universityId?: Id<'universities'>;
+  },
+): Promise<{
+  created: boolean;
+  applicationId?: Id<'applications'>;
+  stageEventId?: Id<'application_stage_events'>;
+}> {
+  const now = nowMs();
+  const signal = args.signal;
+
+  // Extract company name and role from signal entities or subject
+  const entities = (signal.extracted_entities || {}) as {
+    companyName?: string;
+    roleTitle?: string;
+  };
+  let companyName = entities.companyName;
+  let roleTitle = entities.roleTitle;
+
+  // If not extracted, try to parse from subject
+  if (!companyName || !roleTitle) {
+    const subject = signal.subject || '';
+    // Common patterns: "Interview invitation - Software Engineer at Acme Corp"
+    // "Your application to Acme Corp for Software Engineer"
+    const atMatch = subject.match(/(?:at|from|with)\s+([^-–—|]+?)(?:\s+for|\s*$)/i);
+    const forMatch = subject.match(/for\s+(?:the\s+)?(?:role\s+of\s+)?([^-–—|]+?)(?:\s+at|\s*$)/i);
+
+    if (!companyName && atMatch) {
+      companyName = atMatch[1].trim();
+    }
+    if (!roleTitle && forMatch) {
+      roleTitle = forMatch[1].trim();
+    }
+  }
+
+  // Fallback: use "Unknown Company" if still not found
+  if (!companyName) {
+    // Try to extract from email domain
+    const from = signal.from || '';
+    const domainMatch = from.match(/@([^.>]+)/);
+    if (domainMatch) {
+      companyName = domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1);
+    } else {
+      companyName = 'Unknown Company';
+    }
+  }
+  if (!roleTitle) {
+    roleTitle = 'Unknown Position';
+  }
+
+  // Determine stage from email event type
+  const eventType = signal.event_type as EmailEventType | undefined;
+  const stage: ApplicationStage = eventType ? mapEmailEventTypeToStage(eventType) : 'Applied';
+  const status: LegacyApplicationStatus = mapStageToLegacyStatus(stage);
+
+  // Get sort order for the new application
+  const sortOrder = await getTopSortOrderForStatus(ctx, args.userId, status);
+
+  // Create the application
+  const applicationId = await ctx.db.insert('applications', {
+    user_id: args.userId,
+    university_id: args.universityId,
+    company: companyName,
+    job_title: roleTitle,
+    status: status,
+    stage: stage,
+    stage_set_at: now,
+    sort_order: sortOrder,
+    source: 'email_auto_update',
+    notes: `Created from email: "${signal.subject}"`,
+    applied_at: stage === 'Applied' || stage === 'Interview' || stage === 'Offer' ? now : undefined,
+    created_at: now,
+    updated_at: now,
+  });
+
+  // Create stage event to track the creation
+  const stageEventId = await ctx.db.insert('application_stage_events', {
+    application_id: applicationId,
+    user_id: args.userId,
+    actor_type: 'user',
+    actor_user_id: args.userId,
+    source: 'email_auto_update',
+    provider: signal.provider as EmailProvider,
+    message_id: signal.message_id,
+    thread_id: signal.thread_id,
+    signal_id: signal._id,
+    previous_stage: undefined,
+    new_stage: stage,
+    previous_status: undefined,
+    new_status: status,
+    classification_confidence: signal.confidence ?? 0,
+    match_confidence: 1, // Created new, so perfect match
+    created_at: now,
+    undone_at: undefined,
+    undone_by_user_id: undefined,
+    undo_reason: undefined,
+  });
+
+  // Update signal to mark as applied
+  await ctx.db.patch(signal._id, {
+    status: 'applied',
+    matched_application_id: applicationId,
+    applied_stage_event_id: stageEventId,
+    updated_at: now,
+  });
+
+  // Audit log
+  await safeLogAudit(ctx, {
+    category: 'user_action',
+    action: 'application.created',
+    actorType: 'user',
+    actorUserId: args.userId,
+    targetType: 'application',
+    targetId: applicationId,
+    studentId: args.userId,
+    newValue: { company: companyName, job_title: roleTitle, stage, status },
+    metadata: {
+      source: 'email_auto_update',
+      provider: signal.provider,
+      signalId: signal._id,
+      stageEventId,
+    },
+  });
+
+  return { created: true, applicationId, stageEventId };
 }
 
 export const pollEnabledIntegrations = internalMutation({

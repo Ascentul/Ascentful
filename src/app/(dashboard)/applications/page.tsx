@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { Briefcase, Loader2, Plus, Search } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -238,23 +238,27 @@ export default function ApplicationsPage() {
         </div>
 
         {/* Tab Toggle */}
-        <div className="flex gap-2">
-          <Button
-            variant={activeTab === 'applications' ? 'default' : 'outline'}
+        <div className="flex border-b border-gray-200">
+          <button
             onClick={() => handleTabChange('applications')}
-            className="flex items-center gap-2"
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'applications'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
           >
-            <Briefcase className="h-4 w-4" />
             All Applications
-          </Button>
-          <Button
-            variant={activeTab === 'job-search' ? 'default' : 'outline'}
+          </button>
+          <button
             onClick={() => handleTabChange('job-search')}
-            className="flex items-center gap-2"
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'job-search'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
           >
-            <Search className="h-4 w-4" />
             Find Jobs
-          </Button>
+          </button>
         </div>
 
         {/* Search Toolbar */}

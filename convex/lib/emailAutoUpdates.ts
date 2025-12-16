@@ -260,11 +260,19 @@ export function extractEntities(input: {
 
   const entities: ExtractedEmailEntities = {};
 
-  // Company name heuristics
-  const companyFromSubject =
-    subject.match(
-      /\b(your interview with|interview with|offer from|application to)\s+([^|–—-]+)$/i,
-    )?.[2] || subject.match(/[-–—]\s*([^|–—-]+)\s*$/)?.[1];
+  // Company name heuristics - order matters, more specific patterns first
+  // Pattern: "... at CompanyName" (e.g., "Interview invitation - Marketing Manager at Starbucks")
+  const companyFromAt = subject.match(
+    /\bat\s+([A-Za-z0-9][A-Za-z0-9\s&.,'-]{1,58}[A-Za-z0-9.]?)$/i,
+  )?.[1];
+  // Pattern: "... with CompanyName" or "... from CompanyName"
+  const companyFromWithFrom = subject.match(
+    /\b(your interview with|interview with|offer from|application to)\s+([^|–—-]+)$/i,
+  )?.[2];
+  // Pattern: "Subject - CompanyName" (dash separator at end)
+  const companyFromDash = subject.match(/[-–—]\s*([^|–—-]+)\s*$/)?.[1];
+
+  const companyFromSubject = companyFromAt || companyFromWithFrom || companyFromDash;
   if (companyFromSubject) {
     const candidate = normalizeWhitespace(companyFromSubject);
     if (candidate.length >= 2 && candidate.length <= 60) {
@@ -272,10 +280,15 @@ export function extractEntities(input: {
     }
   }
 
-  // Role title heuristics
-  const roleFromSubject =
+  // Role title heuristics - extract role from subject
+  // Pattern: "Interview invitation - Marketing Manager at Starbucks" -> "Marketing Manager"
+  const roleFromDashAt = subject.match(/[-–—]\s*([^|–—-]+?)\s+at\s+/i)?.[1];
+  // Pattern: "for the role of X" or "for X"
+  const roleFromFor =
     subject.match(/\bfor (the )?role of\s+([^|–—-]+)$/i)?.[2] ||
     subject.match(/\bfor\s+([^|–—-]{3,80})$/i)?.[1];
+
+  const roleFromSubject = roleFromDashAt || roleFromFor;
   if (roleFromSubject) {
     const candidate = normalizeWhitespace(roleFromSubject);
     if (candidate.length >= 3 && candidate.length <= 80) {
@@ -306,6 +319,13 @@ export type ApplicationMatchCandidate = {
   score: number;
   signals: Record<string, unknown>;
 };
+
+// Minimum score required to suggest a match. Below this, we recommend creating a new application.
+const MATCH_CONFIDENCE_THRESHOLD = 0.5;
+
+// If we extracted a company name and it doesn't match any application's company,
+// require an even higher threshold since we have explicit evidence of a mismatch.
+const MATCH_CONFIDENCE_THRESHOLD_WITH_EXTRACTED_COMPANY = 0.6;
 
 export function rankApplicationsForEmail(input: {
   applications: ApplicationForMatching[];
@@ -377,7 +397,22 @@ export function rankApplicationsForEmail(input: {
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 
-  return { best: scored[0], top: scored };
+  // Determine the threshold based on whether we extracted a company name.
+  // If we have an extracted company name (like "Starbucks") and no application matches it,
+  // we should NOT suggest an existing application - the user should create a new one.
+  const threshold = extractedCompany
+    ? MATCH_CONFIDENCE_THRESHOLD_WITH_EXTRACTED_COMPANY
+    : MATCH_CONFIDENCE_THRESHOLD;
+
+  const best = scored[0];
+
+  // Only return a "best" match if it meets the threshold
+  // If the score is too low, return undefined for best so the UI defaults to "Create new"
+  if (!best || best.score < threshold) {
+    return { best: undefined, top: scored };
+  }
+
+  return { best, top: scored };
 }
 
 export type ApplicationStage =

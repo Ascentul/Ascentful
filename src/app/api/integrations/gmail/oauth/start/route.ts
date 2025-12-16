@@ -1,6 +1,6 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { requireConvexToken } from '@/lib/convex-auth';
 import { createOAuthState, type EmailScanMode } from '@/lib/email-integrations/oauthState';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
@@ -33,7 +33,17 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const { userId } = await requireConvexToken();
+    const authResult = await auth();
+    console.log('Gmail OAuth auth result:', {
+      userId: authResult.userId,
+      hasSession: !!authResult.sessionId,
+    });
+
+    const { userId } = authResult;
+    if (!userId) {
+      log.error('No userId from auth()', 'AUTH_ERROR', { event: 'auth.failed' });
+      return NextResponse.json({ error: 'Unauthorized - not logged in' }, { status: 401 });
+    }
     const mode = getModeFromRequest(request);
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
