@@ -281,7 +281,16 @@ export default function InterviewSessionPage() {
         nextQuestionMutation.mutate();
       }
     }
-  }, [session, sessionState, startSessionMutation.isPending, nextQuestionMutation.isPending]);
+  }, [
+    router,
+    session,
+    sessionId,
+    sessionState,
+    startSessionMutation,
+    startSessionMutation.isPending,
+    nextQuestionMutation,
+    nextQuestionMutation.isPending,
+  ]);
 
   // Setup camera stream
   useEffect(() => {
@@ -548,14 +557,10 @@ export default function InterviewSessionPage() {
         (session?.current_question_index || 0) >= (session?.question_count_target || 0) - 1;
       if (!isLastQuestion) {
         console.log('[InterviewSession] Pre-fetching next question...');
-        queryClient.prefetchQuery({
-          queryKey: ['/api/interview-practice/session', sessionId, 'next'],
-          queryFn: async () => {
-            // This will warm up the cache for faster response later
-            return null;
-          },
-          staleTime: 30000, // Keep fresh for 30 seconds
-        });
+        // TODO: Implement real prefetching by invoking the next question endpoint.
+        // The current session flow posts via a mutation (no GET cache), so
+        // warming the cache will require securing an actual query endpoint or
+        // rearchitecting how the next prompt is fetched.
       }
     } catch (error) {
       console.error('[InterviewSession] Start recording error:', error);

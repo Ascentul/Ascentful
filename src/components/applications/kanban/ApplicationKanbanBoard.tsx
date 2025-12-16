@@ -135,8 +135,8 @@ export function ApplicationKanbanBoard({
 
       // If moving within the same column, account for the item being removed
       if (sourceStatus === targetStatus) {
-        // Adjust target index if source comes before target
-        const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex : targetIndex;
+        // Adjust target index if source comes before target so removal shifts indexing
+        const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
 
         // Get neighbors at the target position
         const filteredApps = targetApps.filter((app) => app._id !== activeAppId);

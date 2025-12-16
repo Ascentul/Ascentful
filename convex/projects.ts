@@ -100,6 +100,11 @@ export const updateProjectImage = mutation({
       throw new Error('Invalid storage ID');
     }
 
+    // Clean up old storage file if a previous upload exists
+    if (project.image_storage_id) {
+      await ctx.storage.delete(project.image_storage_id);
+    }
+
     // Update with storage ID and clear legacy image_url
     await ctx.db.patch(args.projectId, {
       image_storage_id: args.storageId,
@@ -239,6 +244,15 @@ export const updateProject = mutation({
 
     if (project.university_id && membership && project.university_id !== membership.university_id) {
       throw new Error('Unauthorized: Project belongs to another university');
+    }
+
+    // Clean up old storage file if image reference is changing
+    if (
+      args.updates.image_storage_id &&
+      project.image_storage_id &&
+      args.updates.image_storage_id !== project.image_storage_id
+    ) {
+      await ctx.storage.delete(project.image_storage_id);
     }
 
     await ctx.db.patch(args.projectId, {

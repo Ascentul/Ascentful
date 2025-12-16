@@ -116,19 +116,29 @@ export default function JobSearchPage() {
     ];
   };
 
-  const doSearch = async (opts?: { page?: number }) => {
+  const doSearchWithParams = async (opts?: {
+    page?: number;
+    query?: string;
+    location?: string;
+    jobType?: string;
+    experience?: string;
+  }) => {
     setLoading(true);
     try {
       const nextPage = opts?.page ?? page;
-      const searchLocation = remoteOnly ? 'Remote' : location;
+      const queryValue = opts?.query ?? query;
+      const locationValue = opts?.location ?? location;
+      const jobTypeValue = opts?.jobType ?? jobType;
+      const experienceValue = opts?.experience ?? experience;
+      const searchLocation = remoteOnly ? 'Remote' : locationValue;
       const res = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query,
+          query: queryValue,
           location: searchLocation,
-          jobType: jobType === 'all' ? undefined : jobType,
-          experienceLevel: experience,
+          jobType: jobTypeValue === 'all' ? undefined : jobTypeValue,
+          experienceLevel: experienceValue,
           page: nextPage,
           perPage,
         }),
@@ -139,7 +149,7 @@ export default function JobSearchPage() {
           typeof json?.details === 'string' ? json.details : JSON.stringify(json?.details || {});
         const meta = json?.meta ? ` | meta: ${JSON.stringify(json.meta)}` : '';
         setErrorText(`${json?.error || 'Search failed'}${details ? ' — ' + details : ''}${meta}`);
-        const mock = buildMock(query, location);
+        const mock = buildMock(queryValue, locationValue);
         setResults(mock);
         setTotal(mock.length);
         setTotalPages(1);
@@ -159,8 +169,8 @@ export default function JobSearchPage() {
         try {
           await createSearch({
             clerkId,
-            keywords: query,
-            location,
+            keywords: queryValue,
+            location: locationValue,
             results_count:
               typeof json.total === 'number'
                 ? json.total
@@ -168,8 +178,8 @@ export default function JobSearchPage() {
                   ? json.jobs.length
                   : 0,
             search_data: {
-              jobType: jobType === 'all' ? undefined : jobType,
-              experience,
+              jobType: jobTypeValue === 'all' ? undefined : jobTypeValue,
+              experience: experienceValue,
             },
           });
         } catch (e) {
@@ -180,6 +190,8 @@ export default function JobSearchPage() {
       setLoading(false);
     }
   };
+
+  const doSearch = (opts?: { page?: number }) => doSearchWithParams(opts);
 
   const canPrev = page > 1;
   const canNext = totalPages ? page < totalPages : false;
@@ -334,12 +346,24 @@ export default function JobSearchPage() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setQuery(s.keywords || '');
-                          setLocation(s.location || '');
-                          setJobType(s.search_data?.jobType || 'all');
-                          if (s.search_data?.experience) setExperience(s.search_data.experience);
+                          const keywords = s.keywords || '';
+                          const loc = s.location || '';
+                          const type = s.search_data?.jobType || 'all';
+                          const exp = s.search_data?.experience ?? experience;
+                          setQuery(keywords);
+                          setLocation(loc);
+                          setJobType(type);
+                          if (s.search_data?.experience) {
+                            setExperience(exp);
+                          }
                           setSearchTab('search');
-                          doSearch({ page: 1 });
+                          doSearchWithParams({
+                            page: 1,
+                            query: keywords,
+                            location: loc,
+                            jobType: type,
+                            experience: exp,
+                          });
                         }}
                       >
                         Search

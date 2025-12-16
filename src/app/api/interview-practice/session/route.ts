@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       extra: { errorMessage },
     });
     return NextResponse.json(
-      { error: errorMessage || 'Failed to create session' },
+      { error: 'Failed to create session' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }

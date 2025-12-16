@@ -468,9 +468,11 @@ export const moveApplication = mutation({
 
     // Check if rebalancing is needed (gap too small)
     const needsRebalance =
-      beforeOrder != null &&
-      afterOrder != null &&
-      Math.abs(afterOrder - beforeOrder) < MIN_SORT_ORDER_GAP;
+      (beforeOrder != null &&
+        afterOrder != null &&
+        Math.abs(afterOrder - beforeOrder) < MIN_SORT_ORDER_GAP) ||
+      // Start-of-column inserts can also degrade when afterOrder becomes very small
+      (beforeOrder == null && afterOrder != null && Math.abs(afterOrder) < MIN_SORT_ORDER_GAP);
 
     const now = Date.now();
     const previousStatus = application.status;

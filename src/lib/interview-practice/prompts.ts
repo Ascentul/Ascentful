@@ -361,7 +361,7 @@ export function buildTranscriptAnalysisPrompt(transcript: string): string {
   return `Analyze the following interview response transcript for delivery metrics:
 
 TRANSCRIPT:
-"${transcript}"
+"${sanitizeInput(transcript)}"
 
 Identify and count:
 1. Filler words (um, uh, like, you know, basically, actually, sort of, kind of, I mean, so)

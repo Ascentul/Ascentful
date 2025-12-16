@@ -27,6 +27,11 @@ export function calculateSortOrder(
 
   // Inserting at the start (before first item)
   if (beforeOrder == null && afterOrder != null) {
+    // Edge-case guard: if the first item already has zero or negative sort_order,
+    // subtract the default gap so the new item stays strictly before it.
+    if (afterOrder <= 0) {
+      return afterOrder - SORT_ORDER_GAP;
+    }
     return afterOrder / 2;
   }
 

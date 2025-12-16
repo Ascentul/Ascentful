@@ -291,9 +291,9 @@ export interface QuestionResponse {
 
 export interface TurnSubmitResponse {
   turnId: string;
-  transcript: string;
-  evaluation: ResponseEvaluation;
+  transcript: string | null;
   nextQuestionAvailable: boolean;
+  isLastQuestion: boolean;
 }
 
 export interface SessionCompleteResponse {

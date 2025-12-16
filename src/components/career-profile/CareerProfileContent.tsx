@@ -144,7 +144,7 @@ export function CareerProfileContent() {
   const displayProfile = viewingUserId ? targetUserProfile : userProfile;
 
   // Check if current user can view this profile
-  const canView = isViewingOwnProfile || isAdmin || displayProfile?.role === 'university_admin';
+  const canView = isViewingOwnProfile || isAdmin || userProfile?.role === 'university_admin';
 
   // Queries for user data
   const goals = useQuery(api.goals.getUserGoals, targetUserId ? { clerkId: targetUserId } : 'skip');
@@ -311,20 +311,20 @@ export function CareerProfileContent() {
       });
 
       profileForm.reset({
-        bio: data.bio || displayProfile?.bio || '',
-        email: data.email || displayProfile?.email || '',
-        phone_number: data.phone_number || displayProfile?.phone_number || '',
-        city: data.city || displayProfile?.city || '',
-        linkedin_url: data.linkedin_url || displayProfile?.linkedin_url || '',
-        major: data.major || displayProfile?.major || '',
-        university_name: data.university_name || displayProfile?.university_name || '',
-        graduation_year: data.graduation_year || displayProfile?.graduation_year || '',
-        current_position: data.current_position || displayProfile?.current_position || '',
-        current_company: data.current_company || displayProfile?.current_company || '',
-        experience_level: data.experience_level || displayProfile?.experience_level || '',
-        industry: data.industry || displayProfile?.industry || '',
-        skills: data.skills || displayProfile?.skills || '',
-        career_goals: data.career_goals || displayProfile?.career_goals || '',
+        bio: data.bio ?? displayProfile?.bio ?? '',
+        email: data.email ?? displayProfile?.email ?? '',
+        phone_number: data.phone_number ?? displayProfile?.phone_number ?? '',
+        city: data.city ?? displayProfile?.city ?? '',
+        linkedin_url: data.linkedin_url ?? displayProfile?.linkedin_url ?? '',
+        major: data.major ?? displayProfile?.major ?? '',
+        university_name: data.university_name ?? displayProfile?.university_name ?? '',
+        graduation_year: data.graduation_year ?? displayProfile?.graduation_year ?? '',
+        current_position: data.current_position ?? displayProfile?.current_position ?? '',
+        current_company: data.current_company ?? displayProfile?.current_company ?? '',
+        experience_level: data.experience_level ?? displayProfile?.experience_level ?? '',
+        industry: data.industry ?? displayProfile?.industry ?? '',
+        skills: data.skills ?? displayProfile?.skills ?? '',
+        career_goals: data.career_goals ?? displayProfile?.career_goals ?? '',
       });
 
       toast({

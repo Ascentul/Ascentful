@@ -289,15 +289,20 @@ export function NewPracticeSessionModal({
 
     // If using new role and wants to save it first
     if (roleMode === 'new' && saveRoleForLater) {
-      const result = await createProfileMutation.mutateAsync({
-        input_type: inputType,
-        job_title: jobTitle,
-        company_name: companyName || undefined,
-        job_level: jobLevel || undefined,
-        job_description_text: jdText || undefined,
-        job_url: jdUrl || undefined,
-      });
-      savedProfileId = result.roleProfile._id;
+      try {
+        const result = await createProfileMutation.mutateAsync({
+          input_type: inputType,
+          job_title: jobTitle,
+          company_name: companyName || undefined,
+          job_level: jobLevel || undefined,
+          job_description_text: jdText || undefined,
+          job_url: jdUrl || undefined,
+        });
+        savedProfileId = result.roleProfile._id;
+      } catch {
+        // onError already shows feedback; abort session creation
+        return;
+      }
     }
 
     // Create session

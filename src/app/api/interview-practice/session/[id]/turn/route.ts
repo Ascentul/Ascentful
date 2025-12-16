@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 import { convexServer } from '@/lib/convex-server';
+import { evaluateTurnResponse } from '@/lib/interview-practice/evaluate-turn';
+import type { ResponseEvaluation, TranscriptMeta } from '@/lib/interview-practice/types';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -67,9 +69,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      turnId = formData.get('turnId') as string;
-      audioStorageId = formData.get('audioStorageId') as string | undefined;
-      providedTranscript = formData.get('transcript') as string | undefined;
+      const turnIdValue = formData.get('turnId');
+      turnId = typeof turnIdValue === 'string' ? turnIdValue : '';
+      const audioStorageIdValue = formData.get('audioStorageId');
+      audioStorageId = typeof audioStorageIdValue === 'string' ? audioStorageIdValue : undefined;
+      const transcriptValue = formData.get('transcript');
+      providedTranscript = typeof transcriptValue === 'string' ? transcriptValue : undefined;
       const durationStr = formData.get('responseDurationMs') as string | undefined;
       responseDurationMs = durationStr ? parseInt(durationStr, 10) : undefined;
 
@@ -97,6 +102,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           token,
         );
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         // Upload the audio file
         const uploadResponse = await fetch(uploadUrl, {
           method: 'POST',
@@ -104,7 +112,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             'Content-Type': audioFile.type || 'audio/webm',
           },
           body: audioFile,
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!uploadResponse.ok) {
           throw new Error(`Failed to upload audio: ${uploadResponse.statusText}`);
@@ -217,7 +227,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Save turn response (only transcript - evaluation happens at session completion)
+    let transcriptMeta: TranscriptMeta | undefined;
+    let evaluation: ResponseEvaluation | undefined;
+
+    if (openai && transcript) {
+      try {
+        const result = await evaluateTurnResponse({
+          openai,
+          turnId,
+          questionText: turn.question_text,
+          questionType: turn.question_type,
+          transcriptText: transcript,
+          targetCompetencies: turn.target_competencies ?? undefined,
+          responseDurationMs,
+          roleProfile: session.role_profile ?? undefined,
+          userId,
+          log,
+        });
+        transcriptMeta = result.transcriptMeta;
+        evaluation = result.evaluation;
+      } catch (evalError) {
+        log.error('Turn evaluation failed', toErrorCode(evalError), {
+          event: 'evaluate.turn.error',
+          extra: { turnId },
+        });
+      }
+    }
+
+    // Save turn response (transcript + evaluation)
     await convexServer.mutation(
       api.interview_practice.saveTurnResponse,
       {
@@ -225,6 +262,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         user_audio_storage_id: audioStorageId ? (audioStorageId as Id<'_storage'>) : undefined,
         transcript_text: transcript,
         response_duration_ms: responseDurationMs,
+        transcript_meta: transcriptMeta,
+        content_signals: evaluation?.content_signals,
+        scores: evaluation?.scores,
+        strengths: evaluation?.strengths,
+        improvements: evaluation?.improvements,
+        ideal_answer: evaluation?.ideal_answer,
+        keywords_to_include: evaluation?.keywords_to_include,
       },
       token,
     );
@@ -237,7 +281,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       event: 'request.success',
       httpStatus: 200,
       durationMs,
-      extra: { turnId, hasTranscript: !!transcript },
+      extra: { turnId, hasTranscript: !!transcript, hasEvaluation: !!evaluation },
     });
 
     return NextResponse.json(

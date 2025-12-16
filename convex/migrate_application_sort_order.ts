@@ -16,8 +16,8 @@ const SORT_ORDER_GAP = 1000; // Initial gap between sort_order values
 /**
  * Backfill sort_order for all applications without one
  *
- * Assigns sort_order based on updated_at descending within each user/status group.
- * Most recently updated applications get lower sort_order (appear first).
+ * Assigns sort_order based on _creationTime ascending within each user/status group.
+ * Newer applications processed later receive lower sort_order values so they stay on top.
  *
  * Run via: npx convex run migrate_application_sort_order:backfillSortOrder
  */
@@ -47,7 +47,7 @@ export const backfillSortOrder = internalMutation({
     while (!isDone) {
       const page = await ctx.db
         .query('applications')
-        .order('desc') // Most recent first (by _creationTime)
+        .order('asc') // Oldest first (by _creationTime)
         .paginate({ cursor, numItems: 100 });
 
       for (const app of page.page) {
@@ -67,9 +67,9 @@ export const backfillSortOrder = internalMutation({
           // Create key for this user+status combination
           const key = `${app.user_id}:${app.status}`;
 
-          // Get next sort_order for this group
-          const currentOrder = sortOrderByUserStatus.get(key) || 0;
-          const newSortOrder = currentOrder + SORT_ORDER_GAP;
+          // Get next sort_order for this group (decrement so newer apps get lower values)
+          const currentOrder = sortOrderByUserStatus.get(key) ?? 0;
+          const newSortOrder = currentOrder - SORT_ORDER_GAP;
           sortOrderByUserStatus.set(key, newSortOrder);
 
           console.log(`📝 ${appLabel}: assigning sort_order ${newSortOrder} (${app.status})`);
