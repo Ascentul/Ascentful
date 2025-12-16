@@ -199,7 +199,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             { role: 'system', content: INTERVIEWER_SYSTEM_PROMPT },
             { role: 'user', content: prompt },
           ],
-          temperature: 0.8,
+          // Lower temperature for consistent JSON structure (0.8 was too high for structured output)
+          temperature: 0.3,
           response_format: { type: 'json_object' },
         });
 
@@ -208,7 +209,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           throw new Error('No content in AI response');
         }
 
-        question = JSON.parse(content) as GeneratedQuestion;
+        // Parse and validate JSON response
+        let parsedQuestion: GeneratedQuestion;
+        try {
+          parsedQuestion = JSON.parse(content) as GeneratedQuestion;
+        } catch (parseError) {
+          log.error('Failed to parse AI response as JSON', toErrorCode(parseError), {
+            event: 'ai.parse_error',
+            extra: { content: content.substring(0, 200) },
+          });
+          throw new Error('Invalid JSON response from AI');
+        }
+
+        // Validate required fields
+        if (!parsedQuestion.question_text || typeof parsedQuestion.question_text !== 'string') {
+          throw new Error('AI response missing required question_text field');
+        }
+        if (!parsedQuestion.question_type || typeof parsedQuestion.question_type !== 'string') {
+          throw new Error('AI response missing required question_type field');
+        }
+
+        question = parsedQuestion;
 
         // Evaluate the generated question
         await evaluate({
@@ -315,7 +336,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       extra: { errorMessage, stack: error instanceof Error ? error.stack : undefined },
     });
     return NextResponse.json(
-      { error: errorMessage || 'Failed to generate next question' },
+      { error: 'Failed to generate next question' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }

@@ -8,20 +8,27 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { KanbanCard } from './KanbanCard';
-import type { KanbanApplication, StatusConfig } from './types';
+import type { ApplicationStatus, KanbanApplication, StatusConfig } from './types';
 
 interface KanbanColumnProps {
   config: StatusConfig;
   applications: KanbanApplication[];
   onCardClick: (application: KanbanApplication) => void;
   onQuickAdd: (status: StatusConfig['id']) => void;
+  onMoveTo?: (applicationId: string, status: ApplicationStatus) => void;
 }
 
 /**
  * A single column in the Kanban board representing an application status.
- * Uses @dnd-kit for drag-and-drop functionality.
+ * Features sticky header and enhanced drop feedback.
  */
-export function KanbanColumn({ config, applications, onCardClick, onQuickAdd }: KanbanColumnProps) {
+export function KanbanColumn({
+  config,
+  applications,
+  onCardClick,
+  onQuickAdd,
+  onMoveTo,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${config.id}`,
     data: {
@@ -36,11 +43,12 @@ export function KanbanColumn({ config, applications, onCardClick, onQuickAdd }: 
         'flex-shrink-0 w-72 rounded-xl border flex flex-col',
         config.color,
         config.borderColor,
-        isOver && 'ring-2 ring-primary-500 ring-offset-2',
+        // Enhanced hover state when dragging over
+        isOver && 'bg-primary-50/30 ring-1 ring-primary-200',
       )}
     >
-      {/* Column Header */}
-      <div className="p-3 border-b border-inherit flex items-center justify-between">
+      {/* Sticky Column Header */}
+      <div className="sticky top-0 z-10 p-3 border-b border-inherit bg-inherit backdrop-blur-sm flex items-center justify-between rounded-t-xl">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm text-slate-700">{config.label}</span>
           <span className="text-xs text-slate-500 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200">
@@ -53,6 +61,7 @@ export function KanbanColumn({ config, applications, onCardClick, onQuickAdd }: 
           className="h-7 w-7 p-0 hover:bg-white/50"
           onClick={() => onQuickAdd(config.id)}
           title={`Add application to ${config.label}`}
+          aria-label={`Add application to ${config.label}`}
         >
           <Plus className="h-4 w-4 text-slate-500" />
         </Button>
@@ -68,7 +77,12 @@ export function KanbanColumn({ config, applications, onCardClick, onQuickAdd }: 
           strategy={verticalListSortingStrategy}
         >
           {applications.map((app) => (
-            <KanbanCard key={app._id} application={app} onClick={() => onCardClick(app)} />
+            <KanbanCard
+              key={app._id}
+              application={app}
+              onClick={() => onCardClick(app)}
+              onMoveTo={onMoveTo ? (status) => onMoveTo(String(app._id), status) : undefined}
+            />
           ))}
         </SortableContext>
 

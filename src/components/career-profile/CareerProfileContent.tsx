@@ -3,6 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from 'convex/_generated/api';
+import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import {
   Award,
@@ -759,7 +760,7 @@ export function CareerProfileContent() {
 
     try {
       // If there's a pending image file, upload to storage first
-      let imageStorageId: string | undefined;
+      let imageStorageId: Id<'_storage'> | undefined;
       if (pendingProjectImageFile) {
         const uploadUrl = await generateProjectImageUploadUrl();
         const uploadResult = await fetch(uploadUrl, {
@@ -771,7 +772,7 @@ export function CareerProfileContent() {
         if (!uploadResult.ok) throw new Error('Failed to upload image');
 
         const { storageId } = await uploadResult.json();
-        imageStorageId = storageId;
+        imageStorageId = storageId as Id<'_storage'>;
       }
 
       await createProjectMutation({
@@ -857,7 +858,6 @@ export function CareerProfileContent() {
           github_url: projectFormData.github_url || undefined,
           role: projectFormData.role || undefined,
           company: projectFormData.company || undefined,
-          image_url: projectFormData.image_url || undefined,
           start_date: projectFormData.start_date
             ? new Date(projectFormData.start_date).getTime()
             : undefined,
@@ -1727,7 +1727,7 @@ export function CareerProfileContent() {
                   id="project-image"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleProjectImageUpload(e)}
+                  onChange={(e) => handleProjectImageUpload(e, editingProject?._id)}
                   className="flex-1"
                 />
                 {projectFormData.image_url && (

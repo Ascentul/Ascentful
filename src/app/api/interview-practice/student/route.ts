@@ -61,6 +61,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 });
     }
 
+    // Validate limit parameter
+    let parsedLimit: number | undefined;
+    if (limit) {
+      parsedLimit = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 });
+      }
+    }
+
     log.info('Fetching student sessions', { event: 'fetch.sessions', extra: { studentId } });
 
     const sessions = await convexServer.query(
@@ -68,7 +77,7 @@ export async function GET(request: NextRequest) {
       {
         studentId: studentId as Id<'users'>,
         status: status || undefined,
-        limit: limit ? parseInt(limit, 10) : undefined,
+        limit: parsedLimit,
       },
       token,
     );

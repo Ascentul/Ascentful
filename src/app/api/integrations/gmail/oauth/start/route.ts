@@ -70,6 +70,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     log.error('Failed to start Gmail OAuth', toErrorCode(error), { event: 'request.error' });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: { 'x-correlation-id': correlationId } },
+    );
   }
 }

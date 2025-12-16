@@ -4,7 +4,6 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { Briefcase, Search } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 
@@ -122,6 +121,7 @@ export default function JobSearchPage() {
     location?: string;
     jobType?: string;
     experience?: string;
+    remoteOnly?: boolean;
   }) => {
     setLoading(true);
     try {
@@ -130,7 +130,8 @@ export default function JobSearchPage() {
       const locationValue = opts?.location ?? location;
       const jobTypeValue = opts?.jobType ?? jobType;
       const experienceValue = opts?.experience ?? experience;
-      const searchLocation = remoteOnly ? 'Remote' : locationValue;
+      const isRemoteOnly = opts?.remoteOnly ?? remoteOnly;
+      const searchLocation = isRemoteOnly ? 'Remote' : locationValue;
       const res = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,6 +181,7 @@ export default function JobSearchPage() {
             search_data: {
               jobType: jobTypeValue === 'all' ? undefined : jobTypeValue,
               experience: experienceValue,
+              remoteOnly: isRemoteOnly,
             },
           });
         } catch (e) {
@@ -350,9 +352,11 @@ export default function JobSearchPage() {
                           const loc = s.location || '';
                           const type = s.search_data?.jobType || 'all';
                           const exp = s.search_data?.experience ?? experience;
+                          const isRemote = s.search_data?.remoteOnly ?? false;
                           setQuery(keywords);
                           setLocation(loc);
                           setJobType(type);
+                          setRemoteOnly(isRemote);
                           if (s.search_data?.experience) {
                             setExperience(exp);
                           }
@@ -363,6 +367,7 @@ export default function JobSearchPage() {
                             location: loc,
                             jobType: type,
                             experience: exp,
+                            remoteOnly: isRemote,
                           });
                         }}
                       >
@@ -431,11 +436,9 @@ export default function JobSearchPage() {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       {job.company_logo && (
-                        <Image
+                        <img
                           src={job.company_logo}
                           alt={`${job.company} logo`}
-                          width={32}
-                          height={32}
                           className="h-8 w-8 object-contain rounded"
                         />
                       )}

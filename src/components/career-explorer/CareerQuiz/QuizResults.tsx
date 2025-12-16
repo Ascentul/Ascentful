@@ -164,7 +164,7 @@ export function QuizResults({
             {result.roles_to_explore.map((role) => (
               <div
                 key={role.role_id}
-                className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
+                className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
               >
                 <div className="space-y-0.5">
                   <p className="font-medium">{role.title}</p>

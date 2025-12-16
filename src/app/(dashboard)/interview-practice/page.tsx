@@ -8,7 +8,6 @@ import {
   Briefcase,
   Calendar,
   ChevronRight,
-  Loader2,
   Mic,
   MoreHorizontal,
   Play,
@@ -32,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -224,24 +224,13 @@ export default function InterviewPracticePage() {
     setIsNewSessionModalOpen(true);
   };
 
-  if (!isLoaded || !clerkUser || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Redirect university admins to the University dashboard
-  if (user.role === 'university_admin') {
+  if (isLoaded && user?.role === 'university_admin') {
     router.replace('/university');
     return null;
   }
 
-  const isLoading = isLoadingProfiles || isLoadingSessions;
+  const isLoading = !isLoaded || !clerkUser || !user || isLoadingProfiles || isLoadingSessions;
 
   return (
     <div className="w-full">
@@ -250,7 +239,7 @@ export default function InterviewPracticePage() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-primary-500">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
                 Interview Practice
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -271,51 +260,59 @@ export default function InterviewPracticePage() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Sessions</p>
-                  <p className="text-2xl font-bold">{sessions.length}</p>
-                </div>
-                <Calendar className="h-8 w-8 text-muted-foreground/50" />
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Sessions</p>
+                {isLoading ? (
+                  <Skeleton className="h-6 w-10 mt-0.5" />
+                ) : (
+                  <p className="text-xl font-bold">{sessions.length}</p>
+                )}
               </div>
-            </CardContent>
+              <Calendar className="h-6 w-6 text-muted-foreground/50" />
+            </div>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-2xl font-bold">{completedSessions.length}</p>
-                </div>
-                <Target className="h-8 w-8 text-green-500/50" />
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Completed</p>
+                {isLoading ? (
+                  <Skeleton className="h-6 w-10 mt-0.5" />
+                ) : (
+                  <p className="text-xl font-bold">{completedSessions.length}</p>
+                )}
               </div>
-            </CardContent>
+              <Target className="h-6 w-6 text-green-500/50" />
+            </div>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">In Progress</p>
-                  <p className="text-2xl font-bold">{inProgressSessions.length}</p>
-                </div>
-                <PlayCircle className="h-8 w-8 text-blue-500/50" />
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">In Progress</p>
+                {isLoading ? (
+                  <Skeleton className="h-6 w-10 mt-0.5" />
+                ) : (
+                  <p className="text-xl font-bold">{inProgressSessions.length}</p>
+                )}
               </div>
-            </CardContent>
+              <PlayCircle className="h-6 w-6 text-blue-500/50" />
+            </div>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg Score</p>
-                  <p className="text-2xl font-bold">
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Avg Score</p>
+                {isLoading ? (
+                  <Skeleton className="h-6 w-10 mt-0.5" />
+                ) : (
+                  <p className="text-xl font-bold">
                     {averageScore !== null ? averageScore.toFixed(1) : '-'}
                   </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-purple-500/50" />
+                )}
               </div>
-            </CardContent>
+              <TrendingUp className="h-6 w-6 text-purple-500/50" />
+            </div>
           </Card>
         </div>
 
@@ -329,8 +326,25 @@ export default function InterviewPracticePage() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="p-4 rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Skeleton className="h-5 w-40" />
+                              <Skeleton className="h-5 w-20 rounded-full" />
+                            </div>
+                            <Skeleton className="h-4 w-32 mb-2" />
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="h-3 w-24" />
+                              <Skeleton className="h-3 w-20" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-8 w-24 rounded-md" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : sortedSessions.length === 0 ? (
                   <div className="text-center py-12">
@@ -461,8 +475,14 @@ export default function InterviewPracticePage() {
               </CardHeader>
               <CardContent className="pt-0">
                 {isLoading ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="p-2 rounded-md border">
+                        <Skeleton className="h-4 w-28 mb-1" />
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-7 w-full mt-2 rounded-md" />
+                      </div>
+                    ))}
                   </div>
                 ) : roleProfiles.length === 0 ? (
                   <div className="text-center py-4">

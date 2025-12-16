@@ -1,26 +1,23 @@
 'use node';
 
+import { v } from 'convex/values';
 import crypto from 'crypto';
 import OpenAI from 'openai';
-
-import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { action, internalAction } from './_generated/server';
-import { sanitizeError } from './lib/piiSafe';
-
 import {
+  type ApplicationForMatching,
   AUTO_UPDATE_CONFIDENCE_THRESHOLD,
   classifyEmail,
+  type EmailProvider,
+  type EmailScanMode,
   extractEmailAddressDomain,
   limitSnippet,
   rankApplicationsForEmail,
-  SUGGEST_CONFIDENCE_THRESHOLD,
   subjectGate,
-  type ApplicationForMatching,
-  type EmailProvider,
-  type EmailScanMode,
+  SUGGEST_CONFIDENCE_THRESHOLD,
 } from './lib/emailAutoUpdates';
 import {
   buildEmailAiExtractorMessages,
@@ -29,6 +26,7 @@ import {
   EmailAiExtractorOutputSchema,
   mergeRuleAndAiClassification,
 } from './lib/emailAutoUpdatesAi';
+import { sanitizeError } from './lib/piiSafe';
 
 type CipherPayload = {
   version: 'v1';
@@ -806,7 +804,7 @@ async function scanGmailInbox(input: {
 
     let classification = baseClassification;
     let classificationSource: string = 'rules';
-    let classificationReason: string | undefined = baseClassification.reason;
+    const classificationReason: string | undefined = baseClassification.reason;
     let aiPromptVersion: string | undefined;
     let aiModel: string | undefined;
     let aiSummary: string | undefined;
@@ -939,7 +937,7 @@ async function scanOutlookInbox(input: {
 
       let classification = baseClassification;
       let classificationSource: string = 'rules';
-      let classificationReason: string | undefined = baseClassification.reason;
+      const classificationReason: string | undefined = baseClassification.reason;
       let aiPromptVersion: string | undefined;
       let aiModel: string | undefined;
       let aiSummary: string | undefined;

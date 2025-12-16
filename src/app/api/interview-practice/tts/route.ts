@@ -54,7 +54,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json()) as TTSRequestBody;
+    let body: TTSRequestBody;
+    try {
+      body = (await request.json()) as TTSRequestBody;
+    } catch {
+      log.warn('Invalid JSON body', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
     const { text, voice = 'nova' } = body;
     const allowedVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
     if (voice && !allowedVoices.includes(voice)) {

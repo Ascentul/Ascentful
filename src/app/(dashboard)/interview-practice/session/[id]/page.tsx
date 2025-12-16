@@ -203,7 +203,9 @@ export default function InterviewSessionPage() {
         description: (error as Error).message || 'Failed to submit response',
         variant: 'destructive',
       });
+      // Reset state so user can retry instead of being stuck in processing
       setSessionState('ready');
+      setProcessingStep('uploading');
     },
   });
 
@@ -232,6 +234,9 @@ export default function InterviewSessionPage() {
         description: (error as Error).message || 'Failed to get next question',
         variant: 'destructive',
       });
+      // Reset state so user can retry instead of being stuck in processing
+      setSessionState('ready');
+      setProcessingStep('uploading');
     },
   });
 
@@ -933,6 +938,7 @@ export default function InterviewSessionPage() {
                 }
               }}
               disabled={isPlayingAudio || sessionState === 'processing'}
+              aria-label={isRecording ? 'Stop recording' : 'Start recording'}
               className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
                 isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-primary-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -1150,12 +1156,26 @@ export default function InterviewSessionPage() {
 
       {/* End Session Confirmation */}
       {showEndConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-sm w-full mx-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-session-title"
+        >
+          {/* Backdrop for click-away dismissal */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowEndConfirm(false)}
+            aria-hidden="true"
+          />
+          <Card className="max-w-sm w-full mx-4 relative">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-4">
                 <AlertCircle className="h-6 w-6 text-amber-500" />
-                <h3 className="text-lg font-semibold">End Interview Early?</h3>
+                <h3 id="end-session-title" className="text-lg font-semibold">
+                  End Interview Early?
+                </h3>
               </div>
               <p className="text-muted-foreground mb-6">
                 You&apos;ve completed {session?.current_question_index} of{' '}
@@ -1167,6 +1187,7 @@ export default function InterviewSessionPage() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => setShowEndConfirm(false)}
+                  autoFocus
                 >
                   Continue
                 </Button>
@@ -1181,12 +1202,26 @@ export default function InterviewSessionPage() {
 
       {/* Skip Question Confirmation */}
       {showSkipConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-sm w-full mx-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="skip-question-title"
+        >
+          {/* Backdrop for click-away dismissal */}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowSkipConfirm(false)}
+            aria-hidden="true"
+          />
+          <Card className="max-w-sm w-full mx-4 relative">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-4">
                 <SkipForward className="h-6 w-6 text-amber-500" />
-                <h3 className="text-lg font-semibold">Skip This Question?</h3>
+                <h3 id="skip-question-title" className="text-lg font-semibold">
+                  Skip This Question?
+                </h3>
               </div>
               <p className="text-muted-foreground mb-6">
                 Skipping will move to the next question without recording an answer. This question
@@ -1197,6 +1232,7 @@ export default function InterviewSessionPage() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => setShowSkipConfirm(false)}
+                  autoFocus
                 >
                   Stay Here
                 </Button>

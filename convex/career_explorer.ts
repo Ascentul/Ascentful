@@ -1,10 +1,11 @@
 import { v } from 'convex/values';
-import { query, mutation } from './_generated/server';
+
+import { mutation, query } from './_generated/server';
 import {
-  getAuthenticatedUser,
-  requireAdvisor,
   assertUniversityAccess,
   assertUserAccess,
+  getAuthenticatedUser,
+  requireAdvisor,
 } from './lib/authorization';
 
 // ============================================
@@ -157,19 +158,11 @@ export const getUserMainPath = query({
 });
 
 export const getMainPathVersions = query({
-  args: {
-    pathId: v.id('career_main_paths'),
-  },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const user = await getAuthenticatedUser(ctx);
 
-    // Verify ownership
-    const path = await ctx.db.get(args.pathId);
-    if (!path || path.user_id !== user._id) {
-      throw new Error('Path not found');
-    }
-
-    // Get all versions (published paths)
+    // Get all published paths for this user (most recent first)
     const versions = await ctx.db
       .query('career_main_paths')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
@@ -386,6 +379,14 @@ export const reorderMainPathSteps = mutation({
     const path = await ctx.db.get(args.pathId);
     if (!path || path.user_id !== user._id) {
       throw new Error('Path not found');
+    }
+
+    // Verify all steps belong to this path
+    for (const stepId of args.orderedStepIds) {
+      const step = await ctx.db.get(stepId);
+      if (!step || step.path_id !== args.pathId) {
+        throw new Error('Invalid step ID for this path');
+      }
     }
 
     const now = Date.now();

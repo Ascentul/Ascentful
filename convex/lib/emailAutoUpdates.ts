@@ -19,6 +19,28 @@ export type EmailEventType =
 export const AUTO_UPDATE_CONFIDENCE_THRESHOLD = 0.85;
 export const SUGGEST_CONFIDENCE_THRESHOLD = 0.6;
 
+// Explicit tier names for clarity
+export const HIGH_CONFIDENCE_THRESHOLD = 0.85;
+export const MEDIUM_CONFIDENCE_THRESHOLD = 0.6;
+
+// Interview round types for tracking multi-round interviews
+export const INTERVIEW_ROUND_TYPES = [
+  'phone_screen',
+  'recruiter_screen',
+  'technical',
+  'coding',
+  'system_design',
+  'behavioral',
+  'onsite',
+  'hiring_manager',
+  'panel',
+  'final',
+] as const;
+export type InterviewRoundType = (typeof INTERVIEW_ROUND_TYPES)[number];
+
+// Review status for auto-created/updated applications
+export type ReviewStatus = 'confirmed' | 'needs_review';
+
 export type ExtractedEmailEntities = {
   companyName?: string;
   roleTitle?: string;
@@ -26,6 +48,9 @@ export type ExtractedEmailEntities = {
   recruiterName?: string;
   trackingId?: string;
   requisitionId?: string;
+  // Interview round tracking
+  interviewRound?: number; // 1, 2, 3, etc.
+  interviewRoundType?: InterviewRoundType;
 };
 
 export type SubjectGateResult = {
@@ -36,6 +61,10 @@ export type SubjectGateResult = {
 
 const SUBJECT_PATTERNS: Array<{ id: string; re: RegExp }> = [
   { id: 'application_received', re: /\b(application received|we received your application)\b/i },
+  {
+    id: 'application_sent',
+    re: /\b(application was sent|application submitted|successfully applied)\b/i,
+  },
   { id: 'thanks_for_applying', re: /\b(thanks for applying|thank you for applying)\b/i },
   { id: 'application_status', re: /\b(application status|update on your application)\b/i },
   { id: 'interview_request', re: /\b(interview request|interview invitation|interview invite)\b/i },
@@ -58,6 +87,7 @@ const SUBJECT_PATTERNS: Array<{ id: string; re: RegExp }> = [
 ];
 
 const VENDOR_SIGNALS: Array<{ id: string; re: RegExp }> = [
+  { id: 'linkedin', re: /\blinkedin\b/i },
   { id: 'greenhouse', re: /\bgreenhouse\b/i },
   { id: 'lever', re: /\blever\b/i },
   { id: 'workday', re: /\bworkday\b/i },
@@ -67,6 +97,9 @@ const VENDOR_SIGNALS: Array<{ id: string; re: RegExp }> = [
   { id: 'taleo', re: /\btaleo\b/i },
   { id: 'jobvite', re: /\bjobvite\b/i },
   { id: 'successfactors', re: /\bsuccessfactors\b/i },
+  { id: 'indeed', re: /\bindeed\b/i },
+  { id: 'glassdoor', re: /\bglassdoor\b/i },
+  { id: 'ziprecruiter', re: /\bziprecruiter\b/i },
 ];
 
 export function subjectGate(input: { subject: string; from: string }): SubjectGateResult {
@@ -223,7 +256,7 @@ export function classifyEmail(input: { subject: string; from: string; snippet?: 
     },
     {
       type: 'applied_confirmation',
-      re: /\b(application received|thanks for applying|thank you for applying|we received your application)\b/i,
+      re: /\b(application received|thanks for applying|thank you for applying|we received your application|application was sent|application submitted|successfully applied)\b/i,
       base: 0.9,
       reason: 'application_received_phrases',
     },
@@ -261,6 +294,10 @@ export function extractEntities(input: {
   const entities: ExtractedEmailEntities = {};
 
   // Company name heuristics - order matters, more specific patterns first
+  // Pattern: "application was sent to CompanyName" (LinkedIn format: "Vincent, your application was sent to Gamma Technologies")
+  const companyFromSentTo = subject.match(
+    /\bapplication was sent to\s+([A-Za-z0-9][A-Za-z0-9\s&.,'-]{1,58}[A-Za-z0-9.]?)\s*$/i,
+  )?.[1];
   // Pattern: "... at CompanyName" (e.g., "Interview invitation - Marketing Manager at Starbucks")
   const companyFromAt = subject.match(
     /\bat\s+([A-Za-z0-9][A-Za-z0-9\s&.,'-]{1,58}[A-Za-z0-9.]?)$/i,
@@ -272,7 +309,8 @@ export function extractEntities(input: {
   // Pattern: "Subject - CompanyName" (dash separator at end)
   const companyFromDash = subject.match(/[-–—]\s*([^|–—-]+)\s*$/)?.[1];
 
-  const companyFromSubject = companyFromAt || companyFromWithFrom || companyFromDash;
+  const companyFromSubject =
+    companyFromSentTo || companyFromAt || companyFromWithFrom || companyFromDash;
   if (companyFromSubject) {
     const candidate = normalizeWhitespace(companyFromSubject);
     if (candidate.length >= 2 && candidate.length <= 60) {
@@ -303,6 +341,60 @@ export function extractEntities(input: {
   if (trackingId) {
     entities.requisitionId = trackingId;
     entities.trackingId = trackingId;
+  }
+
+  // =========================================================================
+  // Interview round extraction
+  // =========================================================================
+
+  // Extract interview round number from subject/snippet
+  const roundPatterns = [
+    /round\s*(\d+)/i, // "Round 2"
+    /(\d+)(?:st|nd|rd|th)\s+(?:round|interview)/i, // "2nd round", "3rd interview"
+    /interview\s*(\d+)/i, // "Interview 3"
+    /phase\s*(\d+)/i, // "Phase 2"
+    /stage\s*(\d+)/i, // "Stage 3"
+  ];
+
+  for (const pattern of roundPatterns) {
+    const match = combined.match(pattern);
+    if (match) {
+      const roundNum = parseInt(match[1], 10);
+      if (roundNum >= 1 && roundNum <= 10) {
+        entities.interviewRound = roundNum;
+        break;
+      }
+    }
+  }
+
+  // Infer round 1 from initial interview indicators (if no explicit round found)
+  if (!entities.interviewRound) {
+    const isInitialInterview =
+      /phone\s*screen|recruiter\s*(?:call|screen)|initial\s*(?:call|interview)/i.test(combined);
+    if (isInitialInterview) {
+      entities.interviewRound = 1;
+    }
+  }
+
+  // Extract interview round type
+  const typePatterns: Array<{ type: InterviewRoundType; re: RegExp }> = [
+    { type: 'phone_screen', re: /phone\s*screen/i },
+    { type: 'recruiter_screen', re: /recruiter\s*(?:call|screen)/i },
+    { type: 'technical', re: /technical\s*(?:interview|round)/i },
+    { type: 'coding', re: /coding\s*(?:interview|challenge|assessment)/i },
+    { type: 'system_design', re: /system\s*design/i },
+    { type: 'behavioral', re: /behavioral/i },
+    { type: 'onsite', re: /on[- ]?site/i },
+    { type: 'hiring_manager', re: /hiring\s*manager/i },
+    { type: 'panel', re: /panel\s*interview/i },
+    { type: 'final', re: /final\s*(?:round|interview)/i },
+  ];
+
+  for (const p of typePatterns) {
+    if (p.re.test(combined)) {
+      entities.interviewRoundType = p.type;
+      break;
+    }
   }
 
   return entities;

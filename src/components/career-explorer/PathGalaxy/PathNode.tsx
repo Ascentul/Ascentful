@@ -65,6 +65,8 @@ export function PathNode({ node, isSelected, onClick, onSave }: PathNodeProps) {
             e.stopPropagation();
             onSave();
           }}
+          aria-label={node.is_saved ? 'Remove from saved' : 'Save path'}
+          aria-pressed={node.is_saved}
           className={cn(
             'absolute -top-2 -right-2 p-1 rounded-full bg-white shadow-sm',
             'hover:bg-neutral-50 transition-colors',

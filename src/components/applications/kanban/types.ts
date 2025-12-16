@@ -19,6 +19,19 @@ export interface KanbanApplication {
   logo_url?: string | null;
   created_at: number;
   updated_at: number;
+  // Fields for "Next Step" context display
+  interviews?: Array<{
+    id: string;
+    date: number;
+    interviewer?: string;
+    interview_type?: string;
+    notes?: string;
+  }> | null;
+  due_date?: number | null;
+  next_step?: string | null;
+  // Email auto-update fields
+  auto_created?: boolean | null;
+  review_status?: 'confirmed' | 'needs_review' | null;
 }
 
 export interface StatusConfig {

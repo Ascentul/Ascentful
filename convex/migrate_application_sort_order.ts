@@ -2,7 +2,7 @@
  * Migration: Application sort_order field
  *
  * Backfills sort_order for existing applications to enable Kanban drag-and-drop ordering.
- * Uses fractional indexing with initial integer values (1000, 2000, 3000...).
+ * Uses negative integer values with gaps (-1000, -2000, -3000...) where lower = top of list.
  *
  * Run via: npx convex run migrate_application_sort_order:backfillSortOrder
  */
@@ -172,7 +172,8 @@ export const verifySortOrder = internalQuery({
  * Rebalance sort_order for a specific user's applications in a status column
  *
  * Use when fractional indexes become too small (gap < 0.0001).
- * Reassigns integers (1000, 2000, 3000...) while preserving current order.
+ * Reassigns negative integers (-N*1000, ..., -2000, -1000) while preserving current order.
+ * Lower values = top of list (consistent with backfill convention).
  */
 export const rebalanceSortOrder = internalMutation({
   args: {
@@ -206,9 +207,10 @@ export const rebalanceSortOrder = internalMutation({
     const now = Date.now();
     let rebalanced = 0;
 
-    // Reassign with clean integer gaps
+    // Reassign with clean integer gaps using negative values
+    // Lower values = top of list (consistent with backfill convention)
     for (let i = 0; i < applications.length; i++) {
-      const newSortOrder = (i + 1) * SORT_ORDER_GAP;
+      const newSortOrder = -(applications.length - i) * SORT_ORDER_GAP;
       await ctx.db.patch(applications[i]._id, {
         sort_order: newSortOrder,
         updated_at: now,

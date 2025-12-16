@@ -34,6 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
+import { useKanbanUndo } from '@/hooks/useKanbanUndo';
+import { KanbanAnalytics } from '@/lib/kanban/analytics';
 
 // Legacy Application type for ApplicationDetails compatibility
 interface LegacyApplication {
@@ -181,6 +183,47 @@ export default function ApplicationsPage() {
     setShowDetails(true);
   }, []);
 
+  // Handle undo for Kanban moves
+  const handleUndoMove = useCallback(
+    async (applicationId: string, targetStatus: ApplicationStatus) => {
+      if (!user?.id || !filteredKanbanData) return;
+
+      // Find current status to track for analytics
+      let currentStatus: ApplicationStatus | undefined;
+      for (const [status, apps] of Object.entries(filteredKanbanData)) {
+        if (apps.find((a) => a._id === applicationId)) {
+          currentStatus = status as ApplicationStatus;
+          break;
+        }
+      }
+
+      // Move to end of target column
+      const targetApps = filteredKanbanData[targetStatus] || [];
+      const lastApp = targetApps[targetApps.length - 1];
+
+      await moveMutation({
+        clerkId: user.id,
+        applicationId: applicationId as Id<'applications'>,
+        newStatus: targetStatus,
+        beforeId: lastApp?._id as Id<'applications'> | undefined,
+        afterId: undefined,
+      });
+
+      // Track undo analytics
+      if (currentStatus) {
+        KanbanAnalytics.trackMoveUndone({
+          applicationId,
+          fromStatus: currentStatus,
+          toStatus: targetStatus,
+        });
+      }
+    },
+    [user?.id, filteredKanbanData, moveMutation],
+  );
+
+  // Initialize undo hook
+  const { recordMove } = useKanbanUndo({ onUndo: handleUndoMove });
+
   // Handle drag-and-drop move
   const handleMove = useCallback(
     async (
@@ -189,7 +232,19 @@ export default function ApplicationsPage() {
       beforeId?: string,
       afterId?: string,
     ) => {
-      if (!user?.id) return;
+      if (!user?.id || !filteredKanbanData) return;
+
+      // Find current status and company name for undo
+      let currentStatus: ApplicationStatus | undefined;
+      let company: string | undefined;
+      for (const [status, apps] of Object.entries(filteredKanbanData)) {
+        const app = apps.find((a) => a._id === applicationId);
+        if (app) {
+          currentStatus = status as ApplicationStatus;
+          company = app.company;
+          break;
+        }
+      }
 
       await moveMutation({
         clerkId: user.id,
@@ -198,8 +253,27 @@ export default function ApplicationsPage() {
         beforeId: beforeId as Id<'applications'> | undefined,
         afterId: afterId as Id<'applications'> | undefined,
       });
+
+      // Record move for undo (only if status actually changed)
+      if (currentStatus && currentStatus !== newStatus && company) {
+        recordMove({
+          applicationId,
+          company,
+          fromStatus: currentStatus,
+          toStatus: newStatus,
+        });
+
+        // Track analytics
+        KanbanAnalytics.trackCardDropped({
+          applicationId,
+          fromStatus: currentStatus,
+          toStatus: newStatus,
+          success: true,
+          method: 'drag',
+        });
+      }
     },
-    [user?.id, moveMutation],
+    [user?.id, filteredKanbanData, moveMutation, recordMove],
   );
 
   // Convert KanbanApplication to LegacyApplication for ApplicationDetails

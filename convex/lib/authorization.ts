@@ -16,11 +16,11 @@
 import { GenericMutationCtx, GenericQueryCtx } from 'convex/server';
 
 import { DataModel, Id } from '../_generated/dataModel';
-import { VALID_ROLES, UserRole } from './roleValidation';
+import { UserRole, VALID_ROLES } from './roleValidation';
 
 // Re-export types for convenience
 export { VALID_ROLES };
-export type { UserRole, RoleValidationResult } from './roleValidation';
+export type { RoleValidationResult, UserRole } from './roleValidation';
 
 type QueryCtx = GenericQueryCtx<DataModel>;
 type MutationCtx = GenericMutationCtx<DataModel>;

@@ -97,12 +97,28 @@ export function mergeRuleAndAiClassification(input: {
 } {
   const mergedEntities: ExtractedEmailEntities = { ...input.rule.entities };
   const aiEntities = input.ai.entities || {};
-  for (const [key, value] of Object.entries(aiEntities) as Array<
-    [keyof ExtractedEmailEntities, string]
-  >) {
-    const trimmed = (value || '').trim();
-    if (trimmed) mergedEntities[key] = trimmed;
+
+  // Merge string entities from AI
+  // AI only extracts the original string fields, not interviewRound/interviewRoundType
+  if (aiEntities.companyName?.trim()) {
+    mergedEntities.companyName = aiEntities.companyName.trim();
   }
+  if (aiEntities.roleTitle?.trim()) {
+    mergedEntities.roleTitle = aiEntities.roleTitle.trim();
+  }
+  if (aiEntities.interviewDateTime?.trim()) {
+    mergedEntities.interviewDateTime = aiEntities.interviewDateTime.trim();
+  }
+  if (aiEntities.recruiterName?.trim()) {
+    mergedEntities.recruiterName = aiEntities.recruiterName.trim();
+  }
+  if (aiEntities.trackingId?.trim()) {
+    mergedEntities.trackingId = aiEntities.trackingId.trim();
+  }
+  if (aiEntities.requisitionId?.trim()) {
+    mergedEntities.requisitionId = aiEntities.requisitionId.trim();
+  }
+  // interviewRound and interviewRoundType are extracted by rules, not AI
 
   const ruleType = input.rule.eventType;
   const aiType = input.ai.eventType;

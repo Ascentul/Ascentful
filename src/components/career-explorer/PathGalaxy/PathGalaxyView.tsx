@@ -144,6 +144,7 @@ export function PathGalaxyView({
 
   const handleFitView = () => {
     if (!containerRef.current) return;
+    if (nodePositions.size === 0) return;
     const { width, height } = containerRef.current.getBoundingClientRect();
 
     // Find bounding box of all nodes

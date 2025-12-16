@@ -223,7 +223,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     type: v.string(), // default: 'personal'
     image_url: v.optional(v.string()), // Legacy: base64 data URL (deprecated)
-    image_storage_id: v.optional(v.string()), // Preferred: Convex storage ID for efficient image storage
+    image_storage_id: v.optional(v.id('_storage')), // Preferred: Convex storage ID for efficient image storage
     technologies: v.array(v.string()),
     created_at: v.number(),
     updated_at: v.number(),
@@ -879,6 +879,17 @@ export default defineSchema({
     reason_code: v.optional(v.string()),
     // Evidence uploads (for Offer/Accepted stages) - Use Convex storage for proper access control
     evidence_storage_ids: v.optional(v.array(v.id('_storage'))), // Uploaded offer letters, etc.
+
+    // Email auto-update tracking
+    auto_created: v.optional(v.boolean()), // true if created by email auto-update
+    review_status: v.optional(v.union(v.literal('confirmed'), v.literal('needs_review'))), // Review status for auto-created/updated applications
+    auto_update_source_message_id: v.optional(v.string()), // For undo lookup
+
+    // Interview round tracking (for multi-round interview emails)
+    interview_round: v.optional(v.number()), // Current interview round (1, 2, 3, etc.)
+    interview_round_type: v.optional(v.string()), // "phone_screen", "technical", "onsite", "final", etc.
+    last_email_event_at: v.optional(v.number()), // Timestamp of last email event processed
+
     created_at: v.number(),
     updated_at: v.number(),
   })
@@ -1834,6 +1845,7 @@ export default defineSchema({
     status: v.union(v.literal('connected'), v.literal('revoked')),
     enabled: v.boolean(), // User opt-in toggle for scanning
     mode: v.union(v.literal('metadata_only'), v.literal('enhanced')), // Enhanced allows limited snippet/preview
+    auto_add_enabled: v.optional(v.boolean()), // User preference for auto-add to Kanban (default: true)
     scopes: v.array(v.string()),
 
     // OAuth tokens (encrypted at rest, never returned to client)
@@ -1992,4 +2004,43 @@ export default defineSchema({
     .index('by_user', ['user_id'])
     .index('by_user_read', ['user_id', 'read'])
     .index('by_created_at', ['created_at']),
+
+  // ============================================================================
+  // EMAIL AUTO UPDATE AUDIT
+  // Tracks auto-created/updated applications from email scanning for undo support
+  // ============================================================================
+  email_auto_update_audit: defineTable({
+    user_id: v.id('users'),
+    gmail_message_id: v.string(), // Provider message ID for dedup and undo lookup
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+    intent_type: v.string(), // 'interview_request', 'applied_confirmation', 'offer', etc.
+    application_id: v.id('applications'),
+    action_type: v.union(v.literal('created'), v.literal('updated')),
+
+    // Snapshot for undo (only for updates)
+    previous_snapshot: v.optional(
+      v.object({
+        stage: v.optional(v.string()),
+        status: v.optional(v.string()),
+        interview_round: v.optional(v.number()),
+        interview_round_type: v.optional(v.string()),
+      }),
+    ),
+
+    // Classification context for audit
+    classification_confidence: v.optional(v.number()),
+    match_confidence: v.optional(v.number()),
+    review_status: v.optional(v.union(v.literal('confirmed'), v.literal('needs_review'))),
+
+    // Undo tracking
+    undone_at: v.optional(v.number()),
+    undone_by_user_id: v.optional(v.id('users')),
+    undo_reason: v.optional(v.string()),
+
+    created_at: v.number(),
+  })
+    .index('by_user_message', ['user_id', 'gmail_message_id', 'intent_type'])
+    .index('by_application', ['application_id'])
+    .index('by_user', ['user_id', 'created_at'])
+    .index('by_user_undone', ['user_id', 'undone_at']),
 });

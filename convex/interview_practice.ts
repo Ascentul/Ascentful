@@ -303,20 +303,23 @@ export const getSessions = query({
     const user = await getAuthenticatedUser(ctx);
     const limit = args.limit ?? 50;
 
-    const sessionsQuery = ctx.db
+    // If filtering by status, need a compound index or post-fetch filter with over-fetch
+    let sessions = await ctx.db
       .query('interview_practice_sessions')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
-      .order('desc');
+      .order('desc')
+      .collect();
 
-    const sessions = await sessionsQuery.take(limit);
+    if (args.status) {
+      sessions = sessions.filter((s) => s.status === args.status);
+    }
 
-    // Filter by status if provided
-    const filtered = args.status ? sessions.filter((s) => s.status === args.status) : sessions;
+    sessions = sessions.slice(0, limit);
 
     // Fetch role profiles for sessions that have one
     const profileIds = [
       ...new Set(
-        filtered
+        sessions
           .map((s) => s.role_profile_id)
           .filter((id): id is Id<'interview_role_profiles'> => id !== undefined),
       ),
@@ -324,7 +327,7 @@ export const getSessions = query({
     const profiles = await Promise.all(profileIds.map((id) => ctx.db.get(id)));
     const profileMap = new Map(profiles.filter(Boolean).map((p) => [p!._id, p]));
 
-    return filtered.map((session) => ({
+    return sessions.map((session) => ({
       ...session,
       // Provide role_profile from saved profile OR from embedded snapshot
       role_profile: session.role_profile_id
@@ -891,16 +894,19 @@ export const getStudentSessions = query({
 
     const limit = args.limit ?? 20;
 
+    // Collect sessions and filter by status before applying limit
+    // to ensure we return the requested number of matching sessions
     let sessions = await ctx.db
       .query('interview_practice_sessions')
       .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
       .order('desc')
-      .take(limit);
+      .collect();
 
-    // Filter by status if provided
+    // Filter by status if provided, then apply limit
     if (args.status) {
       sessions = sessions.filter((s) => s.status === args.status);
     }
+    sessions = sessions.slice(0, limit);
 
     // Fetch role profiles for sessions that have one
     const profileIds = [

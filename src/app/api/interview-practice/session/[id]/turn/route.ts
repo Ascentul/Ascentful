@@ -197,7 +197,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           );
 
           if (audioUrl) {
-            const audioResponse = await fetch(audioUrl);
+            const downloadController = new AbortController();
+            const downloadTimeoutId = setTimeout(() => downloadController.abort(), 30000);
+            const audioResponse = await fetch(audioUrl, { signal: downloadController.signal });
+            clearTimeout(downloadTimeoutId);
             const audioBlob = await audioResponse.blob();
             audioToTranscribe = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
             log.info('Downloaded audio from storage for transcription', {
@@ -303,7 +306,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       extra: { errorMessage, stack: error instanceof Error ? error.stack : undefined },
     });
     return NextResponse.json(
-      { error: errorMessage || 'Failed to submit turn' },
+      { error: 'Failed to submit turn' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }

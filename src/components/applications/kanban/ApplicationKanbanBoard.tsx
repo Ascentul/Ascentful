@@ -1,18 +1,20 @@
 'use client';
 
 import {
+  type Announcements,
   closestCenter,
   DndContext,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { KanbanColumn } from './KanbanColumn';
@@ -32,9 +34,14 @@ interface ApplicationKanbanBoardProps {
   onQuickAdd: (status: ApplicationStatus) => void;
 }
 
+// Helper to get status label for announcements
+function getStatusLabel(status: ApplicationStatus): string {
+  return STATUS_CONFIGS.find((s) => s.id === status)?.label || status;
+}
+
 /**
  * Main Kanban board component with drag-and-drop functionality.
- * Handles drag events and coordinates with the backend.
+ * Features touch support, accessibility announcements, and keyboard navigation.
  */
 export function ApplicationKanbanBoard({
   applications,
@@ -43,19 +50,26 @@ export function ApplicationKanbanBoard({
   onQuickAdd,
 }: ApplicationKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
 
-  // Configure sensors for pointer and keyboard interaction
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Minimum drag distance before activation
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  // Configure sensors for mouse, touch, and keyboard interaction
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      distance: 8, // Minimum drag distance before activation
+    },
+  });
+
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 300, // Long-press delay for touch devices
+      tolerance: 5, // Allow small movement during delay
+    },
+  });
+
+  const keyboardSensor = useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  });
+
+  const sensors = useSensors(mouseSensor, touchSensor, keyboardSensor);
 
   // Find the active application being dragged
   const activeApplication = activeId
@@ -64,15 +78,79 @@ export function ApplicationKanbanBoard({
         .find((app) => app._id === activeId) ?? null)
     : null;
 
+  // Helper to find an application by ID
+  const findApplication = useCallback(
+    (id: string): { app: KanbanApplication; status: ApplicationStatus } | undefined => {
+      for (const [status, apps] of Object.entries(applications)) {
+        const app = apps.find((a) => a._id === id);
+        if (app) return { app, status: status as ApplicationStatus };
+      }
+      return undefined;
+    },
+    [applications],
+  );
+
+  // Accessibility announcements for screen readers
+  const announcements: Announcements = useMemo(
+    () => ({
+      onDragStart({ active }) {
+        const found = findApplication(active.id as string);
+        if (!found) return;
+        return `Picked up ${found.app.company}. Current column: ${getStatusLabel(found.status)}. Use arrow keys to move.`;
+      },
+      onDragOver({ active, over }) {
+        const found = findApplication(active.id as string);
+        if (!found || !over) return;
+
+        const overId = over.id as string;
+        if (overId.startsWith('column-')) {
+          const status = overId.replace('column-', '') as ApplicationStatus;
+          return `${found.app.company} is over ${getStatusLabel(status)} column.`;
+        }
+        return undefined;
+      },
+      onDragEnd({ active, over }) {
+        const found = findApplication(active.id as string);
+        if (!found) return;
+
+        if (!over) {
+          return `${found.app.company} was dropped. Movement cancelled.`;
+        }
+
+        const overId = over.id as string;
+        let targetStatus: ApplicationStatus = found.status;
+        if (overId.startsWith('column-')) {
+          targetStatus = overId.replace('column-', '') as ApplicationStatus;
+        } else {
+          // Find which column the target card is in
+          const targetFound = findApplication(overId);
+          if (targetFound) {
+            targetStatus = targetFound.status;
+          }
+        }
+
+        if (targetStatus === found.status) {
+          return `${found.app.company} was reordered within ${getStatusLabel(found.status)}.`;
+        }
+        return `${found.app.company} was moved to ${getStatusLabel(targetStatus)}.`;
+      },
+      onDragCancel({ active }) {
+        const found = findApplication(active.id as string);
+        if (!found) return;
+        return `Movement cancelled. ${found.app.company} returned to ${getStatusLabel(found.status)}.`;
+      },
+    }),
+    [findApplication],
+  );
+
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   }, []);
 
-  // Handle drag over (for visual feedback)
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { over } = event;
-    setOverId((over?.id as string) ?? null);
+  // Handle drag over - no-op, kept for potential future enhancements
+  const handleDragOver = useCallback((_event: DragOverEvent) => {
+    // Visual feedback is handled by @dnd-kit's built-in styling
   }, []);
 
   // Handle drag end (actual move)
@@ -81,7 +159,6 @@ export function ApplicationKanbanBoard({
       const { active, over } = event;
 
       setActiveId(null);
-      setOverId(null);
 
       if (!over) return;
 
@@ -166,6 +243,17 @@ export function ApplicationKanbanBoard({
     [applications, onMove],
   );
 
+  // Handle menu-based moves (Move to dropdown)
+  const handleMenuMove = useCallback(
+    async (applicationId: string, newStatus: ApplicationStatus) => {
+      // Move to end of target column
+      const targetApps = applications[newStatus] || [];
+      const lastApp = targetApps[targetApps.length - 1];
+      await onMove(applicationId, newStatus, lastApp?._id, undefined);
+    },
+    [applications, onMove],
+  );
+
   return (
     <DndContext
       sensors={sensors}
@@ -173,17 +261,22 @@ export function ApplicationKanbanBoard({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      accessibility={{ announcements }}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
-        {STATUS_CONFIGS.map((config) => (
-          <KanbanColumn
-            key={config.id}
-            config={config}
-            applications={applications[config.id] || []}
-            onCardClick={onCardClick}
-            onQuickAdd={onQuickAdd}
-          />
-        ))}
+      {/* Outer container constrains width, inner container scrolls horizontally */}
+      <div className="w-full overflow-hidden">
+        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px] no-scrollbar">
+          {STATUS_CONFIGS.map((config) => (
+            <KanbanColumn
+              key={config.id}
+              config={config}
+              applications={applications[config.id] || []}
+              onCardClick={onCardClick}
+              onQuickAdd={onQuickAdd}
+              onMoveTo={handleMenuMove}
+            />
+          ))}
+        </div>
       </div>
 
       <KanbanDragOverlay activeApplication={activeApplication} />

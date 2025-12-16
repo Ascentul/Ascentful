@@ -72,7 +72,7 @@ export const updateProjectImage = mutation({
   args: {
     clerkId: v.string(),
     projectId: v.id('projects'),
-    storageId: v.string(),
+    storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -120,16 +120,6 @@ export const updateProjectImage = mutation({
   },
 });
 
-// Get project image URL from storage ID
-export const getProjectImageUrl = query({
-  args: {
-    storageId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
-  },
-});
-
 // Create a new project
 export const createProject = mutation({
   args: {
@@ -144,7 +134,7 @@ export const createProject = mutation({
     description: v.optional(v.string()),
     type: v.string(),
     image_url: v.optional(v.string()), // Legacy: base64 data URL
-    image_storage_id: v.optional(v.string()), // Preferred: Convex storage ID
+    image_storage_id: v.optional(v.id('_storage')), // Preferred: Convex storage ID
     technologies: v.array(v.string()),
   },
   handler: async (ctx, args) => {
@@ -218,7 +208,7 @@ export const updateProject = mutation({
       description: v.optional(v.string()),
       type: v.optional(v.string()),
       image_url: v.optional(v.string()), // Legacy: base64 data URL
-      image_storage_id: v.optional(v.string()), // Preferred: Convex storage ID
+      image_storage_id: v.optional(v.id('_storage')), // Preferred: Convex storage ID
       technologies: v.optional(v.array(v.string())),
     }),
   },

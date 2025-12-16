@@ -104,13 +104,23 @@ export async function POST(request: NextRequest) {
             { role: 'system', content: ROLE_PROFILE_SYSTEM_PROMPT },
             { role: 'user', content: prompt },
           ],
-          temperature: 0.7,
+          // Lower temperature for consistent JSON structure
+          temperature: 0.3,
           response_format: { type: 'json_object' },
         });
 
         const content = completion.choices[0]?.message?.content;
         if (content) {
-          analysis = JSON.parse(content) as RoleProfileAnalysis;
+          // Parse and validate JSON response
+          try {
+            analysis = JSON.parse(content) as RoleProfileAnalysis;
+          } catch (parseError) {
+            log.error('Failed to parse AI response as JSON', toErrorCode(parseError), {
+              event: 'ai.parse_error',
+              extra: { content: content.substring(0, 200) },
+            });
+            throw new Error('Invalid JSON response from AI');
+          }
 
           // Evaluate AI output
           const evalResult = await evaluate({

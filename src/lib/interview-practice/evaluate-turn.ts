@@ -102,7 +102,14 @@ export async function evaluateTurnResponse(
     throw new Error('No evaluation content returned');
   }
 
-  const evaluation = JSON.parse(evalContent) as ResponseEvaluation;
+  let evaluation: ResponseEvaluation;
+  try {
+    evaluation = JSON.parse(evalContent) as ResponseEvaluation;
+  } catch (parseError) {
+    throw new Error(
+      `Failed to parse evaluation response: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`,
+    );
+  }
 
   await evaluate({
     tool_id: 'interview-response-evaluation',

@@ -215,6 +215,15 @@ function TurnCard({ turn, index }: { turn: Turn; index: number }) {
       <CardHeader
         className="cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded(!isExpanded);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">

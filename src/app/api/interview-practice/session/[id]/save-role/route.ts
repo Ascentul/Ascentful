@@ -82,14 +82,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   } catch (error) {
     const durationMs = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log.error('Save role from session failed', toErrorCode(error), {
       event: 'request.error',
       httpStatus: 500,
       durationMs,
+      extra: { errorType: error instanceof Error ? error.name : 'Unknown' },
     });
     return NextResponse.json(
-      { error: errorMessage || 'Failed to save role' },
+      { error: 'Failed to save role' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }
