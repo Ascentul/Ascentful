@@ -49,6 +49,7 @@ export const createApplication = mutation({
     source: v.optional(v.string()),
     url: v.optional(v.string()),
     notes: v.optional(v.string()),
+    logo_url: v.optional(v.string()),
     applied_at: v.optional(v.number()),
     resume_id: v.optional(v.id('resumes')),
     cover_letter_id: v.optional(v.id('cover_letters')),
@@ -101,6 +102,7 @@ export const createApplication = mutation({
       source: args.source,
       url: args.url,
       notes: args.notes,
+      logo_url: args.logo_url,
       applied_at: args.applied_at,
       resume_id: args.resume_id,
       cover_letter_id: args.cover_letter_id,
@@ -314,5 +316,207 @@ export const getApplicationsByStatus = query({
       .take(500); // Limit to 500 applications per status
 
     return applications;
+  },
+});
+
+// ============================================================================
+// KANBAN BOARD QUERIES AND MUTATIONS
+// ============================================================================
+
+type ApplicationStatus = 'saved' | 'applied' | 'interview' | 'offer' | 'rejected';
+
+/**
+ * Get applications grouped by status for Kanban board display.
+ * Each group is sorted by sort_order (ascending) for drag-and-drop ordering.
+ */
+export const getApplicationsForKanban = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Get all applications for this user
+    const applications = await ctx.db
+      .query('applications')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .collect();
+
+    // Group by status
+    const grouped: Record<ApplicationStatus, typeof applications> = {
+      saved: [],
+      applied: [],
+      interview: [],
+      offer: [],
+      rejected: [],
+    };
+
+    for (const app of applications) {
+      const status = app.status as ApplicationStatus;
+      if (grouped[status]) {
+        grouped[status].push(app);
+      }
+    }
+
+    // Sort each group by sort_order (nulls at end, then by updated_at desc)
+    for (const status of Object.keys(grouped) as ApplicationStatus[]) {
+      grouped[status].sort((a, b) => {
+        // Both have sort_order: compare them
+        if (a.sort_order != null && b.sort_order != null) {
+          return a.sort_order - b.sort_order;
+        }
+        // Only a has sort_order: a comes first
+        if (a.sort_order != null) return -1;
+        // Only b has sort_order: b comes first
+        if (b.sort_order != null) return 1;
+        // Neither has sort_order: sort by updated_at desc (most recent first)
+        return (b.updated_at || 0) - (a.updated_at || 0);
+      });
+    }
+
+    return grouped;
+  },
+});
+
+const SORT_ORDER_GAP = 1000;
+const MIN_SORT_ORDER_GAP = 0.0001;
+
+/**
+ * Calculate new sort_order for an application being moved.
+ * Uses fractional indexing to avoid rewriting neighbors.
+ */
+function calculateNewSortOrder(
+  beforeOrder: number | null | undefined,
+  afterOrder: number | null | undefined,
+): number {
+  // Inserting at the start of an empty column
+  if (beforeOrder == null && afterOrder == null) {
+    return SORT_ORDER_GAP;
+  }
+  // Inserting at the start (before first item)
+  if (beforeOrder == null) {
+    return afterOrder! / 2;
+  }
+  // Inserting at the end (after last item)
+  if (afterOrder == null) {
+    return beforeOrder + SORT_ORDER_GAP;
+  }
+  // Inserting between two items
+  return (beforeOrder + afterOrder) / 2;
+}
+
+/**
+ * Move an application to a new status column and/or position.
+ * Handles both cross-column moves and within-column reordering.
+ */
+export const moveApplication = mutation({
+  args: {
+    clerkId: v.string(),
+    applicationId: v.id('applications'),
+    newStatus: v.union(
+      v.literal('saved'),
+      v.literal('applied'),
+      v.literal('interview'),
+      v.literal('offer'),
+      v.literal('rejected'),
+    ),
+    // IDs of applications that will be neighbors after the move
+    beforeId: v.optional(v.id('applications')), // Application that will be ABOVE (lower sort_order)
+    afterId: v.optional(v.id('applications')), // Application that will be BELOW (higher sort_order)
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Get the application being moved
+    const application = await ctx.db.get(args.applicationId);
+    if (!application || application.user_id !== user._id) {
+      throw new Error('Application not found or unauthorized');
+    }
+
+    // Get neighbor sort_orders if provided
+    let beforeOrder: number | null = null;
+    let afterOrder: number | null = null;
+
+    if (args.beforeId) {
+      const beforeApp = await ctx.db.get(args.beforeId);
+      if (beforeApp && beforeApp.user_id === user._id) {
+        beforeOrder = beforeApp.sort_order ?? null;
+      }
+    }
+
+    if (args.afterId) {
+      const afterApp = await ctx.db.get(args.afterId);
+      if (afterApp && afterApp.user_id === user._id) {
+        afterOrder = afterApp.sort_order ?? null;
+      }
+    }
+
+    // Calculate new sort_order
+    const newSortOrder = calculateNewSortOrder(beforeOrder, afterOrder);
+
+    // Check if rebalancing is needed (gap too small)
+    const needsRebalance =
+      beforeOrder != null &&
+      afterOrder != null &&
+      Math.abs(afterOrder - beforeOrder) < MIN_SORT_ORDER_GAP;
+
+    const now = Date.now();
+    const previousStatus = application.status;
+    const statusChanged = previousStatus !== args.newStatus;
+
+    // Prepare update
+    const updates: Record<string, unknown> = {
+      sort_order: newSortOrder,
+      updated_at: now,
+    };
+
+    // If status is changing, update status and stage
+    if (statusChanged) {
+      updates.status = args.newStatus;
+      updates.stage = mapStatusToStage(args.newStatus);
+      updates.stage_set_at = now;
+    }
+
+    // Update the application
+    await ctx.db.patch(args.applicationId, updates);
+
+    // Audit log for status changes
+    if (statusChanged) {
+      await safeLogAudit(ctx, {
+        category: 'user_action',
+        action: 'application.status_changed',
+        actorUserId: user._id,
+        actorRole: user.role,
+        actorUniversityId: user.university_id,
+        targetType: 'application',
+        targetId: args.applicationId,
+        previousValue: { status: previousStatus },
+        newValue: { status: args.newStatus },
+        metadata: {
+          company: application.company,
+          source: 'kanban_drag',
+        },
+      });
+    }
+
+    return {
+      success: true,
+      applicationId: args.applicationId,
+      newStatus: args.newStatus,
+      newSortOrder,
+      needsRebalance,
+    };
   },
 });

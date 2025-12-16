@@ -62,6 +62,7 @@ import type * as lib_piiSafe from "../lib/piiSafe.js";
 import type * as lib_roleValidation from "../lib/roleValidation.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as metrics from "../metrics.js";
+import type * as migrate_application_sort_order from "../migrate_application_sort_order.js";
 import type * as migrate_application_status_to_stage from "../migrate_application_status_to_stage.js";
 import type * as migrate_follow_ups from "../migrate_follow_ups.js";
 import type * as migrate_session_scheduled_at from "../migrate_session_scheduled_at.js";
@@ -157,6 +158,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roleValidation": typeof lib_roleValidation;
   "lib/roles": typeof lib_roles;
   metrics: typeof metrics;
+  migrate_application_sort_order: typeof migrate_application_sort_order;
   migrate_application_status_to_stage: typeof migrate_application_status_to_stage;
   migrate_follow_ups: typeof migrate_follow_ups;
   migrate_session_scheduled_at: typeof migrate_session_scheduled_at;

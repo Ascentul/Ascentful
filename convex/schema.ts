@@ -653,10 +653,15 @@ export default defineSchema({
       ),
     ),
     stage_set_at: v.optional(v.number()), // When stage was last changed
+    // Manual ordering within status columns (for Kanban drag-and-drop)
+    // Uses fractional indexing for efficient reordering without rewriting neighbors
+    sort_order: v.optional(v.number()),
     location: v.optional(v.string()),
     source: v.optional(v.string()),
     url: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Company logo URL (auto-fetched from Clearbit/Google when application is created)
+    logo_url: v.optional(v.string()),
     applied_at: v.optional(v.number()),
     resume_id: v.optional(v.id('resumes')),
     cover_letter_id: v.optional(v.id('cover_letters')),
@@ -712,7 +717,9 @@ export default defineSchema({
     // SECURITY: Tenant-scoped indexes for university reporting
     .index('by_university', ['university_id'])
     .index('by_university_stage', ['university_id', 'stage']) // University pipeline view
-    .index('by_university_status', ['university_id', 'status']), // Legacy university queries
+    .index('by_university_status', ['university_id', 'status']) // Legacy university queries
+    // Kanban board indexes for efficient drag-and-drop ordering
+    .index('by_user_status_order', ['user_id', 'status', 'sort_order']),
 
   // Unified follow-ups table (replaces followup_actions and advisor_follow_ups)
   follow_ups: defineTable({
