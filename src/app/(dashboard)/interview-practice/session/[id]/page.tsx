@@ -84,10 +84,12 @@ export default function InterviewSessionPage() {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const preWarmedStreamRef = useRef<MediaStream | null>(null);
   const lastAutoPlayedTurnRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const isPreWarmingRef = useRef<boolean>(false);
 
   // Session autosave key
   const sessionStorageKey = `interview-session-${sessionId}`;
@@ -406,11 +408,68 @@ export default function InterviewSessionPage() {
     }
   }, [currentTurn, sessionState, isPlayingAudio, playQuestionAudio]);
 
+  // Pre-warm microphone and audio context when session becomes ready
+  // This eliminates the initial lag when user first clicks record
+  useEffect(() => {
+    const preWarmMicrophone = async () => {
+      // Only pre-warm if we're in ready state and haven't already pre-warmed
+      if (sessionState !== 'ready' || preWarmedStreamRef.current || isPreWarmingRef.current) {
+        return;
+      }
+
+      isPreWarmingRef.current = true;
+      console.log('[InterviewSession] Pre-warming microphone...');
+
+      try {
+        // Pre-acquire microphone stream
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        preWarmedStreamRef.current = stream;
+
+        // Pre-warm audio context
+        if (!audioContextRef.current) {
+          const audioContext = new AudioContext();
+          audioContextRef.current = audioContext;
+          // Resume context in case it's suspended (browser policy)
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+          }
+        }
+
+        console.log('[InterviewSession] Microphone pre-warmed successfully');
+      } catch (error) {
+        console.warn('[InterviewSession] Failed to pre-warm microphone:', error);
+        // Not critical - will try again when user clicks record
+      } finally {
+        isPreWarmingRef.current = false;
+      }
+    };
+
+    preWarmMicrophone();
+
+    // Cleanup pre-warmed stream on unmount
+    return () => {
+      if (preWarmedStreamRef.current) {
+        preWarmedStreamRef.current.getTracks().forEach((t) => t.stop());
+        preWarmedStreamRef.current = null;
+      }
+    };
+  }, [sessionState]);
+
   // Start recording with audio level visualization
   const startRecording = useCallback(async () => {
     console.log('[InterviewSession] Starting recording...');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Use pre-warmed stream if available, otherwise request new one
+      let stream: MediaStream;
+      if (preWarmedStreamRef.current) {
+        console.log('[InterviewSession] Using pre-warmed stream');
+        stream = preWarmedStreamRef.current;
+        preWarmedStreamRef.current = null; // Clear so we don't reuse
+      } else {
+        console.log('[InterviewSession] Requesting new microphone stream');
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm';
@@ -418,9 +477,13 @@ export default function InterviewSessionPage() {
       const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
       audioChunksRef.current = [];
 
-      // Set up audio level analysis
+      // Set up audio level analysis - reuse pre-warmed context if available
       try {
-        const audioContext = new AudioContext();
+        // Reuse pre-warmed audio context or create new one
+        const audioContext = audioContextRef.current || new AudioContext();
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
         const analyser = audioContext.createAnalyser();
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);

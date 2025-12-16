@@ -120,7 +120,7 @@ export function NewPracticeSessionModal({
     enabled: !!user?.clerkId && open,
   });
 
-  // Reset state when modal opens
+  // Reset state when modal opens (only on initial open, not when roleProfiles changes mid-flow)
   useEffect(() => {
     if (open) {
       setCurrentStep('role');
@@ -137,7 +137,8 @@ export function NewPracticeSessionModal({
       setCameraEnabled(false);
       setPermissionsChecked(false);
     }
-  }, [open, defaultRoleProfileId, roleProfiles.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only reset on open/defaultRoleProfileId change, not roleProfiles.length
+  }, [open, defaultRoleProfileId]);
 
   // Create role profile mutation (only if saving)
   const createProfileMutation = useMutation({
@@ -213,6 +214,9 @@ export function NewPracticeSessionModal({
 
       setPermissionsChecked(true);
     } catch {
+      // Browser doesn't support permissions API - will prompt on request
+      setHasMicPermission(null);
+      setHasCameraPermission(cameraEnabled ? null : true);
       setPermissionsChecked(true);
     }
   }, [cameraEnabled]);
@@ -281,9 +285,11 @@ export function NewPracticeSessionModal({
 
   // Handle session start
   const handleStartSession = async () => {
+    let savedProfileId: string | undefined;
+
     // If using new role and wants to save it first
     if (roleMode === 'new' && saveRoleForLater) {
-      await createProfileMutation.mutateAsync({
+      const result = await createProfileMutation.mutateAsync({
         input_type: inputType,
         job_title: jobTitle,
         company_name: companyName || undefined,
@@ -291,6 +297,7 @@ export function NewPracticeSessionModal({
         job_description_text: jdText || undefined,
         job_url: jdUrl || undefined,
       });
+      savedProfileId = result.roleProfile._id;
     }
 
     // Create session
@@ -314,13 +321,9 @@ export function NewPracticeSessionModal({
 
     if (roleMode === 'saved' && selectedProfileId) {
       sessionData.role_profile_id = selectedProfileId;
-    } else if (
-      roleMode === 'new' &&
-      saveRoleForLater &&
-      createProfileMutation.data?.roleProfile?._id
-    ) {
+    } else if (roleMode === 'new' && saveRoleForLater && savedProfileId) {
       // Use the newly created profile
-      sessionData.role_profile_id = createProfileMutation.data.roleProfile._id;
+      sessionData.role_profile_id = savedProfileId;
     } else if (roleMode === 'new') {
       // Use role snapshot
       sessionData.role_snapshot = {
@@ -351,13 +354,13 @@ export function NewPracticeSessionModal({
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 'role') {
       setCurrentStep('configure');
     } else if (currentStep === 'configure') {
       setCurrentStep('permissions');
     } else if (currentStep === 'permissions') {
-      handleStartSession();
+      await handleStartSession();
     }
   };
 

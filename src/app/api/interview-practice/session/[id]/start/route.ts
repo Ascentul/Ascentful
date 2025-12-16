@@ -85,14 +85,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Start the session
-    await convexServer.mutation(
-      api.interview_practice.startSession,
-      { sessionId: sessionId as Id<'interview_practice_sessions'> },
-      token,
-    );
-
-    // Generate first question
+    // Generate first question BEFORE starting session to avoid inconsistent state
+    // If question generation fails completely, session remains in 'setup' status
     let question: GeneratedQuestion;
     const roleProfile = session.role_profile;
 
@@ -170,6 +164,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         evaluation_focus: ['communication', 'motivation', 'relevance'],
       };
     }
+
+    // Now that we have a valid question, start the session
+    // This ensures we don't have an in_progress session without any turns
+    await convexServer.mutation(
+      api.interview_practice.startSession,
+      { sessionId: sessionId as Id<'interview_practice_sessions'> },
+      token,
+    );
 
     // Create the first turn
     const turnId = await convexServer.mutation(

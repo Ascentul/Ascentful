@@ -149,29 +149,36 @@ function ScoreRing({
   // Display score (if maxScore is 100, show as percentage)
   const displayScore = maxScore === 100 ? Math.round(score) : score.toFixed(1);
   const sizeClasses = {
-    sm: 'w-16 h-16 text-lg',
-    md: 'w-24 h-24 text-2xl',
-    lg: 'w-32 h-32 text-3xl',
+    sm: 'w-20 h-20 text-lg',
+    md: 'w-28 h-28 text-2xl',
+    lg: 'w-36 h-36 text-3xl',
   };
   const strokeWidth = size === 'lg' ? 8 : size === 'md' ? 6 : 4;
-  const radius = size === 'lg' ? 58 : size === 'md' ? 44 : 30;
+  // Use fixed viewBox size and calculate radius accordingly
+  const viewBoxSize = 100;
+  const radius = (viewBoxSize - strokeWidth * 2) / 2;
+  const center = viewBoxSize / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className={`relative ${sizeClasses[size]} flex items-center justify-center`}>
-      <svg className="w-full h-full -rotate-90">
+    <div className={`relative ${sizeClasses[size]} flex items-center justify-center flex-shrink-0`}>
+      <svg
+        className="w-full h-full -rotate-90"
+        viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+        style={{ overflow: 'visible' }}
+      >
         <circle
-          cx="50%"
-          cy="50%"
+          cx={center}
+          cy={center}
           r={radius}
           fill="none"
           stroke="#e5e7eb"
           strokeWidth={strokeWidth}
         />
         <circle
-          cx="50%"
-          cy="50%"
+          cx={center}
+          cy={center}
           r={radius}
           fill="none"
           stroke={
@@ -446,7 +453,7 @@ export default function InterviewReportPage() {
         </Button>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB] mb-2">
+            <h1 className="text-3xl font-bold tracking-tight text-primary-500 mb-2">
               Coaching Report
             </h1>
             <p className="text-muted-foreground">

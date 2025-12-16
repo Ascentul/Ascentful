@@ -222,7 +222,8 @@ export default defineSchema({
     github_url: v.optional(v.string()),
     description: v.optional(v.string()),
     type: v.string(), // default: 'personal'
-    image_url: v.optional(v.string()),
+    image_url: v.optional(v.string()), // Legacy: base64 data URL (deprecated)
+    image_storage_id: v.optional(v.string()), // Preferred: Convex storage ID for efficient image storage
     technologies: v.array(v.string()),
     created_at: v.number(),
     updated_at: v.number(),
@@ -390,9 +391,10 @@ export default defineSchema({
     user_id: v.id('users'),
     university_id: v.optional(v.id('universities')), // For tenant isolation
     // Role reference OR embedded role data (one must be present)
+    // Note: This constraint is enforced in the createSession mutation, not at schema level
     role_profile_id: v.optional(v.id('interview_role_profiles')), // Reference to saved role profile
     // Embedded role snapshot for sessions without saved role profiles
-    // These fields are populated when role_profile_id is null
+    // Populated when role_profile_id is null
     role_snapshot: v.optional(
       v.object({
         input_type: v.union(v.literal('title_company'), v.literal('jd_text'), v.literal('jd_link')),

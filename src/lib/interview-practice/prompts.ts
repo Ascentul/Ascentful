@@ -11,6 +11,22 @@
  */
 
 // ============================================================================
+// SANITIZATION HELPER
+// ============================================================================
+
+/**
+ * Sanitizes user input for safe interpolation into prompts.
+ * Removes potential prompt injection patterns.
+ */
+function sanitizeInput(input?: string): string {
+  if (!input) return '';
+  return input
+    .replace(/```/g, '') // Remove code block markers
+    .replace(/<\/?[a-z_]+>/gi, '') // Remove XML-style tags
+    .trim();
+}
+
+// ============================================================================
 // ROLE PROFILE ANALYSIS
 // ============================================================================
 
@@ -32,10 +48,10 @@ export function buildRoleProfilePrompt(params: {
 }): string {
   return `Analyze the following job information and extract key competencies:
 
-Job Title: ${params.jobTitle}
-${params.companyName ? `Company: ${params.companyName}` : ''}
-${params.jobLevel ? `Level: ${params.jobLevel}` : ''}
-${params.jobDescriptionText ? `\nJob Description:\n${params.jobDescriptionText}` : ''}
+Job Title: ${sanitizeInput(params.jobTitle)}
+${params.companyName ? `Company: ${sanitizeInput(params.companyName)}` : ''}
+${params.jobLevel ? `Level: ${sanitizeInput(params.jobLevel)}` : ''}
+${params.jobDescriptionText ? `\nJob Description:\n<job_description>\n${sanitizeInput(params.jobDescriptionText)}\n</job_description>` : ''}
 
 Provide your analysis in the following JSON format:
 {
@@ -125,8 +141,8 @@ export function buildQuestionGenerationPrompt(params: {
   return `Generate the next interview question for this mock interview.
 
 ROLE CONTEXT:
-- Position: ${roleProfile.job_title}${roleProfile.company_name ? ` at ${roleProfile.company_name}` : ''}
-- Summary: ${roleProfile.role_summary || 'Not provided'}
+- Position: ${sanitizeInput(roleProfile.job_title)}${roleProfile.company_name ? ` at ${sanitizeInput(roleProfile.company_name)}` : ''}
+- Summary: ${sanitizeInput(roleProfile.role_summary) || 'Not provided'}
 
 INTERVIEW PROGRESS:
 - Question ${turnIndex + 1} of ${totalQuestions}
@@ -143,7 +159,10 @@ ${
   previousTurn
     ? `PREVIOUS EXCHANGE:
 Question: "${previousTurn.question_text}"
-Response: "${previousTurn.transcript_text || '[No response recorded]'}"
+Response:
+<candidate_response>
+${sanitizeInput(previousTurn.transcript_text) || '[No response recorded]'}
+</candidate_response>
 Response Quality: ${previousTurn.scores?.overall ?? 'Not scored'}/5
 
 If the previous response was vague or lacked specifics, consider asking a follow-up.`
@@ -212,12 +231,14 @@ QUESTION: "${question}"
 QUESTION TYPE: ${questionType}
 
 CANDIDATE RESPONSE:
-"${transcript}"
+<response>
+${sanitizeInput(transcript)}
+</response>
 
 TARGET COMPETENCIES:
 ${relevantCompetencies}
 
-ROLE: ${roleProfile.job_title}
+ROLE: ${sanitizeInput(roleProfile.job_title)}
 
 Provide your evaluation in JSON format:
 {

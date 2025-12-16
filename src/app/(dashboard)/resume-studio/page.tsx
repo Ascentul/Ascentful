@@ -22,6 +22,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { CoverLetterPreviewModal } from '@/components/cover-letter-preview-modal';
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { ResumeDocument } from '@/components/resume/ResumeDocument';
 import { ResumePreviewModal } from '@/components/resume-preview-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -648,6 +649,12 @@ export default function ResumeStudioPage() {
       if (doc && (doc as any)._id) {
         router.push(`/cover-letters/${(doc as any)._id}`);
       }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to create cover letter',
+        variant: 'destructive',
+      });
     } finally {
       setCreatingCoverLetter(false);
     }
@@ -947,1011 +954,1040 @@ export default function ResumeStudioPage() {
   };
 
   // ============================================================================
+  // HELPER: Convert resume content to ResumeData format for thumbnail preview
+  // ============================================================================
+  const getResumeDataForThumbnail = (resume: ResumeDoc): ResumeData => {
+    const content = resume.content || {};
+    const rawPersonalInfo = content.contactInfo || content.personalInfo || {};
+    return {
+      contactInfo: {
+        name: rawPersonalInfo.name || clerkUser?.fullName || 'Your Name',
+        email: rawPersonalInfo.email || clerkUser?.primaryEmailAddress?.emailAddress || '',
+        phone: rawPersonalInfo.phone || '',
+        location: rawPersonalInfo.location || '',
+        linkedin: rawPersonalInfo.linkedin || '',
+        github: rawPersonalInfo.github || '',
+        website: rawPersonalInfo.website || '',
+      },
+      summary: content.summary || '',
+      skills: Array.isArray(content.skills) ? content.skills : [],
+      experience: Array.isArray(content.experiences)
+        ? content.experiences
+        : Array.isArray(content.experience)
+          ? content.experience
+          : [],
+      education: Array.isArray(content.education) ? content.education : [],
+      projects: Array.isArray(content.projects) ? content.projects : [],
+      achievements: Array.isArray(content.achievements) ? content.achievements : [],
+    };
+  };
+
+  // ============================================================================
   // RENDER
   // ============================================================================
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Resume Studio</h1>
-        <p className="text-muted-foreground">
-          Create, manage, and optimize your resumes and cover letters
-        </p>
-      </div>
-
-      {/* Main Tab Toggle - Resumes vs Cover Letters */}
-      <div className="mb-6 flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-        <Button
-          variant={mainTab === 'resumes' ? 'default' : 'ghost'}
-          onClick={() => setMainTab('resumes')}
-          className={`flex items-center gap-2 rounded-lg ${mainTab === 'resumes' ? '' : 'hover:bg-white/50'}`}
-        >
-          <FileText className="h-4 w-4" />
-          Resumes
-        </Button>
-        <Button
-          variant={mainTab === 'cover-letters' ? 'default' : 'ghost'}
-          onClick={() => setMainTab('cover-letters')}
-          className={`flex items-center gap-2 rounded-lg ${mainTab === 'cover-letters' ? '' : 'hover:bg-white/50'}`}
-        >
-          <Mail className="h-4 w-4" />
-          Cover Letters
-        </Button>
-      </div>
-
-      {/* ================================================================== */}
-      {/* RESUMES SECTION */}
-      {/* ================================================================== */}
-      {mainTab === 'resumes' && (
-        <>
-          {/* Resume Sub-tabs */}
-          <div className="mb-6 flex gap-2">
-            <Button
-              variant={resumeSubTab === 'my-resumes' ? 'default' : 'outline'}
-              onClick={() => setResumeSubTab('my-resumes')}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              My Resumes
-            </Button>
-            <Button
-              variant={resumeSubTab === 'generate-ai' ? 'default' : 'outline'}
-              onClick={() => setResumeSubTab('generate-ai')}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Generate with AI
-            </Button>
-            <Button
-              variant={resumeSubTab === 'upload-analyze' ? 'default' : 'outline'}
-              onClick={() => setResumeSubTab('upload-analyze')}
-              className="flex items-center gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Upload & Analyze
-            </Button>
+    <div className="w-full">
+      <div className="w-full rounded-3xl bg-white p-5 shadow-sm space-y-6">
+        {/* Header with title and Create New button */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              Resumes & Cover Letters
+            </h1>
+            <p className="text-muted-foreground">
+              Create, manage, and optimize your resumes and cover letters
+            </p>
           </div>
+          <Button
+            onClick={() => {
+              if (mainTab === 'resumes') {
+                createResume();
+              } else {
+                handleCreateCoverLetter();
+              }
+            }}
+            disabled={mainTab === 'cover-letters' ? creatingCoverLetter : !clerkId}
+            className="bg-primary-500 hover:bg-primary-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create New
+          </Button>
+        </div>
 
-          {/* My Resumes */}
-          {resumeSubTab === 'my-resumes' && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Your Resumes</h2>
-                <Button onClick={createResume} disabled={!clerkId}>
-                  <Plus className="h-4 w-4 mr-2" /> New Resume
+        {/* Simple underlined tabs */}
+        <div className="flex gap-6 border-b border-slate-200">
+          <button
+            onClick={() => setMainTab('resumes')}
+            className={`pb-3 text-sm font-medium transition-colors ${
+              mainTab === 'resumes'
+                ? 'text-slate-900 border-b-2 border-primary-500'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Resumes
+          </button>
+          <button
+            onClick={() => setMainTab('cover-letters')}
+            className={`pb-3 text-sm font-medium transition-colors ${
+              mainTab === 'cover-letters'
+                ? 'text-slate-900 border-b-2 border-primary-500'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Cover Letters
+          </button>
+        </div>
+
+        {/* ================================================================== */}
+        {/* RESUMES SECTION */}
+        {/* ================================================================== */}
+        {mainTab === 'resumes' && (
+          <>
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".pdf"
+              onChange={handleImportFileChange}
+              className="hidden"
+            />
+
+            {loadingResumes ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-6">
+                {/* Existing Resumes - Horizontal Cards */}
+                {sortedResumes.map((r) => (
+                  <div
+                    key={r._id}
+                    className="flex bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow w-full md:w-[calc(50%-12px)]"
+                  >
+                    {/* Thumbnail - Mini Resume Preview */}
+                    <div
+                      className="w-32 min-h-[180px] bg-white flex-shrink-0 cursor-pointer relative group overflow-hidden border-r border-slate-200"
+                      onClick={() => setPreviewResume(r)}
+                    >
+                      {/* Scaled down resume preview - fills thumbnail width */}
+                      <div
+                        className="absolute origin-top-left"
+                        style={{
+                          transform: 'scale(0.19)',
+                          width: '680px',
+                          top: '-8px',
+                          left: '-8px',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <ResumeDocument
+                          data={getResumeDataForThumbnail(r)}
+                          className="shadow-none"
+                        />
+                      </div>
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex flex-col min-w-0">
+                      <div className="flex items-start gap-2 mb-1">
+                        <button
+                          type="button"
+                          className="font-medium text-slate-900 truncate cursor-pointer hover:text-primary-500 text-left"
+                          onClick={() => router.push(`/resumes/${r._id}`)}
+                        >
+                          {r.title || 'Untitled'}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-slate-600"
+                          onClick={() => router.push(`/resumes/${r._id}`)}
+                          title="Edit title"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-3">
+                        Updated{' '}
+                        {new Date(r.updated_at).toLocaleDateString('en-US', {
+                          day: 'numeric',
+                          month: 'long',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+
+                      {/* Resume Score Badge */}
+                      {r.analysis_result?.score && (
+                        <div className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium mb-3 w-fit">
+                          <span className="bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded">
+                            {r.analysis_result.score}%
+                          </span>
+                          Your resume score
+                        </div>
+                      )}
+
+                      {/* Action Links */}
+                      <div className="space-y-1.5 mt-auto">
+                        <button
+                          className="flex items-center gap-2 text-sm text-primary-500 hover:text-primary-600"
+                          onClick={() => {
+                            setAnalyzeJobDescription('');
+                            setUploadedFile(null);
+                            setResumeSubTab('upload-analyze');
+                          }}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Tailor to job listing
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => exportResumePDF(r)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download PDF
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => duplicateResume(r._id, r.title)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Duplicate
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => deleteResume(r._id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* New Resume Card */}
+                <div
+                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)]"
+                  onClick={createResume}
+                >
+                  {/* Placeholder Thumbnail */}
+                  <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 p-4 flex flex-col justify-center">
+                    <h3 className="font-medium text-primary-500 mb-1">New Resume</h3>
+                    <p className="text-sm text-slate-500">
+                      Create a tailored resume for each job application. Double your chances of
+                      getting hired!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tabs for AI features - shown below the cards */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="flex gap-2 mb-6">
+                <Button
+                  variant={resumeSubTab === 'my-resumes' ? 'default' : 'outline'}
+                  onClick={() => setResumeSubTab('my-resumes')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <FileText className="h-4 w-4" />
+                  My Resumes
+                </Button>
+                <Button
+                  variant={resumeSubTab === 'generate-ai' ? 'default' : 'outline'}
+                  onClick={() => setResumeSubTab('generate-ai')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate with AI
+                </Button>
+                <Button
+                  variant={resumeSubTab === 'upload-analyze' ? 'default' : 'outline'}
+                  onClick={() => setResumeSubTab('upload-analyze')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload & Analyze
                 </Button>
               </div>
+            </div>
 
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={handleImportFileChange}
-                className="hidden"
-              />
-
-              <Card className="mb-4 bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <Upload className="h-5 w-5 text-blue-600" />
-                    <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">Import Existing Resume</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Upload a PDF resume to scan and save it to your library
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => importFileInputRef.current?.click()}
-                      disabled={importingResume || !clerkId}
-                    >
-                      {importingResume ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Importing...
-                        </>
-                      ) : (
-                        'Import'
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {loadingResumes ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (sortedResumes?.length ?? 0) === 0 ? (
+            {/* Generate with AI (Resumes) */}
+            {resumeSubTab === 'generate-ai' && (
+              <div className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>No resumes yet</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">
-                      Create your first resume to get started.
+                    <CardTitle>Generate Resume with AI</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Paste a job description and AI will create an optimized resume tailored to the
+                      role
                     </p>
-                    <Button onClick={createResume} disabled={!clerkId}>
-                      <Plus className="h-4 w-4 mr-2" /> New Resume
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <Textarea
+                        placeholder="Paste the job description here..."
+                        value={resumeJobDescription}
+                        onChange={(e) => setResumeJobDescription(e.target.value)}
+                        rows={12}
+                        className="resize-none"
+                      />
+                    </div>
+                    <Button
+                      onClick={generateResumeWithAI}
+                      disabled={!resumeJobDescription.trim() || generatingResume}
+                      className="w-full"
+                    >
+                      {generatingResume ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Generate Resume
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
-                  {sortedResumes.map((r) => (
-                    <Card
-                      key={r._id}
-                      className="group relative overflow-hidden border border-slate-100 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-lg hover:border-slate-200 transition-[shadow,border-color] duration-200 cursor-pointer rounded-2xl"
-                      onClick={() => setPreviewResume(r)}
-                    >
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <div className="flex-1 space-y-4 px-5 pt-5 pb-4 bg-gradient-to-br from-blue-50/80 via-white to-white">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="p-2.5 rounded-xl bg-blue-100 text-blue-600 shadow-sm group-hover:bg-blue-200 transition-colors">
-                                <FileText className="h-5 w-5" />
-                              </div>
-                              <div className="min-w-0">
-                                <h3 className="font-semibold text-sm text-slate-900 truncate">
-                                  {r.title || 'Untitled Resume'}
-                                </h3>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  Last updated {new Date(r.updated_at).toLocaleDateString()}
-                                </p>
+
+                {generatedResume && (
+                  <Card className="border-2 border-blue-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        AI-Generated Resume Preview
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <div className="space-y-4">
+                          {generatedResume.personalInfo && (
+                            <div>
+                              <h3 className="text-lg font-bold">
+                                {generatedResume.personalInfo.name}
+                              </h3>
+                              <div className="text-sm text-muted-foreground space-y-1 mt-1">
+                                {generatedResume.personalInfo.email && (
+                                  <div>{generatedResume.personalInfo.email}</div>
+                                )}
+                                {generatedResume.personalInfo.phone && (
+                                  <div>{generatedResume.personalInfo.phone}</div>
+                                )}
                               </div>
                             </div>
-                            {getResumeSourceBadge(r.source)}
-                          </div>
+                          )}
 
-                          <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-4 py-2 text-xs text-slate-500">
-                            <p>Created {new Date(r.created_at).toLocaleDateString()}</p>
-                            <p className="mt-0.5">
-                              Visibility:{' '}
-                              <span className="font-medium capitalize">{r.visibility}</span>
-                            </p>
-                          </div>
+                          {generatedResume.summary && (
+                            <div>
+                              <h4 className="font-semibold text-sm mb-2">Professional Summary</h4>
+                              <p className="text-sm text-gray-700">{generatedResume.summary}</p>
+                            </div>
+                          )}
 
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="justify-center gap-2 text-sm w-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewResume(r);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Preview
-                          </Button>
+                          {Array.isArray(generatedResume.skills) &&
+                            generatedResume.skills.length > 0 && (
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">Skills</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {generatedResume.skills.map((skill: string, idx: number) => (
+                                    <span
+                                      key={idx}
+                                      className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+                                    >
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                          {Array.isArray(generatedResume.experience) &&
+                            generatedResume.experience.length > 0 && (
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">Experience</h4>
+                                <div className="space-y-3">
+                                  {generatedResume.experience.map((exp: any, idx: number) => (
+                                    <div key={idx} className="border-l-2 border-blue-500 pl-3">
+                                      <h5 className="font-semibold text-sm">{exp.title}</h5>
+                                      <div className="text-xs text-muted-foreground">
+                                        {exp.company}
+                                        {(exp.startDate || exp.endDate) && (
+                                          <span>
+                                            {' '}
+                                            | {exp.startDate}
+                                            {exp.startDate && exp.endDate && ' - '}
+                                            {exp.endDate}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {exp.summary && (
+                                        <p className="text-xs mt-2 text-gray-700">{exp.summary}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                         </div>
+                      </div>
 
-                        <div
-                          className="flex items-center justify-between gap-3 px-5 py-3 border-t bg-white/90 rounded-b-2xl"
-                          onClick={(e) => e.stopPropagation()}
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={saveGeneratedResume}
+                          disabled={creatingResume}
+                          className="flex-1"
                         >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-2 px-3 text-sm"
-                            onClick={() => router.push(`/resumes/${r._id}`)}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-slate-500 hover:text-slate-900"
-                            onClick={() => duplicateResume(r._id, r.title)}
-                            title="Duplicate"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-slate-500 hover:text-slate-900"
-                            onClick={() => exportResumePDF(r)}
-                            title="Export as PDF"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-red-500 hover:text-red-600"
-                            onClick={() => deleteResume(r._id)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                          {creatingResume ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Saving...
+                            </>
+                          ) : (
+                            'Save Resume'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push('/account')}
+                          disabled={creatingResume}
+                          className="flex-1"
+                        >
+                          Optimize My Profile
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
-          {/* Generate with AI (Resumes) */}
-          {resumeSubTab === 'generate-ai' && (
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generate Resume with AI</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Paste a job description and AI will create an optimized resume tailored to the
-                    role
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Job Description</label>
-                    <Textarea
-                      placeholder="Paste the job description here..."
-                      value={resumeJobDescription}
-                      onChange={(e) => setResumeJobDescription(e.target.value)}
-                      rows={12}
-                      className="resize-none"
-                    />
-                  </div>
-                  <Button
-                    onClick={generateResumeWithAI}
-                    disabled={!resumeJobDescription.trim() || generatingResume}
-                    className="w-full"
-                  >
-                    {generatingResume ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Resume
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* Upload & Analyze (Resumes) */}
+            {resumeSubTab === 'upload-analyze' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload & Analyze Resume</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Upload a PDF and paste a job description to analyze your fit for the role
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Upload Resume (PDF)</label>
+                      <Input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                      />
+                      {uploadedFile && (
+                        <p className="text-sm text-muted-foreground mt-2 truncate">
+                          Selected: {uploadedFile.name}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <Textarea
+                        placeholder="Paste the job description here..."
+                        value={analyzeJobDescription}
+                        onChange={(e) => setAnalyzeJobDescription(e.target.value)}
+                        rows={10}
+                        className="resize-none"
+                      />
+                    </div>
+                    <Button
+                      onClick={analyzeResume}
+                      disabled={!uploadedFile || !analyzeJobDescription.trim() || analyzingResume}
+                      className="w-full"
+                    >
+                      {analyzingResume ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Analyze Resume
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
 
-              {generatedResume && (
-                <Card className="border-2 border-blue-200">
+                <Card className="border-2 min-h-[420px]" style={{ borderColor: '#5270ff' }}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-600" />
-                      AI-Generated Resume Preview
+                      <AlertCircle className="h-5 w-5" style={{ color: '#5270ff' }} />
+                      AI Analysis Results
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                    {analyzingResume && (
+                      <div className="flex items-center justify-center h-40 text-muted-foreground">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        Analyzing your resume...
+                      </div>
+                    )}
+
+                    {!analyzingResume && !resumeAnalysisResult && (
+                      <div className="text-sm text-muted-foreground">
+                        Submit your resume and job description to see a score and suggestions here.
+                      </div>
+                    )}
+
+                    {!analyzingResume && resumeAnalysisResult && (
                       <div className="space-y-4">
-                        {generatedResume.personalInfo && (
-                          <div>
-                            <h3 className="text-lg font-bold">
-                              {generatedResume.personalInfo.name}
-                            </h3>
-                            <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                              {generatedResume.personalInfo.email && (
-                                <div>{generatedResume.personalInfo.email}</div>
-                              )}
-                              {generatedResume.personalInfo.phone && (
-                                <div>{generatedResume.personalInfo.phone}</div>
-                              )}
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
+                          <div className="text-center">
+                            <div className="text-4xl font-bold text-blue-600">
+                              {resumeAnalysisResult.score}%
                             </div>
+                            <div className="text-sm text-muted-foreground mt-1">Match Score</div>
                           </div>
-                        )}
+                          {resumeAnalysisResult.summary && (
+                            <p className="text-sm text-gray-700 mt-3 text-center">
+                              {resumeAnalysisResult.summary}
+                            </p>
+                          )}
+                        </div>
 
-                        {generatedResume.summary && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">Professional Summary</h4>
-                            <p className="text-sm text-gray-700">{generatedResume.summary}</p>
-                          </div>
-                        )}
-
-                        {Array.isArray(generatedResume.skills) &&
-                          generatedResume.skills.length > 0 && (
+                        {Array.isArray(resumeAnalysisResult.strengths) &&
+                          resumeAnalysisResult.strengths.length > 0 && (
                             <div>
-                              <h4 className="font-semibold text-sm mb-2">Skills</h4>
+                              <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                                <span className="text-blue-600">#</span> Matching Keywords
+                              </h4>
                               <div className="flex flex-wrap gap-2">
-                                {generatedResume.skills.map((skill: string, idx: number) => (
+                                {resumeAnalysisResult.strengths.map((s: string, i: number) => (
                                   <span
-                                    key={idx}
-                                    className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+                                    key={i}
+                                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs"
                                   >
-                                    {skill}
+                                    {s}
                                   </span>
                                 ))}
                               </div>
                             </div>
                           )}
 
-                        {Array.isArray(generatedResume.experience) &&
-                          generatedResume.experience.length > 0 && (
+                        {Array.isArray(resumeAnalysisResult.gaps) &&
+                          resumeAnalysisResult.gaps.length > 0 && (
                             <div>
-                              <h4 className="font-semibold text-sm mb-2">Experience</h4>
-                              <div className="space-y-3">
-                                {generatedResume.experience.map((exp: any, idx: number) => (
-                                  <div key={idx} className="border-l-2 border-blue-500 pl-3">
-                                    <h5 className="font-semibold text-sm">{exp.title}</h5>
-                                    <div className="text-xs text-muted-foreground">
-                                      {exp.company}
-                                      {(exp.startDate || exp.endDate) && (
-                                        <span>
-                                          {' '}
-                                          | {exp.startDate}
-                                          {exp.startDate && exp.endDate && ' - '}
-                                          {exp.endDate}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {exp.summary && (
-                                      <p className="text-xs mt-2 text-gray-700">{exp.summary}</p>
-                                    )}
-                                  </div>
+                              <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                                <span className="text-orange-600">!</span> Missing Keywords
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {resumeAnalysisResult.gaps.map((g: string, i: number) => (
+                                  <span
+                                    key={i}
+                                    className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs"
+                                  >
+                                    {g}
+                                  </span>
                                 ))}
                               </div>
                             </div>
                           )}
-                      </div>
-                    </div>
 
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={saveGeneratedResume}
-                        disabled={creatingResume}
-                        className="flex-1"
-                      >
-                        {creatingResume ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Resume'
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => router.push('/account')}
-                        disabled={creatingResume}
-                        className="flex-1"
-                      >
-                        Optimize My Profile
-                      </Button>
-                    </div>
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Create an AI-optimized resume that addresses the gaps identified in the
+                            analysis.
+                          </AlertDescription>
+                        </Alert>
+
+                        <Button
+                          onClick={optimizeAnalyzedResume}
+                          disabled={creatingResume}
+                          className="w-full"
+                        >
+                          {creatingResume ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Optimizing...
+                            </>
+                          ) : (
+                            'Optimize Resume'
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </>
+        )}
 
-          {/* Upload & Analyze (Resumes) */}
-          {resumeSubTab === 'upload-analyze' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upload & Analyze Resume</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Upload a PDF and paste a job description to analyze your fit for the role
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Upload Resume (PDF)</label>
-                    <Input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
-                    />
-                    {uploadedFile && (
-                      <p className="text-sm text-muted-foreground mt-2 truncate">
-                        Selected: {uploadedFile.name}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Job Description</label>
-                    <Textarea
-                      placeholder="Paste the job description here..."
-                      value={analyzeJobDescription}
-                      onChange={(e) => setAnalyzeJobDescription(e.target.value)}
-                      rows={10}
-                      className="resize-none"
-                    />
-                  </div>
-                  <Button
-                    onClick={analyzeResume}
-                    disabled={!uploadedFile || !analyzeJobDescription.trim() || analyzingResume}
-                    className="w-full"
+        {/* ================================================================== */}
+        {/* COVER LETTERS SECTION */}
+        {/* ================================================================== */}
+        {mainTab === 'cover-letters' && (
+          <>
+            {loadingCoverLetters ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-6">
+                {/* Existing Cover Letters - Horizontal Cards */}
+                {sortedCoverLetters.map((c) => (
+                  <div
+                    key={c._id}
+                    className="flex bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow w-full md:w-[calc(50%-12px)]"
                   >
-                    {analyzingResume ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Analyze Resume
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 min-h-[420px]" style={{ borderColor: '#5270ff' }}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" style={{ color: '#5270ff' }} />
-                    AI Analysis Results
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {analyzingResume && (
-                    <div className="flex items-center justify-center h-40 text-muted-foreground">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      Analyzing your resume...
-                    </div>
-                  )}
-
-                  {!analyzingResume && !resumeAnalysisResult && (
-                    <div className="text-sm text-muted-foreground">
-                      Submit your resume and job description to see a score and suggestions here.
-                    </div>
-                  )}
-
-                  {!analyzingResume && resumeAnalysisResult && (
-                    <div className="space-y-4">
-                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
-                        <div className="text-center">
-                          <div className="text-4xl font-bold text-blue-600">
-                            {resumeAnalysisResult.score}%
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">Match Score</div>
-                        </div>
-                        {resumeAnalysisResult.summary && (
-                          <p className="text-sm text-gray-700 mt-3 text-center">
-                            {resumeAnalysisResult.summary}
-                          </p>
-                        )}
+                    {/* Thumbnail */}
+                    <div
+                      className="w-32 min-h-[180px] bg-gradient-to-br from-purple-700 to-purple-900 flex-shrink-0 cursor-pointer relative group"
+                      onClick={() => setPreviewLetter(c)}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Mail className="h-8 w-8 text-white/30" />
                       </div>
-
-                      {Array.isArray(resumeAnalysisResult.strengths) &&
-                        resumeAnalysisResult.strengths.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                              <span className="text-blue-600">#</span> Matching Keywords
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {resumeAnalysisResult.strengths.map((s: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs"
-                                >
-                                  {s}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                      {Array.isArray(resumeAnalysisResult.gaps) &&
-                        resumeAnalysisResult.gaps.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                              <span className="text-orange-600">!</span> Missing Keywords
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {resumeAnalysisResult.gaps.map((g: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs"
-                                >
-                                  {g}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Create an AI-optimized resume that addresses the gaps identified in the
-                          analysis.
-                        </AlertDescription>
-                      </Alert>
-
-                      <Button
-                        onClick={optimizeAnalyzedResume}
-                        disabled={creatingResume}
-                        className="w-full"
-                      >
-                        {creatingResume ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Optimizing...
-                          </>
-                        ) : (
-                          'Optimize Resume'
-                        )}
-                      </Button>
+                      <div className="absolute top-2 left-2 right-2">
+                        <div className="text-[6px] text-white/60 font-medium truncate">
+                          {c.name || 'Untitled'}
+                        </div>
+                        <div className="h-0.5 bg-white/20 mt-1 w-3/4" />
+                        <div className="h-0.5 bg-white/20 mt-0.5 w-1/2" />
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
 
-      {/* ================================================================== */}
-      {/* COVER LETTERS SECTION */}
-      {/* ================================================================== */}
-      {mainTab === 'cover-letters' && (
-        <>
-          {/* Cover Letter Sub-tabs */}
-          <div className="mb-6 flex gap-2">
-            <Button
-              variant={coverLetterSubTab === 'my-letters' ? 'default' : 'outline'}
-              onClick={() => setCoverLetterSubTab('my-letters')}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              My Cover Letters
-            </Button>
-            <Button
-              variant={coverLetterSubTab === 'generate-ai' ? 'default' : 'outline'}
-              onClick={() => setCoverLetterSubTab('generate-ai')}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Generate with AI
-            </Button>
-            <Button
-              variant={coverLetterSubTab === 'upload-analyze' ? 'default' : 'outline'}
-              onClick={() => setCoverLetterSubTab('upload-analyze')}
-              className="flex items-center gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Upload & Analyze
-            </Button>
-          </div>
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex flex-col min-w-0">
+                      <div className="flex items-start gap-2 mb-1">
+                        <button
+                          type="button"
+                          className="font-medium text-slate-900 truncate cursor-pointer hover:text-primary-500 text-left"
+                          onClick={() => router.push(`/cover-letters/${c._id}`)}
+                        >
+                          {c.name || 'Untitled'}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-slate-600"
+                          onClick={() => router.push(`/cover-letters/${c._id}`)}
+                          title="Edit"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {c.company_name ? `${c.job_title} @ ${c.company_name}` : c.job_title}
+                      </p>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Updated{' '}
+                        {new Date(c.updated_at).toLocaleDateString('en-US', {
+                          day: 'numeric',
+                          month: 'long',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
 
-          {/* My Cover Letters */}
-          {coverLetterSubTab === 'my-letters' && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Your Cover Letters</h2>
-                <Button
+                      {/* Action Links */}
+                      <div className="space-y-1.5 mt-auto">
+                        <button
+                          className="flex items-center gap-2 text-sm text-primary-500 hover:text-primary-600"
+                          onClick={() => setCoverLetterSubTab('upload-analyze')}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Improve with AI
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => exportCoverLetter(c)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download PDF
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => duplicateCoverLetter(c._id, c.name)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Duplicate
+                        </button>
+                        <button
+                          className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                          onClick={() => deleteCoverLetter(c._id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* New Cover Letter Card */}
+                <div
+                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)]"
                   onClick={handleCreateCoverLetter}
-                  disabled={creatingCoverLetter || !clerkId}
                 >
-                  {creatingCoverLetter ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
-                  )}{' '}
-                  New Cover Letter
+                  {/* Placeholder Thumbnail */}
+                  <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 p-4 flex flex-col justify-center">
+                    <h3 className="font-medium text-primary-500 mb-1">New Cover Letter</h3>
+                    <p className="text-sm text-slate-500">
+                      Create a personalized cover letter for each job application. Stand out from
+                      other applicants!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tabs for AI features - shown below the cards */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="flex gap-2 mb-6">
+                <Button
+                  variant={coverLetterSubTab === 'my-letters' ? 'default' : 'outline'}
+                  onClick={() => setCoverLetterSubTab('my-letters')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <FileText className="h-4 w-4" />
+                  My Cover Letters
+                </Button>
+                <Button
+                  variant={coverLetterSubTab === 'generate-ai' ? 'default' : 'outline'}
+                  onClick={() => setCoverLetterSubTab('generate-ai')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate with AI
+                </Button>
+                <Button
+                  variant={coverLetterSubTab === 'upload-analyze' ? 'default' : 'outline'}
+                  onClick={() => setCoverLetterSubTab('upload-analyze')}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload & Analyze
                 </Button>
               </div>
+            </div>
 
-              {loadingCoverLetters ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (sortedCoverLetters?.length ?? 0) === 0 ? (
+            {/* Generate with AI (Cover Letters) */}
+            {coverLetterSubTab === 'generate-ai' && (
+              <div>
                 <Card>
                   <CardHeader>
-                    <CardTitle>No cover letters yet</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">
-                      Create your first cover letter to get started.
+                    <CardTitle>Generate Cover Letter with AI</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Paste a job description and AI will create a tailored cover letter for the
+                      role
                     </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Company Name</label>
+                        <Input
+                          placeholder="e.g. Acme Corporation"
+                          value={clJobCompany}
+                          onChange={(e) => setClJobCompany(e.target.value)}
+                          disabled={generatingCoverLetter}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Role / Position</label>
+                        <Input
+                          placeholder="e.g. Senior Product Manager"
+                          value={clJobRole}
+                          onChange={(e) => setClJobRole(e.target.value)}
+                          disabled={generatingCoverLetter}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <Textarea
+                        placeholder="Paste the job description here..."
+                        value={clJobDescription}
+                        onChange={(e) => setClJobDescription(e.target.value)}
+                        rows={12}
+                        className="resize-none"
+                        disabled={generatingCoverLetter}
+                      />
+                    </div>
                     <Button
-                      onClick={handleCreateCoverLetter}
-                      disabled={creatingCoverLetter || !clerkId}
+                      onClick={generateCoverLetterWithAI}
+                      disabled={
+                        !clJobDescription.trim() ||
+                        !clJobRole.trim() ||
+                        !clJobCompany.trim() ||
+                        generatingCoverLetter
+                      }
+                      className="w-full"
                     >
-                      {creatingCoverLetter ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {generatingCoverLetter ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Generating...
+                        </>
                       ) : (
-                        <Plus className="h-4 w-4 mr-2" />
-                      )}{' '}
-                      New Cover Letter
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Generate Cover Letter
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
-                  {sortedCoverLetters.map((c) => (
-                    <Card
-                      key={c._id}
-                      className="group relative overflow-hidden border border-slate-100 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-lg transition-shadow cursor-pointer rounded-2xl"
-                      onClick={() => setPreviewLetter(c)}
-                    >
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <div className="flex-1 space-y-4 px-5 pt-5 pb-4 bg-gradient-to-br from-purple-50/80 via-white to-white">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="p-2.5 rounded-xl bg-purple-100 text-purple-600 shadow-sm group-hover:bg-purple-200 transition-colors">
-                                <FileText className="h-5 w-5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h3 className="font-semibold text-sm text-slate-900 truncate">
-                                  {c.name || 'Untitled Cover Letter'}
-                                </h3>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  Last updated {new Date(c.updated_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0">
-                              {getCoverLetterSourceBadge(c.source)}
-                            </div>
-                          </div>
+              </div>
+            )}
 
-                          <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-4 py-2 text-xs text-slate-500">
-                            <p>Created {new Date(c.created_at).toLocaleDateString()}</p>
-                            <p className="mt-0.5 truncate">
-                              {c.company_name ? `${c.job_title} @ ${c.company_name}` : c.job_title}
-                            </p>
-                          </div>
-
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="justify-center gap-2 text-sm w-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewLetter(c);
-                            }}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            Preview
-                          </Button>
-                        </div>
-
-                        <div
-                          className="flex items-center justify-between gap-3 px-5 py-3 border-t bg-white/90 rounded-b-2xl"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-2 px-3 text-sm"
-                            onClick={() => router.push(`/cover-letters/${c._id}`)}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-slate-500 hover:text-slate-900"
-                            onClick={() => duplicateCoverLetter(c._id, c.name)}
-                            title="Duplicate"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-slate-500 hover:text-slate-900"
-                            onClick={() => exportCoverLetter(c)}
-                            title="Export as PDF"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-red-500 hover:text-red-600"
-                            onClick={() => deleteCoverLetter(c._id)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Generate with AI (Cover Letters) */}
-          {coverLetterSubTab === 'generate-ai' && (
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generate Cover Letter with AI</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Paste a job description and AI will create a tailored cover letter for the role
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Company Name</label>
-                      <Input
-                        placeholder="e.g. Acme Corporation"
-                        value={clJobCompany}
-                        onChange={(e) => setClJobCompany(e.target.value)}
-                        disabled={generatingCoverLetter}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Role / Position</label>
-                      <Input
-                        placeholder="e.g. Senior Product Manager"
-                        value={clJobRole}
-                        onChange={(e) => setClJobRole(e.target.value)}
-                        disabled={generatingCoverLetter}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Job Description</label>
-                    <Textarea
-                      placeholder="Paste the job description here..."
-                      value={clJobDescription}
-                      onChange={(e) => setClJobDescription(e.target.value)}
-                      rows={12}
-                      className="resize-none"
-                      disabled={generatingCoverLetter}
-                    />
-                  </div>
-                  <Button
-                    onClick={generateCoverLetterWithAI}
-                    disabled={
-                      !clJobDescription.trim() ||
-                      !clJobRole.trim() ||
-                      !clJobCompany.trim() ||
-                      generatingCoverLetter
-                    }
-                    className="w-full"
-                  >
-                    {generatingCoverLetter ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Cover Letter
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Upload & Analyze (Cover Letters) */}
-          {coverLetterSubTab === 'upload-analyze' && (
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upload & Analyze Cover Letter</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Paste your cover letter and the target job description to understand fit and
-                    next steps
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">
-                        Target Role (optional)
-                      </label>
-                      <Input
-                        placeholder="e.g. Product Marketing Manager"
-                        value={clAnalyzeRole}
-                        onChange={(e) => setClAnalyzeRole(e.target.value)}
-                        disabled={analyzingCoverLetter}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Company (optional)</label>
-                      <Input
-                        placeholder="e.g. Northwind Labs"
-                        value={clAnalyzeCompany}
-                        onChange={(e) => setClAnalyzeCompany(e.target.value)}
-                        disabled={analyzingCoverLetter}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Cover Letter</label>
-                    <Textarea
-                      placeholder="Paste the cover letter you want to analyze..."
-                      value={coverLetterDraft}
-                      onChange={(e) => setCoverLetterDraft(e.target.value)}
-                      rows={10}
-                      className="resize-none"
-                      disabled={analyzingCoverLetter}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      We analyze exactly what you paste here—no files required.
+            {/* Upload & Analyze (Cover Letters) */}
+            {coverLetterSubTab === 'upload-analyze' && (
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload & Analyze Cover Letter</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Paste your cover letter and the target job description to understand fit and
+                      next steps
                     </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Job Description</label>
-                    <Textarea
-                      placeholder="Paste the target job description..."
-                      value={clAnalyzeJobDescription}
-                      onChange={(e) => setClAnalyzeJobDescription(e.target.value)}
-                      rows={8}
-                      className="resize-none"
-                      disabled={analyzingCoverLetter}
-                    />
-                  </div>
-                  <Button
-                    onClick={analyzeCoverLetter}
-                    disabled={
-                      !coverLetterDraft.trim() ||
-                      !clAnalyzeJobDescription.trim() ||
-                      analyzingCoverLetter
-                    }
-                    className="w-full"
-                  >
-                    {analyzingCoverLetter ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Analyze Cover Letter
-                      </>
-                    )}
-                  </Button>
-
-                  {clAnalysisResult && (
-                    <div className="space-y-4">
-                      <div className="rounded-lg bg-blue-50 border border-blue-100 p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
-                          <h3 className="text-lg font-semibold text-blue-900">Strengths</h3>
-                        </div>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                          {clAnalysisResult.strengths.length ? (
-                            clAnalysisResult.strengths.map((item, idx) => (
-                              <li key={`strength-${idx}`} className="flex items-start gap-2">
-                                <span className="text-blue-600 mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <li className="flex items-start gap-2">
-                              <span className="text-blue-600 mt-0.5">•</span>
-                              <span>Nothing highlighted yet.</span>
-                            </li>
-                          )}
-                        </ul>
-
-                        <div className="flex items-center gap-2 mt-6 mb-4">
-                          <div className="h-6 w-1 bg-yellow-600 rounded-full"></div>
-                          <h3 className="text-lg font-semibold text-yellow-900">
-                            Areas to Improve
-                          </h3>
-                        </div>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                          {clAnalysisResult.gaps.length ? (
-                            clAnalysisResult.gaps.map((item, idx) => (
-                              <li key={`gap-${idx}`} className="flex items-start gap-2">
-                                <span className="text-yellow-600 mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <li className="flex items-start gap-2">
-                              <span className="text-yellow-600 mt-0.5">•</span>
-                              <span>No major gaps detected.</span>
-                            </li>
-                          )}
-                        </ul>
-
-                        <div className="flex items-center gap-2 mt-6 mb-4">
-                          <div className="h-6 w-1 bg-purple-600 rounded-full"></div>
-                          <h3 className="text-lg font-semibold text-purple-900">Suggestions</h3>
-                        </div>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                          {clAnalysisResult.recommendations.length ? (
-                            clAnalysisResult.recommendations.map((item, idx) => (
-                              <li key={`rec-${idx}`} className="flex items-start gap-2">
-                                <span className="text-purple-600 mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))
-                          ) : (
-                            <li className="flex items-start gap-2">
-                              <span className="text-purple-600 mt-0.5">•</span>
-                              <span>Nothing to update right now.</span>
-                            </li>
-                          )}
-                        </ul>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Target Role (optional)
+                        </label>
+                        <Input
+                          placeholder="e.g. Product Marketing Manager"
+                          value={clAnalyzeRole}
+                          onChange={(e) => setClAnalyzeRole(e.target.value)}
+                          disabled={analyzingCoverLetter}
+                        />
                       </div>
-
-                      {clAnalysisResult.optimizedLetter && (
-                        <div className="rounded-lg bg-gray-50 border border-gray-200 p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <div className="h-6 w-1 bg-green-600 rounded-full"></div>
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                Optimized Cover Letter
-                              </h3>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowOptimized((prev) => !prev)}
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              {showOptimized ? 'Hide' : 'Show'}
-                            </Button>
-                          </div>
-
-                          {showOptimized && (
-                            <>
-                              <div className="rounded-md bg-white border border-gray-200 p-6 text-sm text-gray-800 whitespace-pre-wrap max-h-96 overflow-y-auto">
-                                {clAnalysisResult.optimizedLetter}
-                              </div>
-                              <div className="flex gap-2 mt-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(
-                                      clAnalysisResult.optimizedLetter || '',
-                                    );
-                                    toast({
-                                      title: 'Copied!',
-                                      description: 'Optimized letter copied to clipboard',
-                                      variant: 'success',
-                                    });
-                                  }}
-                                >
-                                  <Copy className="mr-2 h-4 w-4" />
-                                  Copy
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={saveOptimizedCoverLetter}
-                                  disabled={savingOptimized}
-                                  className="bg-primary-500 hover:bg-primary-700"
-                                >
-                                  {savingOptimized ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Saving...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Download className="mr-2 h-4 w-4" />
-                                      Save Optimized Version
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Company (optional)</label>
+                        <Input
+                          placeholder="e.g. Northwind Labs"
+                          value={clAnalyzeCompany}
+                          onChange={(e) => setClAnalyzeCompany(e.target.value)}
+                          disabled={analyzingCoverLetter}
+                        />
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Cover Letter</label>
+                      <Textarea
+                        placeholder="Paste the cover letter you want to analyze..."
+                        value={coverLetterDraft}
+                        onChange={(e) => setCoverLetterDraft(e.target.value)}
+                        rows={10}
+                        className="resize-none"
+                        disabled={analyzingCoverLetter}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        We analyze exactly what you paste here—no files required.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <Textarea
+                        placeholder="Paste the target job description..."
+                        value={clAnalyzeJobDescription}
+                        onChange={(e) => setClAnalyzeJobDescription(e.target.value)}
+                        rows={8}
+                        className="resize-none"
+                        disabled={analyzingCoverLetter}
+                      />
+                    </div>
+                    <Button
+                      onClick={analyzeCoverLetter}
+                      disabled={
+                        !coverLetterDraft.trim() ||
+                        !clAnalyzeJobDescription.trim() ||
+                        analyzingCoverLetter
+                      }
+                      className="w-full"
+                    >
+                      {analyzingCoverLetter ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Analyze Cover Letter
+                        </>
+                      )}
+                    </Button>
 
-      {/* Modals */}
+                    {clAnalysisResult && (
+                      <div className="space-y-4">
+                        <div className="rounded-lg bg-blue-50 border border-blue-100 p-6">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
+                            <h3 className="text-lg font-semibold text-blue-900">Strengths</h3>
+                          </div>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            {clAnalysisResult.strengths.length ? (
+                              clAnalysisResult.strengths.map((item, idx) => (
+                                <li key={`strength-${idx}`} className="flex items-start gap-2">
+                                  <span className="text-blue-600 mt-0.5">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="flex items-start gap-2">
+                                <span className="text-blue-600 mt-0.5">•</span>
+                                <span>Nothing highlighted yet.</span>
+                              </li>
+                            )}
+                          </ul>
+
+                          <div className="flex items-center gap-2 mt-6 mb-4">
+                            <div className="h-6 w-1 bg-yellow-600 rounded-full"></div>
+                            <h3 className="text-lg font-semibold text-yellow-900">
+                              Areas to Improve
+                            </h3>
+                          </div>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            {clAnalysisResult.gaps.length ? (
+                              clAnalysisResult.gaps.map((item, idx) => (
+                                <li key={`gap-${idx}`} className="flex items-start gap-2">
+                                  <span className="text-yellow-600 mt-0.5">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="flex items-start gap-2">
+                                <span className="text-yellow-600 mt-0.5">•</span>
+                                <span>No major gaps detected.</span>
+                              </li>
+                            )}
+                          </ul>
+
+                          <div className="flex items-center gap-2 mt-6 mb-4">
+                            <div className="h-6 w-1 bg-purple-600 rounded-full"></div>
+                            <h3 className="text-lg font-semibold text-purple-900">Suggestions</h3>
+                          </div>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            {clAnalysisResult.recommendations.length ? (
+                              clAnalysisResult.recommendations.map((item, idx) => (
+                                <li key={`rec-${idx}`} className="flex items-start gap-2">
+                                  <span className="text-purple-600 mt-0.5">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="flex items-start gap-2">
+                                <span className="text-purple-600 mt-0.5">•</span>
+                                <span>Nothing to update right now.</span>
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+
+                        {clAnalysisResult.optimizedLetter && (
+                          <div className="rounded-lg bg-gray-50 border border-gray-200 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center gap-2">
+                                <div className="h-6 w-1 bg-green-600 rounded-full"></div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  Optimized Cover Letter
+                                </h3>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowOptimized((prev) => !prev)}
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                {showOptimized ? 'Hide' : 'Show'}
+                              </Button>
+                            </div>
+
+                            {showOptimized && (
+                              <>
+                                <div className="rounded-md bg-white border border-gray-200 p-6 text-sm text-gray-800 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                                  {clAnalysisResult.optimizedLetter}
+                                </div>
+                                <div className="flex gap-2 mt-4">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(
+                                        clAnalysisResult.optimizedLetter || '',
+                                      );
+                                      toast({
+                                        title: 'Copied!',
+                                        description: 'Optimized letter copied to clipboard',
+                                        variant: 'success',
+                                      });
+                                    }}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={saveOptimizedCoverLetter}
+                                    disabled={savingOptimized}
+                                    className="bg-primary-500 hover:bg-primary-700"
+                                  >
+                                    {savingOptimized ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Save Optimized Version
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Modals - outside the white wrapper */}
       {previewResume && (
         <ResumePreviewModal
           open={!!previewResume}

@@ -125,6 +125,8 @@ export function CareerProfileContent() {
   const createProjectMutation = useMutation(api.projects.createProject);
   const updateProjectMutation = useMutation(api.projects.updateProject);
   const deleteProjectMutation = useMutation(api.projects.deleteProject);
+  const generateProjectImageUploadUrl = useMutation(api.projects.generateProjectImageUploadUrl);
+  const updateProjectImage = useMutation(api.projects.updateProjectImage);
 
   const isFreeUser = !hasPremium;
 
@@ -202,9 +204,11 @@ export function CareerProfileContent() {
     company: '',
     start_date: '',
     end_date: '',
-    image_url: '',
+    image_url: '', // Legacy field for display preview during form editing
     type: 'personal',
   });
+  // Store the actual file for new projects (uploaded on save)
+  const [pendingProjectImageFile, setPendingProjectImageFile] = useState<File | null>(null);
 
   // Avatar mutations
   const generateAvatarUploadUrl = useMutation(api.avatar.generateAvatarUploadUrl);
@@ -284,21 +288,22 @@ export function CareerProfileContent() {
     try {
       if (!clerkUser) throw new Error('No user found');
 
+      // Use undefined check instead of truthiness to allow clearing fields with empty strings
       const updates: any = {};
-      if (data.bio) updates.bio = data.bio;
-      if (data.email) updates.email = data.email;
-      if (data.phone_number) updates.phone_number = data.phone_number;
-      if (data.city) updates.city = data.city;
-      if (data.linkedin_url) updates.linkedin_url = data.linkedin_url;
-      if (data.major) updates.major = data.major;
-      if (data.university_name) updates.university_name = data.university_name;
-      if (data.graduation_year) updates.graduation_year = data.graduation_year;
-      if (data.current_position) updates.current_position = data.current_position;
-      if (data.current_company) updates.current_company = data.current_company;
-      if (data.experience_level) updates.experience_level = data.experience_level;
-      if (data.industry) updates.industry = data.industry;
-      if (data.skills) updates.skills = data.skills;
-      if (data.career_goals) updates.career_goals = data.career_goals;
+      if (data.bio !== undefined) updates.bio = data.bio;
+      if (data.email !== undefined) updates.email = data.email;
+      if (data.phone_number !== undefined) updates.phone_number = data.phone_number;
+      if (data.city !== undefined) updates.city = data.city;
+      if (data.linkedin_url !== undefined) updates.linkedin_url = data.linkedin_url;
+      if (data.major !== undefined) updates.major = data.major;
+      if (data.university_name !== undefined) updates.university_name = data.university_name;
+      if (data.graduation_year !== undefined) updates.graduation_year = data.graduation_year;
+      if (data.current_position !== undefined) updates.current_position = data.current_position;
+      if (data.current_company !== undefined) updates.current_company = data.current_company;
+      if (data.experience_level !== undefined) updates.experience_level = data.experience_level;
+      if (data.industry !== undefined) updates.industry = data.industry;
+      if (data.skills !== undefined) updates.skills = data.skills;
+      if (data.career_goals !== undefined) updates.career_goals = data.career_goals;
 
       await updateUser({
         clerkId: clerkUser.id,
@@ -745,6 +750,7 @@ export function CareerProfileContent() {
       image_url: '',
       type: 'personal',
     });
+    setPendingProjectImageFile(null);
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -752,6 +758,22 @@ export function CareerProfileContent() {
     if (!clerkUser?.id || !isViewingOwnProfile) return;
 
     try {
+      // If there's a pending image file, upload to storage first
+      let imageStorageId: string | undefined;
+      if (pendingProjectImageFile) {
+        const uploadUrl = await generateProjectImageUploadUrl();
+        const uploadResult = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': pendingProjectImageFile.type },
+          body: pendingProjectImageFile,
+        });
+
+        if (!uploadResult.ok) throw new Error('Failed to upload image');
+
+        const { storageId } = await uploadResult.json();
+        imageStorageId = storageId;
+      }
+
       await createProjectMutation({
         clerkId: clerkUser.id,
         title: projectFormData.title,
@@ -765,7 +787,8 @@ export function CareerProfileContent() {
         github_url: projectFormData.github_url || undefined,
         role: projectFormData.role || undefined,
         company: projectFormData.company || undefined,
-        image_url: projectFormData.image_url || undefined,
+        // Use storage ID if available, otherwise don't include legacy base64
+        image_storage_id: imageStorageId,
         start_date: projectFormData.start_date
           ? new Date(projectFormData.start_date).getTime()
           : undefined,
@@ -781,6 +804,7 @@ export function CareerProfileContent() {
       });
       setShowProjectForm(false);
       resetProjectForm();
+      setPendingProjectImageFile(null);
     } catch (error: any) {
       if (error?.message?.includes('Free plan limit reached')) {
         setShowProjectForm(false);
@@ -890,32 +914,44 @@ export function CareerProfileContent() {
     const file = e.target.files?.[0];
     if (!file || !clerkUser?.id) return;
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const imageUrl = reader.result as string;
+    if (projectId) {
+      // Existing project: Upload to Convex storage immediately
+      try {
+        const uploadUrl = await generateProjectImageUploadUrl();
+        const uploadResult = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
 
-      if (projectId) {
-        try {
-          await updateProjectMutation({
-            clerkId: clerkUser.id,
-            projectId: projectId as any,
-            updates: {
-              image_url: imageUrl,
-            },
-          });
-          toast({ title: 'Image uploaded', variant: 'success' });
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: 'Failed to upload image.',
-            variant: 'destructive',
-          });
-        }
-      } else {
-        setProjectFormData({ ...projectFormData, image_url: imageUrl });
+        if (!uploadResult.ok) throw new Error('Failed to upload image');
+
+        const { storageId } = await uploadResult.json();
+
+        await updateProjectImage({
+          clerkId: clerkUser.id,
+          projectId: projectId as any,
+          storageId,
+        });
+
+        toast({ title: 'Image uploaded', variant: 'success' });
+      } catch {
+        toast({
+          title: 'Error',
+          description: 'Failed to upload image.',
+          variant: 'destructive',
+        });
       }
-    };
-    reader.readAsDataURL(file);
+    } else {
+      // New project: Store file for later upload, show preview
+      setPendingProjectImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const previewUrl = reader.result as string;
+        setProjectFormData({ ...projectFormData, image_url: previewUrl });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const formatProjectDate = (timestamp?: number) => {
@@ -1517,6 +1553,7 @@ export function CareerProfileContent() {
                         alt={project.title}
                         fill
                         className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center">

@@ -621,16 +621,15 @@ export function DashboardHeader({
   return (
     <div className="space-y-5">
       {/* Row 1: Greeting */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Hi {userName || 'there'}!</h1>
-          <p className="text-base text-slate-500 mt-0.5">What&apos;s your goal today?</p>
-        </div>
-
-        <span className="inline-flex self-start sm:self-auto items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-primary-600">
+      <div className="flex flex-col sm:relative items-center sm:items-stretch gap-2 sm:gap-0">
+        <span className="sm:absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-primary-600">
           <TrendingUp className="h-3.5 w-3.5" />
           This week: {thisWeekActions} action{thisWeekActions !== 1 ? 's' : ''}
         </span>
+        <div className="text-center sm:pt-1">
+          <h1 className="text-2xl font-bold text-slate-900">Hi {userName || 'there'}!</h1>
+          <p className="text-base text-slate-500 mt-0.5">What&apos;s your goal today?</p>
+        </div>
       </div>
 
       {/* Row 2: Stage Tabs */}
