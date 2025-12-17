@@ -128,6 +128,10 @@ const config = {
         "gradient-x": {
           "0%, 100%": { backgroundPosition: "0% 50%" },
           "50%": { backgroundPosition: "100% 50%" }
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" }
         }
       },
       animation: {
@@ -137,7 +141,8 @@ const config = {
         bounce: "bounce 1s ease-in-out infinite",
         slideDown: "slideDown 300ms cubic-bezier(0.87, 0, 0.13, 1)",
         slideUp: "slideUp 300ms cubic-bezier(0.87, 0, 0.13, 1)",
-        "gradient-x": "gradient-x 3s ease infinite"
+        "gradient-x": "gradient-x 3s ease infinite",
+        shimmer: "shimmer 2s ease-in-out infinite"
       },
       borderRadius: {
         lg: "var(--radius)",

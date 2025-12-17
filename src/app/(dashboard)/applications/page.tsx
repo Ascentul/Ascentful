@@ -186,19 +186,19 @@ export default function ApplicationsPage() {
   // Handle undo for Kanban moves
   const handleUndoMove = useCallback(
     async (applicationId: string, targetStatus: ApplicationStatus) => {
-      if (!user?.id || !filteredKanbanData) return;
+      if (!user?.id || !kanbanData) return;
 
-      // Find current status to track for analytics
+      // Find current status to track for analytics (use unfiltered data for reliability)
       let currentStatus: ApplicationStatus | undefined;
-      for (const [status, apps] of Object.entries(filteredKanbanData)) {
+      for (const [status, apps] of Object.entries(kanbanData)) {
         if (apps.find((a) => a._id === applicationId)) {
           currentStatus = status as ApplicationStatus;
           break;
         }
       }
 
-      // Move to end of target column
-      const targetApps = filteredKanbanData[targetStatus] || [];
+      // Move to end of target column (use unfiltered data for correct positioning)
+      const targetApps = kanbanData[targetStatus] || [];
       const lastApp = targetApps[targetApps.length - 1];
 
       await moveMutation({
@@ -218,7 +218,7 @@ export default function ApplicationsPage() {
         });
       }
     },
-    [user?.id, filteredKanbanData, moveMutation],
+    [user?.id, kanbanData, moveMutation],
   );
 
   // Initialize undo hook
@@ -232,12 +232,12 @@ export default function ApplicationsPage() {
       beforeId?: string,
       afterId?: string,
     ) => {
-      if (!user?.id || !filteredKanbanData) return;
+      if (!user?.id || !kanbanData) return;
 
-      // Find current status and company name for undo
+      // Find current status and company name for undo (use unfiltered data for reliability)
       let currentStatus: ApplicationStatus | undefined;
       let company: string | undefined;
-      for (const [status, apps] of Object.entries(filteredKanbanData)) {
+      for (const [status, apps] of Object.entries(kanbanData)) {
         const app = apps.find((a) => a._id === applicationId);
         if (app) {
           currentStatus = status as ApplicationStatus;
@@ -273,7 +273,7 @@ export default function ApplicationsPage() {
         });
       }
     },
-    [user?.id, filteredKanbanData, moveMutation, recordMove],
+    [user?.id, kanbanData, moveMutation, recordMove],
   );
 
   // Convert KanbanApplication to LegacyApplication for ApplicationDetails

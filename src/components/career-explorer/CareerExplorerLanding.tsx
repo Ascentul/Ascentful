@@ -1,6 +1,6 @@
 'use client';
 
-import { Compass, Search, Sparkles, Target } from 'lucide-react';
+import { CheckCircle2, Compass, Search, Sparkles } from 'lucide-react';
 import React from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,32 @@ export function CareerExplorerLanding({
   hasQuizResults,
   userName,
 }: CareerExplorerLandingProps) {
+  // If user has quiz results, show a simplified layout focused on exploration
+  if (hasQuizResults) {
+    return (
+      <div className="max-w-xl mx-auto">
+        {/* Quick Start */}
+        <Card className="relative overflow-hidden border-2 border-primary-200 hover:border-primary-400 transition-colors">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary-100 rounded-lg">
+                <Search className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Quick Explore</CardTitle>
+                <CardDescription>Search & browse</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <QuickStartActions onAction={onQuickStart} compact />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // First-time user layout with prominent quiz card
   return (
     <div className="space-y-8">
       {/* Hero Section */}
@@ -73,7 +99,7 @@ export function CareerExplorerLanding({
               </li>
             </ul>
             <Button onClick={onStartQuiz} className="w-full group-hover:bg-primary-600">
-              {hasQuizResults ? 'Retake Quiz' : 'Start Quiz'}
+              Start Quiz
             </Button>
           </CardContent>
         </Card>
@@ -101,30 +127,6 @@ export function CareerExplorerLanding({
           </CardContent>
         </Card>
       </div>
-
-      {/* Previous Results Banner */}
-      {hasQuizResults && (
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-amber-50 border-amber-200">
-            <CardContent className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-3">
-                <Target className="w-5 h-5 text-amber-600" />
-                <span className="text-amber-800">
-                  You have previous quiz results. View them or retake the quiz for fresh
-                  recommendations.
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                onClick={() => onQuickStart('view-results')}
-              >
-                View Results
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

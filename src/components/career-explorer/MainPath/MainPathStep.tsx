@@ -2,13 +2,17 @@
 
 import {
   Award,
+  BookOpen,
   Briefcase,
+  Code,
   Edit2,
   FolderKanban,
   GitBranch,
+  Goal,
   GraduationCap,
-  GripVertical,
+  Target,
   Trash2,
+  TrendingUp,
 } from 'lucide-react';
 import React from 'react';
 
@@ -28,8 +32,7 @@ interface MainPathStepProps {
   isEditing?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
+  onConvertToGoal?: () => void;
   readOnly?: boolean;
 }
 
@@ -60,6 +63,27 @@ const STEP_TYPE_CONFIG: Record<StepType, { icon: React.ReactNode; color: string;
       color: 'bg-rose-100 text-rose-700 border-rose-200',
       label: 'Certification',
     },
+    // New step types for Career Dreamer
+    foundation_skill: {
+      icon: <BookOpen className="w-4 h-4" />,
+      color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+      label: 'Foundation Skill',
+    },
+    portfolio_project: {
+      icon: <Code className="w-4 h-4" />,
+      color: 'bg-violet-100 text-violet-700 border-violet-200',
+      label: 'Portfolio Project',
+    },
+    stepping_stone: {
+      icon: <TrendingUp className="w-4 h-4" />,
+      color: 'bg-teal-100 text-teal-700 border-teal-200',
+      label: 'Stepping Stone',
+    },
+    target_role: {
+      icon: <Target className="w-4 h-4" />,
+      color: 'bg-rose-100 text-rose-700 border-rose-200',
+      label: 'Target Role',
+    },
   };
 
 const TIMEFRAME_LABELS: Record<StepTimeframe, string> = {
@@ -78,11 +102,14 @@ export function MainPathStep({
   isEditing,
   onEdit,
   onDelete,
-  onDragStart,
-  onDragEnd,
+  onConvertToGoal,
   readOnly,
 }: MainPathStepProps) {
-  const config = STEP_TYPE_CONFIG[step.step_type];
+  const config = STEP_TYPE_CONFIG[step.step_type] || {
+    icon: <Briefcase className="w-4 h-4" />,
+    color: 'bg-gray-100 text-gray-700 border-gray-200',
+    label: step.step_type,
+  };
 
   return (
     <Card
@@ -92,19 +119,7 @@ export function MainPathStep({
         !readOnly && 'hover:shadow-md',
       )}
     >
-      {/* Drag Handle */}
-      {!readOnly && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-neutral-50 rounded-l-lg border-r"
-          draggable
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-        >
-          <GripVertical className="w-4 h-4 text-neutral-400" />
-        </div>
-      )}
-
-      <div className={cn(!readOnly && 'ml-8')}>
+      <div>
         <CardHeader className="pb-2 flex-row items-start justify-between space-y-0">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -128,7 +143,24 @@ export function MainPathStep({
             {/* Actions */}
             {!readOnly && (
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                {onConvertToGoal && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                    onClick={onConvertToGoal}
+                    aria-label="Create goal from step"
+                  >
+                    <Goal className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onEdit}
+                  aria-label="Edit step"
+                >
                   <Edit2 className="w-4 h-4" />
                 </Button>
                 <Button
@@ -136,6 +168,7 @@ export function MainPathStep({
                   size="icon"
                   className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                   onClick={onDelete}
+                  aria-label="Delete step"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

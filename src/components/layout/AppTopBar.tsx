@@ -77,7 +77,7 @@ export default function AppTopBar() {
 
   // Mark notification as read mutation
   const markAsRead = useMutation(api.notifications.markAsRead);
-  const markAllAsRead = useMutation(api.notifications.markAllAsRead);
+  const markAllAsReadMutation = useMutation(api.notifications.markAllAsRead);
 
   const hasUnreadNotifications = (unreadCount ?? 0) > 0;
 
@@ -177,10 +177,13 @@ export default function AppTopBar() {
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               {hasUnreadNotifications && (
                 <button
-                  onClick={() => {
-                    markAllAsRead({}).catch((err) =>
-                      console.error('Failed to mark all notifications as read:', err),
-                    );
+                  onClick={async () => {
+                    try {
+                      await markAllAsReadMutation({});
+                      router.refresh();
+                    } catch (err) {
+                      console.error('Failed to mark all notifications as read:', err);
+                    }
                   }}
                   className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
                 >

@@ -740,8 +740,11 @@ export default function ResumeStudioPage() {
           position: clJobRole,
         }),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to generate');
+      }
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Failed to generate');
 
       if (data.warning) {
         toast({ title: 'Heads up', description: data.warning });

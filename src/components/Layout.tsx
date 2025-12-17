@@ -7,6 +7,7 @@ import { ReactNode, useState } from 'react';
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -29,7 +30,7 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <>
+    <SidebarProvider>
       {/* Mobile menu toggle (floating) - only visible on mobile */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Button
@@ -75,6 +76,6 @@ export function Layout({ children }: LayoutProps) {
           </main>
         </div>
       </div>
-    </>
+    </SidebarProvider>
   );
 }

@@ -439,10 +439,24 @@ export const moveApplication = mutation({
       throw new Error('User not found');
     }
 
+    const membership =
+      user.role === 'student'
+        ? (await requireMembership(ctx, { role: 'student' })).membership
+        : null;
+
     // Get the application being moved
     const application = await ctx.db.get(args.applicationId);
     if (!application || application.user_id !== user._id) {
       throw new Error('Application not found or unauthorized');
+    }
+
+    // University isolation check
+    if (
+      application.university_id &&
+      membership &&
+      application.university_id !== membership.university_id
+    ) {
+      throw new Error('Unauthorized: Application belongs to another university');
     }
 
     // Get neighbor sort_orders if provided

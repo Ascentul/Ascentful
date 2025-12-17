@@ -256,9 +256,14 @@ export function AutoUpdatesSettings() {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={() =>
-                          enabled ? handleScanNow(provider) : handleToggleEnabled(provider, true)
-                        }
+                        onClick={async () => {
+                          if (enabled) {
+                            handleScanNow(provider);
+                          } else {
+                            await handleToggleEnabled(provider, true);
+                            handleScanNow(provider);
+                          }
+                        }}
                         disabled={scanningProvider === provider}
                       >
                         <RefreshCw

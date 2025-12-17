@@ -457,6 +457,11 @@ export default defineSchema({
       v.literal('project'),
       v.literal('internship'),
       v.literal('certification'),
+      // New step types for Career Dreamer
+      v.literal('foundation_skill'),
+      v.literal('portfolio_project'),
+      v.literal('stepping_stone'),
+      v.literal('target_role'),
     ),
     role_id: v.optional(v.string()),
     title: v.string(),
@@ -487,6 +492,55 @@ export default defineSchema({
   })
     .index('by_user', ['user_id'])
     .index('by_user_role', ['user_id', 'role_id']),
+
+  // Career quiz drafts - save/resume quiz progress
+  career_quiz_drafts: defineTable({
+    user_id: v.id('users'),
+    answers: v.any(), // { questionId: answer } - partial answers
+    current_step: v.number(),
+    started_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_user', ['user_id']),
+
+  // Career explorer state - 3-step wizard progress (V4)
+  career_explorer_state: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // Step 1: Starting Role
+    starting_role: v.optional(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        category: v.optional(v.string()),
+      }),
+    ),
+
+    // Step 2: Skills
+    skills_have: v.optional(v.array(v.string())),
+    skills_want: v.optional(v.array(v.string())),
+
+    // Step 3: Career Path (placed steps)
+    placed_steps: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          role_id: v.optional(v.string()),
+          fit_score: v.optional(v.number()),
+          index: v.number(),
+        }),
+      ),
+    ),
+
+    // Wizard progress
+    current_step: v.number(), // 1, 2, 3, or 4
+    completed_steps: v.array(v.number()),
+
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_user', ['user_id']),
 
   // Interview stages linked to applications
   interview_stages: defineTable({

@@ -34,11 +34,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const authResult = await auth();
-    console.log('Gmail OAuth auth result:', {
-      userId: authResult.userId,
-      hasSession: !!authResult.sessionId,
-    });
-
     const { userId } = authResult;
     if (!userId) {
       log.error('No userId from auth()', 'AUTH_ERROR', { event: 'auth.failed' });

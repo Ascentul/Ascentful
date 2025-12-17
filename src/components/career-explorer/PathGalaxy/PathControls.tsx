@@ -23,6 +23,7 @@ interface PathControlsProps {
   onFilterChange: (mode: 'all' | 'main_path' | 'saved') => void;
   layoutMode: 'horizontal' | 'radial';
   onLayoutChange: (mode: 'horizontal' | 'radial') => void;
+  rightContent?: React.ReactNode;
 }
 
 export function PathControls({
@@ -34,6 +35,7 @@ export function PathControls({
   onFilterChange,
   layoutMode,
   onLayoutChange,
+  rightContent,
 }: PathControlsProps) {
   const handleZoomIn = () => {
     onZoomChange(Math.min(zoom + 0.25, 2));
@@ -129,7 +131,7 @@ export function PathControls({
           </Tooltip>
         </div>
 
-        {/* Right: Filter */}
+        {/* Right: Filter and Settings */}
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-neutral-400" />
           <Select value={filterMode} onValueChange={(v) => onFilterChange(v as typeof filterMode)}>
@@ -142,6 +144,12 @@ export function PathControls({
               <SelectItem value="saved">Saved Roles</SelectItem>
             </SelectContent>
           </Select>
+          {rightContent && (
+            <>
+              <div className="w-px h-6 bg-neutral-200" />
+              {rightContent}
+            </>
+          )}
         </div>
       </div>
     </TooltipProvider>

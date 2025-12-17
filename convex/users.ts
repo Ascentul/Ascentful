@@ -1233,11 +1233,48 @@ export const reactivateUserAccount = internalMutation({
       throw new Error(`User not found with clerkId: ${args.clerkId}`);
     }
 
+    // Validate that reactivation is needed
+    if (user.account_status === 'active' && !user.deleted_at) {
+      return {
+        success: true,
+        userId: user._id,
+        previousStatus: user.account_status,
+        message: 'User was already active',
+      };
+    }
+
+    const previousStatus = user.account_status;
+    const now = Date.now();
+
     await ctx.db.patch(user._id, {
       account_status: 'active',
-      updated_at: Date.now(),
+      // Clear deletion metadata to maintain data consistency
+      deleted_at: undefined,
+      deleted_by: undefined,
+      deleted_reason: undefined,
+      deletion_scheduled_at: undefined,
+      // Set restoration tracking
+      restored_at: now,
+      updated_at: now,
     });
 
-    return { success: true, userId: user._id, previousStatus: user.account_status };
+    // Audit log the reactivation operation
+    try {
+      await logPermissionChange(ctx, {
+        action: 'account.reactivated',
+        actorType: 'system',
+        actorUniversityId: user.university_id,
+        targetType: 'user',
+        targetId: user._id,
+        targetUniversityId: user.university_id,
+        previousValue: { account_status: previousStatus },
+        newValue: { account_status: 'active' },
+      });
+    } catch (auditError) {
+      console.error('Failed to create account reactivation audit log:', auditError);
+      // Don't fail reactivation if audit logging fails
+    }
+
+    return { success: true, userId: user._id, previousStatus };
   },
 });

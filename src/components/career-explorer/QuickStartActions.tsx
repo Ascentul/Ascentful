@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 
 interface QuickStartActionsProps {
   onAction: (action: string, data?: string) => void;
+  compact?: boolean;
 }
 
 const POPULAR_ROLES = [
@@ -27,7 +28,7 @@ const POPULAR_PATHS = [
   { label: 'Creative', icon: '🎨' },
 ];
 
-export function QuickStartActions({ onAction }: QuickStartActionsProps) {
+export function QuickStartActions({ onAction, compact = false }: QuickStartActionsProps) {
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearch = () => {
@@ -42,6 +43,53 @@ export function QuickStartActions({ onAction }: QuickStartActionsProps) {
     }
   };
 
+  // Compact version for returning users
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {/* Search Input */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <Input
+              placeholder="Search roles..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pl-9 h-9"
+            />
+          </div>
+          <Button size="sm" onClick={handleSearch} disabled={!searchValue.trim()}>
+            Go
+          </Button>
+        </div>
+
+        {/* Quick Actions - Compact */}
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAction('from-major')}
+            className="gap-1 text-xs h-7"
+          >
+            <GraduationCap className="w-3 h-3" />
+            My major
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAction('trending')}
+            className="gap-1 text-xs h-7"
+          >
+            <TrendingUp className="w-3 h-3" />
+            Trending
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Full version for first-time users
   return (
     <div className="space-y-4">
       {/* Search Input */}

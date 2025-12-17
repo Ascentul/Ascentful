@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 interface PathNodeProps {
   node: PathNodeType;
   isSelected?: boolean;
+  isFocused?: boolean;
   onClick?: () => void;
   onSave?: () => void;
 }
@@ -38,7 +39,7 @@ const NODE_STYLES: Record<NodeType, { bg: string; border: string; icon: React.Re
   },
 };
 
-export function PathNode({ node, isSelected, onClick, onSave }: PathNodeProps) {
+export function PathNode({ node, isSelected, isFocused, onClick, onSave }: PathNodeProps) {
   const style = NODE_STYLES[node.type];
   const isBridge = node.type === 'bridge';
 
@@ -50,10 +51,14 @@ export function PathNode({ node, isSelected, onClick, onSave }: PathNodeProps) {
         style.border,
         isBridge ? 'w-[160px] p-2' : 'w-[220px] p-3',
         isSelected && 'ring-2 ring-primary-500 ring-offset-2',
+        isFocused && !isSelected && 'ring-2 ring-blue-400 ring-offset-1',
         node.is_main_path && 'border-2',
         'hover:shadow-md',
       )}
       onClick={onClick}
+      role="button"
+      aria-label={`${node.title}${node.fit_score !== undefined ? `, ${node.fit_score}% fit` : ''}${node.is_saved ? ', saved' : ''}`}
+      aria-pressed={isSelected}
     >
       {/* Type Icon */}
       {style.icon && <div className="absolute -top-2 -left-2">{style.icon}</div>}

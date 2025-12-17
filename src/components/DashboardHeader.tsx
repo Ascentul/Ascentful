@@ -507,10 +507,9 @@ function StageHeroPanel({ stage, metrics }: { stage: StageConfig; metrics: Stage
   const statValue = stage.stat.getValue(metrics);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-50 via-white to-primary-50 p-6 h-full flex flex-col">
+    <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 h-full flex flex-col">
       {/* Background decoration */}
-      <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary-100/40 to-transparent blur-3xl" />
-      <div className="absolute left-0 bottom-0 -ml-16 -mb-16 h-48 w-48 rounded-full bg-gradient-to-tr from-rose-100/40 to-transparent blur-3xl" />
+      <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary-100/20 to-transparent blur-3xl" />
 
       <div className="relative flex-1 flex flex-col lg:flex-row gap-6">
         {/* Left content */}

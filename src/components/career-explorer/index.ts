@@ -19,3 +19,20 @@ export { PathNode } from './PathGalaxy/PathNode';
 export { MainPathEditor } from './MainPath/MainPathEditor';
 export { MainPathStep } from './MainPath/MainPathStep';
 export { StepEditor } from './MainPath/StepEditor';
+
+// V3 Timeline Components
+export { PlanRail } from './PlanRail';
+
+// V4 Career Wizard Components
+export type { CareerWizardHandle } from './CareerWizard/CareerWizard';
+export { CareerWizard } from './CareerWizard/CareerWizard';
+export { PathSummaryScreen } from './CareerWizard/PathSummaryScreen';
+export { PathwaysStep } from './CareerWizard/PathwaysStep';
+export { RoleSearchStep } from './CareerWizard/RoleSearchStep';
+export {
+  CareerWizardSkeleton,
+  PathwaysStepSkeleton,
+  RoleSearchSkeleton,
+  SkillsStepSkeleton,
+} from './CareerWizard/skeletons';
+export { SkillsStep } from './CareerWizard/SkillsStep';

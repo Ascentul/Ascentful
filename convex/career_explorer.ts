@@ -9,6 +9,77 @@ import {
 } from './lib/authorization';
 
 // ============================================
+// Quiz Draft Queries & Mutations (Save/Resume)
+// ============================================
+
+export const getQuizDraft = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    const draft = await ctx.db
+      .query('career_quiz_drafts')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    return draft;
+  },
+});
+
+export const saveQuizDraft = mutation({
+  args: {
+    answers: v.any(),
+    current_step: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const now = Date.now();
+
+    // Check for existing draft
+    const existing = await ctx.db
+      .query('career_quiz_drafts')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    if (existing) {
+      // Update existing draft
+      await ctx.db.patch(existing._id, {
+        answers: args.answers,
+        current_step: args.current_step,
+        updated_at: now,
+      });
+      return existing._id;
+    } else {
+      // Create new draft
+      const draftId = await ctx.db.insert('career_quiz_drafts', {
+        user_id: user._id,
+        answers: args.answers,
+        current_step: args.current_step,
+        started_at: now,
+        updated_at: now,
+      });
+      return draftId;
+    }
+  },
+});
+
+export const deleteQuizDraft = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    const draft = await ctx.db
+      .query('career_quiz_drafts')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    if (draft) {
+      await ctx.db.delete(draft._id);
+    }
+  },
+});
+
+// ============================================
 // Quiz Result Queries
 // ============================================
 
@@ -256,6 +327,11 @@ export const addMainPathStep = mutation({
       v.literal('project'),
       v.literal('internship'),
       v.literal('certification'),
+      // New step types for Career Dreamer
+      v.literal('foundation_skill'),
+      v.literal('portfolio_project'),
+      v.literal('stepping_stone'),
+      v.literal('target_role'),
     ),
     role_id: v.optional(v.string()),
     title: v.string(),
@@ -328,6 +404,11 @@ export const updateMainPathStep = mutation({
         v.literal('project'),
         v.literal('internship'),
         v.literal('certification'),
+        // New step types for Career Dreamer
+        v.literal('foundation_skill'),
+        v.literal('portfolio_project'),
+        v.literal('stepping_stone'),
+        v.literal('target_role'),
       ),
     ),
     role_id: v.optional(v.string()),
@@ -605,5 +686,324 @@ export const logAdvisorPathView = mutation({
       student_id: args.studentId,
       created_at: Date.now(),
     });
+  },
+});
+
+// ============================================
+// Convert Career Path Step to Goal
+// ============================================
+
+const STEP_TYPE_TO_CATEGORY: Record<string, string> = {
+  role: 'career',
+  bridge: 'career',
+  project: 'project',
+  internship: 'career',
+  certification: 'education',
+  foundation_skill: 'skill',
+  portfolio_project: 'project',
+  stepping_stone: 'career',
+  target_role: 'career',
+};
+
+export const convertStepToGoal = mutation({
+  args: {
+    stepId: v.id('career_main_path_steps'),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    // Get the step
+    const step = await ctx.db.get(args.stepId);
+    if (!step) {
+      throw new Error('Step not found');
+    }
+
+    // Verify the step belongs to a path the user owns
+    const path = await ctx.db.get(step.path_id);
+    if (!path || path.user_id !== user._id) {
+      throw new Error('Unauthorized - step does not belong to your path');
+    }
+
+    // Map step type to goal category
+    const category = STEP_TYPE_TO_CATEGORY[step.step_type] || 'career';
+
+    // Calculate target date based on timeframe
+    const now = Date.now();
+    const timeframeMs: Record<string, number> = {
+      '6m': 6 * 30 * 24 * 60 * 60 * 1000,
+      '12m': 12 * 30 * 24 * 60 * 60 * 1000,
+      '24m': 24 * 30 * 24 * 60 * 60 * 1000,
+      '36m': 36 * 30 * 24 * 60 * 60 * 1000,
+      semester_1: 4 * 30 * 24 * 60 * 60 * 1000,
+      semester_2: 8 * 30 * 24 * 60 * 60 * 1000,
+      summer: 3 * 30 * 24 * 60 * 60 * 1000,
+    };
+    const targetDate = now + (timeframeMs[step.timeframe] || timeframeMs['12m']);
+
+    // Build description from step details
+    const descriptionParts: string[] = [];
+    if (step.details.skills_to_build && step.details.skills_to_build.length > 0) {
+      descriptionParts.push(`Skills to build: ${step.details.skills_to_build.join(', ')}`);
+    }
+    if (step.details.projects && step.details.projects.length > 0) {
+      descriptionParts.push(`Projects: ${step.details.projects.join(', ')}`);
+    }
+    if (step.details.certifications && step.details.certifications.length > 0) {
+      descriptionParts.push(`Certifications: ${step.details.certifications.join(', ')}`);
+    }
+    if (step.details.experience_targets && step.details.experience_targets.length > 0) {
+      descriptionParts.push(`Experience targets: ${step.details.experience_targets.join(', ')}`);
+    }
+    if (step.notes) {
+      descriptionParts.push(`Notes: ${step.notes}`);
+    }
+
+    const description = descriptionParts.join('\n\n') || undefined;
+
+    // Build checklist from step details
+    const checklist: { id: string; text: string; completed: boolean }[] = [];
+    let checklistIndex = 0;
+
+    if (step.details.skills_to_build) {
+      for (const skill of step.details.skills_to_build) {
+        checklist.push({
+          id: `skill-${checklistIndex++}`,
+          text: `Learn: ${skill}`,
+          completed: false,
+        });
+      }
+    }
+
+    if (step.details.projects) {
+      for (const project of step.details.projects) {
+        checklist.push({
+          id: `project-${checklistIndex++}`,
+          text: `Complete: ${project}`,
+          completed: false,
+        });
+      }
+    }
+
+    if (step.details.certifications) {
+      for (const cert of step.details.certifications) {
+        checklist.push({
+          id: `cert-${checklistIndex++}`,
+          text: `Earn: ${cert}`,
+          completed: false,
+        });
+      }
+    }
+
+    if (step.details.experience_targets) {
+      for (const target of step.details.experience_targets) {
+        checklist.push({
+          id: `exp-${checklistIndex++}`,
+          text: target,
+          completed: false,
+        });
+      }
+    }
+
+    // Create the goal
+    const goalId = await ctx.db.insert('goals', {
+      user_id: user._id,
+      university_id: user.university_id ?? undefined,
+      title: step.title,
+      description,
+      category,
+      target_date: targetDate,
+      status: 'not_started',
+      progress: 0,
+      checklist: checklist.length > 0 ? checklist : undefined,
+      created_at: now,
+      updated_at: now,
+    });
+
+    return goalId;
+  },
+});
+
+// ============================================
+// Career Galaxy Data Query
+// ============================================
+
+/**
+ * Get all data needed to generate career galaxy roles
+ * Returns user profile, quiz results, and any saved roles
+ */
+export const getCareerGalaxyData = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!user) {
+      return null;
+    }
+
+    // Get the latest quiz result
+    const quizResult = await ctx.db
+      .query('career_quiz_results')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .order('desc')
+      .first();
+
+    // Get saved roles
+    const savedRoles = await ctx.db
+      .query('saved_roles')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .collect();
+
+    // Return user profile data along with quiz results
+    return {
+      profile: {
+        name: user.name,
+        email: user.email,
+        job_title: user.job_title,
+        company: user.company,
+        current_position: user.current_position,
+        current_company: user.current_company,
+        location: user.location,
+        skills: user.skills,
+        education: user.education,
+        education_history: user.education_history,
+        work_history: user.work_history,
+        achievements_history: user.achievements_history,
+        university_name: user.university_name,
+        major: user.major,
+        graduation_year: user.graduation_year,
+        dream_job: user.dream_job,
+        career_goals: user.career_goals,
+        experience_level: user.experience_level,
+        industry: user.industry,
+        bio: user.bio,
+      },
+      quizResult: quizResult
+        ? {
+            themes: quizResult.themes,
+            recommended_directions: quizResult.recommended_directions,
+            roles_to_explore: quizResult.roles_to_explore,
+            confidence_level: quizResult.confidence_level,
+            major_context: quizResult.major_context,
+          }
+        : null,
+      savedRoleIds: savedRoles.map((r) => r.role_id),
+    };
+  },
+});
+
+// ============================================
+// Career Explorer State (V4 - 3-Step Wizard)
+// ============================================
+
+/**
+ * Get user's current explorer state for resumability
+ */
+export const getExplorerState = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    const state = await ctx.db
+      .query('career_explorer_state')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    return state;
+  },
+});
+
+/**
+ * Save/update explorer state (auto-save on each step)
+ */
+export const saveExplorerState = mutation({
+  args: {
+    starting_role: v.optional(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        category: v.optional(v.string()),
+      }),
+    ),
+    skills_have: v.optional(v.array(v.string())),
+    skills_want: v.optional(v.array(v.string())),
+    placed_steps: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          role_id: v.optional(v.string()),
+          fit_score: v.optional(v.number()),
+          index: v.number(),
+        }),
+      ),
+    ),
+    current_step: v.number(),
+    completed_steps: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const now = Date.now();
+
+    // Check for existing state
+    const existing = await ctx.db
+      .query('career_explorer_state')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    if (existing) {
+      // Update existing state
+      await ctx.db.patch(existing._id, {
+        starting_role: args.starting_role,
+        skills_have: args.skills_have,
+        skills_want: args.skills_want,
+        placed_steps: args.placed_steps,
+        current_step: args.current_step,
+        completed_steps: args.completed_steps,
+        updated_at: now,
+      });
+      return existing._id;
+    } else {
+      // Create new state
+      const stateId = await ctx.db.insert('career_explorer_state', {
+        user_id: user._id,
+        university_id: user.university_id ?? undefined,
+        starting_role: args.starting_role,
+        skills_have: args.skills_have,
+        skills_want: args.skills_want,
+        placed_steps: args.placed_steps,
+        current_step: args.current_step,
+        completed_steps: args.completed_steps,
+        created_at: now,
+        updated_at: now,
+      });
+      return stateId;
+    }
+  },
+});
+
+/**
+ * Clear explorer state (restart wizard)
+ */
+export const clearExplorerState = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    const state = await ctx.db
+      .query('career_explorer_state')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first();
+
+    if (state) {
+      await ctx.db.delete(state._id);
+    }
   },
 });

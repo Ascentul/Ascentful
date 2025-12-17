@@ -69,6 +69,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { useSidebarOptional } from '@/contexts/SidebarContext';
 import { useToast } from '@/hooks/use-toast';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
 
@@ -102,6 +103,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   const { user, signOut, isAdmin, subscription, hasPremium } = useAuth();
   const { impersonation, getEffectiveRole, getEffectivePlan } = useImpersonation();
   const { toast } = useToast();
+  const sidebarContext = useSidebarOptional();
 
   // Get the effective role (impersonated or real)
   const effectiveRole = getEffectiveRole();
@@ -146,9 +148,13 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [hoverSection, setHoverSection] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<boolean>(
+  // Use context state if available, otherwise fall back to local state
+  const [localExpanded, setLocalExpanded] = useState<boolean>(
     typeof window !== 'undefined' ? localStorage.getItem('sidebarExpanded') !== 'false' : true,
   );
+  // Prefer context state, fall back to local state
+  const expanded = sidebarContext?.isExpanded ?? localExpanded;
+  const setExpanded = sidebarContext?.setExpanded ?? setLocalExpanded;
   const [menuPositions, setMenuPositions] = useState<Record<string, number>>({});
   // Persisted collapsed state per section id
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
@@ -502,12 +508,18 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   }, [subject, description, issueType]);
 
   const toggleExpanded = useCallback(() => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sidebarExpanded', newExpanded.toString());
+    if (sidebarContext) {
+      // Use context toggle which handles localStorage
+      sidebarContext.toggle();
+    } else {
+      // Fall back to local state management
+      const newExpanded = !localExpanded;
+      setLocalExpanded(newExpanded);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebarExpanded', newExpanded.toString());
+      }
     }
-  }, [expanded]);
+  }, [sidebarContext, localExpanded]);
 
   const renderSidebarItem = useCallback(
     (item: SidebarItem, sectionId?: string, forceExact?: boolean) => {

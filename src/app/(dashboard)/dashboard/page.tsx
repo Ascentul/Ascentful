@@ -172,75 +172,66 @@ export default function DashboardPage() {
 
   return (
     <OnboardingGuard>
-      <div className="w-full">
-        <div className="w-full rounded-3xl bg-white p-5 shadow-sm">
-          <motion.div className="space-y-6" initial="hidden" animate="visible" variants={fadeIn}>
-            {/* Row 1-3: Dashboard Header with Greeting, Stage Tabs, and Hero Card */}
-            {showStudentDashboard && (
-              <motion.div variants={subtleUp}>
-                <DashboardHeader
-                  userName={user.name?.split(' ')[0]}
-                  thisWeekActions={stats.thisWeekActions}
-                  journeyProgress={dashboardData?.journeyProgress}
-                  resumeScore={
-                    dashboardData?.usageData?.usage?.resumes?.count
-                      ? Math.min(dashboardData.usageData.usage.resumes.count * 16, 100)
-                      : 16
-                  }
-                  activeApplications={stats.activeApplications}
-                  upcomingInterviews={stats.upcomingInterviews}
-                  nextInterviewDays={nextInterviewDays}
-                  careerPathsCount={
-                    dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0
-                  }
-                  resumesCount={dashboardData?.usageData?.usage?.resumes?.count || 0}
-                  coverLettersCount={dashboardData?.usageData?.usage?.cover_letters?.count || 0}
-                  goalsCount={stats.activeGoals}
-                  skillsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
-                />
-              </motion.div>
-            )}
-
-            {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}
-            <motion.div
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-              variants={staggeredContainer}
-            >
-              <motion.div variants={cardAnimation} className="lg:col-span-2">
-                <InterviewsAndFollowUpsCard />
-              </motion.div>
-
-              <motion.div variants={cardAnimation}>
-                <UpcomingSection />
-              </motion.div>
-            </motion.div>
-
-            {/* Row 4: Applications Journey */}
-            <motion.div variants={cardAnimation}>
-              <ApplicationsJourney />
-            </motion.div>
-
-            {/* Row 5: Goals Summary + Smart Recommendations (2-column grid) */}
-            <motion.div
-              className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch"
-              variants={staggeredContainer}
-            >
-              <motion.div variants={cardAnimation} className="h-full">
-                <CareerGoalsSummary />
-              </motion.div>
-
-              <motion.div variants={cardAnimation} id="recommendations" className="h-full">
-                <TodaysRecommendations />
-              </motion.div>
-            </motion.div>
-
-            {/* Row 6: Career Timeline */}
-            <motion.div variants={cardAnimation}>
-              <CareerTimeline />
-            </motion.div>
+      <motion.div className="space-y-6" initial="hidden" animate="visible" variants={fadeIn}>
+        {/* Row 1-3: Dashboard Header with Greeting, Stage Tabs, and Hero Card */}
+        {showStudentDashboard && (
+          <motion.div variants={subtleUp}>
+            <DashboardHeader
+              userName={user.name?.split(' ')[0]}
+              thisWeekActions={stats.thisWeekActions}
+              journeyProgress={dashboardData?.journeyProgress}
+              resumeScore={
+                dashboardData?.usageData?.usage?.resumes?.count
+                  ? Math.min(dashboardData.usageData.usage.resumes.count * 16, 100)
+                  : 16
+              }
+              activeApplications={stats.activeApplications}
+              upcomingInterviews={stats.upcomingInterviews}
+              nextInterviewDays={nextInterviewDays}
+              careerPathsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
+              resumesCount={dashboardData?.usageData?.usage?.resumes?.count || 0}
+              coverLettersCount={dashboardData?.usageData?.usage?.cover_letters?.count || 0}
+              goalsCount={stats.activeGoals}
+              skillsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
+            />
           </motion.div>
-        </div>
-      </div>
+        )}
+
+        {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}
+        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={staggeredContainer}>
+          <motion.div variants={cardAnimation} className="lg:col-span-2">
+            <InterviewsAndFollowUpsCard />
+          </motion.div>
+
+          <motion.div variants={cardAnimation}>
+            <UpcomingSection />
+          </motion.div>
+        </motion.div>
+
+        {/* Row 4: Applications Journey */}
+        <motion.div variants={cardAnimation}>
+          <ApplicationsJourney />
+        </motion.div>
+
+        {/* Row 5: Goals Summary + Smart Recommendations (2-column grid) */}
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch"
+          variants={staggeredContainer}
+        >
+          <motion.div variants={cardAnimation} className="h-full">
+            <CareerGoalsSummary />
+          </motion.div>
+
+          <motion.div variants={cardAnimation} id="recommendations" className="h-full">
+            <TodaysRecommendations />
+          </motion.div>
+        </motion.div>
+
+        {/* Row 6: Career Timeline */}
+        <motion.div variants={cardAnimation}>
+          <CareerTimeline />
+        </motion.div>
+      </motion.div>
     </OnboardingGuard>
   );
 }

@@ -1,11 +1,15 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import { api } from 'convex/_generated/api';
+import { useMutation, useQuery } from 'convex/react';
+import { ChevronLeft, ChevronRight, Loader2, Save } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { MajorContext, QuizAnswers } from '@/lib/career-explorer/types';
 
 import { QUIZ_CATEGORIES, QUIZ_QUESTIONS } from './questions';
@@ -13,6 +17,7 @@ import { QuizStep } from './QuizStep';
 
 interface QuizWizardProps {
   initialAnswers?: QuizAnswers;
+  initialStep?: number;
   majorContext: MajorContext;
   onComplete: (answers: QuizAnswers) => void;
   onCancel: () => void;
@@ -20,22 +25,98 @@ interface QuizWizardProps {
 }
 
 export function QuizWizard({
-  initialAnswers = {},
+  initialAnswers,
+  initialStep,
   majorContext,
   onComplete,
   onCancel,
   isSubmitting,
 }: QuizWizardProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<QuizAnswers>(initialAnswers);
+  // Query for existing draft
+  const existingDraft = useQuery(api.career_explorer.getQuizDraft);
+  const saveDraft = useMutation(api.career_explorer.saveQuizDraft);
+  const deleteDraft = useMutation(api.career_explorer.deleteQuizDraft);
+
+  // Determine initial state from props or draft
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(initialStep ?? 0);
+  const [answers, setAnswers] = useState<QuizAnswers>(initialAnswers ?? {});
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Debounce timer for auto-save
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize from draft if no initial values provided
+  useEffect(() => {
+    if (!isInitialized && existingDraft !== undefined) {
+      if (existingDraft && !initialAnswers) {
+        setAnswers(existingDraft.answers as QuizAnswers);
+        setCurrentIndex(existingDraft.current_step);
+        setLastSaved(new Date(existingDraft.updated_at));
+      }
+      setIsInitialized(true);
+    }
+  }, [existingDraft, initialAnswers, isInitialized]);
+
+  // Auto-save draft with debounce
+  const autoSaveDraft = useCallback(
+    async (newAnswers: QuizAnswers, step: number) => {
+      try {
+        setIsSaving(true);
+        await saveDraft({ answers: newAnswers, current_step: step });
+        setLastSaved(new Date());
+      } catch {
+        // Silently fail auto-save - don't interrupt user flow
+        console.warn('Auto-save failed');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [saveDraft],
+  );
+
+  // Debounced auto-save on answer changes
+  useEffect(() => {
+    if (!isInitialized || isSubmitting) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      autoSaveDraft(answers, currentIndex);
+    }, 1500); // Save after 1.5s of inactivity
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [answers, currentIndex, autoSaveDraft, isInitialized, isSubmitting]);
 
   const currentQuestion = QUIZ_QUESTIONS[currentIndex];
   const totalQuestions = QUIZ_QUESTIONS.length;
-  const progress = ((currentIndex + 1) / totalQuestions) * 100;
 
+  // useMemo must be called before any early returns to follow React's rules of hooks
   const currentCategory = useMemo(() => {
+    if (!currentQuestion) return undefined;
     return QUIZ_CATEGORIES.find((c) => c.id === currentQuestion.category);
-  }, [currentQuestion.category]);
+  }, [currentQuestion]);
+
+  // Guard against empty questions array
+  if (!currentQuestion) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <p className="text-neutral-500">No quiz questions available.</p>
+        <Button variant="outline" onClick={onCancel} className="mt-4">
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  const progress = ((currentIndex + 1) / totalQuestions) * 100;
 
   const handleAnswer = (value: string | string[] | number) => {
     setAnswers((prev) => ({
@@ -56,7 +137,13 @@ export function QuizWizard({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Delete draft on successful submission
+    try {
+      await deleteDraft();
+    } catch {
+      // Ignore delete errors - proceed with submission
+    }
     onComplete(answers);
   };
 
@@ -70,6 +157,38 @@ export function QuizWizard({
   const answeredRequired = requiredQuestions.filter((q) => answers[q.id] !== undefined);
   const canSubmit = answeredRequired.length >= requiredQuestions.length * 0.8; // 80% threshold
 
+  // Show loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-2 w-full" />
+        </div>
+        <Card>
+          <CardHeader className="pb-4">
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-6 w-3/4" />
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-between">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
@@ -78,7 +197,21 @@ export function QuizWizard({
           <span>
             Question {currentIndex + 1} of {totalQuestions}
           </span>
-          <span className="font-medium text-primary-600">{currentCategory?.name}</span>
+          <div className="flex items-center gap-2">
+            {/* Save indicator */}
+            {isSaving ? (
+              <Badge variant="outline" className="text-xs">
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Saving...
+              </Badge>
+            ) : lastSaved ? (
+              <Badge variant="outline" className="text-xs text-neutral-400">
+                <Save className="w-3 h-3 mr-1" />
+                Saved
+              </Badge>
+            ) : null}
+            <span className="font-medium text-primary-600">{currentCategory?.name}</span>
+          </div>
         </div>
         <Progress value={progress} className="h-2" />
       </div>
