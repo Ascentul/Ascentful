@@ -65,9 +65,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     log.error('Failed to start Gmail OAuth', toErrorCode(error), { event: 'request.error' });
+    const isAuthError = error instanceof Error && error.message.includes('Unauthorized');
     return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401, headers: { 'x-correlation-id': correlationId } },
+      { error: isAuthError ? 'Unauthorized' : 'Internal server error' },
+      { status: isAuthError ? 401 : 500, headers: { 'x-correlation-id': correlationId } },
     );
   }
 }

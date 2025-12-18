@@ -253,7 +253,12 @@ export const updateProject = mutation({
     }
 
     // Clean up old storage file if image reference is changing or being cleared
-    if (project.image_storage_id && args.updates.image_storage_id !== project.image_storage_id) {
+    // Only delete if image_storage_id is explicitly in the update payload
+    if (
+      project.image_storage_id &&
+      'image_storage_id' in args.updates &&
+      args.updates.image_storage_id !== project.image_storage_id
+    ) {
       await ctx.storage.delete(project.image_storage_id);
     }
 

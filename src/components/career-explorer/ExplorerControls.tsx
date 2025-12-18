@@ -1,7 +1,7 @@
 'use client';
 
 import { Filter, Search, X } from 'lucide-react';
-import React, { useState } from 'react';
+import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,20 +48,18 @@ export function ExplorerControls({
   totalRoles = 0,
   filteredRoles,
 }: ExplorerControlsProps) {
-  const [localQuery, setLocalQuery] = useState(searchQuery);
+  // Use prop directly (controlled component) to stay in sync with parent state
+  const currentQuery = searchQuery ?? '';
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setLocalQuery(value);
-    onSearch(value);
+    onSearch(e.target.value);
   };
 
   const handleClearSearch = () => {
-    setLocalQuery('');
     onSearch('');
   };
 
-  const hasActiveFilters = selectedCategories.length > 0 || localQuery.length > 0;
+  const hasActiveFilters = selectedCategories.length > 0 || currentQuery.length > 0;
   const displayCount = filteredRoles !== undefined ? filteredRoles : totalRoles;
 
   return (
@@ -72,11 +70,11 @@ export function ExplorerControls({
         <Input
           type="text"
           placeholder="Search any role..."
-          value={localQuery}
+          value={currentQuery}
           onChange={handleSearchChange}
           className="pl-9 pr-9"
         />
-        {localQuery && (
+        {currentQuery && (
           <button
             onClick={handleClearSearch}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"

@@ -71,13 +71,13 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
   const [notes, setNotes] = useState(step?.notes || '');
 
   // Details arrays
-  const [skills, setSkills] = useState<string[]>(step?.details.skills_to_build || []);
-  const [projects, setProjects] = useState<string[]>(step?.details.projects || []);
+  const [skills, setSkills] = useState<string[]>(step?.details?.skills_to_build || []);
+  const [projects, setProjects] = useState<string[]>(step?.details?.projects || []);
   const [certifications, setCertifications] = useState<string[]>(
-    step?.details.certifications || [],
+    step?.details?.certifications || [],
   );
   const [experienceTargets, setExperienceTargets] = useState<string[]>(
-    step?.details.experience_targets || [],
+    step?.details?.experience_targets || [],
   );
 
   // Input states for adding items
@@ -86,7 +86,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
   const [newCertification, setNewCertification] = useState('');
   const [newExperienceTarget, setNewExperienceTarget] = useState('');
 
-  // Reset form when step changes to prevent stale data
+  // Reset form when step changes or dialog opens to prevent stale data
   useEffect(() => {
     setTitle(step?.title || '');
     setStepType(step?.step_type || 'role');
@@ -100,7 +100,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
     setNewProject('');
     setNewCertification('');
     setNewExperienceTarget('');
-  }, [step]);
+  }, [step, isOpen]);
 
   const handleSave = () => {
     if (!title.trim()) return;

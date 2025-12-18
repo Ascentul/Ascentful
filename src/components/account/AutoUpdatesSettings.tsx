@@ -260,8 +260,26 @@ export function AutoUpdatesSettings() {
                           if (enabled) {
                             handleScanNow(provider);
                           } else {
-                            await handleToggleEnabled(provider, true);
-                            handleScanNow(provider);
+                            // Enable first, then scan only if enable succeeds
+                            try {
+                              await setEnabled({ provider, enabled: true });
+                              toast({
+                                title: 'Saved',
+                                description: 'Auto Updates enabled.',
+                                variant: 'success',
+                              });
+                              handleScanNow(provider);
+                            } catch (e: unknown) {
+                              const message =
+                                e instanceof Error
+                                  ? e.message
+                                  : 'Failed to enable. Scan cancelled.';
+                              toast({
+                                title: 'Error',
+                                description: message,
+                                variant: 'destructive',
+                              });
+                            }
                           }
                         }}
                         disabled={scanningProvider === provider}

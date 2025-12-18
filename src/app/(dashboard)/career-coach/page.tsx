@@ -363,6 +363,7 @@ export default function AICoachPage() {
                     <button
                       onClick={handleSendMessage}
                       disabled={!message.trim() || isLoading}
+                      aria-label={isLoading ? 'Sending message' : 'Send message'}
                       className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-neutral-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                     >
                       {isLoading ? (

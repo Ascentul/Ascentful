@@ -150,12 +150,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         question = parsedQuestion;
 
-        // Evaluate the generated question
-        await evaluate({
+        // Evaluate the generated question (fire-and-forget, don't fail on eval errors)
+        evaluate({
           tool_id: 'interview-question-generation',
           input: { roleProfile, turnIndex: 0, mode: session.mode },
           output: question as unknown as Record<string, unknown>,
           user_id: userId,
+        }).catch((evalError) => {
+          log.warn('Question evaluation failed', {
+            event: 'eval.error',
+            errorCode: toErrorCode(evalError),
+          });
         });
 
         log.info('First question generated', {

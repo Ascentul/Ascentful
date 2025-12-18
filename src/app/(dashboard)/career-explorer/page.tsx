@@ -353,6 +353,11 @@ export default function CareerExplorerPage() {
       setGalaxyRoles([]);
     } catch (error) {
       console.error('Error saving quiz result:', error);
+      toast({
+        title: 'Warning',
+        description: 'Quiz results could not be saved, but you can still explore careers.',
+        variant: 'destructive',
+      });
       // Still navigate to explore even if save fails
       setCurrentView('explore');
       setActiveTab('explore');

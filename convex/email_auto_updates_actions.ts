@@ -119,45 +119,84 @@ function getOutlookScopes(mode: EmailScanMode): string[] {
   return ['openid', 'email', 'offline_access', mailScope];
 }
 
-async function postForm<T>(url: string, body: Record<string, string>): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(body).toString(),
-  });
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => 'Could not read error body');
-    console.error(`[postForm] HTTP ${res.status} for ${url}:`, errorBody);
-    throw new Error(`HTTP ${res.status}: ${errorBody}`);
+const DEFAULT_FETCH_TIMEOUT_MS = 15000; // 15 seconds
+
+async function postForm<T>(
+  url: string,
+  body: Record<string, string>,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body).toString(),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => 'Could not read error body');
+      console.error(`[postForm] HTTP ${res.status} for ${url}:`, errorBody);
+      throw new Error(`HTTP ${res.status}: ${errorBody}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return (await res.json()) as T;
 }
 
-async function getJson<T>(url: string, accessToken: string): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => 'Could not read error body');
-    console.error(`[getJson] HTTP ${res.status} for ${url}:`, errorBody);
-    throw new Error(`HTTP ${res.status}: ${errorBody}`);
+async function getJson<T>(
+  url: string,
+  accessToken: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => 'Could not read error body');
+      console.error(`[getJson] HTTP ${res.status} for ${url}:`, errorBody);
+      throw new Error(`HTTP ${res.status}: ${errorBody}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return (await res.json()) as T;
 }
 
-async function postJson<T>(url: string, accessToken: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+async function postJson<T>(
+  url: string,
+  accessToken: string,
+  body: unknown,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return (await res.json()) as T;
 }
 
 function decodeJwtPayload(jwt: string): Record<string, any> | null {

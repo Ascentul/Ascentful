@@ -479,9 +479,21 @@ export async function POST(request: Request) {
 
     // If no pre-built data, use AI to generate details
     if (!baseDetails) {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const apiKey = process.env.OPENAI_API_KEY;
 
-      const prompt = `Generate comprehensive job information for the role of "${roleTitle}". Return a JSON object with:
+      if (!apiKey) {
+        // Fall back to defaults if no API key configured
+        baseDetails = {
+          title: roleTitle,
+          description: `A ${roleTitle} is responsible for leading key initiatives in their domain. This role involves strategic thinking, cross-functional collaboration, and delivering measurable results. Strong analytical, communication, and problem-solving skills are essential for success.`,
+          responsibilities: getDefaultResponsibilities(roleTitle),
+          dayInTheLife: getDefaultDayInTheLife(roleTitle),
+          faqs: getDefaultFAQs(roleTitle),
+        };
+      } else {
+        const openai = new OpenAI({ apiKey });
+
+        const prompt = `Generate comprehensive job information for the role of "${roleTitle}". Return a JSON object with:
 - title: the job title
 - description: a 3-4 sentence description of the role
 - responsibilities: an array of 6 bullet points describing key responsibilities
@@ -490,35 +502,36 @@ export async function POST(request: Request) {
 
 Return only valid JSON, no markdown code blocks.`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1500,
-      });
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 1500,
+        });
 
-      const content = response.choices[0]?.message?.content || '';
+        const content = response.choices[0]?.message?.content || '';
 
-      try {
-        const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-        const parsed = JSON.parse(cleanedContent);
-        baseDetails = {
-          title: parsed.title || roleTitle,
-          description:
-            parsed.description ||
-            `A ${roleTitle} is responsible for key functions in their domain.`,
-          responsibilities: parsed.responsibilities || getDefaultResponsibilities(roleTitle),
-          dayInTheLife: parsed.dayInTheLife || getDefaultDayInTheLife(roleTitle),
-          faqs: parsed.faqs || getDefaultFAQs(roleTitle),
-        };
-      } catch {
-        baseDetails = {
-          title: roleTitle,
-          description: `A ${roleTitle} is responsible for leading key initiatives in their domain. This role involves strategic thinking, cross-functional collaboration, and delivering measurable results. Strong analytical, communication, and problem-solving skills are essential for success.`,
-          responsibilities: getDefaultResponsibilities(roleTitle),
-          dayInTheLife: getDefaultDayInTheLife(roleTitle),
-          faqs: getDefaultFAQs(roleTitle),
-        };
+        try {
+          const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+          const parsed = JSON.parse(cleanedContent);
+          baseDetails = {
+            title: parsed.title || roleTitle,
+            description:
+              parsed.description ||
+              `A ${roleTitle} is responsible for key functions in their domain.`,
+            responsibilities: parsed.responsibilities || getDefaultResponsibilities(roleTitle),
+            dayInTheLife: parsed.dayInTheLife || getDefaultDayInTheLife(roleTitle),
+            faqs: parsed.faqs || getDefaultFAQs(roleTitle),
+          };
+        } catch {
+          baseDetails = {
+            title: roleTitle,
+            description: `A ${roleTitle} is responsible for leading key initiatives in their domain. This role involves strategic thinking, cross-functional collaboration, and delivering measurable results. Strong analytical, communication, and problem-solving skills are essential for success.`,
+            responsibilities: getDefaultResponsibilities(roleTitle),
+            dayInTheLife: getDefaultDayInTheLife(roleTitle),
+            faqs: getDefaultFAQs(roleTitle),
+          };
+        }
       }
     }
 
