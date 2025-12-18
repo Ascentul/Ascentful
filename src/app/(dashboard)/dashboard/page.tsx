@@ -193,6 +193,10 @@ export default function DashboardPage() {
               coverLettersCount={dashboardData?.usageData?.usage?.cover_letters?.count || 0}
               goalsCount={stats.activeGoals}
               skillsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
+              hasAnyResume={dashboardData?.usageData?.usage?.resumes?.hasAny || false}
+              hasAiTailoredResume={dashboardData?.usageData?.usage?.resumes?.hasAiTailored || false}
+              firstResumeId={dashboardData?.usageData?.usage?.resumes?.firstResumeId || null}
+              hasAnyCoverLetter={dashboardData?.usageData?.usage?.cover_letters?.hasAny || false}
             />
           </motion.div>
         )}

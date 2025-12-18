@@ -986,285 +986,291 @@ export default function CareerExplorerPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Explorer</h1>
-          <p className="text-muted-foreground">Discover and plan your ideal career path</p>
+    <div className="w-full">
+      <div className="w-full rounded-3xl bg-white p-5 shadow-sm space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Explorer</h1>
+            <p className="text-muted-foreground">Discover and plan your ideal career path</p>
+          </div>
+          {activeTab === 'explore' &&
+            (explorerState?.completed_steps?.includes(4) || wizardCanSave) && (
+              <Button
+                onClick={async () => {
+                  // If in wizard, use the wizard ref to save
+                  if (wizardCanSave && wizardRef.current) {
+                    await wizardRef.current.save();
+                    return;
+                  }
+                  // Otherwise, save from explorer state (returning user editing)
+                  // Use editedPlacedSteps if user made changes, otherwise use saved data
+                  const stepsToSave = editedPlacedSteps ?? explorerState?.placed_steps;
+                  if (!explorerState?.starting_role || !stepsToSave || stepsToSave.length === 0) {
+                    toast({
+                      title: 'No path to save',
+                      description: 'Please select at least one role.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  try {
+                    await saveExplorerState({
+                      starting_role: explorerState.starting_role,
+                      skills_have: explorerState.skills_have,
+                      skills_want: explorerState.skills_want,
+                      placed_steps: stepsToSave,
+                      current_step: 4,
+                      completed_steps: [1, 2, 3, 4],
+                    });
+                    // Clear edited steps since we saved
+                    setEditedPlacedSteps(null);
+                    setActiveTab('plan');
+                    toast({
+                      title: 'Career path saved!',
+                      description: 'View your career plan in the Plan tab.',
+                    });
+                  } catch (error) {
+                    console.error('Failed to save:', error);
+                    toast({
+                      title: 'Save failed',
+                      description: 'Please try again.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                className="min-w-[160px]"
+              >
+                Save Career Path
+              </Button>
+            )}
         </div>
-        {activeTab === 'explore' &&
-          (explorerState?.completed_steps?.includes(4) || wizardCanSave) && (
-            <Button
-              onClick={async () => {
-                // If in wizard, use the wizard ref to save
-                if (wizardCanSave && wizardRef.current) {
-                  await wizardRef.current.save();
-                  return;
-                }
-                // Otherwise, save from explorer state (returning user editing)
-                // Use editedPlacedSteps if user made changes, otherwise use saved data
-                const stepsToSave = editedPlacedSteps ?? explorerState?.placed_steps;
-                if (!explorerState?.starting_role || !stepsToSave || stepsToSave.length === 0) {
-                  toast({
-                    title: 'No path to save',
-                    description: 'Please select at least one role.',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-                try {
-                  await saveExplorerState({
-                    starting_role: explorerState.starting_role,
-                    skills_have: explorerState.skills_have,
-                    skills_want: explorerState.skills_want,
-                    placed_steps: stepsToSave,
-                    current_step: 4,
-                    completed_steps: [1, 2, 3, 4],
-                  });
-                  // Clear edited steps since we saved
-                  setEditedPlacedSteps(null);
-                  setActiveTab('plan');
-                  toast({
-                    title: 'Career path saved!',
-                    description: 'View your career plan in the Plan tab.',
-                  });
-                } catch (error) {
-                  console.error('Failed to save:', error);
-                  toast({
-                    title: 'Save failed',
-                    description: 'Please try again.',
-                    variant: 'destructive',
-                  });
-                }
-              }}
-              className="min-w-[160px]"
-            >
-              Save Career Path
-            </Button>
-          )}
-      </div>
 
-      {/* Tab Toggle - 3 tabs: Explorer, Plan, Career Profile */}
-      <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('explore')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'explore'
-              ? 'border-primary-500 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
-          }`}
-        >
-          Explorer
-        </button>
-        <button
-          onClick={() => setActiveTab('plan')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'plan'
-              ? 'border-primary-500 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
-          }`}
-        >
-          Plan
-        </button>
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'profile'
-              ? 'border-primary-500 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
-          }`}
-        >
-          Career Profile
-        </button>
-      </div>
+        {/* Tab Toggle - 3 tabs: Explorer, Plan, Career Profile */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('explore')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'explore'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
+          >
+            Explorer
+          </button>
+          <button
+            onClick={() => setActiveTab('plan')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'plan'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
+          >
+            Plan
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'profile'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
+          >
+            Career Profile
+          </button>
+        </div>
 
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {activeTab === 'explore' && renderExploreContent()}
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {activeTab === 'explore' && renderExploreContent()}
 
-        {activeTab === 'plan' &&
-          // Show PathSummaryScreen if wizard is completed with placed steps
-          (explorerState?.completed_steps?.includes(4) &&
-          explorerState?.placed_steps &&
-          explorerState.placed_steps.length > 0 &&
-          explorerState.starting_role ? (
-            <PathSummaryScreen
-              userName={user?.fullName || user?.firstName || 'User'}
-              userTitle={explorerState.starting_role.title}
-              startingRole={explorerState.starting_role}
-              placedSteps={explorerState.placed_steps}
-              onBack={() => {
-                // Go back to wizard step 3 to edit path
-                setActiveTab('explore');
-              }}
-              onUpdatePath={() => {
-                // Go back to Explore tab to edit path with saved selections
-                setIsEditingPath(true);
-                setActiveTab('explore');
-              }}
-            />
-          ) : (
-            <MainPathEditor
-              path={mainPath || undefined}
-              steps={mainPathSteps}
-              onAddStep={(data) => {
-                const newStep: MainPathStep = {
-                  _id: `step-${Date.now()}` as Id<'career_main_path_steps'>,
-                  path_id: 'mock-path' as Id<'career_main_paths'>,
-                  user_id: 'mock-user' as Id<'users'>,
-                  index: mainPathSteps.length,
-                  timeframe: data.timeframe,
-                  step_type: data.step_type,
-                  title: data.title,
-                  details: data.details,
-                  notes: data.notes,
-                  created_at: Date.now(),
-                  updated_at: Date.now(),
-                };
-                setMainPathSteps((prev) => [...prev, newStep]);
-              }}
-              onDeleteStep={(stepId) => {
-                setMainPathSteps((prev) => prev.filter((s) => s._id !== stepId));
-              }}
-              onUpdateStep={(stepId, data) => {
-                setMainPathSteps((prev) =>
-                  prev.map((s) =>
-                    s._id === stepId ? { ...s, ...data, updated_at: Date.now() } : s,
-                  ),
-                );
-              }}
-              onReorderSteps={(orderedIds) => {
-                setMainPathSteps((prev) => {
-                  const stepMap = new Map(prev.map((s) => [s._id, s]));
-                  return orderedIds
-                    .map((id, index) => {
-                      const step = stepMap.get(id);
-                      return step ? { ...step, index } : null;
-                    })
-                    .filter((s): s is MainPathStep => s !== null);
-                });
-              }}
-            />
-          ))}
+          {activeTab === 'plan' &&
+            // Show PathSummaryScreen if wizard is completed with placed steps
+            (explorerState?.completed_steps?.includes(4) &&
+            explorerState?.placed_steps &&
+            explorerState.placed_steps.length > 0 &&
+            explorerState.starting_role ? (
+              <PathSummaryScreen
+                userName={user?.fullName || user?.firstName || 'User'}
+                userTitle={explorerState.starting_role.title}
+                startingRole={explorerState.starting_role}
+                placedSteps={explorerState.placed_steps}
+                onBack={() => {
+                  // Go back to wizard step 3 to edit path
+                  setActiveTab('explore');
+                }}
+                onUpdatePath={() => {
+                  // Go back to Explore tab to edit path with saved selections
+                  setIsEditingPath(true);
+                  setActiveTab('explore');
+                }}
+              />
+            ) : (
+              <MainPathEditor
+                path={mainPath || undefined}
+                steps={mainPathSteps}
+                onAddStep={(data) => {
+                  const newStep: MainPathStep = {
+                    _id: `step-${Date.now()}` as Id<'career_main_path_steps'>,
+                    path_id: 'mock-path' as Id<'career_main_paths'>,
+                    user_id: 'mock-user' as Id<'users'>,
+                    index: mainPathSteps.length,
+                    timeframe: data.timeframe,
+                    step_type: data.step_type,
+                    title: data.title,
+                    details: data.details,
+                    notes: data.notes,
+                    created_at: Date.now(),
+                    updated_at: Date.now(),
+                  };
+                  setMainPathSteps((prev) => [...prev, newStep]);
+                }}
+                onDeleteStep={(stepId) => {
+                  setMainPathSteps((prev) => prev.filter((s) => s._id !== stepId));
+                }}
+                onUpdateStep={(stepId, data) => {
+                  setMainPathSteps((prev) =>
+                    prev.map((s) =>
+                      s._id === stepId ? { ...s, ...data, updated_at: Date.now() } : s,
+                    ),
+                  );
+                }}
+                onReorderSteps={(orderedIds) => {
+                  setMainPathSteps((prev) => {
+                    const stepMap = new Map(prev.map((s) => [s._id, s]));
+                    return orderedIds
+                      .map((id, index) => {
+                        const step = stepMap.get(id);
+                        return step ? { ...step, index } : null;
+                      })
+                      .filter((s): s is MainPathStep => s !== null);
+                  });
+                }}
+              />
+            ))}
 
-        {activeTab === 'profile' &&
-          (explorerState?.starting_role ? (
-            <div className="space-y-6">
-              {/* V4 Wizard Profile Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Career Profile</CardTitle>
-                  <CardDescription>Based on your wizard selections</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Starting Role */}
-                  {explorerState.starting_role && (
-                    <div className="p-4 bg-primary-50 rounded-lg">
-                      <p className="text-sm text-neutral-500 mb-1">Starting Role</p>
-                      <p className="font-medium text-lg">{explorerState.starting_role.title}</p>
-                      {explorerState.starting_role.category && (
-                        <p className="text-sm text-neutral-600">
-                          {explorerState.starting_role.category}
-                        </p>
+          {activeTab === 'profile' &&
+            (explorerState?.starting_role ? (
+              <div className="space-y-6">
+                {/* V4 Wizard Profile Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Career Profile</CardTitle>
+                    <CardDescription>Based on your wizard selections</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Starting Role */}
+                    {explorerState.starting_role && (
+                      <div className="p-4 bg-primary-50 rounded-lg">
+                        <p className="text-sm text-neutral-500 mb-1">Starting Role</p>
+                        <p className="font-medium text-lg">{explorerState.starting_role.title}</p>
+                        {explorerState.starting_role.category && (
+                          <p className="text-sm text-neutral-600">
+                            {explorerState.starting_role.category}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Skills */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {explorerState.skills_have && explorerState.skills_have.length > 0 && (
+                        <div className="p-4 bg-emerald-50 rounded-lg">
+                          <p className="text-sm text-emerald-600 font-medium mb-2">
+                            Skills You Have
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {explorerState.skills_have.map((skill) => (
+                              <span
+                                key={skill}
+                                className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {explorerState.skills_want && explorerState.skills_want.length > 0 && (
+                        <div className="p-4 bg-primary-50 rounded-lg">
+                          <p className="text-sm text-primary-600 font-medium mb-2">
+                            Skills You Want
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {explorerState.skills_want.map((skill) => (
+                              <span
+                                key={skill}
+                                className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  )}
 
-                  {/* Skills */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {explorerState.skills_have && explorerState.skills_have.length > 0 && (
-                      <div className="p-4 bg-emerald-50 rounded-lg">
-                        <p className="text-sm text-emerald-600 font-medium mb-2">Skills You Have</p>
-                        <div className="flex flex-wrap gap-1">
-                          {explorerState.skills_have.map((skill) => (
-                            <span
-                              key={skill}
-                              className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {explorerState.skills_want && explorerState.skills_want.length > 0 && (
-                      <div className="p-4 bg-primary-50 rounded-lg">
-                        <p className="text-sm text-primary-600 font-medium mb-2">Skills You Want</p>
-                        <div className="flex flex-wrap gap-1">
-                          {explorerState.skills_want.map((skill) => (
-                            <span
-                              key={skill}
-                              className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    {/* Restart Option */}
+                    <div className="pt-4 border-t border-neutral-200">
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          await clearExplorerState();
+                          setWizardCompletedThisSession(false);
+                          setPlacedPlanSteps([]);
+                          setMainPathSteps([]);
+                          setEditedPlacedSteps(null);
+                          setActiveTab('explore');
+                          toast({
+                            title: 'Career Explorer reset',
+                            description: 'You can start fresh with a new path.',
+                          });
+                        }}
+                      >
+                        Restart Career Explorer
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Restart Option */}
-                  <div className="pt-4 border-t border-neutral-200">
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        await clearExplorerState();
-                        setWizardCompletedThisSession(false);
-                        setPlacedPlanSteps([]);
-                        setMainPathSteps([]);
-                        setEditedPlacedSteps(null);
-                        setActiveTab('explore');
-                        toast({
-                          title: 'Career Explorer reset',
-                          description: 'You can start fresh with a new path.',
-                        });
-                      }}
-                    >
-                      Restart Career Explorer
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Legacy Quiz Results if available */}
-              {quizResult && (
-                <QuizResults
-                  result={quizResult}
-                  onExploreBundle={handleExploreBundle}
-                  onRetakeQuiz={handleStartQuiz}
-                  onViewPath={() => {
-                    setCurrentView('explore');
-                    setActiveTab('explore');
-                  }}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="max-w-xl mx-auto py-12">
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 mx-auto mb-4">
-                    <Compass className="w-8 h-8 text-neutral-400" />
-                  </div>
-                  <CardTitle>No Career Profile Yet</CardTitle>
-                  <CardDescription>
-                    Complete the career explorer wizard to build your personalized career profile.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={() => {
+                {/* Legacy Quiz Results if available */}
+                {quizResult && (
+                  <QuizResults
+                    result={quizResult}
+                    onExploreBundle={handleExploreBundle}
+                    onRetakeQuiz={handleStartQuiz}
+                    onViewPath={() => {
+                      setCurrentView('explore');
                       setActiveTab('explore');
                     }}
-                  >
-                    Start Career Explorer
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="max-w-xl mx-auto py-12">
+                <Card className="text-center">
+                  <CardHeader>
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 mx-auto mb-4">
+                      <Compass className="w-8 h-8 text-neutral-400" />
+                    </div>
+                    <CardTitle>No Career Profile Yet</CardTitle>
+                    <CardDescription>
+                      Complete the career explorer wizard to build your personalized career profile.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      onClick={() => {
+                        setActiveTab('explore');
+                      }}
+                    >
+                      Start Career Explorer
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   );

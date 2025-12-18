@@ -180,7 +180,13 @@ export function RoleDetailPanel({
               <h2 className="text-xl font-semibold text-neutral-900 truncate">{role.title}</h2>
               <p className="text-sm text-neutral-500 line-clamp-2">{role.description}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="flex-shrink-0"
+              aria-label="Close role details"
+            >
               <X className="w-5 h-5" />
             </Button>
           </div>

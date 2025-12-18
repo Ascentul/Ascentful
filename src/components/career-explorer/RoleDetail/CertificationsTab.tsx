@@ -58,7 +58,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         variant="ghost"
                         size="sm"
                         className="h-8 px-2"
-                        onClick={() => window.open(cert.url, '_blank')}
+                        onClick={() => window.open(cert.url, '_blank', 'noopener,noreferrer')}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>
@@ -101,7 +101,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         variant="ghost"
                         size="sm"
                         className="h-8 px-2"
-                        onClick={() => window.open(cert.url, '_blank')}
+                        onClick={() => window.open(cert.url, '_blank', 'noopener,noreferrer')}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>

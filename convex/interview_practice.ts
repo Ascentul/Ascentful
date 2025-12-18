@@ -862,11 +862,24 @@ export const generateAudioUploadUrl = mutation({
 
 /**
  * Get audio URL from storage ID
+ * Requires turnId for ownership verification to prevent unauthorized access
  */
 export const getAudioUrl = query({
-  args: { storageId: v.id('_storage') },
+  args: {
+    storageId: v.id('_storage'),
+    turnId: v.optional(v.id('interview_practice_turns')),
+  },
   handler: async (ctx, args) => {
-    await getAuthenticatedUser(ctx);
+    const user = await getAuthenticatedUser(ctx);
+
+    // If turnId provided, verify ownership
+    if (args.turnId) {
+      const turn = await ctx.db.get(args.turnId);
+      if (turn && turn.user_id !== user._id && !hasAdvisorAccess(user)) {
+        throw new Error('Unauthorized: You do not have access to this audio');
+      }
+    }
+
     return await ctx.storage.getUrl(args.storageId);
   },
 });

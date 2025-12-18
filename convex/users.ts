@@ -1218,6 +1218,12 @@ export const toggleHideProgressCard = mutation({
 /**
  * Internal mutation to reactivate a deleted/suspended user account.
  * Used for admin recovery operations via CLI.
+ *
+ * @returns {Object} Result object with success, userId, and previousStatus
+ * @returns {boolean} result.success - Always true if no error thrown
+ * @returns {Id<'users'>} result.userId - The user's ID
+ * @returns {string} result.previousStatus - The user's status before this call.
+ *   If previousStatus === 'active', no changes were made (user was already active).
  */
 export const reactivateUserAccount = internalMutation({
   args: {
@@ -1233,13 +1239,12 @@ export const reactivateUserAccount = internalMutation({
       throw new Error(`User not found with clerkId: ${args.clerkId}`);
     }
 
-    // Validate that reactivation is needed
+    // Validate that reactivation is needed - early return with same shape as normal return
     if (user.account_status === 'active' && !user.deleted_at) {
       return {
         success: true,
         userId: user._id,
         previousStatus: user.account_status,
-        message: 'User was already active',
       };
     }
 

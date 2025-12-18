@@ -308,6 +308,22 @@ export default function JobSearchPage() {
                   </Select>
                 </div>
 
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    Experience Level (Optional)
+                  </label>
+                  <Select value={experience} onValueChange={setExperience}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mid-level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Entry-level">Entry-level</SelectItem>
+                      <SelectItem value="Mid-level">Mid-level</SelectItem>
+                      <SelectItem value="Senior">Senior</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button
                   onClick={() => doSearch({ page: 1 })}
                   disabled={loading || !query.trim()}

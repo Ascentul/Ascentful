@@ -360,12 +360,12 @@ Improvements: ${t.improvements?.map((improvement) => sanitizeInput(improvement))
 
   return `Generate a comprehensive coaching summary for this mock interview:
 
-ROLE: ${roleProfile.job_title}${roleProfile.company_name ? ` at ${roleProfile.company_name}` : ''}
+ROLE: ${sanitizeInput(roleProfile.job_title)}${roleProfile.company_name ? ` at ${sanitizeInput(roleProfile.company_name)}` : ''}
 INTERVIEW DURATION: ${durationMin} minutes
 QUESTIONS ANSWERED: ${turns.length}
 
 COMPETENCIES ASSESSED:
-${roleProfile.competencies?.map((c) => `- ${c.name} (weight: ${c.weight})`).join('\n') || 'General competencies'}
+${roleProfile.competencies?.map((c) => `- ${sanitizeInput(c.name)} (weight: ${c.weight})`).join('\n') || 'General competencies'}
 
 QUESTION-BY-QUESTION BREAKDOWN:
 ${turnSummaries}

@@ -1,6 +1,16 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, Lightbulb, Loader2, Plus, Target, X } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Lightbulb,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Target,
+  X,
+} from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -30,12 +40,14 @@ export function SkillsStep({
 }: SkillsStepProps) {
   const [suggestions, setSuggestions] = useState<SkillsSuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [newSkillHave, setNewSkillHave] = useState('');
   const [newSkillWant, setNewSkillWant] = useState('');
 
   // Fetch skill suggestions based on starting role
   const fetchSuggestions = useCallback(async () => {
     setIsLoading(true);
+    setFetchError(false);
     try {
       const response = await fetch('/api/career-explorer/skills-suggest', {
         method: 'POST',
@@ -46,9 +58,12 @@ export function SkillsStep({
       if (response.ok) {
         const data = await response.json();
         setSuggestions(data);
+      } else {
+        setFetchError(true);
       }
     } catch (error) {
       console.error('Skills suggestion error:', error);
+      setFetchError(true);
     } finally {
       setIsLoading(false);
     }
@@ -113,6 +128,31 @@ export function SkillsStep({
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary-500 mb-4" />
         <p className="text-neutral-500">Loading skills for {startingRole.title}...</p>
+      </div>
+    );
+  }
+
+  if (fetchError && !suggestions) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+        </div>
+        <h2 className="text-xl font-semibold text-neutral-900 mb-2">Failed to load suggestions</h2>
+        <p className="text-neutral-500 text-center max-w-md mb-6">
+          We couldn&apos;t load skill suggestions for {startingRole.title}. You can try again or
+          continue by adding skills manually.
+        </p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
+          </Button>
+          <Button onClick={fetchSuggestions}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }

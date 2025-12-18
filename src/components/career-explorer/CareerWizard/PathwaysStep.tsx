@@ -165,7 +165,10 @@ export function PathwaysStep({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track which roles are in the career path
+  // Use a ref to avoid stale closure issues in fetch callbacks
   const selectedIds = new Set(placedSteps.map((s) => s.id));
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
 
   // Track if we've done initial restoration from placedSteps
   const hasRestoredRef = useRef(false);
@@ -438,7 +441,7 @@ export function PathwaysStep({
           title: role.title,
           category: role.category,
           fit_score: role.fit_score,
-          selected: selectedIds.has(role.id),
+          selected: selectedIdsRef.current.has(role.id),
           relationship: role.relationship,
         }));
 
@@ -484,7 +487,7 @@ export function PathwaysStep({
             title: role.title,
             category: role.category,
             fit_score: role.fit_score,
-            selected: selectedIds.has(role.id),
+            selected: selectedIdsRef.current.has(role.id),
             relationship: role.relationship,
           }));
 
@@ -529,7 +532,7 @@ export function PathwaysStep({
             title: role.title,
             category: role.category,
             fit_score: role.fit_score,
-            selected: selectedIds.has(role.id),
+            selected: selectedIdsRef.current.has(role.id),
             relationship: role.relationship,
           }));
 
@@ -871,7 +874,7 @@ export function PathwaysStep({
             title: role.title,
             category: role.category,
             fit_score: role.fit_score,
-            selected: selectedIds.has(role.id),
+            selected: selectedIdsRef.current.has(role.id),
             relationship: role.relationship,
           }));
 

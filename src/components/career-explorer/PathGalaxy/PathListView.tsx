@@ -77,10 +77,18 @@ function NodeListItem({ node, isSelected, onSelect, onSave }: NodeListItemProps)
   const typeConfig = NODE_TYPE_CONFIG[node.type];
 
   return (
-    <button
+    <div
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
-        'w-full text-left p-4 rounded-lg border transition-all',
+        'w-full text-left p-4 rounded-lg border transition-all cursor-pointer',
         'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500',
         isSelected ? 'border-primary-500 bg-primary-50' : 'border-neutral-200 bg-white',
       )}
@@ -156,7 +164,7 @@ function NodeListItem({ node, isSelected, onSelect, onSave }: NodeListItemProps)
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

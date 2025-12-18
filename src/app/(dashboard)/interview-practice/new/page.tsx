@@ -157,7 +157,12 @@ export default function NewInterviewPracticePage() {
     },
   });
 
-  // Check permissions
+  // Check permissions using the Permissions API (if available)
+  // Note: Permissions API has limited browser support:
+  // - Not supported in Firefox for microphone/camera
+  // - Safari 16+ only
+  // When the API is unavailable, we default to showing "Grant Access" buttons,
+  // and the actual permission prompt happens via getUserMedia() in requestMicPermission/requestCameraPermission
   const checkPermissions = useCallback(async () => {
     try {
       // Check microphone
@@ -176,7 +181,11 @@ export default function NewInterviewPracticePage() {
 
       setPermissionsChecked(true);
     } catch {
-      // Fallback: try to request permissions
+      // Permissions API not supported (Firefox, older Safari, etc.)
+      // Default to false so the UI shows "Grant Access" buttons.
+      // The actual permission prompt will happen via getUserMedia() when clicked.
+      setHasMicPermission(false);
+      setHasCameraPermission(cameraEnabled ? false : true);
       setPermissionsChecked(true);
     }
   }, [cameraEnabled]);

@@ -19,7 +19,6 @@ import {
   Compass,
   FileEdit,
   FileText,
-  GitBranch,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -205,14 +204,8 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         pro: true,
       },
       {
-        id: 'career-path',
-        title: 'Career Path Explorer',
-        icon: <GitBranch className="h-5 w-5" />,
-        href: '/career-path',
-      },
-      {
         id: 'career-explorer',
-        title: 'Career Explorer 2.0',
+        title: 'Career Explorer',
         icon: <Compass className="h-5 w-5" />,
         href: '/career-explorer',
       },

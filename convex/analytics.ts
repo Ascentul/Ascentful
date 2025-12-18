@@ -1498,10 +1498,16 @@ export const getUserDashboardAnalytics = query({
       resumes: {
         count: resumes.length,
         unlimited: true,
+        hasAny: resumes.length > 0,
+        hasAiTailored: resumes.some(
+          (r) => r.source === 'ai_optimized' || (r.source === 'ai_generated' && r.job_description),
+        ),
+        firstResumeId: resumes.length > 0 ? resumes[0]._id : null,
       },
       cover_letters: {
         count: coverLetters.length,
         unlimited: true,
+        hasAny: coverLetters.length > 0,
       },
     };
 
