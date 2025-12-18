@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.MICROSOFT_OAUTH_CLIENT_ID;
     if (!clientId) {
       log.error('Missing MICROSOFT_OAUTH_CLIENT_ID', 'CONFIG_ERROR', { event: 'config.error' });
-      return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Server not configured' },
+        { status: 500, headers: { 'x-correlation-id': correlationId } },
+      );
     }
 
     const tenant = process.env.MICROSOFT_OAUTH_TENANT || 'common';

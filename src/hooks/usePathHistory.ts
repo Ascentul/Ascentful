@@ -11,6 +11,12 @@ interface PathHistoryState {
 
 interface UsePathHistoryOptions {
   maxHistory?: number;
+  /**
+   * Enable global keyboard shortcuts (Cmd/Ctrl+Z for undo, Cmd/Ctrl+Shift+Z for redo).
+   * Disabled by default to prevent conflicts when multiple instances are mounted.
+   * Only enable this in one component at a time.
+   */
+  enableKeyboardShortcuts?: boolean;
 }
 
 interface UsePathHistoryReturn {
@@ -50,7 +56,7 @@ interface UsePathHistoryReturn {
  * ```
  */
 export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHistoryReturn {
-  const { maxHistory = 20 } = options;
+  const { maxHistory = 20, enableKeyboardShortcuts = false } = options;
 
   // Combined state to prevent stale closure issues during rapid updates
   const [historyState, setHistoryState] = useState<{
@@ -121,12 +127,12 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
       currentIndex: newIndex,
     }));
 
-    // Return previous state, or empty array if at beginning
+    // Return previous state, or null if at beginning
     if (newIndex >= 0 && history[newIndex]) {
       return JSON.parse(JSON.stringify(history[newIndex].steps));
     }
 
-    return [];
+    return null;
   }, [canUndo, currentIndex, history]);
 
   /**
@@ -158,8 +164,17 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
   }, []);
 
   // Keyboard shortcuts (Cmd/Ctrl + Z for undo, Cmd/Ctrl + Shift + Z for redo)
+  // Only registered when enableKeyboardShortcuts is true to prevent multiple handlers
   useEffect(() => {
+    if (!enableKeyboardShortcuts) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input to preserve native undo/redo
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifierKey = isMac ? e.metaKey : e.ctrlKey;
 
@@ -190,7 +205,7 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  }, [enableKeyboardShortcuts, undo, redo]);
 
   return {
     canUndo,

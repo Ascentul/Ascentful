@@ -98,7 +98,7 @@ function StepChip({
           e.stopPropagation();
           onRemove();
         }}
-        className="opacity-0 group-hover:opacity-100 absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-opacity"
+        className="opacity-0 group-hover:opacity-100 focus:opacity-100 absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-opacity"
         aria-label={`Remove ${step.title} from plan`}
       >
         <X className="w-3 h-3 text-red-600" />
