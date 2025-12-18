@@ -59,6 +59,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         size="sm"
                         className="h-8 px-2"
                         onClick={() => window.open(cert.url, '_blank', 'noopener,noreferrer')}
+                        aria-label={`Visit ${cert.name} certification website`}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>
@@ -102,6 +103,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         size="sm"
                         className="h-8 px-2"
                         onClick={() => window.open(cert.url, '_blank', 'noopener,noreferrer')}
+                        aria-label={`Visit ${cert.name} certification website`}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>

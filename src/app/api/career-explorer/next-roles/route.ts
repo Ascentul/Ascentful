@@ -6,9 +6,9 @@ import { createRequestLogger, getCorrelationIdFromRequest } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface NextRolesRequest {
   currentRole: string;
@@ -2938,6 +2938,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Fall back to AI generation with optimized prompts
+    if (!openai) {
+      log.warn('OpenAI client not configured, returning empty roles');
+      return NextResponse.json(
+        { roles: [] },
+        { status: 200, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     const isMajor = category?.toLowerCase().includes('major');
     const isInternship = category?.toLowerCase().includes('intern');
 

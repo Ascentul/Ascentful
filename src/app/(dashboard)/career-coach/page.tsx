@@ -367,9 +367,11 @@ export default function AICoachPage() {
                       className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-neutral-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                     >
                       {isLoading ? (
-                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                        <Loader2 className="h-4 w-4 text-neutral-400 animate-spin" />
                       ) : (
-                        <ArrowUp className="h-4 w-4 text-white" />
+                        <ArrowUp
+                          className={`h-4 w-4 ${!message.trim() ? 'text-neutral-400' : 'text-white'}`}
+                        />
                       )}
                     </button>
                   </div>

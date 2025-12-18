@@ -867,17 +867,21 @@ export const generateAudioUploadUrl = mutation({
 export const getAudioUrl = query({
   args: {
     storageId: v.id('_storage'),
-    turnId: v.optional(v.id('interview_practice_turns')),
+    turnId: v.id('interview_practice_turns'),
   },
   handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
 
-    // If turnId provided, verify ownership
-    if (args.turnId) {
-      const turn = await ctx.db.get(args.turnId);
-      if (turn && turn.user_id !== user._id && !hasAdvisorAccess(user)) {
-        throw new Error('Unauthorized: You do not have access to this audio');
-      }
+    const turn = await ctx.db.get(args.turnId);
+    if (!turn) {
+      throw new Error('Turn not found');
+    }
+    if (turn.user_id !== user._id && !hasAdvisorAccess(user)) {
+      throw new Error('Unauthorized: You do not have access to this audio');
+    }
+    // Verify the storage ID matches the turn's audio
+    if (turn.user_audio_storage_id !== args.storageId) {
+      throw new Error('Storage ID does not match turn audio');
     }
 
     return await ctx.storage.getUrl(args.storageId);

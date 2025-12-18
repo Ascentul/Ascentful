@@ -335,8 +335,8 @@ export function SkillsStep({
         <div className="text-sm text-amber-800">
           <p className="font-medium">Tip</p>
           <p className="text-amber-700">
-            Select at least 3 skills you have and 2-3 skills you want to build. This helps us
-            personalize your career path recommendations.
+            For best results, select 3+ skills you have and 2-3 skills you want to build. This helps
+            us personalize your career path recommendations.
           </p>
         </div>
       </div>

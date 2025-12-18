@@ -8,9 +8,9 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const runtime = 'nodejs';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface GalaxyRole {
   id: string;
@@ -60,6 +60,14 @@ export async function POST(request: NextRequest) {
     const quizContext = quizResult ? buildQuizContext(quizResult) : '';
 
     // Generate roles using OpenAI
+    if (!openai) {
+      log.warn('OpenAI client not configured, returning empty roles');
+      return NextResponse.json(
+        { roles: [], categories: [] },
+        { status: 200, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     const prompt = buildRoleGenerationPrompt(profileContext, quizContext);
 
     log.info('Starting OpenAI galaxy roles generation', { event: 'ai.request' });

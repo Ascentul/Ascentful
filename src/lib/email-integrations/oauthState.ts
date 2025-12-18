@@ -79,7 +79,12 @@ export function verifyOAuthState(
     throw new Error('Invalid state signature');
   }
 
-  const payload = JSON.parse(base64UrlDecodeToString(payloadB64)) as OAuthStatePayload;
+  let payload: OAuthStatePayload;
+  try {
+    payload = JSON.parse(base64UrlDecodeToString(payloadB64)) as OAuthStatePayload;
+  } catch {
+    throw new Error('Invalid state payload');
+  }
   if (payload.v !== 1) throw new Error('Invalid state version');
   if (payload.clerkId !== expected.clerkId) throw new Error('State user mismatch');
   if (payload.provider !== expected.provider) throw new Error('State provider mismatch');

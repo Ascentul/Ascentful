@@ -192,7 +192,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         else if (audioStorageId) {
           const audioUrl = await convexServer.query(
             api.interview_practice.getAudioUrl,
-            { storageId: audioStorageId as Id<'_storage'> },
+            {
+              storageId: audioStorageId as Id<'_storage'>,
+              turnId: turnId as Id<'interview_practice_turns'>,
+            },
             token,
           );
 
