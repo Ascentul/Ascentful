@@ -152,6 +152,14 @@ export const createProject = mutation({
         ? (await requireMembership(ctx, { role: 'student' })).membership
         : null;
 
+    // Validate storage ID if provided
+    if (args.image_storage_id) {
+      const imageUrl = await ctx.storage.getUrl(args.image_storage_id);
+      if (!imageUrl) {
+        throw new Error('Invalid storage ID');
+      }
+    }
+
     // ARCHITECTURE NOTE: Free plan limits are enforced at the FRONTEND layer
     // - Clerk Billing (publicMetadata) is the source of truth for subscriptions
     // - Frontend enforces via useSubscription() hook + Clerk's has() method
@@ -236,12 +244,16 @@ export const updateProject = mutation({
       throw new Error('Unauthorized: Project belongs to another university');
     }
 
-    // Clean up old storage file if image reference is changing
-    if (
-      args.updates.image_storage_id &&
-      project.image_storage_id &&
-      args.updates.image_storage_id !== project.image_storage_id
-    ) {
+    // Validate storage ID if provided
+    if (args.updates.image_storage_id) {
+      const imageUrl = await ctx.storage.getUrl(args.updates.image_storage_id);
+      if (!imageUrl) {
+        throw new Error('Invalid storage ID');
+      }
+    }
+
+    // Clean up old storage file if image reference is changing or being cleared
+    if (project.image_storage_id && args.updates.image_storage_id !== project.image_storage_id) {
       await ctx.storage.delete(project.image_storage_id);
     }
 
@@ -282,6 +294,11 @@ export const deleteProject = mutation({
 
     if (project.university_id && membership && project.university_id !== membership.university_id) {
       throw new Error('Unauthorized: Project belongs to another university');
+    }
+
+    // Clean up storage file if exists
+    if (project.image_storage_id) {
+      await ctx.storage.delete(project.image_storage_id);
     }
 
     await ctx.db.delete(args.projectId);

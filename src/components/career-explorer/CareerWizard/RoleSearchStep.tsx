@@ -59,11 +59,6 @@ export function RoleSearchStep({ selectedRole, onRoleSelect, onContinue }: RoleS
     };
   }, [query, searchRoles]);
 
-  // Load initial roles on mount
-  useEffect(() => {
-    searchRoles('');
-  }, [searchRoles]);
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

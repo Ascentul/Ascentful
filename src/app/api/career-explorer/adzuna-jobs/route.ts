@@ -89,7 +89,8 @@ export async function POST(request: Request) {
       location: job.location.display_name,
       salaryMin: job.salary_min,
       salaryMax: job.salary_max,
-      description: job.description.slice(0, 200) + '...',
+      description:
+        job.description.length > 200 ? job.description.slice(0, 200) + '...' : job.description,
       url: job.redirect_url,
       postedDate: job.created,
       category: job.category?.label || 'General',

@@ -33,9 +33,10 @@ export function CompensationTab({ compensation }: CompensationTabProps) {
 
   const confidenceConfig = CONFIDENCE_CONFIG[compensation.confidence.level];
   const range = compensation.max - compensation.min;
-  const medianPosition = compensation.median
-    ? ((compensation.median - compensation.min) / range) * 100
-    : 50;
+  const medianPosition =
+    compensation.median && range > 0
+      ? ((compensation.median - compensation.min) / range) * 100
+      : 50;
 
   return (
     <div className="space-y-4">

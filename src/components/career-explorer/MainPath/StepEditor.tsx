@@ -2,7 +2,7 @@
 
 import { Id } from 'convex/_generated/dataModel';
 import { Plus, X } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,22 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
   const [newProject, setNewProject] = useState('');
   const [newCertification, setNewCertification] = useState('');
   const [newExperienceTarget, setNewExperienceTarget] = useState('');
+
+  // Reset form when step changes to prevent stale data
+  useEffect(() => {
+    setTitle(step?.title || '');
+    setStepType(step?.step_type || 'role');
+    setTimeframe(step?.timeframe || '12m');
+    setNotes(step?.notes || '');
+    setSkills(step?.details?.skills_to_build || []);
+    setProjects(step?.details?.projects || []);
+    setCertifications(step?.details?.certifications || []);
+    setExperienceTargets(step?.details?.experience_targets || []);
+    setNewSkill('');
+    setNewProject('');
+    setNewCertification('');
+    setNewExperienceTarget('');
+  }, [step]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -204,6 +220,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
                     <button
                       onClick={() => removeItem(idx, setSkills)}
                       className="ml-1 hover:text-red-500"
+                      aria-label={`Remove ${skill}`}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -248,6 +265,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
                     <button
                       onClick={() => removeItem(idx, setProjects)}
                       className="text-neutral-400 hover:text-red-500"
+                      aria-label={`Remove ${project}`}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -289,6 +307,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
                     <button
                       onClick={() => removeItem(idx, setCertifications)}
                       className="ml-1 hover:text-red-500"
+                      aria-label={`Remove ${cert}`}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -335,6 +354,7 @@ export function StepEditor({ step, isOpen, onClose, onSave, isLoading }: StepEdi
                     <button
                       onClick={() => removeItem(idx, setExperienceTargets)}
                       className="text-neutral-400 hover:text-red-500"
+                      aria-label={`Remove ${target}`}
                     >
                       <X className="w-4 h-4" />
                     </button>

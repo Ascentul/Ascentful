@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { MainPathStep } from '@/lib/career-explorer/types';
 
@@ -52,15 +52,20 @@ interface UsePathHistoryReturn {
 export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHistoryReturn {
   const { maxHistory = 20 } = options;
 
-  // History stack - past states
-  const [history, setHistory] = useState<PathHistoryState[]>([]);
-  // Current position in history
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  // Future stack - states we can redo to
-  const futureRef = useRef<PathHistoryState[]>([]);
+  // Combined state to prevent stale closure issues during rapid updates
+  const [historyState, setHistoryState] = useState<{
+    history: PathHistoryState[];
+    currentIndex: number;
+  }>({
+    history: [],
+    currentIndex: -1,
+  });
+  // Future stack - states we can redo to (using state for reactivity)
+  const [future, setFuture] = useState<PathHistoryState[]>([]);
 
+  const { history, currentIndex } = historyState;
   const canUndo = currentIndex >= 0;
-  const canRedo = futureRef.current.length > 0;
+  const canRedo = future.length > 0;
 
   /**
    * Record a new state change.
@@ -73,27 +78,27 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
         timestamp: Date.now(),
       };
 
-      setHistory((prev) => {
+      setHistoryState((prev) => {
         // If we're in the middle of history (after undos), truncate future
-        const newHistory = prev.slice(0, currentIndex + 1);
+        const newHistory = prev.history.slice(0, prev.currentIndex + 1);
 
         // Add new state
         newHistory.push(newState);
 
-        // Trim to max history
-        if (newHistory.length > maxHistory) {
-          return newHistory.slice(-maxHistory);
-        }
+        // Trim to max history and calculate new index
+        const trimmedHistory =
+          newHistory.length > maxHistory ? newHistory.slice(-maxHistory) : newHistory;
 
-        return newHistory;
+        return {
+          history: trimmedHistory,
+          currentIndex: Math.min(prev.currentIndex + 1, maxHistory - 1),
+        };
       });
 
-      setCurrentIndex((prev) => Math.min(prev + 1, maxHistory - 1));
-
       // Clear redo stack when new change is recorded
-      futureRef.current = [];
+      setFuture([]);
     },
-    [currentIndex, maxHistory],
+    [maxHistory],
   );
 
   /**
@@ -106,12 +111,15 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
     // Save current state to future (for redo)
     const currentState = history[currentIndex];
     if (currentState) {
-      futureRef.current = [currentState, ...futureRef.current];
+      setFuture((prev) => [currentState, ...prev]);
     }
 
     // Move back in history
     const newIndex = currentIndex - 1;
-    setCurrentIndex(newIndex);
+    setHistoryState((prev) => ({
+      ...prev,
+      currentIndex: newIndex,
+    }));
 
     // Return previous state, or empty array if at beginning
     if (newIndex >= 0 && history[newIndex]) {
@@ -126,26 +134,27 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
    * Returns the next state or null if nothing to redo.
    */
   const redo = useCallback((): MainPathStep[] | null => {
-    if (!canRedo) return null;
+    if (!canRedo || future.length === 0) return null;
 
     // Get the next future state
-    const [nextState, ...remainingFuture] = futureRef.current;
-    futureRef.current = remainingFuture;
+    const [nextState, ...remainingFuture] = future;
+    setFuture(remainingFuture);
 
-    // Add it back to history
-    setHistory((prev) => [...prev.slice(0, currentIndex + 1), nextState]);
-    setCurrentIndex((prev) => prev + 1);
+    // Add it back to history and update index atomically
+    setHistoryState((prev) => ({
+      history: [...prev.history.slice(0, prev.currentIndex + 1), nextState],
+      currentIndex: prev.currentIndex + 1,
+    }));
 
     return JSON.parse(JSON.stringify(nextState.steps));
-  }, [canRedo, currentIndex]);
+  }, [canRedo, future]);
 
   /**
    * Clear all history.
    */
   const clearHistory = useCallback(() => {
-    setHistory([]);
-    setCurrentIndex(-1);
-    futureRef.current = [];
+    setHistoryState({ history: [], currentIndex: -1 });
+    setFuture([]);
   }, []);
 
   // Keyboard shortcuts (Cmd/Ctrl + Z for undo, Cmd/Ctrl + Shift + Z for redo)

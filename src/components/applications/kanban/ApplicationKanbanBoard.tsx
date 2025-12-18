@@ -246,10 +246,15 @@ export function ApplicationKanbanBoard({
   // Handle menu-based moves (Move to dropdown)
   const handleMenuMove = useCallback(
     async (applicationId: string, newStatus: ApplicationStatus) => {
-      // Move to end of target column
-      const targetApps = applications[newStatus] || [];
-      const lastApp = targetApps[targetApps.length - 1];
-      await onMove(applicationId, newStatus, lastApp?._id, undefined);
+      try {
+        // Move to end of target column
+        const targetApps = applications[newStatus] || [];
+        const lastApp = targetApps[targetApps.length - 1];
+        await onMove(applicationId, newStatus, lastApp?._id, undefined);
+      } catch (error) {
+        console.error('Failed to move application:', error);
+        toast.error('Failed to move application. Please try again.');
+      }
     },
     [applications, onMove],
   );

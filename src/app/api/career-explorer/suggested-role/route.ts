@@ -4,7 +4,11 @@ import { NextResponse } from 'next/server';
 
 import { api } from '../../../../../convex/_generated/api';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error('NEXT_PUBLIC_CONVEX_URL environment variable is required');
+}
+const convex = new ConvexHttpClient(convexUrl);
 
 interface SuggestedRoleRequest {
   roles: Array<{

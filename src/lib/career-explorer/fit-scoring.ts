@@ -96,9 +96,6 @@ function calculateInterestAlignment(
   quizAnswers: QuizAnswers,
   roleProfile: RoleProfile,
 ): { score: number; explanation: string } {
-  // Interest-related question IDs from the quiz
-  const interestQuestionIds = ['work_environment', 'team_preference', 'learning_style'];
-
   let alignmentScore = 50; // Default neutral
   const factors: string[] = [];
 

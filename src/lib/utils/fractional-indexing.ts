@@ -2,8 +2,9 @@
  * Fractional Indexing Utilities for Kanban Board Ordering
  *
  * Uses fractional indexing to efficiently insert items between others
- * without rewriting all neighbors. Initial values use integers (1000, 2000, 3000...)
- * and insertions calculate midpoints.
+ * without rewriting all neighbors. Supports both positive and negative conventions:
+ * - Migration uses negative values (-1000, -2000, -3000...) where lower = top of list
+ * - Runtime maintains the existing convention of the list
  */
 
 export const SORT_ORDER_GAP = 1000;
@@ -27,8 +28,8 @@ export function calculateSortOrder(
 
   // Inserting at the start (before first item)
   if (beforeOrder == null && afterOrder != null) {
-    // Edge-case guard: if the first item already has zero or negative sort_order,
-    // subtract the default gap so the new item stays strictly before it.
+    // Maintain convention: if list uses negative values, stay negative
+    // If list uses positive values, halve to stay before
     if (afterOrder <= 0) {
       return afterOrder - SORT_ORDER_GAP;
     }
@@ -37,6 +38,10 @@ export function calculateSortOrder(
 
   // Inserting at the end (after last item)
   if (beforeOrder != null && afterOrder == null) {
+    // Maintain convention: if list uses negative values (lower = top),
+    // adding to end means adding a higher (less negative or positive) value
+    // If beforeOrder is negative and we add GAP, it moves toward 0 or positive,
+    // which is correct for "end of list" in the negative convention
     return beforeOrder + SORT_ORDER_GAP;
   }
 

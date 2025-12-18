@@ -6,13 +6,14 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const runtime = 'nodejs';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // In-memory cache for salary data (in production, use Redis or similar)
 const salaryCache = new Map<string, SalaryLookupResponse>();
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for BLS data
+const ESTIMATED_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours for AI estimates
 
 interface SalaryLookupRequest {
   role_titles: string[];
@@ -378,10 +379,10 @@ export async function POST(request: NextRequest) {
         const estimatedSalary = await estimateSalary(title, log);
         salaries.push(estimatedSalary);
 
-        // Cache estimated result with shorter TTL
+        // Cache estimated result with shorter TTL (4 hours vs 24 hours for BLS)
         salaryCache.set(cacheKey, {
           salaries: [estimatedSalary],
-          cached_at: Date.now(),
+          cached_at: Date.now() - (CACHE_TTL_MS - ESTIMATED_CACHE_TTL_MS),
         });
       }
     }
@@ -421,6 +422,11 @@ async function findBestBLSMatch(
   roleTitle: string,
   log: ReturnType<typeof createRequestLogger>,
 ): Promise<Omit<SalaryData, 'role_title'> | null> {
+  if (!openai) {
+    log.debug('OpenAI not available, skipping AI matching', { event: 'ai.match.skip' });
+    return null;
+  }
+
   try {
     // Use AI to find the best matching BLS occupation
     const availableOccupations = Object.entries(BLS_SALARY_DATA)
@@ -473,6 +479,17 @@ async function estimateSalary(
   roleTitle: string,
   log: ReturnType<typeof createRequestLogger>,
 ): Promise<SalaryData> {
+  if (!openai) {
+    log.debug('OpenAI not available, using fallback estimates', { event: 'estimate.skip' });
+    return {
+      role_title: roleTitle,
+      salary_range: { min: 50000, median: 75000, max: 120000 },
+      source: 'estimated',
+      experience_level: 'Mid-level',
+      summary: `Professional role as ${roleTitle}.`,
+    };
+  }
+
   try {
     // Use AI to estimate salary based on role title
     const completion = await openai.chat.completions.create({

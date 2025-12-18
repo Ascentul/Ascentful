@@ -58,6 +58,15 @@ export function RolePreviewCard({
 }: RolePreviewCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const [adjustedPosition, setAdjustedPosition] = useState({ left: 0, top: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport with resize handling (SSR-safe)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Calculate position to avoid going off-screen and overlapping panel/rail
   useEffect(() => {
@@ -98,9 +107,6 @@ export function RolePreviewCard({
 
   const fitScoreColor = node.fit_score ? getFitScoreColor(node.fit_score) : 'text-neutral-500';
 
-  // Check if we're on mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
   const cardContent = (
     <Card
       className={`shadow-lg border-2 border-neutral-200 bg-white ${isMobile ? 'w-full' : 'w-80'}`}
@@ -112,7 +118,7 @@ export function RolePreviewCard({
             <h3 id="role-preview-title" className="font-semibold text-lg text-neutral-900 truncate">
               {node.title}
             </h3>
-            <p className="text-sm text-neutral-500 truncate">
+            <p id="role-preview-description" className="text-sm text-neutral-500 truncate">
               {node.subtitle || salaryData?.bls_occupation_title || 'Career Role'}
             </p>
           </div>
