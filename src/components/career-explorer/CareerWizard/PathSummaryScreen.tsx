@@ -218,7 +218,8 @@ export function PathSummaryScreen({
     };
 
     preloadAllRoles();
-  }, []); // Only run once on mount - placedSteps won't change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally run once on mount; placedSteps is stable on this summary screen
+  }, []);
 
   const formatSalary = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

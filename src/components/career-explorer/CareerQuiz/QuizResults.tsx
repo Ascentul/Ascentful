@@ -143,10 +143,10 @@ export function QuizResults({
                     </li>
                   ))}
                 </ul>
-                <Button variant="ghost" size="sm" className="w-full mt-2 gap-1">
-                  Explore Path
+                <div className="flex items-center justify-center gap-1 text-sm font-medium mt-2 pt-2 border-t opacity-80">
+                  Click to explore
                   <ArrowRight className="w-4 h-4" />
-                </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

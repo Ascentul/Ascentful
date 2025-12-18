@@ -13,19 +13,25 @@ interface SidebarContextValue {
 const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('sidebarExpanded') !== 'false';
-    }
-    return true;
-  });
+  // Initialize to true to match server render and avoid hydration mismatch
+  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Sync to localStorage when state changes
+  // Read from localStorage after hydration to avoid mismatch
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('sidebarExpanded');
+    if (stored === 'false') {
+      setIsExpanded(false);
+    }
+    setIsHydrated(true);
+  }, []);
+
+  // Sync to localStorage when state changes (only after hydration)
+  useEffect(() => {
+    if (isHydrated) {
       localStorage.setItem('sidebarExpanded', isExpanded.toString());
     }
-  }, [isExpanded]);
+  }, [isExpanded, isHydrated]);
 
   const setExpanded = useCallback((expanded: boolean) => {
     setIsExpanded(expanded);

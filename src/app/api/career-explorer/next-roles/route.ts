@@ -2726,8 +2726,21 @@ const INTERNSHIP_ENTRY_LEVEL: Record<string, Omit<NextRole, 'id'>[]> = {
 const cache = new Map<string, { data: NextRole[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-function getCacheKey(role: string, column: string | undefined): string {
-  return `${role.toLowerCase().trim()}-${column || 'default'}`;
+function getCacheKey(
+  role: string,
+  column: string | undefined,
+  category: string | undefined,
+  skills_have: string[] | undefined,
+  skills_want: string[] | undefined,
+): string {
+  // Include category and skills in cache key to avoid cross-contamination
+  // between different user contexts (e.g., major vs internship, different skill sets)
+  const skillsKey = [...(skills_have || []), ...(skills_want || [])]
+    .slice(0, 5)
+    .sort()
+    .join(',')
+    .toLowerCase();
+  return `${role.toLowerCase().trim()}-${column || 'default'}-${category?.toLowerCase() || 'none'}-${skillsKey || 'noskills'}`;
 }
 
 function getFromCache(key: string): NextRole[] | null {
@@ -2908,7 +2921,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check cache first
-    const cacheKey = getCacheKey(currentRole, column);
+    const cacheKey = getCacheKey(currentRole, column, category, skills_have, skills_want);
     const cachedRoles = getFromCache(cacheKey);
     if (cachedRoles) {
       log.info('Cache hit', { event: 'cache.hit', durationMs: Date.now() - startTime });

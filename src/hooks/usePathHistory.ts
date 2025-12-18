@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { MainPathStep } from '@/lib/career-explorer/types';
 
@@ -58,18 +58,22 @@ interface UsePathHistoryReturn {
 export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHistoryReturn {
   const { maxHistory = 20, enableKeyboardShortcuts = false } = options;
 
-  // Combined state to prevent stale closure issues during rapid updates
+  // Consolidated state to ensure atomic updates and prevent race conditions
   const [historyState, setHistoryState] = useState<{
     history: PathHistoryState[];
     currentIndex: number;
+    future: PathHistoryState[];
   }>({
     history: [],
     currentIndex: -1,
+    future: [],
   });
-  // Future stack - states we can redo to (using state for reactivity)
-  const [future, setFuture] = useState<PathHistoryState[]>([]);
 
-  const { history, currentIndex } = historyState;
+  // Ref to capture return value from functional state updates
+  const undoResultRef = useRef<MainPathStep[] | null>(null);
+  const redoResultRef = useRef<MainPathStep[] | null>(null);
+
+  const { history, currentIndex, future } = historyState;
   const canUndo = currentIndex >= 0;
   const canRedo = future.length > 0;
 
@@ -98,11 +102,9 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
         return {
           history: trimmedHistory,
           currentIndex: Math.min(prev.currentIndex + 1, maxHistory - 1),
+          future: [], // Clear redo stack when new change is recorded
         };
       });
-
-      // Clear redo stack when new change is recorded
-      setFuture([]);
     },
     [maxHistory],
   );
@@ -110,57 +112,71 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
   /**
    * Undo the last change.
    * Returns the previous state or null if nothing to undo.
+   * Uses atomic state update to prevent race conditions during rapid calls.
    */
   const undo = useCallback((): MainPathStep[] | null => {
-    if (!canUndo) return null;
+    // Reset ref before update
+    undoResultRef.current = null;
 
-    // Save current state to future (for redo)
-    const currentState = history[currentIndex];
-    if (currentState) {
-      setFuture((prev) => [currentState, ...prev]);
-    }
+    setHistoryState((prev) => {
+      // Check if we can undo using current state
+      if (prev.currentIndex < 0) {
+        return prev;
+      }
 
-    // Move back in history
-    const newIndex = currentIndex - 1;
-    setHistoryState((prev) => ({
-      ...prev,
-      currentIndex: newIndex,
-    }));
+      const currentState = prev.history[prev.currentIndex];
+      const newIndex = prev.currentIndex - 1;
 
-    // Return previous state, or null if at beginning
-    if (newIndex >= 0 && history[newIndex]) {
-      return JSON.parse(JSON.stringify(history[newIndex].steps));
-    }
+      // Capture result for return value
+      if (newIndex >= 0 && prev.history[newIndex]) {
+        undoResultRef.current = JSON.parse(JSON.stringify(prev.history[newIndex].steps));
+      }
 
-    return null;
-  }, [canUndo, currentIndex, history]);
+      return {
+        history: prev.history,
+        currentIndex: newIndex,
+        future: currentState ? [currentState, ...prev.future] : prev.future,
+      };
+    });
+
+    return undoResultRef.current;
+  }, []);
 
   /**
    * Redo a previously undone change.
    * Returns the next state or null if nothing to redo.
+   * Uses atomic state update to prevent race conditions during rapid calls.
    */
   const redo = useCallback((): MainPathStep[] | null => {
-    if (!canRedo || future.length === 0) return null;
+    // Reset ref before update
+    redoResultRef.current = null;
 
-    // Get the next future state
-    const [nextState, ...remainingFuture] = future;
-    setFuture(remainingFuture);
+    setHistoryState((prev) => {
+      // Check if we can redo using current state
+      if (prev.future.length === 0) {
+        return prev;
+      }
 
-    // Add it back to history and update index atomically
-    setHistoryState((prev) => ({
-      history: [...prev.history.slice(0, prev.currentIndex + 1), nextState],
-      currentIndex: prev.currentIndex + 1,
-    }));
+      const [nextState, ...remainingFuture] = prev.future;
 
-    return JSON.parse(JSON.stringify(nextState.steps));
-  }, [canRedo, future]);
+      // Capture result for return value
+      redoResultRef.current = JSON.parse(JSON.stringify(nextState.steps));
+
+      return {
+        history: [...prev.history.slice(0, prev.currentIndex + 1), nextState],
+        currentIndex: prev.currentIndex + 1,
+        future: remainingFuture,
+      };
+    });
+
+    return redoResultRef.current;
+  }, []);
 
   /**
    * Clear all history.
    */
   const clearHistory = useCallback(() => {
-    setHistoryState({ history: [], currentIndex: -1 });
-    setFuture([]);
+    setHistoryState({ history: [], currentIndex: -1, future: [] });
   }, []);
 
   // Keyboard shortcuts (Cmd/Ctrl + Z for undo, Cmd/Ctrl + Shift + Z for redo)
