@@ -240,7 +240,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       extra: { errorMessage, stack: error instanceof Error ? error.stack : undefined },
     });
     return NextResponse.json(
-      { error: errorMessage || 'Failed to complete session' },
+      { error: 'Failed to complete session' },
       { status: 500, headers: { 'x-correlation-id': correlationId } },
     );
   }

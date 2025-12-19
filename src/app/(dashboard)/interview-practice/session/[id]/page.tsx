@@ -170,10 +170,13 @@ export default function InterviewSessionPage() {
   // Submit turn mutation
   const submitTurnMutation = useMutation({
     mutationFn: async (audioData: Blob) => {
-      console.log('[InterviewSession] Submitting turn, turnId:', currentTurn?._id);
+      if (!currentTurn) {
+        throw new Error('No current turn available');
+      }
+      console.log('[InterviewSession] Submitting turn, turnId:', currentTurn._id);
       const formData = new FormData();
       formData.append('audio', audioData, 'response.webm');
-      formData.append('turnId', currentTurn!._id);
+      formData.append('turnId', currentTurn._id);
       formData.append('responseDurationMs', (recordingDuration * 1000).toString());
 
       const response = await fetch(`/api/interview-practice/session/${sessionId}/turn`, {

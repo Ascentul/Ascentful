@@ -400,7 +400,7 @@ function calculateNewSortOrder(
   }
   // Inserting at the start (before first item)
   if (beforeOrder == null) {
-    return afterOrder! / 2;
+    return afterOrder! - SORT_ORDER_GAP;
   }
   // Inserting at the end (after last item)
   if (afterOrder == null) {

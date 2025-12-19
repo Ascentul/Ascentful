@@ -2,8 +2,6 @@
 
 import React from 'react';
 
-import { cn } from '@/lib/utils';
-
 interface PathEdgeProps {
   sourceX: number;
   sourceY: number;
@@ -53,7 +51,7 @@ export function PathEdge({
         stroke={isMainPath ? '#5371FF' : isHighlighted ? '#8B5CF6' : '#D1D5DB'}
         strokeWidth={isMainPath ? 3 : 2}
         strokeDasharray={isMainPath ? 'none' : '4 2'}
-        className={cn('transition-all', isHighlighted && 'stroke-violet-400')}
+        className="transition-all"
       />
 
       {/* Arrow marker */}

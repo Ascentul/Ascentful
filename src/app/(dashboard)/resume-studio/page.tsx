@@ -1071,8 +1071,17 @@ export default function ResumeStudioPage() {
                   >
                     {/* Thumbnail - Mini Resume Preview */}
                     <div
-                      className="w-32 min-h-[180px] bg-white flex-shrink-0 cursor-pointer relative group overflow-hidden border-r border-slate-200"
+                      className="w-32 min-h-[180px] bg-white flex-shrink-0 cursor-pointer relative group overflow-hidden border-r border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setPreviewResume(r)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPreviewResume(r);
+                        }
+                      }}
+                      aria-label={`Preview ${r.title || 'Untitled'} resume`}
                     >
                       {/* Scaled down resume preview - fills thumbnail width */}
                       <div

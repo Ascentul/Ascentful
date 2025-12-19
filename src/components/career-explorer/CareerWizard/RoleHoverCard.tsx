@@ -1,6 +1,6 @@
 'use client';
 
-import { Award, Briefcase, Clock, DollarSign, TrendingUp, Users } from 'lucide-react';
+import { Award, Clock, DollarSign, TrendingUp } from 'lucide-react';
 import React from 'react';
 
 interface RoleHoverCardProps {
