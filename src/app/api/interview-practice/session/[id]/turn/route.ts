@@ -233,6 +233,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Warn if we have no transcript after all attempts - response data may be lost
+    if (!transcript && audioFile) {
+      log.warn('No transcript available despite audio submission', {
+        event: 'data.loss.risk',
+        extra: {
+          hadAudioFile: !!audioFile,
+          hadStorageId: !!audioStorageId,
+          hadProvidedTranscript: !!providedTranscript,
+          openaiConfigured: !!openai,
+        },
+      });
+    }
+
     let transcriptMeta: TranscriptMeta | undefined;
     let evaluation: ResponseEvaluation | undefined;
 

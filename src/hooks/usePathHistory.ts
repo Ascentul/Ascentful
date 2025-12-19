@@ -74,7 +74,9 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
   const redoResultRef = useRef<MainPathStep[] | null>(null);
 
   const { history, currentIndex, future } = historyState;
-  const canUndo = currentIndex >= 0;
+  // canUndo requires currentIndex > 0 because we need a previous state to undo TO
+  // At currentIndex 0, there's no state at index -1
+  const canUndo = currentIndex > 0;
   const canRedo = future.length > 0;
 
   /**

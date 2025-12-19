@@ -232,6 +232,11 @@ export default function NewInterviewPracticePage() {
     }
   };
 
+  // Reset permission check when camera preference changes
+  useEffect(() => {
+    setPermissionsChecked(false);
+  }, [cameraEnabled]);
+
   // Check permissions when reaching step 2
   useEffect(() => {
     if (currentStep === 2 && !permissionsChecked) {

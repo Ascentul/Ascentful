@@ -252,31 +252,47 @@ export default function ApplicationsPage() {
         }
       }
 
-      await moveMutation({
-        clerkId: user.id,
-        applicationId: applicationId as Id<'applications'>,
-        newStatus,
-        beforeId: beforeId as Id<'applications'> | undefined,
-        afterId: afterId as Id<'applications'> | undefined,
-      });
-
-      // Record move for undo (only if status actually changed)
-      if (currentStatus && currentStatus !== newStatus && company) {
-        recordMove({
-          applicationId,
-          company,
-          fromStatus: currentStatus,
-          toStatus: newStatus,
+      try {
+        await moveMutation({
+          clerkId: user.id,
+          applicationId: applicationId as Id<'applications'>,
+          newStatus,
+          beforeId: beforeId as Id<'applications'> | undefined,
+          afterId: afterId as Id<'applications'> | undefined,
         });
 
-        // Track analytics
-        KanbanAnalytics.trackCardDropped({
-          applicationId,
-          fromStatus: currentStatus,
-          toStatus: newStatus,
-          success: true,
-          method: 'drag',
-        });
+        // Record move for undo (only if status actually changed)
+        if (currentStatus && currentStatus !== newStatus && company) {
+          recordMove({
+            applicationId,
+            company,
+            fromStatus: currentStatus,
+            toStatus: newStatus,
+          });
+
+          // Track analytics
+          KanbanAnalytics.trackCardDropped({
+            applicationId,
+            fromStatus: currentStatus,
+            toStatus: newStatus,
+            success: true,
+            method: 'drag',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to move application:', error);
+        toast.error('Failed to move application. Please try again.');
+
+        // Track failure analytics
+        if (currentStatus) {
+          KanbanAnalytics.trackCardDropped({
+            applicationId,
+            fromStatus: currentStatus,
+            toStatus: newStatus,
+            success: false,
+            method: 'drag',
+          });
+        }
       }
     },
     [user?.id, kanbanData, moveMutation, recordMove],

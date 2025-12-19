@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { GlobalSearch, useGlobalSearch } from '@/components/GlobalSearch';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
@@ -183,6 +184,7 @@ export default function AppTopBar() {
                       router.refresh();
                     } catch (err) {
                       console.error('Failed to mark all notifications as read:', err);
+                      toast.error('Failed to mark notifications as read. Please try again.');
                     }
                   }}
                   className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
@@ -207,9 +209,10 @@ export default function AppTopBar() {
                       )}
                       onClick={() => {
                         if (!notification.read) {
-                          markAsRead({ notificationId: notification._id }).catch((err) =>
-                            console.error('Failed to mark notification as read:', err),
-                          );
+                          markAsRead({ notificationId: notification._id }).catch((err) => {
+                            console.error('Failed to mark notification as read:', err);
+                            toast.error('Failed to update notification.');
+                          });
                         }
                         if (notification.link) {
                           router.push(notification.link);

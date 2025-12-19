@@ -111,6 +111,7 @@ export default function CareerExplorerPage() {
 
   // Hover preview state
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const hoveredNodeIdRef = useRef<string | null>(null); // Ref for async staleness check
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [hoveredSalaryData, setHoveredSalaryData] = useState<RoleSalaryData | null>(null);
   const [isLoadingSalary, setIsLoadingSalary] = useState(false);
@@ -617,6 +618,8 @@ export default function CareerExplorerPage() {
   // Handle node hover for preview card
   const handleNodeHover = useCallback(
     async (nodeId: string | null, position: { x: number; y: number } | null) => {
+      // Update ref synchronously for staleness check after async operations
+      hoveredNodeIdRef.current = nodeId;
       setHoveredNodeId(nodeId);
       setHoverPosition(position);
 
@@ -652,8 +655,10 @@ export default function CareerExplorerPage() {
           if (salaryData) {
             // Cache the result
             salaryCache.current.set(node.title, salaryData);
-            // Only set if we're still hovering this node
-            setHoveredSalaryData(salaryData);
+            // Only set if we're still hovering this node (check ref, not stale closure)
+            if (hoveredNodeIdRef.current === nodeId) {
+              setHoveredSalaryData(salaryData);
+            }
           }
         }
       } catch (error) {
@@ -662,7 +667,7 @@ export default function CareerExplorerPage() {
         setIsLoadingSalary(false);
       }
     },
-    [pathGraph.nodes, hoveredNodeId],
+    [pathGraph.nodes],
   );
 
   const handleClosePreview = useCallback(() => {
