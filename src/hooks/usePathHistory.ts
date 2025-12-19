@@ -121,8 +121,8 @@ export function usePathHistory(options: UsePathHistoryOptions = {}): UsePathHist
     undoResultRef.current = null;
 
     setHistoryState((prev) => {
-      // Check if we can undo using current state
-      if (prev.currentIndex < 0) {
+      // Check if we can undo using current state (must match canUndo logic)
+      if (prev.currentIndex <= 0) {
         return prev;
       }
 

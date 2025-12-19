@@ -59,8 +59,10 @@ export function KanbanCardNextStep({ application }: KanbanCardNextStepProps) {
     });
   };
 
-  // Priority 1: Upcoming interview
-  const upcomingInterview = application.interviews?.find((interview) => interview.date > now);
+  // Priority 1: Upcoming interview (nearest one if multiple exist)
+  const upcomingInterview = application.interviews
+    ?.filter((interview) => interview.date > now)
+    ?.sort((a, b) => a.date - b.date)[0];
   if (upcomingInterview) {
     const interviewDate = new Date(upcomingInterview.date);
     const today = new Date();

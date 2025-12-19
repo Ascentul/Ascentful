@@ -1185,8 +1185,17 @@ export default function ResumeStudioPage() {
 
                 {/* New Resume Card */}
                 <div
-                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)]"
+                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  role="button"
+                  tabIndex={0}
                   onClick={createResume}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      createResume();
+                    }
+                  }}
+                  aria-label="Create new resume"
                 >
                   {/* Placeholder Thumbnail */}
                   <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">
@@ -1571,8 +1580,17 @@ export default function ResumeStudioPage() {
                   >
                     {/* Thumbnail */}
                     <div
-                      className="w-32 min-h-[180px] bg-gradient-to-br from-purple-700 to-purple-900 flex-shrink-0 cursor-pointer relative group"
+                      className="w-32 min-h-[180px] bg-gradient-to-br from-purple-700 to-purple-900 flex-shrink-0 cursor-pointer relative group focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setPreviewLetter(c)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPreviewLetter(c);
+                        }
+                      }}
+                      aria-label={`Preview ${c.name || 'Untitled'} cover letter`}
                     >
                       <div className="absolute inset-0 flex items-center justify-center">
                         <Mail className="h-8 w-8 text-white/30" />
@@ -1655,8 +1673,17 @@ export default function ResumeStudioPage() {
 
                 {/* New Cover Letter Card */}
                 <div
-                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)]"
+                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  role="button"
+                  tabIndex={0}
                   onClick={handleCreateCoverLetter}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCreateCoverLetter();
+                    }
+                  }}
+                  aria-label="Create new cover letter"
                 >
                   {/* Placeholder Thumbnail */}
                   <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">

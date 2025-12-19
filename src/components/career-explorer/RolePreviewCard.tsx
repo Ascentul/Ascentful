@@ -241,8 +241,8 @@ export function RolePreviewCard({
 
   return (
     <>
-      {/* Backdrop for mobile */}
-      {isMobile && (
+      {/* Backdrop for mobile - only render when dismissible */}
+      {isMobile && onClose && (
         <div
           className="fixed inset-0 z-40 bg-black/20 animate-in fade-in-0 duration-150"
           onClick={onClose}

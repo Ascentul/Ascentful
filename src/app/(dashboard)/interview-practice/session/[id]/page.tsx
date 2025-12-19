@@ -463,11 +463,19 @@ export default function InterviewSessionPage() {
 
     preWarmMicrophone();
 
-    // Cleanup pre-warmed stream on unmount
+    // Cleanup pre-warmed stream and audio context on unmount
     return () => {
       if (preWarmedStreamRef.current) {
         preWarmedStreamRef.current.getTracks().forEach((t) => t.stop());
         preWarmedStreamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, [sessionState]);
@@ -537,14 +545,13 @@ export default function InterviewSessionPage() {
         setAudioBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
 
-        // Clean up audio context
+        // Clean up audio visualization but keep context for potential re-record
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
         }
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-        }
+        // Note: Keep audioContextRef.current alive for potential re-recording
+        // It will be cleaned up on component unmount
         setAudioLevel(0);
       };
 
@@ -651,7 +658,7 @@ export default function InterviewSessionPage() {
     // Let nextQuestionMutation handle completion detection via data.isComplete
     setProcessingStep('loading_next');
     nextQuestionMutation.mutate();
-  }, [audioBlob, session, submitTurnMutation, nextQuestionMutation, toast]);
+  }, [audioBlob, submitTurnMutation, nextQuestionMutation, toast]);
 
   // Skip question (move to next without recording)
   const skipQuestion = useCallback(async () => {

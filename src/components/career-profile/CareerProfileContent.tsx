@@ -948,7 +948,7 @@ export function CareerProfileContent() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const previewUrl = reader.result as string;
-        setProjectFormData({ ...projectFormData, image_url: previewUrl });
+        setProjectFormData((prev) => ({ ...prev, image_url: previewUrl }));
       };
       reader.readAsDataURL(file);
     }

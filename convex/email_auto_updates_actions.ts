@@ -301,6 +301,9 @@ export const completeOAuthConnection = action({
           'Missing refresh token (reconnect with consent to enable background scanning)',
         );
       }
+      if (!token.access_token) {
+        throw new Error('Missing access token in OAuth response');
+      }
 
       const aad = `email_integrations:gmail:${userId}`;
       const encrypted = encryptSecret(token.refresh_token, aad);

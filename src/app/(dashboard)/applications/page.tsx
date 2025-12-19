@@ -173,6 +173,9 @@ export default function ApplicationsPage() {
         notes: '',
       });
       setShowAddDialog(false);
+    } catch (error) {
+      console.error('Failed to create application:', error);
+      toast.error('Failed to create application. Please try again.');
     } finally {
       setCreating(false);
     }
