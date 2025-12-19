@@ -63,4 +63,19 @@ crons.daily(
  */
 crons.hourly('expire old invites', { minuteUTC: 0 }, internal.students.expireOldInvites);
 
+// Email auto updates: polling fallback (every 5 minutes)
+crons.interval(
+  'email auto updates polling',
+  { minutes: 5 },
+  internal.email_auto_updates.pollEnabledIntegrations,
+);
+
+// Email auto updates: retention for ignored/dismissed signals (180 days)
+crons.daily(
+  'email auto updates retention',
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.email_auto_updates.pruneOldEmailSignals,
+  { olderThanMs: 180 * 24 * 60 * 60 * 1000 },
+);
+
 export default crons;

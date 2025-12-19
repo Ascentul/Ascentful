@@ -234,16 +234,13 @@ export default function Goals() {
   return (
     <motion.div className="space-y-4 min-w-0" initial="hidden" animate="visible" variants={fadeIn}>
       <div className="w-full min-w-0 rounded-3xl bg-white p-5 shadow-sm space-y-6">
-        <motion.div
-          className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4"
-          variants={subtleUp}
-        >
+        <motion.div className="flex items-center justify-between mb-4" variants={subtleUp}>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Career Goals</h1>
-            <p className="text-sm text-neutral-500">Track and manage your career goals</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Goals</h1>
+            <p className="text-muted-foreground">Track and manage your career goals</p>
           </div>
           <Button
-            className="mt-4 md:mt-0"
+            className="bg-primary-500 hover:bg-primary-700"
             onClick={() => {
               // Check free user limit (1 goal max)
               if (isFreeUser && goals.length >= 1) {

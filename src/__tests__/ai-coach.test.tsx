@@ -170,10 +170,10 @@ describe('AI Coach Functionality', () => {
     it('renders the main AI coach page', () => {
       render(<AICoachPage />, { wrapper: createWrapper() });
 
-      expect(screen.getByText('Welcome to AI Career Coach')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Career Coach')).toBeInTheDocument();
       expect(
         screen.getByText(
-          /Select an existing conversation from the sidebar or create a new one to start getting personalized career guidance/,
+          /Select an existing conversation or start a new one to get personalized career guidance/,
         ),
       ).toBeInTheDocument();
     });
@@ -230,7 +230,7 @@ describe('AI Coach Functionality', () => {
 
       render(<AICoachPage />, { wrapper: createWrapper() });
 
-      const newConversationButton = screen.getByText('Start New Conversation');
+      const newConversationButton = screen.getByText('New Chat');
       await user.click(newConversationButton);
 
       expect(mockMutate).toHaveBeenCalledWith('New Conversation');
@@ -314,7 +314,7 @@ describe('AI Coach Functionality', () => {
 
       render(<AICoachPage />, { wrapper: createWrapper() });
 
-      const textarea = screen.getByPlaceholderText('Ask your AI career coach anything...');
+      const textarea = screen.getByPlaceholderText('Message Career Coach...');
       const sendButton = screen.getByRole('button', { name: /send/i });
 
       await user.type(textarea, 'What skills should I develop?');
@@ -339,7 +339,7 @@ describe('AI Coach Functionality', () => {
       render(<AICoachPage />, { wrapper: createWrapper() });
 
       // Should still render the page structure
-      expect(screen.getByText('Welcome to AI Career Coach')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Career Coach')).toBeInTheDocument();
     });
 
     it('handles message sending errors', async () => {
@@ -372,7 +372,7 @@ describe('AI Coach Functionality', () => {
 
       render(<AICoachPage />, { wrapper: createWrapper() });
 
-      const textarea = screen.getByPlaceholderText('Ask your AI career coach anything...');
+      const textarea = screen.getByPlaceholderText('Message Career Coach...');
       const sendButton = screen.getByRole('button', { name: /send/i });
 
       await user.type(textarea, 'Test message');

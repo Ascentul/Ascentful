@@ -14,11 +14,18 @@ import { AIToolId, ToolRubric } from '../types';
 import { AI_COACH_MESSAGE_RUBRIC, AI_COACH_RESPONSE_RUBRIC } from './ai-coach';
 import { CAREER_CERTIFICATIONS_RUBRIC } from './career-certifications';
 import {
+  CAREER_EXPLORER_NEXT_ROLES_RUBRIC,
   CAREER_PATH_FROM_JOB_RUBRIC,
   CAREER_PATH_GENERATION_RUBRIC,
   CAREER_PATHS_GENERATION_RUBRIC,
 } from './career-path';
 import { COVER_LETTER_ANALYSIS_RUBRIC, COVER_LETTER_GENERATION_RUBRIC } from './cover-letter';
+import {
+  INTERVIEW_QUESTION_GENERATION_RUBRIC,
+  INTERVIEW_RESPONSE_EVALUATION_RUBRIC,
+  INTERVIEW_ROLE_PROFILE_ANALYSIS_RUBRIC,
+  INTERVIEW_SESSION_SUMMARY_RUBRIC,
+} from './interview-practice';
 import {
   RESUME_ANALYSIS_RUBRIC,
   RESUME_GENERATION_RUBRIC,
@@ -59,6 +66,15 @@ export const RUBRICS: Record<AIToolId, ToolRubric> = {
   'career-path-generation': CAREER_PATH_GENERATION_RUBRIC,
   'career-path-from-job': CAREER_PATH_FROM_JOB_RUBRIC,
   'career-paths-generation': CAREER_PATHS_GENERATION_RUBRIC,
+
+  // Career explorer tools
+  'career-explorer-next-roles': CAREER_EXPLORER_NEXT_ROLES_RUBRIC,
+
+  // Interview practice tools
+  'interview-role-profile-analysis': INTERVIEW_ROLE_PROFILE_ANALYSIS_RUBRIC,
+  'interview-question-generation': INTERVIEW_QUESTION_GENERATION_RUBRIC,
+  'interview-response-evaluation': INTERVIEW_RESPONSE_EVALUATION_RUBRIC,
+  'interview-session-summary': INTERVIEW_SESSION_SUMMARY_RUBRIC,
 
   // Other tools
   'career-certifications': CAREER_CERTIFICATIONS_RUBRIC,

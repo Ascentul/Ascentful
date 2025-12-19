@@ -51,3 +51,17 @@ export const CAREER_PATHS_GENERATION_RUBRIC: ToolRubric = {
   category: 'student-facing',
   critical_risk_flags: ['hallucination_detected', 'safety_violation'],
 };
+
+/**
+ * Career Explorer Next Roles Rubric
+ *
+ * Evaluates AI-generated role recommendations in the career explorer.
+ */
+export const CAREER_EXPLORER_NEXT_ROLES_RUBRIC: ToolRubric = {
+  tool_id: 'career-explorer-next-roles',
+  version: '2.0.0',
+  description:
+    'Evaluates AI-generated next role recommendations. Output should be relevant to the current role, realistic for the career stage (entry/lateral/promotion), and provide accurate fit scores and skill requirements.',
+  category: 'student-facing',
+  critical_risk_flags: ['hallucination_detected', 'low_relevance', 'safety_violation'],
+};

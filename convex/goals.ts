@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
 import { safeLogAudit } from './lib/auditLogger';
-import { log, createLogContext, toErrorCode } from './lib/logger';
+import { createLogContext, log, toErrorCode } from './lib/logger';
 import { requireMembership } from './lib/roles';
 
 // Get goals for a Clerk user

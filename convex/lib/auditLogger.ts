@@ -34,8 +34,8 @@
  * - previousValue/newValue are automatically redacted on read
  */
 
-import { MutationCtx } from '../_generated/server';
 import { Id } from '../_generated/dataModel';
+import { MutationCtx } from '../_generated/server';
 
 // ============================================================================
 // TYPE DEFINITIONS

@@ -547,9 +547,9 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="w-full">
+      <div className="w-full rounded-3xl bg-white p-5 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Network Hub</h1>
             <p className="text-muted-foreground">
@@ -557,8 +557,8 @@ export default function ContactsPage() {
             </p>
           </div>
           <Button
+            className="bg-primary-500 hover:bg-primary-700"
             onClick={() => {
-              // Check free user limit (1 contact max)
               if (isFreeUser && contactsData && contactsData.length >= 1) {
                 setShowUpgradeModal(true);
                 return;
@@ -583,7 +583,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="bg-white rounded-lg border shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-lg border shadow-sm p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -614,7 +614,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Toggles */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2">
           <Button
             variant={activeTab === 'all' ? 'default' : 'outline'}
             onClick={() => {

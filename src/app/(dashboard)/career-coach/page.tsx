@@ -2,15 +2,11 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2, User } from 'lucide-react';
+import { ArrowUp, Loader2, MessageSquare, Plus, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -192,24 +188,17 @@ export default function AICoachPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="mb-6">
+    <div className="w-full h-full flex flex-col">
+      <div className="w-full rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">Career Coach</h1>
-              <p className="text-sm text-muted-foreground">
-                Get personalized career guidance powered by AI
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Coach</h1>
+            <p className="text-muted-foreground">Get personalized career guidance powered by AI</p>
           </div>
           <Button
             onClick={handleCreateConversation}
             disabled={createConversationMutation.isPending}
+            className="bg-primary-500 hover:bg-primary-700"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Chat
@@ -217,214 +206,207 @@ export default function AICoachPage() {
         </div>
       </div>
 
-      <div className="flex gap-6 h-[calc(100vh-240px)]">
+      {/* Main content area */}
+      <div className="flex-1 flex gap-4 min-h-0 mt-4">
         {/* Conversations sidebar */}
-        <Card className="w-80 flex flex-col">
-          <div className="p-4 border-b">
-            <h2 className="font-semibold text-sm text-muted-foreground mb-3">Your Conversations</h2>
+        <div className="w-72 flex flex-col bg-neutral-50 rounded-xl border border-neutral-200">
+          <div className="p-4 border-b border-neutral-200">
+            <h2 className="font-medium text-sm text-neutral-600">Conversations</h2>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
             {conversations.length === 0 ? (
-              <div className="text-center py-12 px-4 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No conversations yet</p>
-                <p className="text-xs mt-1">Click "New Chat" to start</p>
+              <div className="text-center py-12 px-4">
+                <MessageSquare className="h-10 w-10 mx-auto mb-3 text-neutral-300" />
+                <p className="text-sm text-neutral-500">No conversations yet</p>
+                <p className="text-xs text-neutral-400 mt-1">Start a new chat to begin</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {conversations.map((conversation: Conversation) => (
-                  <div
+                  <button
                     key={conversation.id}
-                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                    className={`w-full text-left p-3 rounded-lg transition-all ${
                       selectedConversationId === conversation.id
-                        ? 'bg-blue-50 border-2 border-blue-200'
-                        : 'hover:bg-gray-50 border-2 border-transparent'
+                        ? 'bg-white shadow-sm border border-neutral-200'
+                        : 'hover:bg-white/60'
                     }`}
                     onClick={() => setSelectedConversationId(conversation.id)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{conversation.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(conversation.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                    <p className="text-sm font-medium text-neutral-800 truncate">
+                      {conversation.title}
+                    </p>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {new Date(conversation.createdAt).toLocaleDateString()}
+                    </p>
+                  </button>
                 ))}
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
         {/* Chat area */}
-        <Card className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-white rounded-xl border border-neutral-200 overflow-hidden">
           {selectedConversationId ? (
             <>
-              {/* Messages */}
-              <div className="flex-1 p-6 overflow-y-auto">
-                <div className="max-w-4xl mx-auto space-y-6">
+              {/* Messages area */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-3xl mx-auto py-8 px-6">
                   {messages.length === 0 ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                        <Bot className="h-10 w-10 text-white" />
+                    <div className="text-center py-20">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 mb-6">
+                        <Sparkles className="h-8 w-8 text-primary-600" />
                       </div>
-                      <h3 className="text-xl font-semibold mb-2 text-gray-900">AI Career Coach</h3>
-                      <p className="text-sm max-w-md mx-auto">
-                        Ask me anything about your career journey, job search strategies, resume
-                        tips, interview preparation, or career development
+                      <h3 className="text-xl font-semibold text-neutral-900 mb-2">
+                        How can I help you today?
+                      </h3>
+                      <p className="text-neutral-500 max-w-sm mx-auto">
+                        Ask me about career advice, resume tips, interview prep, job search
+                        strategies, or professional development.
                       </p>
                     </div>
                   ) : (
-                    messages.map((msg: Message) => (
-                      <div
-                        key={msg.id}
-                        className={`flex gap-4 ${msg.isUser ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {!msg.isUser && (
-                          <Avatar className="h-10 w-10 flex-shrink-0">
-                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600">
-                              <Bot className="h-5 w-5 text-white" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-
-                        <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                            msg.isUser
-                              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md'
-                              : 'bg-gray-100 text-gray-900 shadow-sm'
-                          }`}
-                        >
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {msg.message}
-                          </p>
-                          <p
-                            className={`text-xs mt-2 ${msg.isUser ? 'text-blue-100' : 'text-gray-500'}`}
-                          >
-                            {new Date(msg.timestamp).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
+                    <div className="space-y-6">
+                      {messages.map((msg: Message) => (
+                        <div key={msg.id} className={msg.isUser ? 'flex justify-end' : ''}>
+                          {msg.isUser ? (
+                            // User message - right aligned, styled bubble
+                            <div className="max-w-[85%]">
+                              <div className="bg-primary-500 text-white rounded-2xl rounded-br-md px-4 py-3">
+                                <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+                                  {msg.message}
+                                </p>
+                              </div>
+                              <p className="text-xs text-neutral-400 mt-1.5 text-right">
+                                {new Date(msg.timestamp).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                            </div>
+                          ) : (
+                            // AI message - left aligned, clean style
+                            <div className="max-w-[85%]">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                                  <Sparkles className="h-4 w-4 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-primary-600 mb-1">
+                                    Career Coach
+                                  </p>
+                                  <div className="text-[15px] leading-relaxed text-neutral-800 whitespace-pre-wrap">
+                                    {msg.message}
+                                  </div>
+                                  <p className="text-xs text-neutral-400 mt-2">
+                                    {new Date(msg.timestamp).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
+                      ))}
 
-                        {msg.isUser && (
-                          <Avatar className="h-10 w-10 flex-shrink-0">
-                            <AvatarFallback className="bg-gray-200">
-                              <User className="h-5 w-5 text-gray-600" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                    ))
-                  )}
-
-                  {(sendMessageMutation.isPending || isLoading) && (
-                    <div className="flex justify-start gap-4">
-                      <Avatar className="h-10 w-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600">
-                          <Bot className="h-5 w-5 text-white" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                          <div
-                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                            style={{ animationDelay: '0.1s' }}
-                          />
-                          <div
-                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                            style={{ animationDelay: '0.2s' }}
-                          />
+                      {/* Loading indicator */}
+                      {(sendMessageMutation.isPending || isLoading) && (
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                            <Sparkles className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-primary-600 mb-1">
+                              Career Coach
+                            </p>
+                            <div className="flex items-center gap-1 py-2">
+                              <div className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce" />
+                              <div
+                                className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
+                                style={{ animationDelay: '0.15s' }}
+                              />
+                              <div
+                                className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
+                                style={{ animationDelay: '0.3s' }}
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                   <div ref={messagesEndRef} />
                 </div>
               </div>
 
-              {/* Message input */}
-              <div className="p-4 border-t bg-gray-50">
-                <div className="max-w-4xl mx-auto">
-                  <div className="flex gap-3">
-                    <Textarea
-                      placeholder="Ask your AI career coach anything..."
+              {/* Input area - modern Claude-like style */}
+              <div className="border-t border-neutral-100 p-4 bg-neutral-50/50">
+                <div className="max-w-3xl mx-auto">
+                  <div className="relative bg-white rounded-xl border border-neutral-200 shadow-sm focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-100 transition-all">
+                    <textarea
+                      placeholder="Message Career Coach..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      className="resize-none bg-white"
-                      rows={2}
+                      className="w-full resize-none border-0 bg-transparent px-4 py-3 pr-14 text-[15px] placeholder:text-neutral-400 focus:outline-none focus:ring-0 min-h-[52px] max-h-[200px]"
+                      rows={1}
+                      style={{ height: 'auto' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                      }}
                     />
-                    <Button
+                    <button
                       onClick={handleSendMessage}
                       disabled={!message.trim() || isLoading}
-                      className="self-end h-10 px-6"
-                      size="lg"
+                      aria-label={isLoading ? 'Sending message' : 'Send message'}
+                      className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-neutral-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                     >
                       {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 text-neutral-400 animate-spin" />
                       ) : (
-                        <>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send
-                        </>
+                        <ArrowUp
+                          className={`h-4 w-4 ${!message.trim() ? 'text-neutral-400' : 'text-white'}`}
+                        />
                       )}
-                    </Button>
+                    </button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    AI responses are generated and may not always be accurate. Use your judgment.
+                  <p className="text-xs text-neutral-400 mt-2 text-center">
+                    AI responses may not always be accurate. Use your judgment.
                   </p>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6">
-              <div className="text-center max-w-md px-6">
-                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <Bot className="h-12 w-12 text-white" />
+            // Empty state - no conversation selected
+            <div className="flex-1 flex flex-col items-center justify-center p-8">
+              <div className="text-center max-w-md">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 mb-6">
+                  <Sparkles className="h-10 w-10 text-primary-600" />
                 </div>
-                <h3 className="text-2xl font-semibold mb-3 text-gray-900">
-                  Welcome to AI Career Coach
+                <h3 className="text-2xl font-semibold text-neutral-900 mb-3">
+                  Welcome to Career Coach
                 </h3>
-                <p className="text-muted-foreground mb-6">
-                  Select an existing conversation from the sidebar or create a new one to start
-                  getting personalized career guidance.
+                <p className="text-neutral-500 mb-8">
+                  Select an existing conversation or start a new one to get personalized career
+                  guidance.
                 </p>
-                <Button onClick={handleCreateConversation} size="lg">
+                <Button
+                  onClick={handleCreateConversation}
+                  size="lg"
+                  className="bg-primary-500 hover:bg-primary-600"
+                >
                   <Plus className="h-4 w-4 mr-2" />
-                  Start New Conversation
+                  Start New Chat
                 </Button>
-              </div>
-              <div className="w-full max-w-4xl px-6">
-                <div className="flex gap-3">
-                  <Textarea
-                    placeholder="Ask your AI career coach anything..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="resize-none bg-white"
-                    rows={2}
-                    disabled
-                  />
-                  <Button disabled className="self-end h-10 px-6" size="lg">
-                    <Send className="h-4 w-4 mr-2" />
-                    Send
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Select a conversation to enable messaging.
-                </p>
               </div>
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

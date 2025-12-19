@@ -80,6 +80,7 @@ export type LogFeature =
   | 'file'
   | 'gdpr'
   | 'goal'
+  | 'interview-practice'
   | 'resume'
   | 'support'
   | 'system'

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { GlobalSearch, useGlobalSearch } from '@/components/GlobalSearch';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
@@ -77,7 +78,7 @@ export default function AppTopBar() {
 
   // Mark notification as read mutation
   const markAsRead = useMutation(api.notifications.markAsRead);
-  const markAllAsRead = useMutation(api.notifications.markAllAsRead);
+  const markAllAsReadMutation = useMutation(api.notifications.markAllAsRead);
 
   const hasUnreadNotifications = (unreadCount ?? 0) > 0;
 
@@ -177,10 +178,14 @@ export default function AppTopBar() {
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               {hasUnreadNotifications && (
                 <button
-                  onClick={() => {
-                    markAllAsRead({}).catch((err) =>
-                      console.error('Failed to mark all notifications as read:', err),
-                    );
+                  onClick={async () => {
+                    try {
+                      await markAllAsReadMutation({});
+                      router.refresh();
+                    } catch (err) {
+                      console.error('Failed to mark all notifications as read:', err);
+                      toast.error('Failed to mark notifications as read. Please try again.');
+                    }
                   }}
                   className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
                 >
@@ -204,9 +209,10 @@ export default function AppTopBar() {
                       )}
                       onClick={() => {
                         if (!notification.read) {
-                          markAsRead({ notificationId: notification._id }).catch((err) =>
-                            console.error('Failed to mark notification as read:', err),
-                          );
+                          markAsRead({ notificationId: notification._id }).catch((err) => {
+                            console.error('Failed to mark notification as read:', err);
+                            toast.error('Failed to update notification.');
+                          });
                         }
                         if (notification.link) {
                           router.push(notification.link);

@@ -7,6 +7,7 @@ import { ReactNode, useState } from 'react';
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -29,7 +30,7 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <>
+    <SidebarProvider>
       {/* Mobile menu toggle (floating) - only visible on mobile */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Button
@@ -64,15 +65,17 @@ export function Layout({ children }: LayoutProps) {
         </aside>
 
         {/* Main column with top bar and content */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <AppTopBar />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto min-w-0">
             <div className="px-4 pb-4 md:px-6">
-              <div className="w-full rounded-3xl bg-white p-5 shadow-sm">{children}</div>
+              <div className="w-full rounded-3xl bg-white p-5 shadow-sm overflow-hidden">
+                {children}
+              </div>
             </div>
           </main>
         </div>
       </div>
-    </>
+    </SidebarProvider>
   );
 }

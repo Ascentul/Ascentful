@@ -222,7 +222,8 @@ export default defineSchema({
     github_url: v.optional(v.string()),
     description: v.optional(v.string()),
     type: v.string(), // default: 'personal'
-    image_url: v.optional(v.string()),
+    image_url: v.optional(v.string()), // Legacy: base64 data URL (deprecated)
+    image_storage_id: v.optional(v.id('_storage')), // Preferred: Convex storage ID for efficient image storage
     technologies: v.array(v.string()),
     created_at: v.number(),
     updated_at: v.number(),
@@ -307,11 +308,239 @@ export default defineSchema({
     estimated_timeframe: v.optional(v.string()),
     steps: v.any(), // JSON data
     status: v.string(), // default: 'active'
+    // Career Explorer 2.0 additions
+    source_quiz_id: v.optional(v.id('career_quiz_results')),
+    bundle_type: v.optional(
+      v.union(v.literal('safe'), v.literal('ambitious'), v.literal('alternative')),
+    ),
     created_at: v.number(),
     updated_at: v.number(),
   })
     .index('by_user', ['user_id'])
     .index('by_status', ['status']),
+
+  // ============================================================================
+  // CAREER EXPLORER 2.0
+  // Career exploration quiz, path planning, and advisor collaboration
+  // ============================================================================
+
+  // Career quiz results - stores AI-generated career exploration insights
+  career_quiz_results: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // Input snapshot for reproducibility
+    profile_snapshot_id: v.optional(v.string()),
+
+    // Major context settings at time of quiz
+    major_context: v.object({
+      major: v.optional(v.string()),
+      enabled: v.boolean(),
+      closeness: v.number(), // 0-100: 0=open to anything, 100=strict to major
+      open_to_unrelated: v.boolean(),
+      grad_school_interest: v.optional(
+        v.union(v.literal('none'), v.literal('considering'), v.literal('planning')),
+      ),
+    }),
+
+    // Quiz answers (structured JSON)
+    answers: v.any(), // { questionId: answer }
+
+    // AI-generated results
+    themes: v.array(
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        weight: v.number(),
+      }),
+    ),
+    recommended_directions: v.array(
+      v.object({
+        title: v.string(),
+        fit_score: v.number(),
+        reasoning: v.string(),
+      }),
+    ),
+    roles_to_explore: v.array(
+      v.object({
+        role_id: v.string(),
+        title: v.string(),
+        reason: v.string(),
+        fit_score: v.number(),
+      }),
+    ),
+    suggested_bundles: v.array(
+      v.object({
+        bundle_type: v.union(v.literal('safe'), v.literal('ambitious'), v.literal('alternative')),
+        name: v.string(),
+        path_graph: v.any(), // { nodes: [], edges: [] }
+        starter_checklist: v.array(v.string()),
+      }),
+    ),
+    confidence_level: v.union(
+      v.literal('exploration'),
+      v.literal('leaning'),
+      v.literal('locked_in'),
+    ),
+
+    // Metadata
+    prompt_version: v.optional(v.string()),
+    model_used: v.optional(v.string()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_university', ['university_id']),
+
+  // Career main paths - the student's primary career plan timeline
+  career_main_paths: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // Path metadata
+    title: v.string(),
+    source: v.union(
+      v.literal('manual'),
+      v.literal('quiz'),
+      v.literal('suggested'),
+      v.literal('search'),
+    ),
+
+    // Version control for advisor collaboration
+    status: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
+    version: v.number(),
+    published_at: v.optional(v.number()),
+
+    // Major context snapshot at creation
+    major_context: v.optional(
+      v.object({
+        major: v.optional(v.string()),
+        closeness: v.number(),
+      }),
+    ),
+
+    // Path graph (nodes and edges)
+    graph: v.any(), // { nodes: [], edges: [] }
+
+    // Notes
+    notes: v.optional(v.string()),
+
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_status', ['user_id', 'status'])
+    .index('by_university', ['university_id']),
+
+  // Career main path steps - individual timeline steps in a main path
+  career_main_path_steps: defineTable({
+    path_id: v.id('career_main_paths'),
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // Position in timeline
+    index: v.number(),
+    timeframe: v.union(
+      v.literal('6m'),
+      v.literal('12m'),
+      v.literal('24m'),
+      v.literal('36m'),
+      v.literal('semester_1'),
+      v.literal('semester_2'),
+      v.literal('summer'),
+    ),
+
+    // Step content
+    step_type: v.union(
+      v.literal('role'),
+      v.literal('bridge'),
+      v.literal('project'),
+      v.literal('internship'),
+      v.literal('certification'),
+      // New step types for Career Dreamer
+      v.literal('foundation_skill'),
+      v.literal('portfolio_project'),
+      v.literal('stepping_stone'),
+      v.literal('target_role'),
+    ),
+    role_id: v.optional(v.string()),
+    title: v.string(),
+    details: v.object({
+      skills_to_build: v.optional(v.array(v.string())),
+      projects: v.optional(v.array(v.string())),
+      certifications: v.optional(v.array(v.string())),
+      experience_targets: v.optional(v.array(v.string())),
+    }),
+
+    // Notes
+    notes: v.optional(v.string()),
+
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_path', ['path_id'])
+    .index('by_path_index', ['path_id', 'index'])
+    .index('by_user', ['user_id']),
+
+  // Saved roles - roles bookmarked by students for later reference
+  saved_roles: defineTable({
+    user_id: v.id('users'),
+    role_id: v.string(),
+    role_data: v.any(), // Snapshot of role details
+    tags: v.optional(v.array(v.string())),
+    created_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_role', ['user_id', 'role_id']),
+
+  // Career quiz drafts - save/resume quiz progress
+  career_quiz_drafts: defineTable({
+    user_id: v.id('users'),
+    answers: v.any(), // { questionId: answer } - partial answers
+    current_step: v.number(),
+    started_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_user', ['user_id']),
+
+  // Career explorer state - 3-step wizard progress (V4)
+  career_explorer_state: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // Step 1: Starting Role
+    starting_role: v.optional(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        category: v.optional(v.string()),
+      }),
+    ),
+
+    // Step 2: Skills
+    skills_have: v.optional(v.array(v.string())),
+    skills_want: v.optional(v.array(v.string())),
+
+    // Step 3: Career Path (placed steps)
+    placed_steps: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          role_id: v.optional(v.string()),
+          fit_score: v.optional(v.number()),
+          index: v.number(),
+        }),
+      ),
+    ),
+
+    // Wizard progress
+    current_step: v.number(), // 1, 2, 3, or 4
+    completed_steps: v.array(v.number()),
+
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_user', ['user_id']),
 
   // Interview stages linked to applications
   interview_stages: defineTable({
@@ -333,6 +562,255 @@ export default defineSchema({
     .index('by_application', ['application_id'])
     .index('by_user', ['user_id'])
     .index('by_scheduled_at', ['scheduled_at']),
+
+  // ============================================================================
+  // INTERVIEW PRACTICE FEATURE
+  // Mock interview practice with AI-generated questions and coaching feedback
+  // ============================================================================
+
+  // Role profiles for interview practice - defines the job being practiced for
+  interview_role_profiles: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    // Input method used to create this profile
+    input_type: v.union(
+      v.literal('title_company'), // User entered job title + company
+      v.literal('jd_text'), // User pasted job description text
+      v.literal('jd_link'), // User provided link to job posting
+    ),
+    // Job identification
+    job_title: v.string(),
+    company_name: v.optional(v.string()),
+    job_level: v.optional(v.string()), // entry, mid, senior, lead, etc.
+    job_description_text: v.optional(v.string()), // Full JD text (if provided)
+    job_url: v.optional(v.string()), // Link to job posting (if provided)
+    // AI-extracted/processed data
+    role_summary: v.optional(v.string()), // Brief summary of the role
+    competencies: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          weight: v.number(), // 1-5 importance
+          description: v.optional(v.string()),
+        }),
+      ),
+    ),
+    extracted_keywords: v.optional(v.array(v.string())),
+    interview_type: v.optional(
+      v.union(
+        v.literal('behavioral'),
+        v.literal('technical'),
+        v.literal('case'),
+        v.literal('mixed'),
+      ),
+    ),
+    // Metadata
+    source_notes: v.optional(v.string()), // Notes about the source (no full JD copy)
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_university', ['university_id'])
+    .index('by_created_at', ['created_at']),
+
+  // Interview practice sessions - each mock interview attempt
+  interview_practice_sessions: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    // Role reference OR embedded role data (one must be present)
+    // Note: This constraint is enforced in the createSession mutation, not at schema level
+    role_profile_id: v.optional(v.id('interview_role_profiles')), // Reference to saved role profile
+    // Embedded role snapshot for sessions without saved role profiles
+    // Populated when role_profile_id is null
+    role_snapshot: v.optional(
+      v.object({
+        input_type: v.union(v.literal('title_company'), v.literal('jd_text'), v.literal('jd_link')),
+        job_title: v.string(),
+        company_name: v.optional(v.string()),
+        job_level: v.optional(v.string()),
+        job_description_text: v.optional(v.string()),
+        job_url: v.optional(v.string()),
+        role_summary: v.optional(v.string()),
+        competencies: v.optional(
+          v.array(
+            v.object({
+              id: v.string(),
+              name: v.string(),
+              weight: v.number(),
+              description: v.optional(v.string()),
+            }),
+          ),
+        ),
+        extracted_keywords: v.optional(v.array(v.string())),
+        interview_type: v.optional(
+          v.union(
+            v.literal('behavioral'),
+            v.literal('technical'),
+            v.literal('case'),
+            v.literal('mixed'),
+          ),
+        ),
+      }),
+    ),
+    // Session state
+    status: v.union(
+      v.literal('setup'), // User configuring session
+      v.literal('in_progress'), // Active interview
+      v.literal('completed'), // Interview finished
+      v.literal('abandoned'), // User quit early
+    ),
+    mode: v.union(
+      v.literal('neutral'), // Standard interview
+      v.literal('supportive'), // Encouraging tone
+      v.literal('pressure'), // Challenging tone
+    ),
+    // Configuration
+    camera_enabled: v.boolean(),
+    question_count_target: v.number(),
+    current_question_index: v.number(), // 0-indexed
+    // Agent state for dynamic question generation (JSON)
+    agent_state: v.optional(v.any()), // { coveredCompetencies, openThreads, difficultyLevel, etc. }
+    // Consent tracking for GDPR/privacy
+    consent: v.object({
+      mic: v.boolean(),
+      camera: v.boolean(),
+      timestamp: v.number(),
+    }),
+    // Timing
+    started_at: v.optional(v.number()),
+    ended_at: v.optional(v.number()),
+    total_duration_ms: v.optional(v.number()),
+    // Aggregate scores (populated after completion) - 1-100 scale
+    overall_score: v.optional(v.number()),
+    dimension_scores: v.optional(
+      v.object({
+        communication: v.optional(v.number()),
+        relevance: v.optional(v.number()),
+        specificity: v.optional(v.number()),
+        structure: v.optional(v.number()),
+        confidence: v.optional(v.number()),
+      }),
+    ),
+    // Coaching summary
+    coach_summary: v.optional(v.string()),
+    key_takeaways: v.optional(v.array(v.string())),
+    improvement_priorities: v.optional(v.array(v.string())),
+    hire_signal: v.optional(
+      v.union(
+        v.literal('strong_yes'),
+        v.literal('yes'),
+        v.literal('mixed'),
+        v.literal('no'),
+        v.literal('strong_no'),
+      ),
+    ),
+    // Metadata
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_status', ['user_id', 'status'])
+    .index('by_university', ['university_id'])
+    .index('by_role_profile', ['role_profile_id'])
+    .index('by_created_at', ['created_at']),
+
+  // Interview practice turns - each question/answer pair in a session
+  interview_practice_turns: defineTable({
+    session_id: v.id('interview_practice_sessions'),
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For tenant isolation
+    turn_index: v.number(), // 0-indexed position in session
+    // Question details
+    question_text: v.string(),
+    question_type: v.union(
+      v.literal('behavioral'), // "Tell me about a time..."
+      v.literal('technical'), // Technical/skill-based
+      v.literal('situational'), // "What would you do if..."
+      v.literal('role_specific'), // Specific to the job role
+      v.literal('culture'), // Culture fit questions
+      v.literal('follow_up'), // Follow-up to previous answer
+    ),
+    question_intent: v.optional(v.string()), // What the question is trying to assess
+    target_competencies: v.optional(v.array(v.string())), // Competency IDs being assessed
+    evaluation_focus: v.optional(v.array(v.string())), // What to evaluate in response
+    tts_audio_url: v.optional(v.string()), // TTS audio URL for question
+    // User response
+    user_audio_storage_id: v.optional(v.id('_storage')), // Convex storage ID for audio
+    transcript_text: v.optional(v.string()), // Transcribed response text
+    response_duration_ms: v.optional(v.number()),
+    // Transcript analysis metadata
+    transcript_meta: v.optional(
+      v.object({
+        words_per_minute: v.optional(v.number()),
+        filler_count: v.optional(v.number()),
+        filler_words: v.optional(v.any()), // Record<string, number>
+        pauses: v.optional(
+          v.object({
+            count: v.number(),
+            avg_ms: v.number(),
+            max_ms: v.number(),
+          }),
+        ),
+        duration_sec: v.optional(v.number()),
+      }),
+    ),
+    // Content signals from response
+    content_signals: v.optional(
+      v.object({
+        metrics_count: v.optional(v.number()), // Number of metrics/numbers mentioned
+        examples_count: v.optional(v.number()), // Number of concrete examples
+        star_structure_score: v.optional(v.number()), // 1-5 STAR method adherence
+        relevance_score: v.optional(v.number()), // 1-5 relevance to question
+        role_relevance_score: v.optional(v.number()), // 1-5 relevance to role
+      }),
+    ),
+    // Per-turn scores (1-5 scale)
+    scores: v.optional(
+      v.object({
+        communication: v.optional(v.number()),
+        specificity: v.optional(v.number()),
+        structure: v.optional(v.number()),
+        role_fit: v.optional(v.number()),
+        overall: v.optional(v.number()),
+      }),
+    ),
+    // Coaching feedback
+    strengths: v.optional(v.array(v.string())),
+    improvements: v.optional(v.array(v.string())),
+    ideal_answer: v.optional(v.string()), // Example of a strong answer
+    keywords_to_include: v.optional(v.array(v.string())), // Keywords that should be mentioned
+    // Follow-up tracking for agent state
+    follow_up_threads_created: v.optional(v.array(v.string())),
+    follow_up_threads_resolved: v.optional(v.array(v.string())),
+    // Timing
+    asked_at: v.number(),
+    answered_at: v.optional(v.number()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_session', ['session_id'])
+    .index('by_session_turn', ['session_id', 'turn_index'])
+    .index('by_user', ['user_id'])
+    .index('by_university', ['university_id']),
+
+  // Interview presence samples - camera-based presence analysis (V2 feature)
+  interview_presence_samples: defineTable({
+    session_id: v.id('interview_practice_sessions'),
+    turn_id: v.optional(v.id('interview_practice_turns')),
+    user_id: v.id('users'),
+    // Presence metrics captured during response
+    timestamp: v.number(),
+    eye_contact_score: v.optional(v.number()), // 0-100
+    posture_score: v.optional(v.number()), // 0-100
+    expressiveness_score: v.optional(v.number()), // 0-100
+    distraction_flags: v.optional(v.array(v.string())), // e.g., ['looking_away', 'fidgeting']
+    // Privacy-minded: no raw video/image data stored
+    created_at: v.number(),
+  })
+    .index('by_session', ['session_id'])
+    .index('by_turn', ['turn_id'])
+    .index('by_user', ['user_id']),
 
   // Job searches table to track user job searches
   job_searches: defineTable({
@@ -403,10 +881,15 @@ export default defineSchema({
       ),
     ),
     stage_set_at: v.optional(v.number()), // When stage was last changed
+    // Manual ordering within status columns (for Kanban drag-and-drop)
+    // Uses fractional indexing for efficient reordering without rewriting neighbors
+    sort_order: v.optional(v.number()),
     location: v.optional(v.string()),
     source: v.optional(v.string()),
     url: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Company logo URL (auto-fetched from Clearbit/Google when application is created)
+    logo_url: v.optional(v.string()),
     applied_at: v.optional(v.number()),
     resume_id: v.optional(v.id('resumes')),
     cover_letter_id: v.optional(v.id('cover_letters')),
@@ -450,6 +933,17 @@ export default defineSchema({
     reason_code: v.optional(v.string()),
     // Evidence uploads (for Offer/Accepted stages) - Use Convex storage for proper access control
     evidence_storage_ids: v.optional(v.array(v.id('_storage'))), // Uploaded offer letters, etc.
+
+    // Email auto-update tracking
+    auto_created: v.optional(v.boolean()), // true if created by email auto-update
+    review_status: v.optional(v.union(v.literal('confirmed'), v.literal('needs_review'))), // Review status for auto-created/updated applications
+    auto_update_source_message_id: v.optional(v.string()), // For undo lookup
+
+    // Interview round tracking (for multi-round interview emails)
+    interview_round: v.optional(v.number()), // Current interview round (1, 2, 3, etc.)
+    interview_round_type: v.optional(v.string()), // "phone_screen", "technical", "onsite", "final", etc.
+    last_email_event_at: v.optional(v.number()), // Timestamp of last email event processed
+
     created_at: v.number(),
     updated_at: v.number(),
   })
@@ -462,7 +956,9 @@ export default defineSchema({
     // SECURITY: Tenant-scoped indexes for university reporting
     .index('by_university', ['university_id'])
     .index('by_university_stage', ['university_id', 'stage']) // University pipeline view
-    .index('by_university_status', ['university_id', 'status']), // Legacy university queries
+    .index('by_university_status', ['university_id', 'status']) // Legacy university queries
+    // Kanban board indexes for efficient drag-and-drop ordering
+    .index('by_user_status_order', ['user_id', 'status', 'sort_order']),
 
   // Unified follow-ups table (replaces followup_actions and advisor_follow_ups)
   follow_ups: defineTable({
@@ -1392,6 +1888,155 @@ export default defineSchema({
     updated_by: v.string(), // Clerk user ID of admin who updated
   }).index('by_tool', ['tool_id']),
 
+  // ============================================================================
+  // EMAIL AUTO UPDATES (Gmail + Outlook)
+  // Privacy: store minimal metadata + derived signals only (no full bodies)
+  // ============================================================================
+
+  email_integrations: defineTable({
+    user_id: v.id('users'),
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+    status: v.union(v.literal('connected'), v.literal('revoked')),
+    enabled: v.boolean(), // User opt-in toggle for scanning
+    mode: v.union(v.literal('metadata_only'), v.literal('enhanced')), // Enhanced allows limited snippet/preview
+    auto_add_enabled: v.optional(v.boolean()), // User preference for auto-add to Kanban (default: true)
+    scopes: v.array(v.string()),
+
+    // OAuth tokens (encrypted at rest, never returned to client)
+    encrypted_refresh_token: v.optional(v.string()),
+    token_cipher_version: v.optional(v.string()),
+
+    // Provider identity (for display + webhook routing)
+    provider_account_email: v.optional(v.string()),
+    provider_account_id: v.optional(v.string()),
+
+    // Sync state
+    last_scan_at: v.optional(v.number()),
+    last_scan_enqueued_at: v.optional(v.number()),
+    scan_lock_until: v.optional(v.number()),
+    cursor: v.optional(v.string()), // Provider sync token/delta link when supported
+
+    // Gmail-specific push state (optional)
+    gmail_history_id: v.optional(v.string()),
+    gmail_watch_expiration: v.optional(v.number()),
+
+    // Outlook-specific push state (optional)
+    outlook_subscription_id: v.optional(v.string()),
+    outlook_subscription_expiration: v.optional(v.number()),
+    outlook_client_state_hash: v.optional(v.string()), // SHA-256 of clientState
+
+    // Consent + lifecycle
+    consented_at: v.optional(v.number()),
+    revoked_at: v.optional(v.number()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_provider', ['user_id', 'provider'])
+    .index('by_provider_account_email', ['provider', 'provider_account_email'])
+    .index('by_provider_outlook_subscription', ['provider', 'outlook_subscription_id'])
+    .index('by_status_enabled', ['status', 'enabled'])
+    .index('by_updated_at', ['updated_at']),
+
+  email_scan_events: defineTable({
+    integration_id: v.id('email_integrations'),
+    user_id: v.id('users'),
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+    run_at: v.number(),
+    processed_count: v.number(),
+    matched_count: v.number(),
+    suggested_count: v.number(),
+    errors_count: v.number(),
+    error_summary: v.optional(v.string()),
+    created_at: v.number(),
+  })
+    .index('by_integration', ['integration_id', 'run_at'])
+    .index('by_user', ['user_id', 'run_at']),
+
+  email_application_signals: defineTable({
+    integration_id: v.id('email_integrations'),
+    user_id: v.id('users'),
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+
+    // Provider identifiers (minimal, no bodies stored)
+    message_id: v.string(),
+    thread_id: v.string(),
+    subject: v.string(),
+    from: v.string(),
+    from_domain: v.optional(v.string()),
+    received_at: v.number(),
+    snippet_limited: v.optional(v.string()), // Only when enhanced mode is enabled (length-limited)
+
+    // Detection + classification
+    subject_gate_version: v.string(),
+    subject_gate_passed: v.boolean(),
+    event_type: v.optional(v.string()),
+    confidence: v.optional(v.number()),
+    extracted_entities: v.optional(v.any()),
+    classification_source: v.optional(v.string()),
+    classification_reason: v.optional(v.string()),
+    ai_prompt_version: v.optional(v.string()),
+    ai_model: v.optional(v.string()),
+    ai_summary: v.optional(v.string()),
+
+    // Application matching
+    matched_application_id: v.optional(v.id('applications')),
+    match_confidence: v.optional(v.number()),
+    match_signals: v.optional(v.any()),
+    candidate_applications: v.optional(v.any()),
+
+    // Decision
+    status: v.union(
+      v.literal('ignored'),
+      v.literal('suggested'),
+      v.literal('applied'),
+      v.literal('dismissed'),
+    ),
+    suggested_stage: v.optional(v.string()),
+    applied_stage_event_id: v.optional(v.id('application_stage_events')),
+
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_integration_message', ['integration_id', 'message_id'])
+    .index('by_user_status_created', ['user_id', 'status', 'created_at'])
+    .index('by_user_provider_thread', ['user_id', 'provider', 'thread_id'])
+    .index('by_user_created_at', ['user_id', 'created_at'])
+    .index('by_created_at', ['created_at']),
+
+  application_stage_events: defineTable({
+    application_id: v.id('applications'),
+    user_id: v.id('users'),
+
+    actor_type: v.union(v.literal('system'), v.literal('user')),
+    actor_user_id: v.optional(v.id('users')),
+    source: v.union(v.literal('manual'), v.literal('email_auto_update')),
+
+    // Email integration context (if source=email_auto_update)
+    provider: v.optional(v.union(v.literal('gmail'), v.literal('outlook'))),
+    message_id: v.optional(v.string()),
+    thread_id: v.optional(v.string()),
+    signal_id: v.optional(v.id('email_application_signals')),
+
+    previous_stage: v.optional(v.string()),
+    new_stage: v.string(),
+    previous_status: v.optional(v.string()),
+    new_status: v.optional(v.string()),
+
+    classification_confidence: v.optional(v.number()),
+    match_confidence: v.optional(v.number()),
+
+    created_at: v.number(),
+
+    // Undo support
+    undone_at: v.optional(v.number()),
+    undone_by_user_id: v.optional(v.id('users')),
+    undo_reason: v.optional(v.string()),
+  })
+    .index('by_application', ['application_id', 'created_at'])
+    .index('by_user', ['user_id', 'created_at'])
+    .index('by_signal', ['signal_id']),
+
   // Notifications table for in-app notifications
   notifications: defineTable({
     user_id: v.id('users'), // User who should see this notification
@@ -1413,4 +2058,43 @@ export default defineSchema({
     .index('by_user', ['user_id'])
     .index('by_user_read', ['user_id', 'read'])
     .index('by_created_at', ['created_at']),
+
+  // ============================================================================
+  // EMAIL AUTO UPDATE AUDIT
+  // Tracks auto-created/updated applications from email scanning for undo support
+  // ============================================================================
+  email_auto_update_audit: defineTable({
+    user_id: v.id('users'),
+    gmail_message_id: v.string(), // Provider message ID for dedup and undo lookup
+    provider: v.union(v.literal('gmail'), v.literal('outlook')),
+    intent_type: v.string(), // 'interview_request', 'applied_confirmation', 'offer', etc.
+    application_id: v.id('applications'),
+    action_type: v.union(v.literal('created'), v.literal('updated')),
+
+    // Snapshot for undo (only for updates)
+    previous_snapshot: v.optional(
+      v.object({
+        stage: v.optional(v.string()),
+        status: v.optional(v.string()),
+        interview_round: v.optional(v.number()),
+        interview_round_type: v.optional(v.string()),
+      }),
+    ),
+
+    // Classification context for audit
+    classification_confidence: v.optional(v.number()),
+    match_confidence: v.optional(v.number()),
+    review_status: v.optional(v.union(v.literal('confirmed'), v.literal('needs_review'))),
+
+    // Undo tracking
+    undone_at: v.optional(v.number()),
+    undone_by_user_id: v.optional(v.id('users')),
+    undo_reason: v.optional(v.string()),
+
+    created_at: v.number(),
+  })
+    .index('by_user_message', ['user_id', 'gmail_message_id', 'intent_type'])
+    .index('by_application', ['application_id'])
+    .index('by_user', ['user_id', 'created_at'])
+    .index('by_user_undone', ['user_id', 'undone_at']),
 });

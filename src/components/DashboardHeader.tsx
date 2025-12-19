@@ -15,7 +15,6 @@ import {
   Lightbulb,
   Mail,
   Send,
-  Sparkles,
   Target,
   TrendingUp,
   Users,
@@ -43,18 +42,20 @@ interface SubTask {
   getProgress: (metrics: StageMetrics) => { value: number; max?: number; percentage?: number };
 }
 
+interface HeroContent {
+  chipLabel: string;
+  headline: string;
+  description: string;
+  ctaText: string;
+  ctaHref: string;
+}
+
 interface StageConfig {
   id: StageId;
   label: string;
   icon: LucideIcon;
   subtasks: SubTask[];
-  hero: {
-    chipLabel: string;
-    headline: string;
-    description: string;
-    ctaText: string;
-    ctaHref: string;
-  };
+  hero: HeroContent | ((metrics: StageMetrics) => HeroContent);
   stat: {
     label: string;
     getValue: (metrics: StageMetrics) => string | number;
@@ -73,8 +74,11 @@ interface StageMetrics {
   resumeScore: number;
   resumesCreated: number;
   resumesTailored: number;
-  resumesDistributed: number;
   coverLettersCreated: number;
+  hasAnyResume: boolean;
+  hasAiTailoredResume: boolean;
+  hasAnyCoverLetter: boolean;
+  firstResumeId: string | null;
   // Job search
   rolesSaved: number;
   applicationsSubmitted: number;
@@ -116,6 +120,11 @@ interface DashboardHeaderProps {
   coverLettersCount?: number;
   goalsCount?: number;
   skillsCount?: number;
+  // Resume building progress
+  hasAnyResume?: boolean;
+  hasAiTailoredResume?: boolean;
+  firstResumeId?: string | null;
+  hasAnyCoverLetter?: boolean;
 }
 
 // =============================================================================
@@ -167,7 +176,7 @@ const stageConfigs: StageConfig[] = [
       headline: 'Find 3 roles that fit you in 5 minutes',
       description: 'Discover career paths aligned with your interests, skills, and goals.',
       ctaText: 'Explore careers',
-      ctaHref: '/career-exploration',
+      ctaHref: '/career-explorer',
     },
     stat: {
       label: 'Path clarity',
@@ -183,24 +192,18 @@ const stageConfigs: StageConfig[] = [
         id: 'resume-building',
         label: 'Resume Building',
         icon: FileText,
-        getProgress: (m) => ({ value: m.resumeScore, percentage: m.resumeScore }),
+        getProgress: (m) => ({
+          value: m.hasAnyResume ? 1 : 0,
+          percentage: m.hasAnyResume ? 100 : 0,
+        }),
       },
       {
         id: 'resume-tailoring',
         label: 'Resume Tailoring',
         icon: ClipboardList,
         getProgress: (m) => ({
-          value: m.resumesTailored,
-          percentage: Math.min(m.resumesTailored * 20, 100),
-        }),
-      },
-      {
-        id: 'resume-distribution',
-        label: 'Resume Distribution',
-        icon: Send,
-        getProgress: (m) => ({
-          value: m.resumesDistributed,
-          percentage: Math.min(m.resumesDistributed * 20, 100),
+          value: m.hasAiTailoredResume ? 1 : 0,
+          percentage: m.hasAiTailoredResume ? 100 : 0,
         }),
       },
       {
@@ -208,22 +211,69 @@ const stageConfigs: StageConfig[] = [
         label: 'Cover Letter Crafting',
         icon: Mail,
         getProgress: (m) => ({
-          value: m.coverLettersCreated,
-          percentage: Math.min(m.coverLettersCreated * 25, 100),
+          value: m.hasAnyCoverLetter ? 1 : 0,
+          percentage: m.hasAnyCoverLetter ? 100 : 0,
         }),
       },
     ],
-    hero: {
-      chipLabel: 'Resume building',
-      headline: 'Improve your score in 5 mins',
-      description:
-        "Take small steps to improve your resume score. You'll start getting interviews at 90% or higher.",
-      ctaText: 'Add employment history',
-      ctaHref: '/resumes',
+    hero: (m: StageMetrics): HeroContent => {
+      // Determine the next action based on progress
+      if (!m.hasAnyResume) {
+        // No resume yet - prompt to create one
+        return {
+          chipLabel: 'Resume building',
+          headline: 'Create your first resume',
+          description:
+            'Build a professional resume that highlights your skills and experience. Our AI-powered tools make it easy.',
+          ctaText: 'Create resume',
+          ctaHref: '/resume-studio',
+        };
+      } else if (!m.hasAiTailoredResume) {
+        // Has resume but not tailored - prompt to tailor it
+        const editHref = m.firstResumeId
+          ? `/resume-studio?resumeId=${m.firstResumeId}`
+          : '/resume-studio';
+        return {
+          chipLabel: 'Resume building',
+          headline: 'Tailor your resume for a job',
+          description:
+            'Use AI to optimize your resume for specific job descriptions. Tailored resumes get more interviews.',
+          ctaText: 'Tailor resume',
+          ctaHref: editHref,
+        };
+      } else if (!m.hasAnyCoverLetter) {
+        // Has tailored resume but no cover letter - prompt to create one
+        return {
+          chipLabel: 'Resume building',
+          headline: 'Add a cover letter',
+          description:
+            'Complete your application package with a compelling cover letter that tells your story.',
+          ctaText: 'Create cover letter',
+          ctaHref: '/resume-studio?tab=cover-letters',
+        };
+      } else {
+        // All done - encourage maintaining/updating
+        const editHref = m.firstResumeId
+          ? `/resume-studio?resumeId=${m.firstResumeId}`
+          : '/resume-studio';
+        return {
+          chipLabel: 'Resume building',
+          headline: 'Keep your resume updated',
+          description:
+            'Great job! You have a complete resume and cover letter. Keep them updated as you gain new experiences.',
+          ctaText: 'Edit resume',
+          ctaHref: editHref,
+        };
+      }
     },
     stat: {
-      label: 'Resume Score',
-      getValue: (m) => `${m.resumeScore}%`,
+      label: 'Completed',
+      getValue: (m) => {
+        const completed = [m.hasAnyResume, m.hasAiTailoredResume, m.hasAnyCoverLetter].filter(
+          Boolean,
+        ).length;
+        return `${completed}/3`;
+      },
     },
   },
   {
@@ -315,57 +365,12 @@ const stageConfigs: StageConfig[] = [
       headline: 'Get ready for your next interview',
       description: 'Practice makes perfect. Prepare your stories and ace your interviews.',
       ctaText: 'Start interview practice',
-      ctaHref: '/interview-prep',
+      ctaHref: '/interview-practice',
     },
     stat: {
       label: 'Next interview',
       getValue: (m) =>
         m.nextInterviewDays !== null ? `in ${m.nextInterviewDays} days` : 'None scheduled',
-    },
-  },
-  {
-    id: 'learning',
-    label: 'Learning',
-    icon: BookOpen,
-    subtasks: [
-      {
-        id: 'add-skills',
-        label: 'Add skills',
-        icon: Sparkles,
-        getProgress: (m) => ({
-          value: m.skillsAdded,
-          percentage: Math.min(m.skillsAdded * 10, 100),
-        }),
-      },
-      {
-        id: 'complete-module',
-        label: 'Complete a learning module',
-        icon: BookOpen,
-        getProgress: (m) => ({
-          value: m.modulesCompleted,
-          percentage: Math.min(m.modulesCompleted * 20, 100),
-        }),
-      },
-      {
-        id: 'reflect-progress',
-        label: 'Reflect on progress',
-        icon: Lightbulb,
-        getProgress: (m) => ({
-          value: m.reflectionsLogged,
-          percentage: Math.min(m.reflectionsLogged * 25, 100),
-        }),
-      },
-    ],
-    hero: {
-      chipLabel: 'Learning',
-      headline: 'Build skills for your dream role',
-      description: 'Continuous learning is key to career growth. Track your skill development.',
-      ctaText: 'Open learning plan',
-      ctaHref: '/skills',
-    },
-    stat: {
-      label: 'Skills in progress',
-      getValue: (m) => m.skillsInProgress,
     },
   },
 ];
@@ -421,7 +426,7 @@ function StageTabs({
   journeyProgress?: JourneyProgress;
 }) {
   return (
-    <div className="flex items-center justify-center gap-1 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
       {stages.map((stage, index) => {
         const isActive = activeStage === index;
         const isComplete = getStageCompletion(stage.id, journeyProgress);
@@ -432,18 +437,16 @@ function StageTabs({
             <button
               onClick={() => onSelectStage(index)}
               className={cn(
-                'relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap',
+                'relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap sm:w-44 border',
                 isActive
-                  ? 'bg-primary-500 text-white shadow-md'
-                  : isComplete
-                    ? 'bg-white text-green-600 border border-green-200 hover:bg-green-50'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
+                  ? 'bg-primary-100 text-primary-700 border-primary-200 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300',
               )}
             >
               {isComplete && !isActive ? (
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4 flex-shrink-0" />
               ) : (
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 flex-shrink-0" />
               )}
               <span className="hidden sm:inline">{stage.label}</span>
             </button>
@@ -451,12 +454,7 @@ function StageTabs({
             {/* Separator between tabs */}
             {index < stages.length - 1 && (
               <div className="hidden sm:flex items-center px-1.5">
-                <div
-                  className={cn(
-                    'w-6 h-0.5 rounded-full transition-colors duration-300',
-                    isComplete ? 'bg-green-300' : 'bg-slate-200',
-                  )}
-                />
+                <div className="w-6 h-0.5 rounded-full bg-slate-200" />
               </div>
             )}
           </div>
@@ -505,35 +503,34 @@ function ProgressPanel({ subtasks, metrics }: { subtasks: SubTask[]; metrics: St
 
 function StageHeroPanel({ stage, metrics }: { stage: StageConfig; metrics: StageMetrics }) {
   const statValue = stage.stat.getValue(metrics);
+  // Resolve hero content - either static object or dynamic function
+  const hero = typeof stage.hero === 'function' ? stage.hero(metrics) : stage.hero;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-50 via-white to-primary-50 p-6 h-full flex flex-col">
+    <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 h-full flex flex-col">
       {/* Background decoration */}
-      <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary-100/40 to-transparent blur-3xl" />
-      <div className="absolute left-0 bottom-0 -ml-16 -mb-16 h-48 w-48 rounded-full bg-gradient-to-tr from-rose-100/40 to-transparent blur-3xl" />
+      <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary-100/20 to-transparent blur-3xl" />
 
       <div className="relative flex-1 flex flex-col lg:flex-row gap-6">
         {/* Left content */}
         <div className="flex-1 flex flex-col justify-center">
           {/* Stage chip */}
           <span className="inline-flex self-start items-center rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-700 mb-3">
-            {stage.hero.chipLabel}
+            {hero.chipLabel}
           </span>
 
           {/* Headline */}
-          <h2 className="text-xl lg:text-2xl font-bold text-slate-900 mb-2">
-            {stage.hero.headline}
-          </h2>
+          <h2 className="text-xl lg:text-2xl font-bold text-slate-900 mb-2">{hero.headline}</h2>
 
           {/* Description */}
-          <p className="text-sm text-slate-600 mb-5 max-w-md">{stage.hero.description}</p>
+          <p className="text-sm text-slate-600 mb-5 max-w-md">{hero.description}</p>
 
           {/* CTA */}
           <Link
-            href={stage.hero.ctaHref}
+            href={hero.ctaHref}
             className="inline-flex self-start items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-slate-800 hover:shadow-lg"
           >
-            {stage.hero.ctaText}
+            {hero.ctaText}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -567,6 +564,10 @@ export function DashboardHeader({
   coverLettersCount = 0,
   goalsCount = 0,
   skillsCount = 0,
+  hasAnyResume = false,
+  hasAiTailoredResume = false,
+  firstResumeId = null,
+  hasAnyCoverLetter = false,
 }: DashboardHeaderProps) {
   const initialIndex = getInitialStageIndex(journeyProgress, resumesCount > 0);
   const [activeStage, setActiveStage] = useState(initialIndex);
@@ -592,9 +593,12 @@ export function DashboardHeader({
     // Resume building
     resumeScore,
     resumesCreated: resumesCount,
-    resumesTailored: 0, // TODO: wire up tailored resume count
-    resumesDistributed: 0, // TODO: wire up
+    resumesTailored: hasAiTailoredResume ? 1 : 0,
     coverLettersCreated: coverLettersCount,
+    hasAnyResume,
+    hasAiTailoredResume,
+    hasAnyCoverLetter,
+    firstResumeId,
     // Job search
     rolesSaved: activeApplications,
     applicationsSubmitted: activeApplications,
@@ -621,16 +625,15 @@ export function DashboardHeader({
   return (
     <div className="space-y-5">
       {/* Row 1: Greeting */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Hi {userName || 'there'}!</h1>
-          <p className="text-base text-slate-500 mt-0.5">What&apos;s your goal today?</p>
-        </div>
-
-        <span className="inline-flex self-start sm:self-auto items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-primary-600">
+      <div className="flex flex-col sm:relative items-center sm:items-stretch gap-2 sm:gap-0">
+        <span className="sm:absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-primary-600">
           <TrendingUp className="h-3.5 w-3.5" />
           This week: {thisWeekActions} action{thisWeekActions !== 1 ? 's' : ''}
         </span>
+        <div className="text-center sm:pt-1 sm:px-40">
+          <h1 className="text-2xl font-bold text-slate-900">Hi {userName || 'there'}!</h1>
+          <p className="text-base text-slate-500 mt-0.5 mb-4">What&apos;s your goal today?</p>
+        </div>
       </div>
 
       {/* Row 2: Stage Tabs */}

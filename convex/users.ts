@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 
 import { api } from './_generated/api';
-import { mutation, MutationCtx, query } from './_generated/server';
+import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { logPermissionChange } from './lib/auditLogger';
 import { isServiceRequest } from './lib/roles';
 
@@ -1212,5 +1212,74 @@ export const toggleHideProgressCard = mutation({
     });
 
     return user._id;
+  },
+});
+
+/**
+ * Internal mutation to reactivate a deleted/suspended user account.
+ * Used for admin recovery operations via CLI.
+ *
+ * @returns {Object} Result object with success, userId, and previousStatus
+ * @returns {boolean} result.success - Always true if no error thrown
+ * @returns {Id<'users'>} result.userId - The user's ID
+ * @returns {string} result.previousStatus - The user's status before this call.
+ *   If previousStatus === 'active', no changes were made (user was already active).
+ */
+export const reactivateUserAccount = internalMutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error(`User not found with clerkId: ${args.clerkId}`);
+    }
+
+    // Validate that reactivation is needed - early return with same shape as normal return
+    if (user.account_status === 'active' && !user.deleted_at) {
+      return {
+        success: true,
+        userId: user._id,
+        previousStatus: user.account_status,
+      };
+    }
+
+    const previousStatus = user.account_status;
+    const now = Date.now();
+
+    await ctx.db.patch(user._id, {
+      account_status: 'active',
+      // Clear deletion metadata to maintain data consistency
+      deleted_at: undefined,
+      deleted_by: undefined,
+      deleted_reason: undefined,
+      deletion_scheduled_at: undefined,
+      // Set restoration tracking
+      restored_at: now,
+      updated_at: now,
+    });
+
+    // Audit log the reactivation operation
+    try {
+      await logPermissionChange(ctx, {
+        action: 'account.reactivated',
+        actorType: 'system',
+        actorUniversityId: user.university_id,
+        targetType: 'user',
+        targetId: user._id,
+        targetUniversityId: user.university_id,
+        previousValue: { account_status: previousStatus },
+        newValue: { account_status: 'active' },
+      });
+    } catch (auditError) {
+      console.error('Failed to create account reactivation audit log:', auditError);
+      // Don't fail reactivation if audit logging fails
+    }
+
+    return { success: true, userId: user._id, previousStatus };
   },
 });

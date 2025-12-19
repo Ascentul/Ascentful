@@ -11,15 +11,20 @@ import {
   Key,
   Loader2,
   LogOut,
+  Settings,
   ShieldCheck,
   Trash2,
   User,
+  UserCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import React, { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { AutoUpdatesSettings } from '@/components/account/AutoUpdatesSettings';
+import { CareerProfileContent } from '@/components/career-profile/CareerProfileContent';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 // Import UI components
@@ -66,10 +71,12 @@ const passwordChangeSchema = z
 
 type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
 
-export default function AccountPage() {
+function AccountPageContent() {
   const { user: clerkUser } = useUser();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'settings';
 
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // For password change
@@ -324,368 +331,409 @@ export default function AccountPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">Account Settings</h1>
-        <p className="text-muted-foreground">Manage your security settings and preferences</p>
+        <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">Account</h1>
+        <p className="text-muted-foreground">Manage your account settings and career profile</p>
       </div>
 
-      <div className="space-y-6">
-        {/* Profile Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile Settings
-            </CardTitle>
-            <CardDescription>Manage your profile picture and account preferences</CardDescription>
-            {/* Profile form stays visible for tests */}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditingProfile(true)}
-                aria-label="Edit Profile"
-              >
-                Edit Profile
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16 border-2 border-gray-200">
-                  <AvatarImage
-                    src={
-                      user?.profile_image ||
-                      clerkUser?.imageUrl ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || clerkUser?.firstName || 'User')}&background=0C29AB&color=fff`
-                    }
-                  />
-                  <AvatarFallback>
-                    {(user?.name || clerkUser?.firstName || 'U').charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-5 w-5 text-muted-foreground" />
-                    <h3 className="font-medium">Profile Picture</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Update your profile picture across the app
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <input
-                  type="file"
-                  id="profile-upload"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                />
+      {/* Tab Toggle */}
+      <div className="flex gap-2 mb-6">
+        <Link href="/account?tab=settings">
+          <Button
+            variant={activeTab === 'settings' ? 'default' : 'outline'}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Account Settings
+          </Button>
+        </Link>
+        <Link href="/account?tab=profile">
+          <Button
+            variant={activeTab === 'profile' ? 'default' : 'outline'}
+            className="flex items-center gap-2"
+          >
+            <UserCircle className="h-4 w-4" />
+            Career Profile
+          </Button>
+        </Link>
+      </div>
+
+      {/* Career Profile Tab */}
+      {activeTab === 'profile' && <CareerProfileContent />}
+
+      {/* Account Settings Tab */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          {/* Profile Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Profile Settings
+              </CardTitle>
+              <CardDescription>Manage your profile picture and account preferences</CardDescription>
+              {/* Profile form stays visible for tests */}
+              <div className="flex justify-end">
                 <Button
                   variant="outline"
-                  onClick={() => document.getElementById('profile-upload')?.click()}
-                  disabled={isUploadingImage}
+                  size="sm"
+                  onClick={() => setIsEditingProfile(true)}
+                  aria-label="Edit Profile"
                 >
-                  {isUploadingImage ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4 mr-2" />
-                      Change Picture
-                    </>
-                  )}
+                  Edit Profile
                 </Button>
               </div>
-            </div>
-
-            <div className="space-y-3 border rounded-lg p-4">
-              <div>
-                <h4 className="font-medium">Profile Details</h4>
-                <p className="text-sm text-muted-foreground">Update website and bio</p>
-              </div>
-
-              {isEditingProfile && (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={profileForm.email}
-                      readOnly
-                      aria-readonly="true"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Sign-in email is managed by Clerk.{' '}
-                      <Button asChild variant="link" className="px-0 h-auto font-normal">
-                        <Link href="/user">Change sign-in email in Clerk</Link>
-                      </Button>
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="jobTitle">Job Title</Label>
-                    <Input
-                      id="jobTitle"
-                      name="jobTitle"
-                      placeholder="Your role"
-                      value={profileForm.jobTitle}
-                      onChange={(e) => setProfileForm({ ...profileForm, jobTitle: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder="Full name"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      name="company"
-                      placeholder="Current company"
-                      value={profileForm.company}
-                      onChange={(e) => setProfileForm({ ...profileForm, company: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      name="location"
-                      placeholder="City, Country"
-                      value={profileForm.location}
-                      onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="website">Website</Label>
-                    <Input
-                      id="website"
-                      name="website"
-                      placeholder="https://example.com"
-                      value={profileForm.website}
-                      onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      name="bio"
-                      placeholder="Tell us about yourself (max 500 characters)"
-                      value={profileForm.bio}
-                      maxLength={500}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                        setProfileForm({ ...profileForm, bio: e.target.value })
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border-2 border-gray-200">
+                    <AvatarImage
+                      src={
+                        user?.profile_image ||
+                        clerkUser?.imageUrl ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || clerkUser?.firstName || 'User')}&background=0C29AB&color=fff`
                       }
                     />
-                    <p className="text-xs text-muted-foreground">{profileForm.bio.length}/500</p>
+                    <AvatarFallback>
+                      {(user?.name || clerkUser?.firstName || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="font-medium">Profile Picture</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Update your profile picture across the app
+                    </p>
                   </div>
-                  {profileError && <p className="text-sm text-destructive">{profileError}</p>}
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsEditingProfile(false);
-                        setProfileError(null);
-                        if (user && clerkUser) {
-                          setProfileForm({
-                            name: user.name || clerkUser.fullName || '',
-                            email: user.email || clerkUser.emailAddresses?.[0]?.emailAddress || '',
-                            jobTitle: user.job_title || '',
-                            company: user.company || '',
-                            location: user.location || '',
-                            website: user.website || '',
-                            bio: user.bio || '',
-                          });
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="file"
+                    id="profile-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('profile-upload')?.click()}
+                    disabled={isUploadingImage}
+                  >
+                    {isUploadingImage ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-4 w-4 mr-2" />
+                        Change Picture
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <div>
+                  <h4 className="font-medium">Profile Details</h4>
+                  <p className="text-sm text-muted-foreground">Update website and bio</p>
+                </div>
+
+                {isEditingProfile && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={profileForm.email}
+                        readOnly
+                        aria-readonly="true"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Sign-in email is managed by Clerk.{' '}
+                        <Button asChild variant="link" className="px-0 h-auto font-normal">
+                          <Link href="/user">Change sign-in email in Clerk</Link>
+                        </Button>
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="jobTitle">Job Title</Label>
+                      <Input
+                        id="jobTitle"
+                        name="jobTitle"
+                        placeholder="Your role"
+                        value={profileForm.jobTitle}
+                        onChange={(e) =>
+                          setProfileForm({ ...profileForm, jobTitle: e.target.value })
                         }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      disabled={isSavingProfile}
-                      onClick={async () => {
-                        const urlPattern = /^https?:\/\/.+/i;
-                        if (profileForm.website && !urlPattern.test(profileForm.website)) {
-                          setProfileError('Please enter a valid URL');
-                          return;
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        placeholder="Full name"
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="company">Company</Label>
+                      <Input
+                        id="company"
+                        name="company"
+                        placeholder="Current company"
+                        value={profileForm.company}
+                        onChange={(e) =>
+                          setProfileForm({ ...profileForm, company: e.target.value })
                         }
-                        if (profileForm.bio.length > 500) {
-                          setProfileError('Bio must be 500 characters or less');
-                          return;
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        name="location"
+                        placeholder="City, Country"
+                        value={profileForm.location}
+                        onChange={(e) =>
+                          setProfileForm({ ...profileForm, location: e.target.value })
                         }
-                        setProfileError(null);
-                        if (effectiveClerkId) {
-                          setIsSavingProfile(true);
-                          try {
-                            await updateUserMutation({
-                              clerkId: effectiveClerkId,
-                              updates: {
-                                name: profileForm.name,
-                                // email is managed by Clerk and synced via webhook - not editable here
-                                bio: profileForm.bio,
-                                job_title: profileForm.jobTitle,
-                                company: profileForm.company,
-                                location: profileForm.location,
-                                website: profileForm.website,
-                              },
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        name="website"
+                        placeholder="https://example.com"
+                        value={profileForm.website}
+                        onChange={(e) =>
+                          setProfileForm({ ...profileForm, website: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="bio">Bio</Label>
+                      <Textarea
+                        id="bio"
+                        name="bio"
+                        placeholder="Tell us about yourself (max 500 characters)"
+                        value={profileForm.bio}
+                        maxLength={500}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                          setProfileForm({ ...profileForm, bio: e.target.value })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">{profileForm.bio.length}/500</p>
+                    </div>
+                    {profileError && <p className="text-sm text-destructive">{profileError}</p>}
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingProfile(false);
+                          setProfileError(null);
+                          if (user && clerkUser) {
+                            setProfileForm({
+                              name: user.name || clerkUser.fullName || '',
+                              email:
+                                user.email || clerkUser.emailAddresses?.[0]?.emailAddress || '',
+                              jobTitle: user.job_title || '',
+                              company: user.company || '',
+                              location: user.location || '',
+                              website: user.website || '',
+                              bio: user.bio || '',
                             });
-                            toast({
-                              title: 'Profile updated',
-                              description: 'Your profile has been updated successfully.',
-                              variant: 'success',
-                            });
-                            setIsEditingProfile(false);
-                          } catch (error) {
-                            console.error('Profile update error:', error);
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={isSavingProfile}
+                        onClick={async () => {
+                          const urlPattern = /^https?:\/\/.+/i;
+                          if (profileForm.website && !urlPattern.test(profileForm.website)) {
+                            setProfileError('Please enter a valid URL');
+                            return;
+                          }
+                          if (profileForm.bio.length > 500) {
+                            setProfileError('Bio must be 500 characters or less');
+                            return;
+                          }
+                          setProfileError(null);
+                          if (effectiveClerkId) {
+                            setIsSavingProfile(true);
+                            try {
+                              await updateUserMutation({
+                                clerkId: effectiveClerkId,
+                                updates: {
+                                  name: profileForm.name,
+                                  // email is managed by Clerk and synced via webhook - not editable here
+                                  bio: profileForm.bio,
+                                  job_title: profileForm.jobTitle,
+                                  company: profileForm.company,
+                                  location: profileForm.location,
+                                  website: profileForm.website,
+                                },
+                              });
+                              toast({
+                                title: 'Profile updated',
+                                description: 'Your profile has been updated successfully.',
+                                variant: 'success',
+                              });
+                              setIsEditingProfile(false);
+                            } catch (error) {
+                              console.error('Profile update error:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to update profile. Please try again.',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsSavingProfile(false);
+                            }
+                          } else {
                             toast({
                               title: 'Error',
-                              description: 'Failed to update profile. Please try again.',
+                              description: 'Unable to save profile. Please try again.',
                               variant: 'destructive',
                             });
-                          } finally {
-                            setIsSavingProfile(false);
                           }
-                        } else {
-                          toast({
-                            title: 'Error',
-                            description: 'Unable to save profile. Please try again.',
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
-                    >
-                      {isSavingProfile ? 'Saving...' : 'Save Changes'}
-                    </Button>
+                        }}
+                      >
+                        {isSavingProfile ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Security Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5" />
-              Security Settings
-            </CardTitle>
-            <CardDescription>Manage your account security and authentication</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Key className="h-5 w-5 text-muted-foreground" />
-                    <h3 className="font-medium">Password</h3>
+          {/* Security Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                Security Settings
+              </CardTitle>
+              <CardDescription>Manage your account security and authentication</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Key className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="font-medium">Password</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Change your account password
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">Change your account password</p>
+                  <Button variant="outline" onClick={() => setIsChangingPassword(true)}>
+                    Change Password
+                  </Button>
                 </div>
-                <Button variant="outline" onClick={() => setIsChangingPassword(true)}>
-                  Change Password
-                </Button>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <LogOut className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="font-medium">Sign Out</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Sign out of your account on this device
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={signOut}>
+                    Sign Out
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <AutoUpdatesSettings />
+
+          {/* GDPR Data Rights */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Data Privacy Rights
+              </CardTitle>
+              <CardDescription>Exercise your data privacy rights under GDPR</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                {/* Data Export */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Download className="h-5 w-5 text-muted-foreground" />
+                      <h3 className="font-medium">Export Your Data</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Download all your personal data in JSON format (GDPR Article 20)
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={handleDataExport} disabled={isExportingData}>
+                    {isExportingData ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Data
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Account Deletion */}
+                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50/50">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-5 w-5 text-red-500" />
+                      <h3 className="font-medium text-red-700">Delete Account</h3>
+                    </div>
+                    <p className="text-sm text-red-600/80 mt-1">
+                      Permanently delete your account and all associated data (GDPR Article 17)
+                    </p>
+                  </div>
+                  <Button variant="destructive" onClick={() => setShowDeleteConfirmation(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <LogOut className="h-5 w-5 text-muted-foreground" />
-                    <h3 className="font-medium">Sign Out</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Sign out of your account on this device
-                  </p>
-                </div>
-                <Button variant="outline" onClick={signOut}>
-                  Sign Out
-                </Button>
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Your rights under GDPR:</strong> You have the right to access, rectify,
+                  and delete your personal data. When you request deletion, your account will enter
+                  a 30-day grace period during which you can cancel the request. After 30 days, your
+                  data will be permanently deleted. Some data may be retained for legal compliance.
+                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* GDPR Data Rights */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Data Privacy Rights
-            </CardTitle>
-            <CardDescription>Exercise your data privacy rights under GDPR</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-4">
-              {/* Data Export */}
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Download className="h-5 w-5 text-muted-foreground" />
-                    <h3 className="font-medium">Export Your Data</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Download all your personal data in JSON format (GDPR Article 20)
-                  </p>
-                </div>
-                <Button variant="outline" onClick={handleDataExport} disabled={isExportingData}>
-                  {isExportingData ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Data
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Account Deletion */}
-              <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50/50">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Trash2 className="h-5 w-5 text-red-500" />
-                    <h3 className="font-medium text-red-700">Delete Account</h3>
-                  </div>
-                  <p className="text-sm text-red-600/80 mt-1">
-                    Permanently delete your account and all associated data (GDPR Article 17)
-                  </p>
-                </div>
-                <Button variant="destructive" onClick={() => setShowDeleteConfirmation(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Account
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                <strong>Your rights under GDPR:</strong> You have the right to access, rectify, and
-                delete your personal data. When you request deletion, your account will enter a
-                30-day grace period during which you can cancel the request. After 30 days, your
-                data will be permanently deleted. Some data may be retained for legal compliance.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Delete Account Confirmation Dialog */}
       <Dialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
@@ -834,5 +882,19 @@ export default function AccountPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <AccountPageContent />
+    </Suspense>
   );
 }

@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
 
@@ -75,6 +76,7 @@ export function ApplicationDetails({
   const [local, setLocal] = useState<DBApplication>(application);
   const { user } = useUser();
   const clerkId = user?.id;
+  const { toast } = useToast();
 
   // Convex data for tabs
   const stages = useQuery(
@@ -90,6 +92,10 @@ export function ApplicationDetails({
     api.cover_letters.getUserCoverLetters,
     clerkId ? { clerkId } : 'skip',
   );
+  const stageEvents = useQuery(
+    api.email_auto_updates.getStageEventsForApplication,
+    clerkId ? { applicationId: local.id as any, limit: 25 } : 'skip',
+  );
 
   // Mutations
   const createStage = useMutation(api.interviews.createStage);
@@ -99,6 +105,7 @@ export function ApplicationDetails({
   const updateFollowup = useMutation(api.followups.updateFollowup);
   const deleteFollowup = useMutation(api.followups.deleteFollowup);
   const updateApplication = useMutation(api.applications.updateApplication);
+  const undoStageChange = useMutation(api.email_auto_updates.undoEmailStageChange);
 
   useEffect(() => setLocal(application), [application]);
 
@@ -390,11 +397,12 @@ export function ApplicationDetails({
         </DialogHeader>
 
         <Tabs defaultValue="details">
-          <TabsList className="grid grid-cols-4 mb-3">
+          <TabsList className="grid grid-cols-5 mb-3">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="interviews">Interviews</TabsTrigger>
             <TabsTrigger value="followups">Follow-up</TabsTrigger>
             <TabsTrigger value="materials">Materials</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="space-y-4">
@@ -718,6 +726,83 @@ export function ApplicationDetails({
             <div className="flex justify-end">
               <Button onClick={saveMaterials}>Save Materials</Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-3">
+            <div>
+              <h3 className="font-semibold">History</h3>
+              <p className="text-xs text-muted-foreground">
+                Automated stage updates from email can be undone.
+              </p>
+            </div>
+
+            {!stageEvents ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading…
+              </div>
+            ) : stageEvents.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No automated updates yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {stageEvents.map((e: any) => {
+                  const createdAt = e.created_at ? new Date(e.created_at).toLocaleString() : '';
+                  const title = `${e.previous_stage} → ${e.new_stage}`;
+                  const canUndo = e.source === 'email_auto_update' && !e.undone_at;
+                  return (
+                    <div key={String(e._id)} className="p-3 border rounded-md">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {e.provider ? String(e.provider).toUpperCase() : 'EMAIL'} • {createdAt}
+                          </div>
+                          {e.undone_at && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Undone {new Date(e.undone_at).toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                        {canUndo && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const ok = confirm('Undo this stage change?');
+                              if (!ok) return;
+                              try {
+                                await undoStageChange({
+                                  stageEventId: e._id,
+                                  reason: 'User requested undo',
+                                } as any);
+                                if (e.previous_status) {
+                                  const updated = { ...local, status: e.previous_status };
+                                  setLocal(updated);
+                                  onChanged?.(updated);
+                                }
+                                toast({
+                                  title: 'Undone',
+                                  description: 'Stage change reverted.',
+                                  variant: 'success',
+                                });
+                              } catch (err: any) {
+                                toast({
+                                  title: 'Error',
+                                  description: err?.message || 'Failed to undo.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                          >
+                            Undo
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
