@@ -58,7 +58,17 @@ export function useSubscription(): SubscriptionInfo {
     // Note: "premium_monthly" plan includes both monthly AND annual billing options
     const hasPremium = has?.({ plan: 'premium_monthly' }) ?? false;
 
-    const isPremium = hasPremium || isUniversity;
+    // Check for admin-granted premium access (set via super admin in /admin/users)
+    // This allows super admins to grant pro access without going through Clerk Billing
+    const hasAdminGrantedPremium =
+      metadata?.admin_granted_subscription?.plan === 'premium_monthly' &&
+      metadata?.admin_granted_subscription?.status === 'active';
+
+    // Also check the billing metadata we set (fallback for admin grants)
+    const hasBillingPremium =
+      metadata?.billing?.plan === 'premium_monthly' && metadata?.billing?.status === 'active';
+
+    const isPremium = hasPremium || hasAdminGrantedPremium || hasBillingPremium || isUniversity;
 
     // Determine specific plan type
     let planType: SubscriptionInfo['planType'] = 'free';
@@ -67,9 +77,10 @@ export function useSubscription(): SubscriptionInfo {
     if (isUniversity) {
       planType = 'university';
       planName = 'University';
-    } else if (hasPremium) {
+    } else if (hasPremium || hasAdminGrantedPremium || hasBillingPremium) {
       // We can't distinguish monthly vs annual from has() alone
       // Both are under the same plan key "premium_monthly"
+      // Admin-granted subscriptions also use this plan type
       planType = 'premium_monthly';
       planName = 'Premium';
     }
