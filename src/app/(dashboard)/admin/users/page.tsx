@@ -6,6 +6,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { useAction } from 'convex/react';
 import {
   AlertTriangle,
+  Crown,
   Loader2,
   MoreHorizontal,
   Search,
@@ -233,6 +234,13 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteType, setDeleteType] = useState<'soft' | 'hard' | null>(null);
 
+  // Pro access state
+  const [showProAccessConfirm, setShowProAccessConfirm] = useState(false);
+  const [proAccessUser, setProAccessUser] = useState<UserRow | null>(null);
+  const [proAccessAction, setProAccessAction] = useState<'grant' | 'revoke'>('grant');
+  const [proAccessReason, setProAccessReason] = useState('');
+  const [grantingProAccess, setGrantingProAccess] = useState(false);
+
   // Add staff user state
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
@@ -391,6 +399,65 @@ export default function AdminUsersPage() {
   const openDeleteDialog = (type: 'soft' | 'hard') => {
     setDeleteType(type);
     setShowDeleteConfirm(true);
+  };
+
+  // Pro access handlers
+  const openProAccessDialog = (user: UserRow, action: 'grant' | 'revoke') => {
+    setProAccessUser(user);
+    setProAccessAction(action);
+    setProAccessReason('');
+    setShowProAccessConfirm(true);
+  };
+
+  const handleProAccess = async () => {
+    if (!proAccessUser || !clerkUser?.id) return;
+    setGrantingProAccess(true);
+    try {
+      const response = await fetch('/api/admin/users/grant-pro-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: proAccessUser.clerkId,
+          grantAccess: proAccessAction === 'grant',
+          reason: proAccessReason || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update pro access');
+      }
+
+      alert(data.message);
+      setShowProAccessConfirm(false);
+      setProAccessUser(null);
+      setProAccessReason('');
+    } catch (error) {
+      console.error('Error updating pro access:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update pro access';
+      alert(`Error: ${message}`);
+    } finally {
+      setGrantingProAccess(false);
+    }
+  };
+
+  // Check if user can have pro access granted/revoked
+  const canModifyProAccess = (user: UserRow): boolean => {
+    // Cannot modify pro access for university-affiliated users
+    if (['student', 'university_admin', 'advisor'].includes(user.role)) {
+      return false;
+    }
+    // Cannot modify pro access for staff/admins
+    if (['super_admin', 'staff'].includes(user.role)) {
+      return false;
+    }
+    return true;
+  };
+
+  // Check if user currently has pro access
+  const hasProAccess = (user: UserRow): boolean => {
+    return user.subscription_plan === 'premium' && user.subscription_status === 'active';
   };
 
   // Access check: use Clerk's publicMetadata (source of truth)
@@ -663,6 +730,28 @@ export default function AdminUsersPage() {
                             <DropdownMenuItem onClick={() => openEdit(u)}>
                               {isDeleted ? 'View / Restore' : 'Edit'}
                             </DropdownMenuItem>
+                            {canModifyProAccess(u) && !isDeleted && (
+                              <>
+                                <DropdownMenuSeparator />
+                                {hasProAccess(u) ? (
+                                  <DropdownMenuItem
+                                    onClick={() => openProAccessDialog(u, 'revoke')}
+                                    className="text-orange-600 focus:text-orange-600"
+                                  >
+                                    <Crown className="h-4 w-4 mr-2" />
+                                    Revoke Pro Access
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => openProAccessDialog(u, 'grant')}
+                                    className="text-primary-600 focus:text-primary-600"
+                                  >
+                                    <Crown className="h-4 w-4 mr-2" />
+                                    Grant Pro Access
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1080,6 +1169,91 @@ export default function AdminUsersPage() {
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
                     {deleteType === 'hard' ? 'Permanently Delete' : 'Soft Delete'}
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Pro Access Confirmation Dialog */}
+        <AlertDialog open={showProAccessConfirm} onOpenChange={setShowProAccessConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Crown
+                  className={`h-5 w-5 ${proAccessAction === 'grant' ? 'text-primary-600' : 'text-orange-600'}`}
+                />
+                {proAccessAction === 'grant' ? 'Grant Pro Access?' : 'Revoke Pro Access?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <div className="space-y-3">
+                  <p>
+                    {proAccessAction === 'grant'
+                      ? 'This will give the user premium features without requiring payment.'
+                      : 'This will remove premium features from the user. They will return to the free plan.'}
+                  </p>
+                  <p>
+                    User: <span className="font-medium">{proAccessUser?.name}</span> (
+                    {proAccessUser?.email})
+                  </p>
+                  {proAccessAction === 'grant' && (
+                    <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> This is an admin-granted subscription and will not
+                        generate any billing. Use this sparingly for special cases like beta
+                        testers, partners, or support resolutions.
+                      </p>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <Label htmlFor="proAccessReason" className="text-sm font-medium">
+                      Reason (optional but recommended)
+                    </Label>
+                    <Textarea
+                      id="proAccessReason"
+                      value={proAccessReason}
+                      onChange={(e) => setProAccessReason(e.target.value)}
+                      placeholder={
+                        proAccessAction === 'grant'
+                          ? 'e.g., Beta tester, Partner account, Support resolution...'
+                          : 'e.g., User requested downgrade, Abuse detected...'
+                      }
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setShowProAccessConfirm(false);
+                  setProAccessUser(null);
+                  setProAccessReason('');
+                }}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleProAccess}
+                disabled={grantingProAccess}
+                className={
+                  proAccessAction === 'grant'
+                    ? 'bg-primary-600 hover:bg-primary-700'
+                    : 'bg-orange-600 hover:bg-orange-700'
+                }
+              >
+                {grantingProAccess ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {proAccessAction === 'grant' ? 'Granting...' : 'Revoking...'}
+                  </>
+                ) : (
+                  <>
+                    <Crown className="h-4 w-4 mr-2" />
+                    {proAccessAction === 'grant' ? 'Grant Pro Access' : 'Revoke Pro Access'}
                   </>
                 )}
               </AlertDialogAction>
