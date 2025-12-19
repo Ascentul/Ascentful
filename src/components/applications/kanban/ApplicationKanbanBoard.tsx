@@ -32,6 +32,7 @@ interface ApplicationKanbanBoardProps {
   ) => Promise<void>;
   onCardClick: (application: KanbanApplication) => void;
   onQuickAdd: (status: ApplicationStatus) => void;
+  onCompleteFollowup?: (followupId: string) => Promise<void>;
 }
 
 // Helper to get status label for announcements
@@ -48,6 +49,7 @@ export function ApplicationKanbanBoard({
   onMove,
   onCardClick,
   onQuickAdd,
+  onCompleteFollowup,
 }: ApplicationKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -279,6 +281,7 @@ export function ApplicationKanbanBoard({
               onCardClick={onCardClick}
               onQuickAdd={onQuickAdd}
               onMoveTo={handleMenuMove}
+              onCompleteFollowup={onCompleteFollowup}
             />
           ))}
         </div>

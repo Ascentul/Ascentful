@@ -88,7 +88,9 @@ export default function ApplicationsPage() {
 
   const createMutation = useMutation(api.applications.createApplication);
   const updateMutation = useMutation(api.applications.updateApplication);
+  const deleteMutation = useMutation(api.applications.deleteApplication);
   const moveMutation = useMutation(api.applications.moveApplication);
+  const updateFollowupMutation = useMutation(api.followups.updateFollowup);
 
   // Count total applications for free plan limit check
   const totalApps = useMemo(() => {
@@ -301,6 +303,24 @@ export default function ApplicationsPage() {
     [user?.id, kanbanData, moveMutation, recordMove],
   );
 
+  // Handle completing a follow-up from the Kanban card
+  const handleCompleteFollowup = useCallback(
+    async (followupId: string) => {
+      try {
+        await updateFollowupMutation({
+          followupId: followupId as Id<'follow_ups'>,
+          updates: { status: 'done' },
+        });
+        toast.success('Follow-up marked as complete');
+      } catch (error) {
+        console.error('Failed to complete follow-up:', error);
+        toast.error('Failed to complete follow-up');
+        throw error;
+      }
+    },
+    [updateFollowupMutation],
+  );
+
   // Convert KanbanApplication to LegacyApplication for ApplicationDetails
   const selectedLegacyApp: LegacyApplication | null = selectedApp
     ? {
@@ -375,6 +395,7 @@ export default function ApplicationsPage() {
             onMove={handleMove}
             onCardClick={handleCardClick}
             onQuickAdd={handleNewApplicationClick}
+            onCompleteFollowup={handleCompleteFollowup}
           />
         )}
 
@@ -385,8 +406,14 @@ export default function ApplicationsPage() {
             onOpenChange={setShowDetails}
             application={selectedLegacyApp}
             onChanged={(updated) => {
+              // Handle delete (updated is null)
+              if (updated === null) {
+                setSelectedApp(null);
+                setShowDetails(false);
+                return;
+              }
               // Update selected state for immediate UI feedback
-              if (updated && selectedApp) {
+              if (selectedApp) {
                 setSelectedApp({
                   ...selectedApp,
                   company: updated.company,
@@ -411,6 +438,13 @@ export default function ApplicationsPage() {
                 },
               });
               return { ...(selectedLegacyApp as LegacyApplication), ...values };
+            }}
+            deleteFn={async (id) => {
+              if (!user?.id) throw new Error('Not signed in');
+              await deleteMutation({
+                clerkId: user.id,
+                applicationId: id as Id<'applications'>,
+              });
             }}
           />
         )}

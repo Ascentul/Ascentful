@@ -119,11 +119,14 @@ export default function InterviewsPage() {
           onOpenChange={setOpen}
           application={selected}
           onChanged={(updated) => {
-            // Reflect updates locally in the list
-            const idx = mapped.findIndex((x) => x.id === updated.id);
-            if (idx > -1) {
-              mapped[idx] = { ...mapped[idx], ...updated };
+            // Handle deletion case
+            if (updated === null) {
+              setSelected(null);
+              setOpen(false);
+              return;
             }
+            // Update selected state for immediate UI feedback in the modal
+            // The list will update via Convex query invalidation after mutation
             setSelected((prev) =>
               prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
             );

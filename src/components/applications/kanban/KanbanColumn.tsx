@@ -16,6 +16,7 @@ interface KanbanColumnProps {
   onCardClick: (application: KanbanApplication) => void;
   onQuickAdd: (status: StatusConfig['id']) => void;
   onMoveTo?: (applicationId: string, status: ApplicationStatus) => void;
+  onCompleteFollowup?: (followupId: string) => Promise<void>;
 }
 
 /**
@@ -28,6 +29,7 @@ export function KanbanColumn({
   onCardClick,
   onQuickAdd,
   onMoveTo,
+  onCompleteFollowup,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${config.id}`,
@@ -82,6 +84,7 @@ export function KanbanColumn({
               application={app}
               onClick={() => onCardClick(app)}
               onMoveTo={onMoveTo ? (status) => onMoveTo(String(app._id), status) : undefined}
+              onCompleteFollowup={onCompleteFollowup}
             />
           ))}
         </SortableContext>

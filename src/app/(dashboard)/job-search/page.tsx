@@ -3,49 +3,43 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
-import { Briefcase, Search } from 'lucide-react';
+import { Clock, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { ApplicationWizard } from '@/components/applications/ApplicationWizard';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-interface JobResult {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: string;
-  experience: string;
-  description: string;
-  salary?: string;
-  url?: string;
-  posted?: string | null;
-  category?: string | null;
-  contract_type?: string | null;
-  company_logo?: string | null;
-}
+  DEFAULT_FILTERS,
+  type ExperienceLevel,
+  type JobResult,
+  JobResultsList,
+  JobSearchBar,
+  JobSearchFilters,
+  type JobSearchFiltersState,
+  JobSearchHistoryCard,
+  type JobSearchHistoryItem,
+  type JobType,
+  MobileFiltersSheet,
+  type SortOption,
+} from '@/components/job-search';
+import { Button } from '@/components/ui/button';
 
 export default function JobSearchPage() {
   const router = useRouter();
   const { user } = useUser();
   const clerkId = user?.id;
+
+  // Tab state
   const [activeTab, setActiveTab] = useState<'applications' | 'job-search'>('job-search');
   const [searchTab, setSearchTab] = useState<'search' | 'history'>('search');
+
+  // Search state
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
-  const [remoteOnly, setRemoteOnly] = useState(false);
-  const [jobType, setJobType] = useState('all');
-  const [experience, setExperience] = useState('Mid-level');
+  const [filters, setFilters] = useState<JobSearchFiltersState>(DEFAULT_FILTERS);
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
+
+  // Results state
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<JobResult[]>([]);
   const [page, setPage] = useState(1);
@@ -55,14 +49,30 @@ export default function JobSearchPage() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState<boolean>(false);
 
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardJob, setWizardJob] = useState<{
-    title: string;
-    company: string;
-    url?: string;
-  } | null>(null);
+  // Mobile filters state
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Handle tab change to redirect to applications page
+  // Derived state
+  const hasSearched = total !== null;
+  const hasActiveFilters =
+    filters.remoteOnly !== DEFAULT_FILTERS.remoteOnly ||
+    filters.jobType !== DEFAULT_FILTERS.jobType ||
+    filters.experience !== DEFAULT_FILTERS.experience;
+  const activeFilterCount = [
+    filters.remoteOnly,
+    filters.jobType !== 'all',
+    filters.experience !== 'Mid-level',
+  ].filter(Boolean).length;
+
+  // Convex mutations and queries
+  const createSearch = useMutation((api as any).jobs.createJobSearch);
+  const createApplication = useMutation(api.applications.createApplication);
+  const recent = useQuery(
+    (api as any).jobs.getRecentJobSearches,
+    clerkId ? { clerkId, limit: 10 } : 'skip',
+  );
+
+  // Handle tab change
   const handleTabChange = (tab: 'applications' | 'job-search') => {
     if (tab === 'applications') {
       router.push('/applications');
@@ -71,13 +81,7 @@ export default function JobSearchPage() {
     }
   };
 
-  // Convex: save history and load recent searches
-  const createSearch = useMutation((api as any).jobs.createJobSearch);
-  const recent = useQuery(
-    (api as any).jobs.getRecentJobSearches,
-    clerkId ? { clerkId, limit: 5 } : 'skip',
-  );
-
+  // Build mock data for fallback
   const buildMock = (q: string, loc: string): JobResult[] => {
     const title = q || 'Software Engineer';
     const place = loc || 'Remote';
@@ -87,34 +91,35 @@ export default function JobSearchPage() {
         title,
         company: 'Tech Corp',
         location: place,
-        type: jobType,
-        experience,
+        type: filters.jobType,
+        experience: filters.experience,
         description: 'Exciting opportunity to work with cutting-edge technology...',
         salary: '$80,000 - $120,000',
         url: 'https://example.com/jobs/1',
         posted: new Date().toISOString(),
         category: 'Software Development',
-        contract_type: jobType,
+        contract_type: filters.jobType,
         company_logo: null,
       },
       {
         id: 'mock-2',
         title: `Senior ${title}`,
         company: 'Innovation Labs',
-        location: place === 'Remote' ? 'Remote' : `${place}`,
-        type: jobType,
+        location: place === 'Remote' ? 'Remote' : place,
+        type: filters.jobType,
         experience: 'Senior',
         description: 'Join our team of passionate developers...',
         salary: '$120,000 - $160,000',
         url: 'https://example.com/jobs/2',
         posted: new Date(Date.now() - 86400000).toISOString(),
         category: 'Engineering',
-        contract_type: jobType,
+        contract_type: filters.jobType,
         company_logo: null,
       },
     ];
   };
 
+  // Main search function
   const doSearchWithParams = async (opts?: {
     page?: number;
     query?: string;
@@ -122,16 +127,25 @@ export default function JobSearchPage() {
     jobType?: string;
     experience?: string;
     remoteOnly?: boolean;
+    sortBy?: SortOption;
   }) => {
+    const queryValue = opts?.query ?? query;
+
+    // Don't search without a query
+    if (!queryValue.trim()) {
+      return;
+    }
+
     setLoading(true);
     try {
       const nextPage = opts?.page ?? page;
-      const queryValue = opts?.query ?? query;
       const locationValue = opts?.location ?? location;
-      const jobTypeValue = opts?.jobType ?? jobType;
-      const experienceValue = opts?.experience ?? experience;
-      const isRemoteOnly = opts?.remoteOnly ?? remoteOnly;
+      const jobTypeValue = opts?.jobType ?? filters.jobType;
+      const experienceValue = opts?.experience ?? filters.experience;
+      const isRemoteOnly = opts?.remoteOnly ?? filters.remoteOnly;
+      const sortByValue = opts?.sortBy ?? sortBy;
       const searchLocation = isRemoteOnly ? 'Remote' : locationValue;
+
       const res = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,9 +156,12 @@ export default function JobSearchPage() {
           experienceLevel: experienceValue,
           page: nextPage,
           perPage,
+          sortBy: sortByValue,
         }),
       });
+
       const json = await res.json();
+
       if (!res.ok) {
         const details =
           typeof json?.details === 'string' ? json.details : JSON.stringify(json?.details || {});
@@ -158,6 +175,7 @@ export default function JobSearchPage() {
         setUsingFallback(true);
         return;
       }
+
       setErrorText(null);
       setUsingFallback(false);
       setResults(json.jobs as JobResult[]);
@@ -184,8 +202,8 @@ export default function JobSearchPage() {
               remoteOnly: isRemoteOnly,
             },
           });
-        } catch (e) {
-          // ignore history errors
+        } catch {
+          // Ignore history errors
         }
       }
     } finally {
@@ -193,10 +211,116 @@ export default function JobSearchPage() {
     }
   };
 
-  const doSearch = (opts?: { page?: number }) => doSearchWithParams(opts);
+  // Search handlers
+  const handleSearch = () => {
+    doSearchWithParams({ page: 1 });
+  };
 
-  const canPrev = page > 1;
-  const canNext = totalPages ? page < totalPages : false;
+  const handlePageChange = (newPage: number) => {
+    doSearchWithParams({ page: newPage });
+  };
+
+  // Filter change handler (auto-search)
+  const handleFiltersChange = (newFilters: JobSearchFiltersState) => {
+    setFilters(newFilters);
+    // Auto-trigger search if we have a query
+    if (query.trim()) {
+      doSearchWithParams({
+        ...newFilters,
+        query,
+        location,
+        page: 1,
+      });
+    }
+  };
+
+  // Sort change handler (auto-search)
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    if (query.trim()) {
+      doSearchWithParams({ sortBy: newSort, page: 1 });
+    }
+  };
+
+  // Reset handlers
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    // Auto-search with reset filters if we have a query
+    if (query.trim()) {
+      doSearchWithParams({
+        ...DEFAULT_FILTERS,
+        page: 1,
+      });
+    }
+  };
+
+  const handleResetSearch = () => {
+    setQuery('');
+    setLocation('');
+    setFilters(DEFAULT_FILTERS);
+    setSortBy('relevance');
+    setResults([]);
+    setTotal(null);
+    setTotalPages(null);
+    setErrorText(null);
+    setUsingFallback(false);
+  };
+
+  // Quick add handler (creates application immediately)
+  const handleQuickAdd = async (job: JobResult) => {
+    if (!clerkId) {
+      toast.error('Please sign in to add jobs to your tracker');
+      return;
+    }
+    try {
+      await createApplication({
+        clerkId,
+        company: job.company,
+        job_title: job.title,
+        status: 'saved',
+        url: job.url || undefined,
+      });
+      toast.success(`Added "${job.title}" at ${job.company} to your tracker`);
+    } catch {
+      toast.error('Failed to add job to tracker');
+      throw new Error('Failed to add job');
+    }
+  };
+
+  // Example search handler (for empty state chips)
+  const handleExampleSearch = (searchQuery: string, searchLocation?: string) => {
+    setQuery(searchQuery);
+    if (searchLocation) setLocation(searchLocation);
+    setSearchTab('search');
+    doSearchWithParams({ query: searchQuery, location: searchLocation || '', page: 1 });
+  };
+
+  // History rerun handler
+  const handleRerunSearch = (item: JobSearchHistoryItem) => {
+    const keywords = item.keywords || '';
+    const loc = item.location || '';
+    const type = (item.search_data?.jobType || 'all') as JobType;
+    const exp = (item.search_data?.experience || filters.experience) as ExperienceLevel;
+    const isRemote = item.search_data?.remoteOnly ?? false;
+
+    setQuery(keywords);
+    setLocation(loc);
+    setFilters({
+      jobType: type,
+      experience: exp,
+      remoteOnly: isRemote,
+    });
+    setSearchTab('search');
+
+    doSearchWithParams({
+      page: 1,
+      query: keywords,
+      location: loc,
+      jobType: type,
+      experience: exp,
+      remoteOnly: isRemote,
+    });
+  };
 
   return (
     <div className="w-full">
@@ -210,303 +334,163 @@ export default function JobSearchPage() {
           </p>
         </div>
 
-        {/* Toggle between All Applications and Find Jobs */}
-        <div className="flex gap-2">
+        {/* Tab Toggle */}
+        <div className="flex border-b border-gray-200">
           <Button
-            variant={activeTab === 'applications' ? 'default' : 'outline'}
+            variant="ghost"
             onClick={() => handleTabChange('applications')}
-            className="flex items-center gap-2"
+            className={`rounded-none px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'applications'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
           >
-            <Briefcase className="h-4 w-4" />
             All Applications
           </Button>
           <Button
-            variant={activeTab === 'job-search' ? 'default' : 'outline'}
+            variant="ghost"
             onClick={() => handleTabChange('job-search')}
-            className="flex items-center gap-2"
+            className={`rounded-none px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'job-search'
+                ? 'border-primary-500 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+            }`}
           >
-            <Search className="h-4 w-4" />
+            <Search className="h-4 w-4 mr-2" />
             Find Jobs
           </Button>
         </div>
 
-        {/* Find Jobs Section */}
-        <div className="bg-muted/30 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-2">Find Jobs</h2>
-          <p className="text-sm text-muted-foreground mb-4">Search for jobs and start applying</p>
+        {/* Search/History Toggle */}
+        <div className="flex gap-2 border-b border-slate-200">
+          <Button
+            variant="ghost"
+            className={`rounded-none ${
+              searchTab === 'search'
+                ? 'border-b-2 border-primary-500 text-slate-900'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            onClick={() => setSearchTab('search')}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Job Search
+          </Button>
+          <Button
+            variant="ghost"
+            className={`rounded-none ${
+              searchTab === 'history'
+                ? 'border-b-2 border-primary-500 text-slate-900'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            onClick={() => setSearchTab('history')}
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            History
+          </Button>
+        </div>
 
-          {/* Search/History Toggle */}
-          <div className="mb-4 flex gap-2 border-b">
-            <Button
-              variant="ghost"
-              className={
-                searchTab === 'search' ? 'border-b-2 border-primary rounded-none' : 'rounded-none'
-              }
-              onClick={() => setSearchTab('search')}
-            >
-              <Search className="h-4 w-4 mr-2" />
-              Job Search
-            </Button>
-            <Button
-              variant="ghost"
-              className={
-                searchTab === 'history' ? 'border-b-2 border-primary rounded-none' : 'rounded-none'
-              }
-              onClick={() => setSearchTab('history')}
-            >
-              History
-            </Button>
-          </div>
-
-          {searchTab === 'search' ? (
-            <div className="space-y-4">
-              <p className="text-sm font-medium">
-                Search for jobs on Adzuna directly within the application
-              </p>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Keywords</label>
-                  <Input
-                    placeholder="Software Engineer, Product Manager, etc."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Location (Optional)</label>
-                  <Input
-                    placeholder="Chicago, Boston, etc."
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                  />
-                  <label className="flex items-center gap-2 mt-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={remoteOnly}
-                      onChange={(e) => setRemoteOnly(e.target.checked)}
-                      className="rounded"
-                    />
-                    Remote jobs only
-                  </label>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Job Type (Optional)</label>
-                  <Select value={jobType} onValueChange={setJobType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
-                      <SelectItem value="Full-time">Full-time</SelectItem>
-                      <SelectItem value="Part-time">Part-time</SelectItem>
-                      <SelectItem value="Contract">Contract</SelectItem>
-                      <SelectItem value="Internship">Internship</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">
-                    Experience Level (Optional)
-                  </label>
-                  <Select value={experience} onValueChange={setExperience}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Mid-level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Entry-level">Entry-level</SelectItem>
-                      <SelectItem value="Mid-level">Mid-level</SelectItem>
-                      <SelectItem value="Senior">Senior</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={() => doSearch({ page: 1 })}
-                  disabled={loading || !query.trim()}
-                  className="w-full bg-primary-500 hover:bg-primary-700"
-                >
-                  {loading ? 'Searching...' : 'Search Jobs'}
-                </Button>
+        {/* Content */}
+        {searchTab === 'search' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+            {/* Left Panel - Desktop Filters */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-4">
+                <JobSearchFilters
+                  filters={filters}
+                  onFiltersChange={handleFiltersChange}
+                  onReset={handleResetFilters}
+                  hasActiveFilters={hasActiveFilters}
+                  disabled={loading}
+                />
               </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm font-medium mb-2">Recent Searches</p>
-              {!recent || recent.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No recent searches yet.</div>
-              ) : (
-                <div className="space-y-2">
-                  {recent.map((s: any) => {
-                    const handleRerunSearch = () => {
-                      const keywords = s.keywords || '';
-                      const loc = s.location || '';
-                      const type = s.search_data?.jobType || 'all';
-                      const exp = s.search_data?.experience ?? experience;
-                      const isRemote = s.search_data?.remoteOnly ?? false;
-                      setQuery(keywords);
-                      setLocation(loc);
-                      setJobType(type);
-                      setRemoteOnly(isRemote);
-                      if (s.search_data?.experience) {
-                        setExperience(exp);
-                      }
-                      setSearchTab('search');
-                      doSearchWithParams({
-                        page: 1,
-                        query: keywords,
-                        location: loc,
-                        jobType: type,
-                        experience: exp,
-                        remoteOnly: isRemote,
-                      });
-                    };
+            </aside>
 
-                    return (
-                      <button
-                        key={s._id}
-                        type="button"
-                        className="w-full flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500 text-left"
-                        onClick={handleRerunSearch}
-                      >
-                        <div className="text-sm">
-                          <div className="font-medium">{s.keywords || '—'}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {s.location ? `${s.location} • ` : ''}
-                            {s.results_count || 0} results
-                          </div>
-                        </div>
-                        <span className="text-sm text-primary-500">Search →</span>
-                      </button>
-                    );
-                  })}
+            {/* Right Panel - Search & Results */}
+            <div className="space-y-4">
+              {/* Mobile Filters Button */}
+              <div className="lg:hidden">
+                <MobileFiltersSheet
+                  open={mobileFiltersOpen}
+                  onOpenChange={setMobileFiltersOpen}
+                  filters={filters}
+                  onFiltersChange={handleFiltersChange}
+                  onReset={handleResetFilters}
+                  hasActiveFilters={hasActiveFilters}
+                  activeFilterCount={activeFilterCount}
+                />
+              </div>
+
+              {/* Search Bar */}
+              <JobSearchBar
+                query={query}
+                location={location}
+                onQueryChange={setQuery}
+                onLocationChange={setLocation}
+                onSearch={handleSearch}
+                onReset={handleResetSearch}
+                loading={loading}
+                hasSearched={hasSearched}
+                disabled={loading}
+              />
+
+              {/* Error/Warning Messages */}
+              {errorText && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-wrap break-words">
+                  {errorText}
                 </div>
               )}
+
+              {usingFallback && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                  Showing fallback results due to provider error. Try adjusting filters or retrying.
+                </div>
+              )}
+
+              {/* Results */}
+              <JobResultsList
+                results={results}
+                total={total}
+                loading={loading}
+                hasSearched={hasSearched}
+                onQuickAdd={handleQuickAdd}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                onExampleSearch={handleExampleSearch}
+                onResetFilters={handleResetFilters}
+                sortBy={sortBy}
+                onSortChange={handleSortChange}
+              />
             </div>
-          )}
-        </div>
-
-        {errorText && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 whitespace-pre-wrap break-words">
-            {errorText}
+          </div>
+        ) : (
+          /* History Tab */
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Your recent job searches. Click to run the search again.
+            </p>
+            {!recent || recent.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="rounded-full bg-slate-100 p-4 mb-4">
+                  <Clock className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900">No search history yet</h3>
+                <p className="text-sm text-slate-500 mt-2 max-w-md">
+                  Your recent searches will appear here after you search for jobs.
+                </p>
+                <Button variant="outline" onClick={() => setSearchTab('search')} className="mt-6">
+                  Start Searching
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recent.map((item: JobSearchHistoryItem) => (
+                  <JobSearchHistoryCard key={item._id} item={item} onRerun={handleRerunSearch} />
+                ))}
+              </div>
+            )}
           </div>
         )}
-
-        {usingFallback && (
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-            Showing fallback results due to provider error. Try adjusting filters or retrying.
-          </div>
-        )}
-
-        <div className="space-y-3">
-          {results.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No results yet. Try a search.</div>
-          ) : (
-            results.map((job) => (
-              <Card key={job.id} className="border">
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="font-medium text-base">
-                        {job.title} — {job.company}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {job.location} • {job.type} • {job.experience}
-                      </div>
-                      <div className="text-xs mt-1">{job.description}</div>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        {job.salary && <span>{job.salary}</span>}
-                        {job.category && <span>• {job.category}</span>}
-                        {job.contract_type && <span>• {job.contract_type}</span>}
-                        {job.posted &&
-                          (() => {
-                            try {
-                              const d = new Date(job.posted);
-                              return <span>• Posted {d.toLocaleDateString()}</span>;
-                            } catch {
-                              return null;
-                            }
-                          })()}
-                      </div>
-                      {job.url && (
-                        <a
-                          href={job.url}
-                          className="inline-block text-xs text-blue-600 hover:underline mt-1"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View posting
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {job.company_logo && (
-                        <img
-                          src={job.company_logo}
-                          alt={`${job.company} logo`}
-                          className="h-8 w-8 object-contain rounded"
-                        />
-                      )}
-                      <Button
-                        onClick={() => {
-                          // Open job posting in new tab
-                          if (job.url) {
-                            window.open(job.url, '_blank', 'noopener,noreferrer');
-                          }
-                          // Open wizard modal
-                          setWizardJob({
-                            title: job.title,
-                            company: job.company,
-                            url: job.url,
-                          });
-                          setWizardOpen(true);
-                        }}
-                      >
-                        Start Application
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-
-        {totalPages && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!canPrev || loading}
-              onClick={() => doSearch({ page: page - 1 })}
-            >
-              Prev
-            </Button>
-            <div className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!canNext || loading}
-              onClick={() => doSearch({ page: page + 1 })}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-
-        <ApplicationWizard
-          open={wizardOpen}
-          onOpenChange={setWizardOpen}
-          job={wizardJob}
-          onCreated={() => {
-            // No-op; wizard redirects to /applications on success
-          }}
-        />
       </div>
     </div>
   );
