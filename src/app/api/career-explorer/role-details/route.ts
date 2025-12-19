@@ -458,6 +458,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Role title is required' }, { status: 400 });
     }
 
+    if (typeof roleTitle !== 'string' || roleTitle.length > 200) {
+      return NextResponse.json({ error: 'Invalid role title' }, { status: 400 });
+    }
+
     const titleLower = roleTitle.toLowerCase();
 
     // Check if we have pre-built details for this role

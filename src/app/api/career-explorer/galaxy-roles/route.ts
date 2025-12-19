@@ -176,10 +176,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks. The response must be
 function buildProfileContext(profile: any): string {
   const sections: string[] = [];
 
-  // Basic info
-  if (profile.name) {
-    sections.push(`Name: ${profile.name}`);
-  }
+  // Note: Intentionally omit profile.name - it's unnecessary PII for role recommendations
 
   // Current position
   if (profile.current_position || profile.job_title) {

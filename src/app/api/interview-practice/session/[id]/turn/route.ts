@@ -213,11 +213,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         if (audioToTranscribe) {
-          const transcription = await openai.audio.transcriptions.create({
-            file: audioToTranscribe,
-            model: 'whisper-1',
-            language: 'en',
-          });
+          const transcribeController = new AbortController();
+          const transcribeTimeoutId = setTimeout(() => transcribeController.abort(), 60000);
+          const transcription = await openai.audio.transcriptions.create(
+            {
+              file: audioToTranscribe,
+              model: 'whisper-1',
+              language: 'en',
+            },
+            { signal: transcribeController.signal },
+          );
+          clearTimeout(transcribeTimeoutId);
 
           transcript = transcription.text;
           log.info('Audio transcribed', {

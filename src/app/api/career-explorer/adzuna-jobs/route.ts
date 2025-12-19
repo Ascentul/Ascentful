@@ -76,7 +76,12 @@ export async function POST(request: Request) {
     url.searchParams.set('results_per_page', String(limit));
     url.searchParams.set('content-type', 'application/json');
 
-    const response = await fetch(url.toString());
+    // Add timeout to prevent hanging on slow/unresponsive external API
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('Adzuna API error:', response.status, response.statusText);

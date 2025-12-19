@@ -340,69 +340,49 @@ export default function JobSearchPage() {
                 <div className="text-sm text-muted-foreground">No recent searches yet.</div>
               ) : (
                 <div className="space-y-2">
-                  {recent.map((s: any) => (
-                    <div
-                      key={s._id}
-                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setQuery(s.keywords || '');
-                        setLocation(s.location || '');
-                        setJobType(s.search_data?.jobType || 'all');
-                        if (s.search_data?.experience) setExperience(s.search_data.experience);
-                        setSearchTab('search');
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setQuery(s.keywords || '');
-                          setLocation(s.location || '');
-                          setJobType(s.search_data?.jobType || 'all');
-                          if (s.search_data?.experience) setExperience(s.search_data.experience);
-                          setSearchTab('search');
-                        }
-                      }}
-                    >
-                      <div className="text-sm">
-                        <div className="font-medium">{s.keywords || '—'}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.location ? `${s.location} • ` : ''}
-                          {s.results_count || 0} results
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const keywords = s.keywords || '';
-                          const loc = s.location || '';
-                          const type = s.search_data?.jobType || 'all';
-                          const exp = s.search_data?.experience ?? experience;
-                          const isRemote = s.search_data?.remoteOnly ?? false;
-                          setQuery(keywords);
-                          setLocation(loc);
-                          setJobType(type);
-                          setRemoteOnly(isRemote);
-                          if (s.search_data?.experience) {
-                            setExperience(exp);
-                          }
-                          setSearchTab('search');
-                          doSearchWithParams({
-                            page: 1,
-                            query: keywords,
-                            location: loc,
-                            jobType: type,
-                            experience: exp,
-                            remoteOnly: isRemote,
-                          });
-                        }}
+                  {recent.map((s: any) => {
+                    const handleRerunSearch = () => {
+                      const keywords = s.keywords || '';
+                      const loc = s.location || '';
+                      const type = s.search_data?.jobType || 'all';
+                      const exp = s.search_data?.experience ?? experience;
+                      const isRemote = s.search_data?.remoteOnly ?? false;
+                      setQuery(keywords);
+                      setLocation(loc);
+                      setJobType(type);
+                      setRemoteOnly(isRemote);
+                      if (s.search_data?.experience) {
+                        setExperience(exp);
+                      }
+                      setSearchTab('search');
+                      doSearchWithParams({
+                        page: 1,
+                        query: keywords,
+                        location: loc,
+                        jobType: type,
+                        experience: exp,
+                        remoteOnly: isRemote,
+                      });
+                    };
+
+                    return (
+                      <button
+                        key={s._id}
+                        type="button"
+                        className="w-full flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500 text-left"
+                        onClick={handleRerunSearch}
                       >
-                        Search
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="text-sm">
+                          <div className="font-medium">{s.keywords || '—'}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {s.location ? `${s.location} • ` : ''}
+                            {s.results_count || 0} results
+                          </div>
+                        </div>
+                        <span className="text-sm text-primary-500">Search →</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

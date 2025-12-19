@@ -142,7 +142,7 @@ export function ExplorerControls({
         </div>
 
         {/* Clear filters */}
-        {hasActiveFilters && (
+        {hasActiveFilters && onClearFilters && (
           <Button variant="ghost" size="sm" onClick={onClearFilters} className="text-neutral-500">
             Clear
           </Button>

@@ -11,9 +11,14 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 
 // In-memory cache for salary data (in production, use Redis or similar)
-const salaryCache = new Map<string, SalaryLookupResponse>();
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for BLS data
-const ESTIMATED_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours for AI estimates
+interface SalaryCacheEntry {
+  salaries: SalaryData[];
+  cached_at: number;
+  ttl_ms: number;
+}
+const salaryCache = new Map<string, SalaryCacheEntry>();
+const CACHE_TTL_BLS_MS = 24 * 60 * 60 * 1000; // 24 hours for BLS data
+const CACHE_TTL_ESTIMATED_MS = 4 * 60 * 60 * 1000; // 4 hours for AI estimates
 
 interface SalaryLookupRequest {
   role_titles: string[];
@@ -37,11 +42,12 @@ interface SalaryData {
 
 interface SalaryLookupResponse {
   salaries: SalaryData[];
-  cached_at?: number;
 }
 
 // BLS OES data mapping - Common occupations with their codes and salary data
 // Data source: https://www.bls.gov/oes/current/oes_nat.htm (May 2023)
+// NOTE: BLS releases new OEWS data each April. Consider refreshing this data annually.
+// Next refresh: After April 2025 release (May 2024 data)
 const BLS_SALARY_DATA: Record<string, Omit<SalaryData, 'role_title'>> = {
   // Software & Technology
   'software-developer': {
@@ -345,7 +351,7 @@ export async function POST(request: NextRequest) {
       // Check cache first
       const cacheKey = normalizedTitle;
       const cached = salaryCache.get(cacheKey);
-      if (cached && cached.cached_at && Date.now() - cached.cached_at < CACHE_TTL_MS) {
+      if (cached && cached.cached_at && Date.now() - cached.cached_at < cached.ttl_ms) {
         const cachedSalary = cached.salaries[0];
         if (cachedSalary) {
           salaries.push({ ...cachedSalary, role_title: title });
@@ -369,10 +375,11 @@ export async function POST(request: NextRequest) {
         };
         salaries.push(salary);
 
-        // Cache the result
+        // Cache the result with BLS TTL (24 hours)
         salaryCache.set(cacheKey, {
           salaries: [salary],
           cached_at: Date.now(),
+          ttl_ms: CACHE_TTL_BLS_MS,
         });
       } else {
         // Provide an estimated salary if we can't find BLS data
@@ -382,7 +389,8 @@ export async function POST(request: NextRequest) {
         // Cache estimated result with shorter TTL (4 hours vs 24 hours for BLS)
         salaryCache.set(cacheKey, {
           salaries: [estimatedSalary],
-          cached_at: Date.now() - (CACHE_TTL_MS - ESTIMATED_CACHE_TTL_MS),
+          cached_at: Date.now(),
+          ttl_ms: CACHE_TTL_ESTIMATED_MS,
         });
       }
     }

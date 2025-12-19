@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { type ApplicationStatus, STATUS_CONFIGS } from '@/components/applications/kanban/types';
@@ -28,6 +28,14 @@ function getStatusLabel(status: ApplicationStatus): string {
  */
 export function useKanbanUndo({ onUndo, undoTimeout = 6000 }: UseKanbanUndoOptions) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const recordMove = useCallback(
     (move: MoveState) => {
