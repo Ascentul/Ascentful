@@ -42,6 +42,8 @@ export const AI_TOOL_IDS = [
   'career-path-generation',
   'career-path-from-job',
   'career-paths-generation',
+  // Career explorer tools
+  'career-explorer-next-roles',
   // Interview practice tools
   'interview-role-profile-analysis',
   'interview-question-generation',
@@ -79,6 +81,8 @@ export const TOOL_CATEGORIES: Record<AIToolId, ToolCategory> = {
   'career-path-generation': 'student-facing',
   'career-path-from-job': 'student-facing',
   'career-paths-generation': 'student-facing',
+  // Career explorer tools
+  'career-explorer-next-roles': 'student-facing',
   // Interview practice tools
   'interview-role-profile-analysis': 'student-facing',
   'interview-question-generation': 'student-facing',

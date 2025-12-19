@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import { evaluate } from '@/lib/ai-evaluation';
 import { requireConvexToken } from '@/lib/convex-auth';
-import { createRequestLogger, getCorrelationIdFromRequest } from '@/lib/logger';
+import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -2911,7 +2912,11 @@ export async function POST(request: NextRequest) {
     await requireConvexToken();
 
     const body = (await request.json()) as NextRolesRequest;
-    const { currentRole, category, skills_have, skills_want, count = 8, column } = body;
+    const { currentRole, category, skills_have, skills_want, count: rawCount = 8, column } = body;
+
+    // Clamp count to prevent abuse (excessive API costs, slow responses)
+    const MAX_COUNT = 20;
+    const count = Math.min(Math.max(1, rawCount), MAX_COUNT);
 
     if (!currentRole || typeof currentRole !== 'string') {
       return NextResponse.json(
@@ -3024,6 +3029,18 @@ export async function POST(request: NextRequest) {
       ...role,
       id: `ai-${currentRole.toLowerCase().replace(/\s+/g, '-')}-${index}-${Date.now()}`,
     }));
+
+    // Evaluate AI output for safety and quality (fire-and-forget, don't fail on eval errors)
+    evaluate({
+      tool_id: 'career-explorer-next-roles',
+      input: { currentRole, category, column, skills_have, skills_want },
+      output: { roles } as unknown as Record<string, unknown>,
+    }).catch((evalError) => {
+      log.warn('AI evaluation failed', {
+        event: 'eval.error',
+        errorCode: toErrorCode(evalError),
+      });
+    });
 
     // Cache results
     setCache(cacheKey, roles);

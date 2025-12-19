@@ -56,6 +56,13 @@ export function PathNode({ node, isSelected, isFocused, onClick, onSave }: PathN
         'hover:shadow-md',
       )}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      tabIndex={0}
       role="button"
       aria-label={`${node.title}${node.fit_score !== undefined ? `, ${node.fit_score}% fit` : ''}${node.is_saved ? ', saved' : ''}`}
       aria-pressed={isSelected}

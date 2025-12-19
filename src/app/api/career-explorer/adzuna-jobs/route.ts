@@ -39,9 +39,16 @@ interface JobResult {
 }
 
 export async function POST(request: Request) {
+  // Extract params early so we can access them in the catch block for fallback
+  let roleTitle: string | undefined;
+  let location = 'us';
+  let limit = 6;
+
   try {
     const body = await request.json();
-    const { roleTitle, location = 'us', limit = 6 } = body;
+    roleTitle = body.roleTitle;
+    location = body.location || 'us';
+    limit = body.limit || 6;
 
     if (!roleTitle) {
       return NextResponse.json({ error: 'Role title is required' }, { status: 400 });
@@ -102,7 +109,11 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Adzuna jobs API error:', error);
-    return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });
+    // Fall back to mock data for resilience (consistent with other error paths)
+    return NextResponse.json({
+      jobs: getMockJobs(roleTitle || 'Role', limit),
+      totalCount: limit,
+    });
   }
 }
 

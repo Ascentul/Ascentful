@@ -37,14 +37,20 @@ export async function GET(request: NextRequest) {
     const { userId } = authResult;
     if (!userId) {
       log.error('No userId from auth()', 'AUTH_ERROR', { event: 'auth.failed' });
-      return NextResponse.json({ error: 'Unauthorized - not logged in' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - not logged in' },
+        { status: 401, headers: { 'x-correlation-id': correlationId } },
+      );
     }
     const mode = getModeFromRequest(request);
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     if (!clientId) {
       log.error('Missing GOOGLE_OAUTH_CLIENT_ID', 'CONFIG_ERROR', { event: 'config.error' });
-      return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Server not configured' },
+        { status: 500, headers: { 'x-correlation-id': correlationId } },
+      );
     }
 
     const redirectUri = `${getAppBaseUrl()}/api/integrations/gmail/oauth/callback`;

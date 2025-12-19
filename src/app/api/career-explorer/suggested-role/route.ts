@@ -1,14 +1,8 @@
 import { auth } from '@clerk/nextjs/server';
-import { ConvexHttpClient } from 'convex/browser';
+import { fetchQuery } from 'convex/nextjs';
 import { NextResponse } from 'next/server';
 
 import { api } from '../../../../../convex/_generated/api';
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!convexUrl) {
-  throw new Error('NEXT_PUBLIC_CONVEX_URL environment variable is required');
-}
-const convex = new ConvexHttpClient(convexUrl);
 
 interface SuggestedRoleRequest {
   roles: Array<{
@@ -227,9 +221,15 @@ function extractFunctionalArea(title: string): string[] {
  */
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get Convex auth token for authenticated queries
+    const token = await getToken({ template: 'convex' });
+    if (!token) {
+      return NextResponse.json({ error: 'Failed to obtain auth token' }, { status: 401 });
     }
 
     let body: SuggestedRoleRequest;
@@ -256,8 +256,8 @@ export async function POST(request: Request) {
 
     const currentFunctionalAreas = lastPathTitle ? extractFunctionalArea(lastPathTitle) : [];
 
-    // Fetch user data from Convex
-    const galaxyData = await convex.query(api.career_explorer.getCareerGalaxyData, {});
+    // Fetch user data from Convex (with auth token for user context)
+    const galaxyData = await fetchQuery(api.career_explorer.getCareerGalaxyData, {}, { token });
     const { profile, quizResult } = galaxyData || {};
 
     // Calculate alignment scores for each role

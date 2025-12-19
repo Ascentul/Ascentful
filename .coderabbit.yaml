@@ -85,5 +85,40 @@ reviews:
         - Don't suggest adding `await` to wrapper functions that just trigger async operations
         - The synchronous state update disables buttons before any async work begins
 
+        ### React Query (TanStack Query)
+        - `useMutation` return objects are stable references - safe to include in useEffect dependencies
+        - Don't suggest extracting `.mutate` to separate refs - the mutation object itself is stable
+        - Guards like `!mutation.isPending` in useEffect conditions prevent re-calling during pending state
+        - React Query mutations do NOT cause infinite loops when included in dependency arrays
+
+        ### React State Patterns
+        - Functional updates `setState((prev) => ...)` execute synchronously within the same tick
+        - Refs set inside functional update callbacks are available immediately after the setState call
+        - Pattern: `setHistoryState((prev) => { ref.current = value; return newState; }); return ref.current;` is valid
+        - Don't suggest reading state directly instead of functional updates - that introduces stale closures
+        - React 18 batching doesn't change synchronous execution of functional update callbacks
+
+        ### Environment Variables
+        - Don't suggest renaming environment variables for "consistency" - breaking changes with no functional benefit
+        - Existing env var names (e.g., ADZUNA_APPLICATION_ID) should be preserved
+
+        ### Authorization Layer Architecture
+        - Ownership/permission checks often exist at the Convex data layer, not the API route
+        - Check Convex query/mutation handlers before suggesting "missing" authorization in API routes
+        - Pattern: API route calls `getSession({ sessionId })` → Convex query validates user owns session
+        - Don't flag "missing ownership validation" without checking the Convex function implementation
+
+        ### Webhook Security Models
+        - Gmail uses URL token verification (GMAIL_PUBSUB_VERIFICATION_TOKEN)
+        - Outlook uses clientState hash validation in the notification payload
+        - Both are valid security models - don't suggest one should match the other
+        - Microsoft Graph webhooks validate via clientState, not URL tokens
+
+        ### Multi-Step Mutation Sequences
+        - Check if code already handles failure ordering (e.g., generating data BEFORE status changes)
+        - Pattern: Generate question → Start session → Create turn (question generated first, so failure leaves session in 'setup' status)
+        - Don't suggest transaction/rollback when the code already sequences operations to avoid inconsistent states
+        - Convex mutations are atomic per-mutation; cross-mutation atomicity is handled by operation ordering
+
 chat:
   auto_reply: true

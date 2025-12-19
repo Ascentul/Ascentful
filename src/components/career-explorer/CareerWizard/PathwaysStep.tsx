@@ -133,6 +133,8 @@ export function PathwaysStep({
   const [col4Roles, setCol4Roles] = useState<ColumnRole[]>([]);
   const [isLoadingCol4, setIsLoadingCol4] = useState(false);
   const [showCol4, setShowCol4] = useState(() => placedSteps.length >= 4);
+  // Track which col3 role we've attempted to fetch col4 for (prevents infinite retry on API errors)
+  const col4FetchAttemptedForRef = useRef<string | null>(null);
   const [selectedCol4Role, setSelectedCol4Role] = useState<ColumnRole | null>(() =>
     getInitialRole(3),
   );
@@ -926,9 +928,14 @@ export function PathwaysStep({
   }, [col3Roles, placedSteps, selectedCol2Role, selectedCol3Role, fetchCol4Roles]);
 
   // Automatically fetch col4 roles when col4 is visible and we have a col3 selection but no col4 roles yet
+  // Uses ref to track fetch attempts and prevent infinite retry loops on API errors
   useEffect(() => {
     if (showCol4 && selectedCol3Role && col4Roles.length === 0 && !isLoadingCol4) {
-      fetchCol4Roles(selectedCol3Role);
+      // Only fetch if we haven't already attempted for this specific col3 role
+      if (col4FetchAttemptedForRef.current !== selectedCol3Role.id) {
+        col4FetchAttemptedForRef.current = selectedCol3Role.id;
+        fetchCol4Roles(selectedCol3Role);
+      }
     }
   }, [showCol4, selectedCol3Role, col4Roles.length, isLoadingCol4, fetchCol4Roles]);
 

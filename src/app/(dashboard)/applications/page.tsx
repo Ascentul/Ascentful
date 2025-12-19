@@ -7,6 +7,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { Loader2, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { ApplicationDetails } from '@/components/applications/ApplicationDetails';
 import {
@@ -201,21 +202,26 @@ export default function ApplicationsPage() {
       const targetApps = kanbanData[targetStatus] || [];
       const lastApp = targetApps[targetApps.length - 1];
 
-      await moveMutation({
-        clerkId: user.id,
-        applicationId: applicationId as Id<'applications'>,
-        newStatus: targetStatus,
-        beforeId: lastApp?._id as Id<'applications'> | undefined,
-        afterId: undefined,
-      });
-
-      // Track undo analytics
-      if (currentStatus) {
-        KanbanAnalytics.trackMoveUndone({
-          applicationId,
-          fromStatus: currentStatus,
-          toStatus: targetStatus,
+      try {
+        await moveMutation({
+          clerkId: user.id,
+          applicationId: applicationId as Id<'applications'>,
+          newStatus: targetStatus,
+          beforeId: lastApp?._id as Id<'applications'> | undefined,
+          afterId: undefined,
         });
+
+        // Track undo analytics
+        if (currentStatus) {
+          KanbanAnalytics.trackMoveUndone({
+            applicationId,
+            fromStatus: currentStatus,
+            toStatus: targetStatus,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to undo move:', error);
+        toast.error('Failed to undo move. Please try again.');
       }
     },
     [user?.id, kanbanData, moveMutation],

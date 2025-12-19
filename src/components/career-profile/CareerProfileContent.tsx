@@ -1194,7 +1194,7 @@ export function CareerProfileContent() {
               <div className="text-3xl font-bold">{goals?.length || 0}</div>
               <div className="text-sm text-muted-foreground">Goals</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {goals?.filter((g) => g.status === 'active').length || 0} active
+                {goals?.filter((g) => g.status === 'active')?.length || 0} active
               </div>
             </div>
           </CardContent>
@@ -1207,7 +1207,7 @@ export function CareerProfileContent() {
               <div className="text-3xl font-bold">{applications?.length || 0}</div>
               <div className="text-sm text-muted-foreground">Applications</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {applications?.filter((a) => a.status === 'applied').length || 0} in progress
+                {applications?.filter((a) => a.status === 'applied')?.length || 0} in progress
               </div>
             </div>
           </CardContent>
@@ -1220,7 +1220,7 @@ export function CareerProfileContent() {
               <div className="text-3xl font-bold">{contacts?.length || 0}</div>
               <div className="text-sm text-muted-foreground">Contacts</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {contacts?.filter((c) => c.relationship === 'Strong').length || 0} strong
+                {contacts?.filter((c) => c.relationship === 'Strong')?.length || 0} strong
               </div>
             </div>
           </CardContent>

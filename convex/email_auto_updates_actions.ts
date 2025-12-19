@@ -137,9 +137,11 @@ async function postForm<T>(
       signal: controller.signal,
     });
     if (!res.ok) {
-      const errorBody = await res.text().catch(() => 'Could not read error body');
-      console.error(`[postForm] HTTP ${res.status} for ${url}:`, errorBody);
-      throw new Error(`HTTP ${res.status}: ${errorBody}`);
+      // Truncate error body to avoid logging sensitive data (tokens, user info)
+      const errorBody = await res.text().catch(() => '');
+      const truncatedBody = errorBody.slice(0, 200);
+      console.error(`[postForm] HTTP ${res.status} for ${url}:`, truncatedBody);
+      throw new Error(`HTTP ${res.status}: ${truncatedBody}`);
     }
     return (await res.json()) as T;
   } finally {
@@ -161,9 +163,11 @@ async function getJson<T>(
       signal: controller.signal,
     });
     if (!res.ok) {
-      const errorBody = await res.text().catch(() => 'Could not read error body');
-      console.error(`[getJson] HTTP ${res.status} for ${url}:`, errorBody);
-      throw new Error(`HTTP ${res.status}: ${errorBody}`);
+      // Truncate error body to avoid logging sensitive data (tokens, user info)
+      const errorBody = await res.text().catch(() => '');
+      const truncatedBody = errorBody.slice(0, 200);
+      console.error(`[getJson] HTTP ${res.status} for ${url}:`, truncatedBody);
+      throw new Error(`HTTP ${res.status}: ${truncatedBody}`);
     }
     return (await res.json()) as T;
   } finally {
