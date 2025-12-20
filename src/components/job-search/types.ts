@@ -55,6 +55,11 @@ export interface SearchParams {
   sortBy?: SortOption;
 }
 
+/**
+ * Represents a job search history item from the job_searches table.
+ * Uses string for _id to decouple UI types from Convex Id<'job_searches'>.
+ * Convex IDs are string-compatible at runtime.
+ */
 export interface JobSearchHistoryItem {
   _id: string;
   keywords?: string;

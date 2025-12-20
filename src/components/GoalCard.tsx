@@ -451,7 +451,7 @@ export default function GoalCard({
             }`}
           >
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4 ml-[8px]" />
               {formatDueDate()}
             </p>
             <Button

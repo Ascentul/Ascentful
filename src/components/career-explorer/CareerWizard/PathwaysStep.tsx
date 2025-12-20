@@ -1113,7 +1113,7 @@ export function PathwaysStep({
       >
         {showSaveButton && <div className="flex-1" />}
         <div className={showSaveButton ? 'text-center flex-1' : ''}>
-          <h1 className="text-2xl font-semibold text-neutral-900">Build your career path</h1>
+          <h1 className="text-2xl font-semibold text-primary-500">Build your career path</h1>
           <p className="text-neutral-500 mt-1">
             Select a job from the first column to see related career paths
           </p>

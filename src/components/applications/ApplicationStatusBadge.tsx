@@ -100,9 +100,9 @@ export function ApplicationStatusBadge({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            'inline-flex items-center gap-1 rounded-lg border font-medium transition-opacity hover:opacity-80 focus:outline-none',
+            'inline-flex items-center gap-1 rounded-lg border font-medium transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500',
             config.color,
-            size === 'sm' ? 'text-xs h-7 px-2' : 'text-xs h-[28px] px-3',
+            size === 'sm' ? 'text-xs h-6 px-2' : 'text-xs h-7 px-3',
             className,
           )}
         >

@@ -19,6 +19,16 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -41,6 +51,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { formatInterviewDate } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
@@ -81,30 +92,6 @@ function statusLabel(s: DBApplication['status']): string {
   }
 }
 
-// Format date for interview display
-const formatInterviewDate = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const interviewDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (interviewDate.getTime() === today.getTime()) {
-    return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-  }
-  if (interviewDate.getTime() === tomorrow.getTime()) {
-    return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-  }
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-};
-
 export function ApplicationDetails({
   open,
   onOpenChange,
@@ -123,6 +110,10 @@ export function ApplicationDetails({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [local, setLocal] = useState<DBApplication>(application);
+  // Confirmation dialog states
+  const [deleteAppDialogOpen, setDeleteAppDialogOpen] = useState(false);
+  const [deleteStageId, setDeleteStageId] = useState<string | null>(null);
+  const [deleteFollowupId, setDeleteFollowupId] = useState<string | null>(null);
   const { user } = useUser();
   const clerkId = user?.id;
   const { toast } = useToast();
@@ -188,8 +179,7 @@ export function ApplicationDetails({
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this application? This action cannot be undone.'))
-      return;
+    setDeleteAppDialogOpen(false);
     setDeleting(true);
     try {
       if (deleteFn) {
@@ -325,9 +315,9 @@ export function ApplicationDetails({
     }
   };
 
-  const removeStage = async (stageId: any) => {
+  const removeStage = async (stageId: string) => {
     if (!clerkId) return;
-    if (!confirm('Delete this interview stage?')) return;
+    setDeleteStageId(null);
     try {
       await deleteStage({ clerkId, stageId } as any);
     } catch (e) {
@@ -449,16 +439,34 @@ export function ApplicationDetails({
 
   const toggleFollowup = async (followupId: any, currentStatus: string) => {
     if (!clerkId) return;
-    await updateFollowup({
-      followupId,
-      updates: { status: currentStatus === 'done' ? 'open' : 'done' },
-    } as any);
+    try {
+      await updateFollowup({
+        followupId,
+        updates: { status: currentStatus === 'done' ? 'open' : 'done' },
+      } as any);
+    } catch (e) {
+      console.error('Failed to toggle follow-up:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to update follow-up',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const removeFollowup = async (followupId: any) => {
+  const removeFollowup = async (followupId: string) => {
     if (!clerkId) return;
-    if (!confirm('Delete this follow-up action?')) return;
-    await deleteFollowup({ followupId } as any);
+    setDeleteFollowupId(null);
+    try {
+      await deleteFollowup({ followupId } as any);
+    } catch (e) {
+      console.error('Failed to delete follow-up:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to delete follow-up',
+        variant: 'destructive',
+      });
+    }
   };
 
   const saveFollowupEdit = async () => {
@@ -654,14 +662,7 @@ export function ApplicationDetails({
               {local.created_at && (
                 <>
                   <span>·</span>
-                  <span>
-                    Applied{' '}
-                    {new Date(local.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </span>
+                  <span>Applied {formatInterviewDate(new Date(local.created_at).getTime())}</span>
                 </>
               )}
             </div>
@@ -916,7 +917,7 @@ export function ApplicationDetails({
                               }}
                               onDelete={() => {
                                 setSelectedItem(null);
-                                removeStage(s._id);
+                                setDeleteStageId(s._id);
                               }}
                               onSaveEdit={saveStageEdit}
                               onCancelEdit={() => setEditingStage(null)}
@@ -954,7 +955,7 @@ export function ApplicationDetails({
                               }}
                               onDelete={() => {
                                 setSelectedItem(null);
-                                removeFollowup(f._id);
+                                setDeleteFollowupId(f._id);
                               }}
                               onToggle={() => toggleFollowup(f._id, f.status)}
                               onSaveEdit={saveFollowupEdit}
@@ -1026,7 +1027,7 @@ export function ApplicationDetails({
                               }}
                               onDelete={() => {
                                 setSelectedItem(null);
-                                removeStage(s._id);
+                                setDeleteStageId(s._id);
                               }}
                               onSaveEdit={saveStageEdit}
                               onCancelEdit={() => setEditingStage(null)}
@@ -1064,7 +1065,7 @@ export function ApplicationDetails({
                               }}
                               onDelete={() => {
                                 setSelectedItem(null);
-                                removeFollowup(f._id);
+                                setDeleteFollowupId(f._id);
                               }}
                               onToggle={() => toggleFollowup(f._id, f.status)}
                               onSaveEdit={saveFollowupEdit}
@@ -1180,7 +1181,7 @@ export function ApplicationDetails({
                     variant="outline"
                     size="sm"
                     className="gap-1.5 text-destructive border-destructive hover:bg-destructive/10"
-                    onClick={handleDelete}
+                    onClick={() => setDeleteAppDialogOpen(true)}
                     disabled={deleting}
                   >
                     {deleting ? (
@@ -1250,6 +1251,72 @@ export function ApplicationDetails({
           )}
         </div>
       </DialogContent>
+
+      {/* Delete Application Confirmation Dialog */}
+      <AlertDialog open={deleteAppDialogOpen} onOpenChange={setDeleteAppDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this application? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Interview Stage Confirmation Dialog */}
+      <AlertDialog open={!!deleteStageId} onOpenChange={(open) => !open && setDeleteStageId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Interview Stage</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this interview stage?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteStageId && removeStage(deleteStageId)}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Follow-up Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteFollowupId}
+        onOpenChange={(open) => !open && setDeleteFollowupId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Follow-up</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this follow-up action?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteFollowupId && removeFollowup(deleteFollowupId)}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

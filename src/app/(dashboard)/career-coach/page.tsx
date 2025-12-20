@@ -2,7 +2,15 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, Loader2, MessageSquare, Plus, Sparkles } from 'lucide-react';
+import {
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Sparkles,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -39,6 +47,8 @@ export default function AICoachPage() {
   );
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
+  const [autoCreatingConversation, setAutoCreatingConversation] = useState(false);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -46,7 +56,7 @@ export default function AICoachPage() {
   };
 
   // Fetch conversations
-  const { data: conversations = [] } = useQuery({
+  const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['/api/ai-coach/conversations'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/ai-coach/conversations');
@@ -69,23 +79,7 @@ export default function AICoachPage() {
     enabled: !!selectedConversationId && !!user?.clerkId,
   });
 
-  // Auto-select the most recent conversation when list loads
-  useEffect(() => {
-    if (
-      selectedConversationId === null &&
-      Array.isArray(conversations) &&
-      conversations.length > 0
-    ) {
-      setSelectedConversationId(conversations[0].id);
-    }
-  }, [conversations, selectedConversationId]);
-
-  // Auto-scroll when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Create new conversation
+  // Create new conversation mutation
   const createConversationMutation = useMutation({
     mutationFn: async (title: string) => {
       const response = await apiRequest('POST', '/api/ai-coach/conversations', {
@@ -98,13 +92,41 @@ export default function AICoachPage() {
         queryKey: ['/api/ai-coach/conversations'],
       });
       setSelectedConversationId(newConversation.id);
-      toast({
-        title: 'New conversation created',
-        description: 'Start chatting with your AI career coach!',
-        variant: 'success',
-      });
+      setAutoCreatingConversation(false);
+    },
+    onError: () => {
+      setAutoCreatingConversation(false);
     },
   });
+
+  // Auto-create conversation if none exist, or select the most recent one
+  useEffect(() => {
+    if (conversationsLoading || autoCreatingConversation) return;
+    if (!user?.clerkId) return;
+
+    if (selectedConversationId === null) {
+      if (Array.isArray(conversations) && conversations.length > 0) {
+        // Select most recent conversation
+        setSelectedConversationId(conversations[0].id);
+      } else if (!createConversationMutation.isPending) {
+        // No conversations exist - auto-create one
+        setAutoCreatingConversation(true);
+        createConversationMutation.mutate('New Conversation');
+      }
+    }
+  }, [
+    conversations,
+    conversationsLoading,
+    selectedConversationId,
+    user?.clerkId,
+    autoCreatingConversation,
+    createConversationMutation,
+  ]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Send message
   const sendMessageMutation = useMutation({
@@ -148,7 +170,6 @@ export default function AICoachPage() {
       });
       setMessage('');
     } catch (error) {
-      // Error handling centralized here - no onError callback to avoid duplicate toasts
       toast({
         title: 'Failed to send message',
         description: (error as any)?.message || 'Please try again',
@@ -161,6 +182,11 @@ export default function AICoachPage() {
 
   const handleCreateConversation = () => {
     createConversationMutation.mutate('New Conversation');
+    toast({
+      title: 'New conversation created',
+      description: 'Start chatting with your AI career coach!',
+      variant: 'success',
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -187,6 +213,18 @@ export default function AICoachPage() {
     return null;
   }
 
+  // Show loading while auto-creating first conversation
+  if (autoCreatingConversation || (conversationsLoading && !selectedConversationId)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Setting up your career coach...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="w-full rounded-3xl bg-white p-5 shadow-sm">
@@ -195,217 +233,211 @@ export default function AICoachPage() {
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Coach</h1>
             <p className="text-muted-foreground">Get personalized career guidance powered by AI</p>
           </div>
-          <Button
-            onClick={handleCreateConversation}
-            disabled={createConversationMutation.isPending}
-            className="bg-primary-500 hover:bg-primary-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowConversations(!showConversations)}
+              className="text-neutral-600"
+            >
+              {showConversations ? (
+                <>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Hide History
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Show History
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleCreateConversation}
+              disabled={createConversationMutation.isPending}
+              className="bg-primary-500 hover:bg-primary-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Main content area */}
       <div className="flex-1 flex gap-4 min-h-0 mt-4">
-        {/* Conversations sidebar */}
-        <div className="w-72 flex flex-col bg-neutral-50 rounded-xl border border-neutral-200">
-          <div className="p-4 border-b border-neutral-200">
-            <h2 className="font-medium text-sm text-neutral-600">Conversations</h2>
-          </div>
+        {/* Conversations sidebar - collapsible */}
+        {showConversations && (
+          <div className="w-72 flex flex-col bg-neutral-50 rounded-xl border border-neutral-200">
+            <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
+              <h2 className="font-medium text-sm text-neutral-600">Conversations</h2>
+              <button
+                onClick={() => setShowConversations(false)}
+                className="text-neutral-400 hover:text-neutral-600"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
-            {conversations.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <MessageSquare className="h-10 w-10 mx-auto mb-3 text-neutral-300" />
-                <p className="text-sm text-neutral-500">No conversations yet</p>
-                <p className="text-xs text-neutral-400 mt-1">Start a new chat to begin</p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {conversations.map((conversation: Conversation) => (
-                  <button
-                    key={conversation.id}
-                    className={`w-full text-left p-3 rounded-lg transition-all ${
-                      selectedConversationId === conversation.id
-                        ? 'bg-white shadow-sm border border-neutral-200'
-                        : 'hover:bg-white/60'
-                    }`}
-                    onClick={() => setSelectedConversationId(conversation.id)}
-                  >
-                    <p className="text-sm font-medium text-neutral-800 truncate">
-                      {conversation.title}
-                    </p>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      {new Date(conversation.createdAt).toLocaleDateString()}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto p-2">
+              {conversations.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <MessageSquare className="h-10 w-10 mx-auto mb-3 text-neutral-300" />
+                  <p className="text-sm text-neutral-500">No conversations yet</p>
+                  <p className="text-xs text-neutral-400 mt-1">Start a new chat to begin</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {conversations.map((conversation: Conversation) => (
+                    <button
+                      key={conversation.id}
+                      className={`w-full text-left p-3 rounded-lg transition-all ${
+                        selectedConversationId === conversation.id
+                          ? 'bg-white shadow-sm border border-neutral-200'
+                          : 'hover:bg-white/60'
+                      }`}
+                      onClick={() => setSelectedConversationId(conversation.id)}
+                    >
+                      <p className="text-sm font-medium text-neutral-800 truncate">
+                        {conversation.title}
+                      </p>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {new Date(conversation.createdAt).toLocaleDateString()}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Chat area */}
         <div className="flex-1 flex flex-col bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          {selectedConversationId ? (
-            <>
-              {/* Messages area */}
-              <div className="flex-1 overflow-y-auto">
-                <div className="max-w-3xl mx-auto py-8 px-6">
-                  {messages.length === 0 ? (
-                    <div className="text-center py-20">
-                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 mb-6">
-                        <Sparkles className="h-8 w-8 text-primary-600" />
-                      </div>
-                      <h3 className="text-xl font-semibold text-neutral-900 mb-2">
-                        How can I help you today?
-                      </h3>
-                      <p className="text-neutral-500 max-w-sm mx-auto">
-                        Ask me about career advice, resume tips, interview prep, job search
-                        strategies, or professional development.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {messages.map((msg: Message) => (
-                        <div key={msg.id} className={msg.isUser ? 'flex justify-end' : ''}>
-                          {msg.isUser ? (
-                            // User message - right aligned, styled bubble
-                            <div className="max-w-[85%]">
-                              <div className="bg-primary-500 text-white rounded-2xl rounded-br-md px-4 py-3">
-                                <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                                  {msg.message}
-                                </p>
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto py-8 px-6">
+              {messages.length === 0 ? (
+                <div className="text-center py-20">
+                  <h3 className="text-2xl font-semibold text-primary-500 mb-2">
+                    How can I help you today?
+                  </h3>
+                  <p className="text-neutral-500 max-w-sm mx-auto">
+                    Ask me about career advice, resume tips, interview prep, job search strategies,
+                    or professional development.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {messages.map((msg: Message) => (
+                    <div key={msg.id} className={msg.isUser ? 'flex justify-end' : ''}>
+                      {msg.isUser ? (
+                        // User message - right aligned, styled bubble
+                        <div className="max-w-[85%]">
+                          <div className="bg-primary-500 text-white rounded-2xl rounded-br-md px-4 py-3">
+                            <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+                              {msg.message}
+                            </p>
+                          </div>
+                          <p className="text-xs text-neutral-400 mt-1.5 text-right">
+                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      ) : (
+                        // AI message - left aligned, clean style
+                        <div className="max-w-[85%]">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                              <Sparkles className="h-4 w-4 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-primary-600 mb-1">
+                                Career Coach
+                              </p>
+                              <div className="text-[15px] leading-relaxed text-neutral-800 whitespace-pre-wrap">
+                                {msg.message}
                               </div>
-                              <p className="text-xs text-neutral-400 mt-1.5 text-right">
+                              <p className="text-xs text-neutral-400 mt-2">
                                 {new Date(msg.timestamp).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}
                               </p>
                             </div>
-                          ) : (
-                            // AI message - left aligned, clean style
-                            <div className="max-w-[85%]">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-                                  <Sparkles className="h-4 w-4 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-primary-600 mb-1">
-                                    Career Coach
-                                  </p>
-                                  <div className="text-[15px] leading-relaxed text-neutral-800 whitespace-pre-wrap">
-                                    {msg.message}
-                                  </div>
-                                  <p className="text-xs text-neutral-400 mt-2">
-                                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      {/* Loading indicator */}
-                      {(sendMessageMutation.isPending || isLoading) && (
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-                            <Sparkles className="h-4 w-4 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-medium text-primary-600 mb-1">
-                              Career Coach
-                            </p>
-                            <div className="flex items-center gap-1 py-2">
-                              <div className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce" />
-                              <div
-                                className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
-                                style={{ animationDelay: '0.15s' }}
-                              />
-                              <div
-                                className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
-                                style={{ animationDelay: '0.3s' }}
-                              />
-                            </div>
                           </div>
                         </div>
                       )}
                     </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
+                  ))}
 
-              {/* Input area - modern Claude-like style */}
-              <div className="border-t border-neutral-100 p-4 bg-neutral-50/50">
-                <div className="max-w-3xl mx-auto">
-                  <div className="relative bg-white rounded-xl border border-neutral-200 shadow-sm focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-100 transition-all">
-                    <textarea
-                      placeholder="Message Career Coach..."
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      className="w-full resize-none border-0 bg-transparent px-4 py-3 pr-14 text-[15px] placeholder:text-neutral-400 focus:outline-none focus:ring-0 min-h-[52px] max-h-[200px]"
-                      rows={1}
-                      style={{ height: 'auto' }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = Math.min(target.scrollHeight, 200) + 'px';
-                      }}
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!message.trim() || isLoading}
-                      aria-label={isLoading ? 'Sending message' : 'Send message'}
-                      className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-neutral-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 text-neutral-400 animate-spin" />
-                      ) : (
-                        <ArrowUp
-                          className={`h-4 w-4 ${!message.trim() ? 'text-neutral-400' : 'text-white'}`}
-                        />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-2 text-center">
-                    AI responses may not always be accurate. Use your judgment.
-                  </p>
+                  {/* Loading indicator */}
+                  {(sendMessageMutation.isPending || isLoading) && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                        <Sparkles className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-primary-600 mb-1">Career Coach</p>
+                        <div className="flex items-center gap-1 py-2">
+                          <div className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce" />
+                          <div
+                            className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
+                            style={{ animationDelay: '0.15s' }}
+                          />
+                          <div
+                            className="w-2 h-2 bg-neutral-300 rounded-full animate-bounce"
+                            style={{ animationDelay: '0.3s' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </>
-          ) : (
-            // Empty state - no conversation selected
-            <div className="flex-1 flex flex-col items-center justify-center p-8">
-              <div className="text-center max-w-md">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 mb-6">
-                  <Sparkles className="h-10 w-10 text-primary-600" />
-                </div>
-                <h3 className="text-2xl font-semibold text-neutral-900 mb-3">
-                  Welcome to Career Coach
-                </h3>
-                <p className="text-neutral-500 mb-8">
-                  Select an existing conversation or start a new one to get personalized career
-                  guidance.
-                </p>
-                <Button
-                  onClick={handleCreateConversation}
-                  size="lg"
-                  className="bg-primary-500 hover:bg-primary-600"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Start New Chat
-                </Button>
-              </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
-          )}
+          </div>
+
+          {/* Input area - modern Claude-like style */}
+          <div className="border-t border-neutral-100 p-4 bg-neutral-50/50">
+            <div className="max-w-3xl mx-auto">
+              <div className="relative bg-white rounded-xl border border-neutral-200 shadow-sm focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-100 transition-all">
+                <textarea
+                  placeholder="Message Career Coach..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="w-full resize-none border-0 bg-transparent px-4 py-3 pr-14 text-[15px] placeholder:text-neutral-400 focus:outline-none focus:ring-0 min-h-[52px] max-h-[200px]"
+                  rows={1}
+                  style={{ height: 'auto' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                  }}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() || isLoading}
+                  aria-label={isLoading ? 'Sending message' : 'Send message'}
+                  className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-neutral-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 text-neutral-400 animate-spin" />
+                  ) : (
+                    <ArrowUp
+                      className={`h-4 w-4 ${!message.trim() ? 'text-neutral-400' : 'text-white'}`}
+                    />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-neutral-400 mt-2 text-center">
+                AI responses may not always be accurate. Use your judgment.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

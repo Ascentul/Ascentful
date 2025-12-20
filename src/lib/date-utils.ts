@@ -93,6 +93,28 @@ export const formatDateWithTime = (timestamp: number): string => {
   });
 };
 
+export const formatInterviewDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  };
+
+  if (isDateToday(timestamp)) {
+    return `Today, ${date.toLocaleTimeString('en-US', timeOptions)}`;
+  }
+  if (isDateTomorrow(timestamp)) {
+    return `Tomorrow, ${date.toLocaleTimeString('en-US', timeOptions)}`;
+  }
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...timeOptions,
+  });
+};
+
 /**
  * Format a date for short display (e.g., "Dec 15" or "Dec 15, 2023")
  */

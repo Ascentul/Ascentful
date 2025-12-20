@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     else if (jobType === 'Contract') params.set('contract', '1');
     // Internship not directly supported; included in query keywords
 
-    // Add sort_by parameter (Adzuna supports: relevance, date, salary)
+    // Add sort_by parameter (Adzuna supports: relevance, date, salary, distance)
     if (sortBy && sortBy !== 'relevance') {
       params.set('sort_by', sortBy);
     }

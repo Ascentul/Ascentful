@@ -8,6 +8,7 @@ import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
 import { SidebarProvider, useSidebarOptional } from '@/contexts/SidebarContext';
+import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
 
 interface LayoutProps {
   children: ReactNode;
@@ -72,15 +73,17 @@ function LayoutContent({ children }: { children: ReactNode }) {
       </div>
 
       {/* Expand sidebar button - only visible when sidebar is collapsed on desktop */}
+      {/* Positioned to align with logo center: top-[22px] centers a 24px button on the 28px logo (py-5 + half logo) */}
       {!isExpanded && (
         <button
           type="button"
           onClick={() => sidebarContext?.expand()}
-          className="hidden md:flex flex-col items-center justify-center gap-[3px] fixed top-5 left-[90px] z-[9999] h-6 w-6 cursor-pointer hover:opacity-70"
+          className="hidden md:flex flex-col items-center justify-center gap-[3px] absolute top-[22px] z-[9999] h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
+          style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
           aria-label="Expand sidebar"
         >
-          <span className="w-3 h-[2px] bg-slate-400 rounded-full" />
-          <span className="w-3 h-[2px] bg-slate-400 rounded-full" />
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
         </button>
       )}
     </>

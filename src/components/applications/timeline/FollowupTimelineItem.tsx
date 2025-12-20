@@ -114,14 +114,19 @@ export function FollowupTimelineItem({
                   mode="single"
                   selected={editingFollowup.due_date}
                   onSelect={(date) => {
-                    if (date) {
-                      // Preserve time from original due_at if available
-                      const originalTime = followup.due_at ? new Date(followup.due_at) : null;
-                      if (originalTime) {
-                        date.setHours(originalTime.getHours(), originalTime.getMinutes());
-                      }
+                    if (!date) {
+                      onEditChange({ due_date: undefined });
+                      onEditCalendarOpenChange(false);
+                      return;
                     }
-                    onEditChange({ due_date: date || undefined });
+
+                    const selectedDate = new Date(date);
+                    if (followup.due_at) {
+                      const originalTime = new Date(followup.due_at);
+                      selectedDate.setHours(originalTime.getHours(), originalTime.getMinutes());
+                    }
+
+                    onEditChange({ due_date: selectedDate });
                     onEditCalendarOpenChange(false);
                   }}
                   initialFocus

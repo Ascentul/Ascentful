@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 
 import { NotificationButtons } from '@/components/layout/NotificationButtons';
 import { useSidebarOptional } from '@/contexts/SidebarContext';
+import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
 
 interface AppShellProps {
   sidebar: ReactNode;
@@ -46,7 +47,8 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         <button
           type="button"
           onClick={() => sidebarContext?.expand()}
-          className="hidden md:flex items-center justify-center fixed top-5 left-[68px] z-[9999] h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
+          className="hidden md:flex items-center justify-center fixed top-5 z-[9999] h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
+          style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
           aria-label="Expand sidebar"
         >
           <ChevronRight className="h-4 w-4 text-slate-600" />

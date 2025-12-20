@@ -389,12 +389,15 @@ export const getApplicationsForKanban = query({
       .take(500);
 
     // Query 2: Batch fetch ALL interview_stages for this user
+    // Note: No limit here - we need all interviews to correctly populate the 500 applications above.
+    // The data is filtered down to only those matching displayed applications.
     const allInterviews = await ctx.db
       .query('interview_stages')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
       .collect();
 
     // Query 3: Batch fetch ALL follow_ups for this user
+    // Note: Same rationale as interviews - unlimited to ensure data consistency for displayed apps.
     const allFollowups = await ctx.db
       .query('follow_ups')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))

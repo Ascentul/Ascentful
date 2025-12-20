@@ -34,7 +34,7 @@ export function JobSearchEmptyState({
           <div className="flex flex-wrap justify-center gap-2 mt-6">
             {EXAMPLE_SEARCHES.map((example) => (
               <Button
-                key={example.query}
+                key={`${example.query}-${example.location}`}
                 variant="outline"
                 size="sm"
                 onClick={() => onExampleSearch(example.query, example.location)}
@@ -76,7 +76,7 @@ export function JobSearchEmptyState({
           <div className="flex flex-wrap justify-center gap-2">
             {EXAMPLE_SEARCHES.slice(0, 3).map((example) => (
               <Button
-                key={example.query}
+                key={`${example.query}-${example.location}`}
                 variant="ghost"
                 size="sm"
                 onClick={() => onExampleSearch(example.query, example.location)}

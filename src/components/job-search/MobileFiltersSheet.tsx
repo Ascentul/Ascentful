@@ -73,7 +73,7 @@ export function MobileFiltersSheet({
                 filters={filters}
                 onFiltersChange={onFiltersChange}
                 onReset={onReset}
-                hasActiveFilters={hasActiveFilters}
+                hasActiveFilters={false}
               />
             </div>
           </div>
