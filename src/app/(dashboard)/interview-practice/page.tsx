@@ -171,11 +171,15 @@ export default function InterviewPracticePage() {
   });
 
   // Dedupe role profiles by job_title to prevent duplicate entries showing
-  // Guard against undefined job_title values
-  const uniqueRoleProfiles = roleProfiles.filter(
-    (profile: RoleProfile, index: number, self: RoleProfile[]) =>
-      profile.job_title && index === self.findIndex((p) => p.job_title === profile.job_title),
-  );
+  // Guard against undefined job_title values - uses Set for O(n) complexity
+  const seenTitles = new Set<string>();
+  const uniqueRoleProfiles = roleProfiles.filter((profile: RoleProfile) => {
+    if (!profile.job_title || seenTitles.has(profile.job_title)) {
+      return false;
+    }
+    seenTitles.add(profile.job_title);
+    return true;
+  });
 
   // Fetch sessions
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({

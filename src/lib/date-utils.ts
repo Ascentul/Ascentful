@@ -54,15 +54,22 @@ export const formatRelativeDate = (
   if (!timestamp) return '';
   try {
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const ts = date.getTime();
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    // Use calendar-based helpers for accurate Today/Yesterday detection
+    if (isDateToday(ts)) return 'Today';
+    if (isDateYesterday(ts)) return 'Yesterday';
+
+    const now = new Date();
+    const diffMs = now.getTime() - ts;
+    if (diffMs < 0) return date.toLocaleDateString(); // Future date
+
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    const weeks = Math.floor(diffDays / 7);
+    if (diffDays < 30) return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+    const months = Math.floor(diffDays / 30);
+    if (diffDays < 365) return `${months} month${months === 1 ? '' : 's'} ago`;
     return date.toLocaleDateString();
   } catch {
     return '';

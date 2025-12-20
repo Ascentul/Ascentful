@@ -471,20 +471,29 @@ export function ApplicationDetails({
 
   const saveFollowupEdit = async () => {
     if (!clerkId || !editingFollowup) return;
-    let due: number | undefined;
-    if (editingFollowup.due_date) {
-      const date = new Date(editingFollowup.due_date);
-      date.setHours(23, 59, 59, 0);
-      due = date.getTime();
+    try {
+      let due: number | undefined;
+      if (editingFollowup.due_date) {
+        const date = new Date(editingFollowup.due_date);
+        date.setHours(23, 59, 59, 0);
+        due = date.getTime();
+      }
+      await updateFollowup({
+        followupId: editingFollowup._id,
+        updates: {
+          description: editingFollowup.description,
+          due_at: due,
+        },
+      } as any);
+      setEditingFollowup(null);
+    } catch (e) {
+      console.error('Failed to save follow-up changes:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to save follow-up changes',
+        variant: 'destructive',
+      });
     }
-    await updateFollowup({
-      followupId: editingFollowup._id,
-      updates: {
-        description: editingFollowup.description,
-        due_at: due,
-      },
-    } as any);
-    setEditingFollowup(null);
   };
 
   // Split follow-ups into open and completed
@@ -645,8 +654,8 @@ export function ApplicationDetails({
     }
   };
 
-  // Secondary tabs state - no default tab selected
-  const [secondaryTab, setSecondaryTab] = useState<string>('');
+  // Secondary tabs state - default to 'details' tab
+  const [secondaryTab, setSecondaryTab] = useState<string>('details');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

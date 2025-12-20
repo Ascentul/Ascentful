@@ -181,7 +181,7 @@ export default function AICoachPage() {
     createConversationMutation.mutate('New Conversation');
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -265,6 +265,7 @@ export default function AICoachPage() {
               <button
                 onClick={() => setShowConversations(false)}
                 className="text-neutral-400 hover:text-neutral-600"
+                aria-label="Hide conversations"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -400,7 +401,7 @@ export default function AICoachPage() {
                   placeholder="Message Career Coach..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   className="w-full resize-none border-0 bg-transparent px-4 py-3 pr-14 text-[15px] placeholder:text-neutral-400 focus:outline-none focus:ring-0 min-h-[52px] max-h-[200px]"
                   rows={1}
                   style={{ height: 'auto' }}

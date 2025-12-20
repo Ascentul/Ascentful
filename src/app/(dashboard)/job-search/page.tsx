@@ -146,6 +146,9 @@ export default function JobSearchPage() {
       const sortByValue = opts?.sortBy ?? sortBy;
       const searchLocation = isRemoteOnly ? 'Remote' : locationValue;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,9 +161,16 @@ export default function JobSearchPage() {
           perPage,
           sortBy: sortByValue,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
-      const json = await res.json();
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error('Invalid response from server');
+      }
 
       if (!res.ok) {
         const details =
@@ -469,7 +479,11 @@ export default function JobSearchPage() {
             <p className="text-sm text-slate-600">
               Your recent job searches. Click to run the search again.
             </p>
-            {!recent || recent.length === 0 ? (
+            {recent === undefined ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+              </div>
+            ) : !recent || recent.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="rounded-full bg-slate-100 p-4 mb-4">
                   <Clock className="h-8 w-8 text-slate-400" />

@@ -27,6 +27,7 @@ export interface EditingFollowup {
 
 // Format due date for follow-ups
 const formatDueDate = (timestamp: number, isOverdue: boolean): string => {
+  if (!timestamp) return 'No due date';
   if (isOverdue) return 'Overdue';
   const days = differenceInCalendarDays(new Date(timestamp), new Date());
   if (days === 0) return 'Due today';
@@ -228,6 +229,7 @@ export function FollowupTimelineItem({
                       }}
                       className="h-5 w-5 rounded border border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors mr-5"
                       title="Mark as complete"
+                      aria-label="Mark as complete"
                     />
                   )}
                 </div>

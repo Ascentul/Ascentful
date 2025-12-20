@@ -53,7 +53,7 @@ export function KanbanCardNextStep({ application }: KanbanCardNextStepProps) {
         <span className="truncate">
           {isOverdue
             ? `Overdue • ${formatDistanceToNow(dueDate)} ago`
-            : `Due • ${formatDistanceToNow(dueDate)}`}
+            : `Due • in ${formatDistanceToNow(dueDate)}`}
         </span>
       </div>
     );
