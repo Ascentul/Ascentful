@@ -1,6 +1,14 @@
 'use client';
 
-import { ArrowRight, TrendingUp, Users } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUp,
+  Shuffle,
+  Target,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -8,16 +16,55 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getFitScoreColor } from '@/lib/career-explorer/fit-scoring';
 
+type RelationshipType = 'entry_level' | 'lateral' | 'promotion' | 'pivot' | 'specialization';
+
 interface RelatedRole {
   role_id: string;
   title: string;
   fit_score: number;
+  relationship?: RelationshipType;
 }
 
 interface RelatedRolesTabProps {
   relatedRoles?: RelatedRole[];
   onSelectRole?: (roleId: string) => void;
 }
+
+const RELATIONSHIP_CONFIG: Record<
+  RelationshipType,
+  { label: string; icon: React.ReactNode; color: string; bgColor: string }
+> = {
+  promotion: {
+    label: 'Promotion',
+    icon: <ArrowUp className="w-3 h-3" />,
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50 border-emerald-200',
+  },
+  lateral: {
+    label: 'Lateral Move',
+    icon: <ArrowLeftRight className="w-3 h-3" />,
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-50 border-blue-200',
+  },
+  entry_level: {
+    label: 'Entry Level',
+    icon: <Target className="w-3 h-3" />,
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-50 border-purple-200',
+  },
+  pivot: {
+    label: 'Career Pivot',
+    icon: <Shuffle className="w-3 h-3" />,
+    color: 'text-amber-700',
+    bgColor: 'bg-amber-50 border-amber-200',
+  },
+  specialization: {
+    label: 'Specialization',
+    icon: <Target className="w-3 h-3" />,
+    color: 'text-indigo-700',
+    bgColor: 'bg-indigo-50 border-indigo-200',
+  },
+};
 
 export function RelatedRolesTab({ relatedRoles, onSelectRole }: RelatedRolesTabProps) {
   if (!relatedRoles || relatedRoles.length === 0) {
@@ -46,6 +93,9 @@ export function RelatedRolesTab({ relatedRoles, onSelectRole }: RelatedRolesTabP
           <ul className="space-y-3">
             {sortedRoles.map((role) => {
               const scoreColor = getFitScoreColor(role.fit_score);
+              const relationshipConfig = role.relationship
+                ? RELATIONSHIP_CONFIG[role.relationship]
+                : null;
 
               return (
                 <li
@@ -56,10 +106,19 @@ export function RelatedRolesTab({ relatedRoles, onSelectRole }: RelatedRolesTabP
                     <div className="font-medium text-sm text-neutral-800 truncate">
                       {role.title}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <Badge variant="outline" className={`text-xs ${scoreColor}`}>
                         {role.fit_score}% fit
                       </Badge>
+                      {relationshipConfig && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${relationshipConfig.color} ${relationshipConfig.bgColor} flex items-center gap-1`}
+                        >
+                          {relationshipConfig.icon}
+                          {relationshipConfig.label}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 

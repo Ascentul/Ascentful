@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { Loader2, Menu } from 'lucide-react';
+import { ChevronRight, Loader2, Menu } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
 import AppTopBar from '@/components/layout/AppTopBar';
@@ -78,12 +78,11 @@ function LayoutContent({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => sidebarContext?.expand()}
-          className="hidden md:flex flex-col items-center justify-center gap-[3px] absolute top-[22px] z-[9999] h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
+          className="hidden md:flex items-center justify-center fixed top-5 z-40 h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
           style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
           aria-label="Expand sidebar"
         >
-          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
-          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+          <ChevronRight className="h-4 w-4 text-slate-600" />
         </button>
       )}
     </>

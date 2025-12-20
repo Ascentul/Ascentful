@@ -100,6 +100,11 @@ export const formatDateWithTime = (timestamp: number): string => {
   });
 };
 
+/**
+ * Format interview date for display (e.g., "Today, 2:30 PM" or "Dec 15, 2:30 PM")
+ * Note: Intentionally omits "Yesterday" - past interviews show absolute dates
+ * since relative past dates are less useful for scheduling context.
+ */
 export const formatInterviewDate = (timestamp: number): string => {
   const date = new Date(timestamp);
   const timeOptions: Intl.DateTimeFormatOptions = {
@@ -119,6 +124,32 @@ export const formatInterviewDate = (timestamp: number): string => {
     day: 'numeric',
     ...timeOptions,
   });
+};
+
+/**
+ * Format a duration/distance without directional suffix (e.g., "3 days", "2 weeks")
+ * Useful for due dates where the caller adds "ago" or "in" context
+ */
+export const formatDuration = (timestamp: number, referenceTime: number = Date.now()): string => {
+  const diff = Math.abs(referenceTime - timestamp);
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+
+  if (months > 0) {
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+  if (weeks > 0) {
+    return `${weeks} week${weeks === 1 ? '' : 's'}`;
+  }
+  if (days > 0) {
+    return `${days} day${days === 1 ? '' : 's'}`;
+  }
+  if (hours > 0) {
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+  return 'less than an hour';
 };
 
 /**

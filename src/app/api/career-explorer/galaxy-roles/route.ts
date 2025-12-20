@@ -2,6 +2,12 @@ import { api } from 'convex/_generated/api';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import {
+  detectIndustryFromRole,
+  INDUSTRIES,
+  Industry,
+} from '@/lib/career-explorer/industryTaxonomy';
+import { findMajorConfig, getIndustryForMajor } from '@/lib/career-explorer/majorIndustryMapping';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { convexServer } from '@/lib/convex-server';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
@@ -55,9 +61,14 @@ export async function POST(request: NextRequest) {
 
     const { profile, quizResult, savedRoleIds } = galaxyData;
 
+    // Detect industry from profile (major, work history, or dream job)
+    const detectedIndustry = detectIndustryFromProfile(profile);
+    const industryConfig = INDUSTRIES[detectedIndustry];
+
     // Build context from profile data
     const profileContext = buildProfileContext(profile);
     const quizContext = quizResult ? buildQuizContext(quizResult) : '';
+    const industryContext = buildIndustryContext(detectedIndustry, industryConfig);
 
     // Generate roles using OpenAI
     if (!openai) {
@@ -68,9 +79,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = buildRoleGenerationPrompt(profileContext, quizContext);
+    const prompt = buildRoleGenerationPrompt(profileContext, quizContext, industryContext);
 
-    log.info('Starting OpenAI galaxy roles generation', { event: 'ai.request' });
+    log.info('Starting OpenAI galaxy roles generation', {
+      event: 'ai.request',
+      extra: { industry: detectedIndustry },
+    });
 
     let generatedRoles: GalaxyRolesResponse | null = null;
 
@@ -80,7 +94,7 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are a career counselor and job market expert. Generate personalized career role suggestions based on the user's profile, experience, and career goals. Return EXACTLY 25 diverse job roles organized by category.
+            content: `You are a career counselor and job market expert with deep knowledge of industry-specific career paths. Generate personalized career role suggestions based on the user's profile, experience, career goals, AND their industry context. Ensure role progressions are REALISTIC for the user's industry.
 
 IMPORTANT: Return ONLY valid JSON, no markdown code blocks. The response must be a valid JSON object.`,
           },
@@ -171,6 +185,85 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks. The response must be
       },
     );
   }
+}
+
+/**
+ * Detect the primary industry from user profile data
+ * Priority: major > current role > dream job > default to technology
+ */
+function detectIndustryFromProfile(profile: any): Industry {
+  // 1. Check major (most reliable for students/new grads)
+  if (profile.major) {
+    const industryFromMajor = getIndustryForMajor(profile.major);
+    if (industryFromMajor) {
+      return industryFromMajor;
+    }
+  }
+
+  // 2. Check education history for field of study
+  if (profile.education_history && profile.education_history.length > 0) {
+    for (const edu of profile.education_history) {
+      if (edu.field_of_study) {
+        const industryFromField = getIndustryForMajor(edu.field_of_study);
+        if (industryFromField) {
+          return industryFromField;
+        }
+      }
+    }
+  }
+
+  // 3. Check current role
+  if (profile.current_position || profile.job_title) {
+    const role = profile.current_position || profile.job_title;
+    return detectIndustryFromRole(role);
+  }
+
+  // 4. Check work history
+  if (profile.work_history && profile.work_history.length > 0) {
+    const latestRole = profile.work_history[0]?.role;
+    if (latestRole) {
+      return detectIndustryFromRole(latestRole);
+    }
+  }
+
+  // 5. Check dream job
+  if (profile.dream_job) {
+    return detectIndustryFromRole(profile.dream_job);
+  }
+
+  // 6. Default to technology
+  return 'technology';
+}
+
+/**
+ * Build industry context string for the AI prompt
+ */
+function buildIndustryContext(industry: Industry, config: (typeof INDUSTRIES)[Industry]): string {
+  const sections: string[] = [];
+
+  sections.push(`Primary Industry: ${config.name}`);
+  sections.push(`Career Progression Pattern: ${config.typicalProgression.join(' → ')}`);
+
+  if (!config.hasInternships) {
+    sections.push(
+      `Entry Path: ${config.entryPathType.replace(/_/g, ' ')} (NOT traditional internships)`,
+    );
+  } else {
+    sections.push(`Entry Path: Internship → Entry-level roles`);
+  }
+
+  if (config.requiredCredentials && config.requiredCredentials.length > 0) {
+    sections.push(`Common Credentials: ${config.requiredCredentials.join(', ')}`);
+  }
+
+  // Add career level examples
+  const levelExamples = config.careerLevels
+    .slice(0, 5)
+    .map((l) => `${l.name} (Level ${l.level})`)
+    .join(', ');
+  sections.push(`Career Levels: ${levelExamples}...`);
+
+  return sections.join('\n');
 }
 
 function buildProfileContext(profile: any): string {
@@ -276,26 +369,40 @@ function buildQuizContext(quizResult: any): string {
   return sections.join('\n');
 }
 
-function buildRoleGenerationPrompt(profileContext: string, quizContext: string): string {
-  return `Based on the following user profile and career assessment, generate exactly 25 diverse career role suggestions that would be good fits.
+function buildRoleGenerationPrompt(
+  profileContext: string,
+  quizContext: string,
+  industryContext: string,
+): string {
+  return `Based on the following user profile, career assessment, and INDUSTRY CONTEXT, generate exactly 25 diverse career role suggestions that would be good fits.
 
 USER PROFILE:
 ${profileContext || 'No profile data available'}
 
 ${quizContext ? `CAREER QUIZ RESULTS:\n${quizContext}` : ''}
 
+INDUSTRY CONTEXT (IMPORTANT - use this to guide role suggestions):
+${industryContext}
+
+CRITICAL RULES FOR ROLE GENERATION:
+1. Follow the industry's career progression pattern - roles should follow realistic paths
+2. If the industry does NOT use traditional internships (see Entry Path above), suggest the appropriate entry path instead (e.g., research assistantships for science, apprenticeships for trades, clinical rotations for healthcare)
+3. Ensure promotions are realistic - typically 1-2 levels at a time, not jumping from entry to executive
+4. Include industry-specific credentials/certifications where relevant
+5. For non-tech industries, DO NOT default to software/tech roles unless explicitly relevant to the user's profile
+
 Generate 25 job roles organized into 5-7 categories. Include a mix of:
-- Direct fit roles (based on current skills/experience)
-- Stretch roles (ambitious but achievable)
-- Adjacent roles (related fields they might not have considered)
-- Entry/junior roles if they're early career
+- Direct fit roles (based on current skills/experience AND industry)
+- Stretch roles (ambitious but achievable within the industry)
+- Adjacent roles (related fields within or adjacent to their industry)
+- Entry/junior roles if they're early career (using the appropriate entry path for their industry)
 - Senior/leadership roles if they're experienced
 
 For each role, provide:
-- id: unique identifier (kebab-case, e.g., "software-engineer")
-- title: job title
-- category: category name (e.g., "Technology", "Business & Strategy", "Creative & Design")
-- fit_score: 0-100 score based on profile alignment
+- id: unique identifier (kebab-case, e.g., "research-scientist")
+- title: job title (use industry-appropriate titles)
+- category: category name (e.g., "Healthcare", "Research & Development", "Academia")
+- fit_score: 0-100 score based on profile AND industry alignment
 - reason: brief explanation of why this role fits (max 20 words)
 - skills: array of 3-5 key skills for this role
 - growth_outlook: "high", "medium", or "low"
@@ -304,16 +411,16 @@ Return JSON in this exact format:
 {
   "roles": [
     {
-      "id": "software-engineer",
-      "title": "Software Engineer",
-      "category": "Technology",
+      "id": "research-scientist",
+      "title": "Research Scientist",
+      "category": "Research & Development",
       "fit_score": 85,
-      "reason": "Strong technical skills and problem-solving abilities",
-      "skills": ["JavaScript", "Python", "System Design", "Git"],
+      "reason": "Strong analytical skills aligned with research career path",
+      "skills": ["Data Analysis", "Research Methods", "Lab Techniques", "Scientific Writing"],
       "growth_outlook": "high"
     }
   ],
-  "categories": ["Technology", "Business & Strategy", "Creative & Design"]
+  "categories": ["Research & Development", "Academia", "Industry"]
 }`;
 }
 

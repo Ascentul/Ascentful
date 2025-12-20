@@ -337,6 +337,20 @@ export interface RoleCertification {
   url?: string;
 }
 
+// Industry context for role details
+export interface RoleIndustryContext {
+  industry: string;
+  industryName: string;
+  careerLevel?: {
+    level: number;
+    name: string;
+  };
+  typicalProgression?: string[];
+  entryPathType?: string;
+  hasInternships?: boolean;
+  requiredCredentials?: string[];
+}
+
 export interface RoleDetail {
   role_id: string;
   title: string;
@@ -347,7 +361,14 @@ export interface RoleDetail {
   certifications: RoleCertification[];
   day_in_life?: string;
   growth_outlook?: string;
-  related_roles?: { role_id: string; title: string; fit_score: number }[];
+  related_roles?: {
+    role_id: string;
+    title: string;
+    fit_score: number;
+    relationship?: 'entry_level' | 'lateral' | 'promotion' | 'pivot' | 'specialization';
+  }[];
+  // Industry context (new)
+  industryContext?: RoleIndustryContext;
 }
 
 // ============================================

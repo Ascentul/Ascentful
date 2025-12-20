@@ -1,6 +1,25 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import {
+  detectIndustryFromRole,
+  getCareerLevel,
+  INDUSTRIES,
+} from '@/lib/career-explorer/industryTaxonomy';
+
+interface IndustryContext {
+  industry: string;
+  industryName: string;
+  careerLevel?: {
+    level: number;
+    name: string;
+  };
+  typicalProgression?: string[];
+  entryPathType?: string;
+  hasInternships?: boolean;
+  requiredCredentials?: string[];
+}
+
 interface RoleDetailsResponse {
   title: string;
   description: string;
@@ -23,6 +42,7 @@ interface RoleDetailsResponse {
     logo?: string;
     jobCount: number;
   }[];
+  industryContext?: IndustryContext;
 }
 
 // Common companies by industry
@@ -544,6 +564,21 @@ Return only valid JSON, no markdown code blocks.`;
     const companies = getCompaniesForRole(roleTitle);
     const skills = getSkillsForRole(roleTitle);
 
+    // Detect industry and build industry context
+    const detectedIndustry = detectIndustryFromRole(roleTitle);
+    const industryConfig = INDUSTRIES[detectedIndustry];
+    const careerLevel = getCareerLevel(roleTitle, detectedIndustry);
+
+    const industryContext: IndustryContext = {
+      industry: detectedIndustry,
+      industryName: industryConfig.name,
+      careerLevel: careerLevel ? { level: careerLevel.level, name: careerLevel.name } : undefined,
+      typicalProgression: industryConfig.typicalProgression,
+      entryPathType: industryConfig.entryPathType,
+      hasInternships: industryConfig.hasInternships,
+      requiredCredentials: industryConfig.requiredCredentials,
+    };
+
     const response: RoleDetailsResponse = {
       ...baseDetails,
       requiredSkills: skills,
@@ -553,6 +588,7 @@ Return only valid JSON, no markdown code blocks.`;
         ...salaryEstimate,
         currency: 'USD',
       },
+      industryContext,
     };
 
     return NextResponse.json(response);

@@ -27,7 +27,6 @@ export interface EditingFollowup {
 
 // Format due date for follow-ups
 const formatDueDate = (timestamp: number, isOverdue: boolean): string => {
-  if (!timestamp) return 'No due date';
   if (isOverdue) return 'Overdue';
   const days = differenceInCalendarDays(new Date(timestamp), new Date());
   if (days === 0) return 'Due today';
@@ -139,7 +138,12 @@ export function FollowupTimelineItem({
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
               Cancel
             </Button>
-            <Button size="sm" className="h-7 text-xs" onClick={onSaveEdit}>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onSaveEdit}
+              disabled={!editingFollowup.description.trim()}
+            >
               Save
             </Button>
           </div>
@@ -163,6 +167,7 @@ export function FollowupTimelineItem({
               e.stopPropagation();
               onToggle();
             }}
+            aria-label={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
             className={cn(
               'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 transition-colors',
               isCompleted

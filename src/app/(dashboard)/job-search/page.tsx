@@ -10,7 +10,9 @@ import { toast } from 'sonner';
 
 import {
   DEFAULT_FILTERS,
+  EXPERIENCE_OPTIONS,
   type ExperienceLevel,
+  JOB_TYPE_OPTIONS,
   type JobResult,
   JobResultsList,
   JobSearchBar,
@@ -149,20 +151,37 @@ export default function JobSearchPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      const res = await fetch('/api/jobs/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: queryValue,
-          location: searchLocation,
-          jobType: jobTypeValue === 'all' ? undefined : jobTypeValue,
-          experienceLevel: experienceValue,
-          page: nextPage,
-          perPage,
-          sortBy: sortByValue,
-        }),
-        signal: controller.signal,
-      });
+      let res: Response;
+      try {
+        res = await fetch('/api/jobs/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: queryValue,
+            location: searchLocation,
+            jobType: jobTypeValue === 'all' ? undefined : jobTypeValue,
+            experienceLevel: experienceValue,
+            page: nextPage,
+            perPage,
+            sortBy: sortByValue,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name === 'AbortError') {
+          setErrorText('Search timed out. Please try again.');
+        } else {
+          setErrorText('Network error. Please check your connection and try again.');
+        }
+        const mock = buildMock(queryValue, locationValue);
+        setResults(mock);
+        setTotal(mock.length);
+        setTotalPages(1);
+        setPage(1);
+        setUsingFallback(true);
+        return;
+      }
       clearTimeout(timeoutId);
 
       let json;
@@ -309,8 +328,15 @@ export default function JobSearchPage() {
   const handleRerunSearch = (item: JobSearchHistoryItem) => {
     const keywords = item.keywords || '';
     const loc = item.location || '';
-    const type = (item.search_data?.jobType || 'all') as JobType;
-    const exp = (item.search_data?.experience || filters.experience) as ExperienceLevel;
+    // Validate stored values against current options to handle legacy data gracefully
+    const storedType = item.search_data?.jobType;
+    const type: JobType = JOB_TYPE_OPTIONS.some((opt) => opt.value === storedType)
+      ? (storedType as JobType)
+      : 'all';
+    const storedExp = item.search_data?.experience;
+    const exp: ExperienceLevel = EXPERIENCE_OPTIONS.some((opt) => opt.value === storedExp)
+      ? (storedExp as ExperienceLevel)
+      : DEFAULT_FILTERS.experience;
     const isRemote = item.search_data?.remoteOnly ?? false;
 
     setQuery(keywords);
