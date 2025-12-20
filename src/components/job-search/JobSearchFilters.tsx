@@ -70,9 +70,7 @@ export function JobSearchFilters({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-blue-600" aria-hidden="true" />
-            <Label htmlFor="remote-toggle" className="text-sm font-medium text-slate-700">
-              Location
-            </Label>
+            <Label className="text-sm font-medium text-slate-700">Location</Label>
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="remote-toggle" className="text-sm text-slate-600 cursor-pointer">
