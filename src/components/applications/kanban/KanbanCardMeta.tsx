@@ -2,6 +2,7 @@
 
 import { Calendar } from 'lucide-react';
 
+import { formatDateWithTime, isDateToday } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 import type { InterviewSummary } from './types';
@@ -9,51 +10,6 @@ import type { InterviewSummary } from './types';
 interface KanbanCardMetaProps {
   interviewSummary?: InterviewSummary | null;
 }
-
-/**
- * Check if a timestamp is today
- */
-const isDateToday = (timestamp: number): boolean => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return targetDate.getTime() === today.getTime();
-};
-
-/**
- * Check if a timestamp is tomorrow
- */
-const isDateTomorrow = (timestamp: number): boolean => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return targetDate.getTime() === tomorrow.getTime();
-};
-
-/**
- * Format date for interview display
- */
-const formatInterviewDate = (timestamp: number): string => {
-  const date = new Date(timestamp);
-
-  if (isDateToday(timestamp)) {
-    return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-  }
-  if (isDateTomorrow(timestamp)) {
-    return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-  }
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-};
 
 /**
  * Displays interview stages on Kanban cards.
@@ -96,7 +52,7 @@ export function KanbanCardMeta({ interviewSummary }: KanbanCardMetaProps) {
                 isPast ? 'text-slate-400' : isToday ? 'text-amber-600' : 'text-slate-500',
               )}
             >
-              {formatInterviewDate(stage.scheduled_at)}
+              {formatDateWithTime(stage.scheduled_at)}
             </span>
           </div>
         );

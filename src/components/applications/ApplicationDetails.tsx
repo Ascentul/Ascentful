@@ -4,19 +4,15 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { format } from 'date-fns';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
   Calendar as CalendarIcon,
   Check,
-  ChevronDown,
-  ChevronRight,
   Clock,
   ExternalLink,
   ListTodo,
   Loader2,
   Pencil,
-  Plus,
-  Square,
   Trash2,
   Users,
   X,
@@ -48,6 +44,12 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 import { ApplicationStatusBadge } from './ApplicationStatusBadge';
+import {
+  type EditingFollowup,
+  type EditingStage,
+  FollowupTimelineItem,
+  InterviewTimelineItem,
+} from './timeline';
 
 export type DBApplication = {
   id: string | number;
@@ -100,20 +102,6 @@ const formatInterviewDate = (timestamp: number): string => {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  });
-};
-
-// Format due date for follow-ups
-const formatDueDate = (timestamp: number, isOverdue: boolean): string => {
-  if (isOverdue) return 'Overdue';
-  const now = Date.now();
-  const diff = timestamp - now;
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
   });
 };
 
@@ -274,7 +262,7 @@ export function ApplicationDetails({
     notes: '',
   });
   const [addingStage, setAddingStage] = useState(false);
-  const [editingStage, setEditingStage] = useState<any>(null);
+  const [editingStage, setEditingStage] = useState<EditingStage | null>(null);
   const [stageCalendarOpen, setStageCalendarOpen] = useState(false);
   const [editStageCalendarOpen, setEditStageCalendarOpen] = useState(false);
 
@@ -308,6 +296,13 @@ export function ApplicationDetails({
         location: '',
         notes: '',
       });
+    } catch (e) {
+      console.error('Failed to add interview stage:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to add interview stage',
+        variant: 'destructive',
+      });
     } finally {
       setAddingStage(false);
     }
@@ -318,39 +313,66 @@ export function ApplicationDetails({
     outcome: 'pending' | 'scheduled' | 'passed' | 'failed',
   ) => {
     if (!clerkId) return;
-    await updateStage({ clerkId, stageId, updates: { outcome } } as any);
+    try {
+      await updateStage({ clerkId, stageId, updates: { outcome } } as any);
+    } catch (e) {
+      console.error('Failed to update interview outcome:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to update interview outcome',
+        variant: 'destructive',
+      });
+    }
   };
 
   const removeStage = async (stageId: any) => {
     if (!clerkId) return;
     if (!confirm('Delete this interview stage?')) return;
-    await deleteStage({ clerkId, stageId } as any);
+    try {
+      await deleteStage({ clerkId, stageId } as any);
+    } catch (e) {
+      console.error('Failed to delete interview stage:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to delete interview stage',
+        variant: 'destructive',
+      });
+    }
   };
 
   const saveStageEdit = async () => {
     if (!clerkId || !editingStage) return;
-    let scheduled: number | undefined;
-    if (editingStage.scheduled_date) {
-      const date = new Date(editingStage.scheduled_date);
-      if (editingStage.scheduled_time) {
-        const [hours, minutes] = editingStage.scheduled_time.split(':').map(Number);
-        date.setHours(hours, minutes, 0, 0);
-      } else {
-        date.setHours(9, 0, 0, 0);
+    try {
+      let scheduled: number | undefined;
+      if (editingStage.scheduled_date) {
+        const date = new Date(editingStage.scheduled_date);
+        if (editingStage.scheduled_time) {
+          const [hours, minutes] = editingStage.scheduled_time.split(':').map(Number);
+          date.setHours(hours, minutes, 0, 0);
+        } else {
+          date.setHours(9, 0, 0, 0);
+        }
+        scheduled = date.getTime();
       }
-      scheduled = date.getTime();
+      await updateStage({
+        clerkId,
+        stageId: editingStage._id,
+        updates: {
+          title: editingStage.title,
+          scheduled_at: scheduled,
+          location: editingStage.location,
+          notes: editingStage.notes,
+        },
+      } as any);
+      setEditingStage(null);
+    } catch (e) {
+      console.error('Failed to save interview changes:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to save interview changes',
+        variant: 'destructive',
+      });
     }
-    await updateStage({
-      clerkId,
-      stageId: editingStage._id,
-      updates: {
-        title: editingStage.title,
-        scheduled_at: scheduled,
-        location: editingStage.location,
-        notes: editingStage.notes,
-      },
-    } as any);
-    setEditingStage(null);
   };
 
   // Status bubble with click to cycle
@@ -401,11 +423,7 @@ export function ApplicationDetails({
   const [addingFollowup, setAddingFollowup] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [followupCalendarOpen, setFollowupCalendarOpen] = useState(false);
-  const [editingFollowup, setEditingFollowup] = useState<{
-    _id: any;
-    description: string;
-    due_date: Date | undefined;
-  } | null>(null);
+  const [editingFollowup, setEditingFollowup] = useState<EditingFollowup | null>(null);
   const [editFollowupCalendarOpen, setEditFollowupCalendarOpen] = useState(false);
 
   const addFollowup = async () => {
@@ -581,33 +599,42 @@ export function ApplicationDetails({
     const resumeValue = selectedResumeId !== 'none' ? (selectedResumeId as any) : undefined;
     const coverValue = selectedCoverId !== 'none' ? (selectedCoverId as any) : undefined;
 
-    if (saveFn) {
-      const updated = await saveFn(application.id, {
-        resume_id: resumeValue,
-        cover_letter_id: coverValue,
-      });
+    try {
+      if (saveFn) {
+        const updated = await saveFn(application.id, {
+          resume_id: resumeValue,
+          cover_letter_id: coverValue,
+        });
+        setLocal(updated);
+        onChanged?.(updated);
+        onOpenChange(false);
+        return;
+      }
+
+      await updateApplication({
+        clerkId,
+        applicationId: local.id as any,
+        updates: {
+          resume_id: resumeValue,
+          cover_letter_id: coverValue,
+        },
+      } as any);
+      const updated = {
+        ...local,
+        resume_id: resumeValue ?? null,
+        cover_letter_id: coverValue ?? null,
+      };
       setLocal(updated);
       onChanged?.(updated);
       onOpenChange(false);
-      return;
+    } catch (e) {
+      console.error('Failed to save materials:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to save materials',
+        variant: 'destructive',
+      });
     }
-
-    await updateApplication({
-      clerkId,
-      applicationId: local.id as any,
-      updates: {
-        resume_id: resumeValue,
-        cover_letter_id: coverValue,
-      },
-    } as any);
-    const updated = {
-      ...local,
-      resume_id: resumeValue ?? null,
-      cover_letter_id: coverValue ?? null,
-    };
-    setLocal(updated);
-    onChanged?.(updated);
-    onOpenChange(false);
   };
 
   // Secondary tabs state - no default tab selected
@@ -857,439 +884,88 @@ export function ApplicationDetails({
 
                         if (item.type === 'interview') {
                           const s = item.data;
-                          const isEditing = editingStage && editingStage._id === s._id;
-
-                          if (isEditing) {
-                            return (
-                              <motion.div
-                                key={itemId}
-                                {...getMotionProps(itemId)}
-                                className="flex gap-3"
-                              >
-                                {/* Timeline dot */}
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 border-2 border-blue-500 flex items-center justify-center z-10">
-                                  <Users className="h-3 w-3 text-blue-600" />
-                                </div>
-                                {/* Edit form */}
-                                <div className="flex-1 border rounded-lg p-3 bg-slate-50 space-y-2">
-                                  <Input
-                                    placeholder="Stage title"
-                                    value={editingStage.title}
-                                    onChange={(e) =>
-                                      setEditingStage({ ...editingStage, title: e.target.value })
-                                    }
-                                    className="h-8 text-sm"
-                                  />
-                                  <div className="flex gap-2">
-                                    <Popover
-                                      open={editStageCalendarOpen}
-                                      onOpenChange={setEditStageCalendarOpen}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className={cn(
-                                            'h-8 w-[120px] justify-start text-left font-normal text-sm',
-                                            !editingStage.scheduled_date && 'text-muted-foreground',
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-                                          {editingStage.scheduled_date
-                                            ? format(editingStage.scheduled_date, 'MMM d')
-                                            : 'Date'}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={editingStage.scheduled_date}
-                                          onSelect={(date) => {
-                                            setEditingStage({
-                                              ...editingStage,
-                                              scheduled_date: date,
-                                            });
-                                            setEditStageCalendarOpen(false);
-                                          }}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                    <Input
-                                      type="time"
-                                      className="h-8 text-sm w-[85px]"
-                                      value={editingStage.scheduled_time || ''}
-                                      onChange={(e) =>
-                                        setEditingStage({
-                                          ...editingStage,
-                                          scheduled_time: e.target.value,
-                                        })
-                                      }
-                                    />
-                                    <Input
-                                      placeholder="Location"
-                                      value={editingStage.location || ''}
-                                      onChange={(e) =>
-                                        setEditingStage({
-                                          ...editingStage,
-                                          location: e.target.value,
-                                        })
-                                      }
-                                      className="h-8 text-sm flex-1"
-                                    />
-                                  </div>
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingStage(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={saveStageEdit}
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          }
-
                           return (
-                            <motion.div key={itemId} {...getMotionProps(itemId)}>
-                              <Popover
-                                open={
-                                  selectedItem?.type === 'interview' &&
-                                  selectedItem?.data._id === s._id
+                            <InterviewTimelineItem
+                              key={itemId}
+                              stage={s}
+                              itemId={itemId}
+                              motionProps={getMotionProps(itemId)}
+                              isSelected={
+                                selectedItem?.type === 'interview' &&
+                                selectedItem?.data._id === s._id
+                              }
+                              isEditing={editingStage?._id === s._id}
+                              editingStage={editingStage}
+                              editCalendarOpen={editStageCalendarOpen}
+                              onSelect={() => setSelectedItem({ type: 'interview', data: s })}
+                              onDeselect={() => setSelectedItem(null)}
+                              onEdit={() => {
+                                let scheduled_date: Date | undefined;
+                                let scheduled_time = '';
+                                if (s.scheduled_at) {
+                                  const date = new Date(s.scheduled_at);
+                                  scheduled_date = date;
+                                  scheduled_time = format(date, 'HH:mm');
                                 }
-                                onOpenChange={(open) => {
-                                  if (!open) setSelectedItem(null);
-                                }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <div
-                                    className="flex items-center gap-3 cursor-pointer"
-                                    onClick={() => setSelectedItem({ type: 'interview', data: s })}
-                                  >
-                                    {/* Timeline dot - purple checkmark if passed, otherwise blue outline */}
-                                    <div
-                                      className={cn(
-                                        'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10',
-                                        s.outcome === 'passed'
-                                          ? 'bg-primary-500 border-primary-500'
-                                          : 'bg-white border-blue-500',
-                                      )}
-                                    >
-                                      {s.outcome === 'passed' && (
-                                        <Check className="h-3 w-3 text-white" />
-                                      )}
-                                    </div>
-                                    {/* Content */}
-                                    <div className="flex-1 border rounded-lg pl-3 pr-4 py-3 hover:bg-slate-50 transition-colors min-h-[56px] flex items-center">
-                                      <div className="flex items-center justify-between w-full gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-sm text-slate-900">
-                                            {s.title}
-                                          </div>
-                                          <div className="text-xs text-slate-500 mt-0.5">
-                                            {s.scheduled_at
-                                              ? formatInterviewDate(s.scheduled_at)
-                                              : 'No date set'}
-                                          </div>
-                                          {s.location && (
-                                            <div className="text-xs text-slate-400 mt-0.5 truncate">
-                                              📍 {s.location}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex-shrink-0 flex items-center">
-                                          {getStatusBubble(s._id, s.outcome)}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-64 p-3" align="end">
-                                  <div className="space-y-3">
-                                    <div className="text-sm font-medium text-slate-900">
-                                      {s.title}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {s.scheduled_at
-                                        ? formatInterviewDate(s.scheduled_at)
-                                        : 'No date set'}
-                                      {s.location && ` · ${s.location}`}
-                                    </div>
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          let scheduled_date: Date | undefined;
-                                          let scheduled_time = '';
-                                          if (s.scheduled_at) {
-                                            const date = new Date(s.scheduled_at);
-                                            scheduled_date = date;
-                                            scheduled_time = format(date, 'HH:mm');
-                                          }
-                                          setEditingStage({
-                                            ...s,
-                                            scheduled_date,
-                                            scheduled_time,
-                                          });
-                                          setSelectedItem(null);
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          removeStage(s._id);
-                                        }}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            </motion.div>
+                                setEditingStage({
+                                  ...s,
+                                  scheduled_date,
+                                  scheduled_time,
+                                });
+                                setSelectedItem(null);
+                              }}
+                              onDelete={() => {
+                                setSelectedItem(null);
+                                removeStage(s._id);
+                              }}
+                              onSaveEdit={saveStageEdit}
+                              onCancelEdit={() => setEditingStage(null)}
+                              onEditChange={(updates) =>
+                                setEditingStage((prev) => (prev ? { ...prev, ...updates } : null))
+                              }
+                              onEditCalendarOpenChange={setEditStageCalendarOpen}
+                              getStatusBubble={getStatusBubble}
+                            />
                           );
                         } else {
-                          // Follow-up item
                           const f = item.data;
-                          const isCompleted = f.status === 'done';
-                          const isOverdue = f.due_at && f.due_at < Date.now() && !isCompleted;
-                          const isEditingFollowupItem =
-                            editingFollowup && editingFollowup._id === f._id;
-
-                          if (isEditingFollowupItem) {
-                            return (
-                              <motion.div
-                                key={itemId}
-                                {...getMotionProps(itemId)}
-                                className="flex gap-3"
-                              >
-                                {/* Timeline dot */}
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center z-10">
-                                  <ListTodo className="h-3 w-3 text-amber-600" />
-                                </div>
-                                {/* Edit form */}
-                                <div className="flex-1 border rounded-lg p-3 bg-slate-50 space-y-2">
-                                  <Input
-                                    placeholder="Follow-up description"
-                                    value={editingFollowup.description}
-                                    onChange={(e) =>
-                                      setEditingFollowup({
-                                        ...editingFollowup,
-                                        description: e.target.value,
-                                      })
-                                    }
-                                    className="h-8 text-sm"
-                                  />
-                                  <div className="flex gap-2">
-                                    <Popover
-                                      open={editFollowupCalendarOpen}
-                                      onOpenChange={setEditFollowupCalendarOpen}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className={cn(
-                                            'h-8 w-[140px] justify-start text-left font-normal text-sm',
-                                            !editingFollowup.due_date && 'text-muted-foreground',
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-                                          {editingFollowup.due_date
-                                            ? format(editingFollowup.due_date, 'MMM d, yyyy')
-                                            : 'Due date'}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={editingFollowup.due_date}
-                                          onSelect={(date) => {
-                                            setEditingFollowup({
-                                              ...editingFollowup,
-                                              due_date: date,
-                                            });
-                                            setEditFollowupCalendarOpen(false);
-                                          }}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingFollowup(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={saveFollowupEdit}
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          }
-
                           return (
-                            <motion.div key={itemId} {...getMotionProps(itemId)}>
-                              <Popover
-                                open={
-                                  selectedItem?.type === 'followup' &&
-                                  selectedItem?.data._id === f._id
-                                }
-                                onOpenChange={(open) => {
-                                  if (!open) setSelectedItem(null);
-                                }}
-                              >
-                                <div className="flex items-center gap-3">
-                                  {/* Timeline dot - purple if completed, amber if pending - clickable for toggle */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleFollowup(f._id, f.status);
-                                    }}
-                                    className={cn(
-                                      'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 transition-colors',
-                                      isCompleted
-                                        ? 'bg-primary-500 border-primary-500 hover:bg-primary-600'
-                                        : 'bg-white border-amber-500 hover:bg-amber-50',
-                                    )}
-                                  >
-                                    {isCompleted && <Check className="h-3 w-3 text-white" />}
-                                  </button>
-                                  {/* Content - clickable for popup */}
-                                  <PopoverTrigger asChild>
-                                    <div
-                                      className={cn(
-                                        'flex-1 border rounded-lg pl-3 pr-4 py-3 transition-colors min-h-[56px] flex items-center cursor-pointer',
-                                        isCompleted ? 'bg-slate-50/50' : 'hover:bg-slate-50',
-                                      )}
-                                      onClick={() => setSelectedItem({ type: 'followup', data: f })}
-                                    >
-                                      <div className="flex items-center justify-between w-full gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div
-                                            className={cn(
-                                              'text-sm font-medium',
-                                              isCompleted
-                                                ? 'text-slate-400 line-through'
-                                                : isOverdue
-                                                  ? 'text-red-600'
-                                                  : 'text-slate-900',
-                                            )}
-                                          >
-                                            {f.description || f.title}
-                                          </div>
-                                          <div
-                                            className={cn(
-                                              'text-xs mt-0.5',
-                                              isCompleted
-                                                ? 'text-slate-400'
-                                                : isOverdue
-                                                  ? 'text-red-500 font-medium'
-                                                  : 'text-slate-400',
-                                            )}
-                                          >
-                                            {f.due_at
-                                              ? isCompleted
-                                                ? format(new Date(f.due_at), 'MMM d')
-                                                : formatDueDate(f.due_at, isOverdue)
-                                              : 'No due date'}
-                                          </div>
-                                        </div>
-                                        <div className="flex-shrink-0 flex items-center">
-                                          {!isCompleted && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleFollowup(f._id, f.status);
-                                              }}
-                                              className="h-5 w-5 rounded border border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors mr-5"
-                                              title="Mark as complete"
-                                            />
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </PopoverTrigger>
-                                </div>
-                                <PopoverContent className="w-64 p-3" align="end">
-                                  <div className="space-y-3">
-                                    <div className="text-sm font-medium text-slate-900">
-                                      {f.description || f.title}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {f.due_at
-                                        ? `Due ${format(new Date(f.due_at), 'MMM d, yyyy')}`
-                                        : 'No due date'}
-                                      {isCompleted && ' · Completed'}
-                                      {isOverdue && ' · Overdue'}
-                                    </div>
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          setEditingFollowup({
-                                            _id: f._id,
-                                            description: f.description || f.title || '',
-                                            due_date: f.due_at ? new Date(f.due_at) : undefined,
-                                          });
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          removeFollowup(f._id);
-                                        }}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            </motion.div>
+                            <FollowupTimelineItem
+                              key={itemId}
+                              followup={f}
+                              itemId={itemId}
+                              motionProps={getMotionProps(itemId)}
+                              isSelected={
+                                selectedItem?.type === 'followup' &&
+                                selectedItem?.data._id === f._id
+                              }
+                              isEditing={editingFollowup?._id === f._id}
+                              editingFollowup={editingFollowup}
+                              editCalendarOpen={editFollowupCalendarOpen}
+                              onSelect={() => setSelectedItem({ type: 'followup', data: f })}
+                              onDeselect={() => setSelectedItem(null)}
+                              onEdit={() => {
+                                setSelectedItem(null);
+                                setEditingFollowup({
+                                  _id: f._id,
+                                  description: f.description || f.title || '',
+                                  due_date: f.due_at ? new Date(f.due_at) : undefined,
+                                });
+                              }}
+                              onDelete={() => {
+                                setSelectedItem(null);
+                                removeFollowup(f._id);
+                              }}
+                              onToggle={() => toggleFollowup(f._id, f.status)}
+                              onSaveEdit={saveFollowupEdit}
+                              onCancelEdit={() => setEditingFollowup(null)}
+                              onEditChange={(updates) =>
+                                setEditingFollowup((prev) =>
+                                  prev ? { ...prev, ...updates } : null,
+                                )
+                              }
+                              onEditCalendarOpenChange={setEditFollowupCalendarOpen}
+                            />
                           );
                         }
                       })}
@@ -1318,439 +994,88 @@ export function ApplicationDetails({
 
                         if (item.type === 'interview') {
                           const s = item.data;
-                          const isEditing = editingStage && editingStage._id === s._id;
-
-                          if (isEditing) {
-                            return (
-                              <motion.div
-                                key={itemId}
-                                {...getMotionProps(itemId)}
-                                className="flex gap-3"
-                              >
-                                {/* Timeline dot */}
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 border-2 border-blue-500 flex items-center justify-center z-10">
-                                  <Users className="h-3 w-3 text-blue-600" />
-                                </div>
-                                {/* Edit form */}
-                                <div className="flex-1 border rounded-lg p-3 bg-slate-50 space-y-2">
-                                  <Input
-                                    placeholder="Stage title"
-                                    value={editingStage.title}
-                                    onChange={(e) =>
-                                      setEditingStage({ ...editingStage, title: e.target.value })
-                                    }
-                                    className="h-8 text-sm"
-                                  />
-                                  <div className="flex gap-2">
-                                    <Popover
-                                      open={editStageCalendarOpen}
-                                      onOpenChange={setEditStageCalendarOpen}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className={cn(
-                                            'h-8 w-[120px] justify-start text-left font-normal text-sm',
-                                            !editingStage.scheduled_date && 'text-muted-foreground',
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-                                          {editingStage.scheduled_date
-                                            ? format(editingStage.scheduled_date, 'MMM d')
-                                            : 'Date'}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={editingStage.scheduled_date}
-                                          onSelect={(date) => {
-                                            setEditingStage({
-                                              ...editingStage,
-                                              scheduled_date: date,
-                                            });
-                                            setEditStageCalendarOpen(false);
-                                          }}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                    <Input
-                                      type="time"
-                                      className="h-8 text-sm w-[85px]"
-                                      value={editingStage.scheduled_time || ''}
-                                      onChange={(e) =>
-                                        setEditingStage({
-                                          ...editingStage,
-                                          scheduled_time: e.target.value,
-                                        })
-                                      }
-                                    />
-                                    <Input
-                                      placeholder="Location"
-                                      value={editingStage.location || ''}
-                                      onChange={(e) =>
-                                        setEditingStage({
-                                          ...editingStage,
-                                          location: e.target.value,
-                                        })
-                                      }
-                                      className="h-8 text-sm flex-1"
-                                    />
-                                  </div>
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingStage(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={saveStageEdit}
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          }
-
                           return (
-                            <motion.div key={itemId} {...getMotionProps(itemId)}>
-                              <Popover
-                                open={
-                                  selectedItem?.type === 'interview' &&
-                                  selectedItem?.data._id === s._id
+                            <InterviewTimelineItem
+                              key={itemId}
+                              stage={s}
+                              itemId={itemId}
+                              motionProps={getMotionProps(itemId)}
+                              isSelected={
+                                selectedItem?.type === 'interview' &&
+                                selectedItem?.data._id === s._id
+                              }
+                              isEditing={editingStage?._id === s._id}
+                              editingStage={editingStage}
+                              editCalendarOpen={editStageCalendarOpen}
+                              onSelect={() => setSelectedItem({ type: 'interview', data: s })}
+                              onDeselect={() => setSelectedItem(null)}
+                              onEdit={() => {
+                                let scheduled_date: Date | undefined;
+                                let scheduled_time = '';
+                                if (s.scheduled_at) {
+                                  const date = new Date(s.scheduled_at);
+                                  scheduled_date = date;
+                                  scheduled_time = format(date, 'HH:mm');
                                 }
-                                onOpenChange={(open) => {
-                                  if (!open) setSelectedItem(null);
-                                }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <div
-                                    className="flex items-center gap-3 cursor-pointer"
-                                    onClick={() => setSelectedItem({ type: 'interview', data: s })}
-                                  >
-                                    {/* Timeline dot - purple checkmark if passed, otherwise blue outline */}
-                                    <div
-                                      className={cn(
-                                        'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10',
-                                        s.outcome === 'passed'
-                                          ? 'bg-primary-500 border-primary-500'
-                                          : 'bg-white border-blue-500',
-                                      )}
-                                    >
-                                      {s.outcome === 'passed' && (
-                                        <Check className="h-3 w-3 text-white" />
-                                      )}
-                                    </div>
-                                    {/* Content */}
-                                    <div className="flex-1 border rounded-lg pl-3 pr-4 py-3 hover:bg-slate-50 transition-colors min-h-[56px] flex items-center">
-                                      <div className="flex items-center justify-between w-full gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-sm text-slate-900">
-                                            {s.title}
-                                          </div>
-                                          <div className="text-xs text-slate-500 mt-0.5">
-                                            {s.scheduled_at
-                                              ? formatInterviewDate(s.scheduled_at)
-                                              : 'No date set'}
-                                          </div>
-                                          {s.location && (
-                                            <div className="text-xs text-slate-400 mt-0.5 truncate">
-                                              📍 {s.location}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex-shrink-0 flex items-center">
-                                          {getStatusBubble(s._id, s.outcome)}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-64 p-3" align="end">
-                                  <div className="space-y-3">
-                                    <div className="text-sm font-medium text-slate-900">
-                                      {s.title}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {s.scheduled_at
-                                        ? formatInterviewDate(s.scheduled_at)
-                                        : 'No date set'}
-                                      {s.location && ` · ${s.location}`}
-                                    </div>
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          let scheduled_date: Date | undefined;
-                                          let scheduled_time = '';
-                                          if (s.scheduled_at) {
-                                            const date = new Date(s.scheduled_at);
-                                            scheduled_date = date;
-                                            scheduled_time = format(date, 'HH:mm');
-                                          }
-                                          setEditingStage({
-                                            ...s,
-                                            scheduled_date,
-                                            scheduled_time,
-                                          });
-                                          setSelectedItem(null);
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          removeStage(s._id);
-                                        }}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            </motion.div>
+                                setEditingStage({
+                                  ...s,
+                                  scheduled_date,
+                                  scheduled_time,
+                                });
+                                setSelectedItem(null);
+                              }}
+                              onDelete={() => {
+                                setSelectedItem(null);
+                                removeStage(s._id);
+                              }}
+                              onSaveEdit={saveStageEdit}
+                              onCancelEdit={() => setEditingStage(null)}
+                              onEditChange={(updates) =>
+                                setEditingStage((prev) => (prev ? { ...prev, ...updates } : null))
+                              }
+                              onEditCalendarOpenChange={setEditStageCalendarOpen}
+                              getStatusBubble={getStatusBubble}
+                            />
                           );
                         } else {
-                          // Follow-up item
                           const f = item.data;
-                          const isCompleted = f.status === 'done';
-                          const isOverdue = f.due_at && f.due_at < Date.now() && !isCompleted;
-                          const isEditingFollowupItem =
-                            editingFollowup && editingFollowup._id === f._id;
-
-                          if (isEditingFollowupItem) {
-                            return (
-                              <motion.div
-                                key={itemId}
-                                {...getMotionProps(itemId)}
-                                className="flex gap-3"
-                              >
-                                {/* Timeline dot */}
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center z-10">
-                                  <ListTodo className="h-3 w-3 text-amber-600" />
-                                </div>
-                                {/* Edit form */}
-                                <div className="flex-1 border rounded-lg p-3 bg-slate-50 space-y-2">
-                                  <Input
-                                    placeholder="Follow-up description"
-                                    value={editingFollowup.description}
-                                    onChange={(e) =>
-                                      setEditingFollowup({
-                                        ...editingFollowup,
-                                        description: e.target.value,
-                                      })
-                                    }
-                                    className="h-8 text-sm"
-                                  />
-                                  <div className="flex gap-2">
-                                    <Popover
-                                      open={editFollowupCalendarOpen}
-                                      onOpenChange={setEditFollowupCalendarOpen}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className={cn(
-                                            'h-8 w-[140px] justify-start text-left font-normal text-sm',
-                                            !editingFollowup.due_date && 'text-muted-foreground',
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-                                          {editingFollowup.due_date
-                                            ? format(editingFollowup.due_date, 'MMM d, yyyy')
-                                            : 'Due date'}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={editingFollowup.due_date}
-                                          onSelect={(date) => {
-                                            setEditingFollowup({
-                                              ...editingFollowup,
-                                              due_date: date,
-                                            });
-                                            setEditFollowupCalendarOpen(false);
-                                          }}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingFollowup(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={saveFollowupEdit}
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          }
-
                           return (
-                            <motion.div key={itemId} {...getMotionProps(itemId)}>
-                              <Popover
-                                open={
-                                  selectedItem?.type === 'followup' &&
-                                  selectedItem?.data._id === f._id
-                                }
-                                onOpenChange={(open) => {
-                                  if (!open) setSelectedItem(null);
-                                }}
-                              >
-                                <div className="flex items-center gap-3">
-                                  {/* Timeline dot - purple if completed, amber if pending - clickable for toggle */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleFollowup(f._id, f.status);
-                                    }}
-                                    className={cn(
-                                      'flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 transition-colors',
-                                      isCompleted
-                                        ? 'bg-primary-500 border-primary-500 hover:bg-primary-600'
-                                        : 'bg-white border-amber-500 hover:bg-amber-50',
-                                    )}
-                                  >
-                                    {isCompleted && <Check className="h-3 w-3 text-white" />}
-                                  </button>
-                                  {/* Content - clickable for popup */}
-                                  <PopoverTrigger asChild>
-                                    <div
-                                      className={cn(
-                                        'flex-1 border rounded-lg pl-3 pr-4 py-3 transition-colors min-h-[56px] flex items-center cursor-pointer',
-                                        isCompleted ? 'bg-slate-50/50' : 'hover:bg-slate-50',
-                                      )}
-                                      onClick={() => setSelectedItem({ type: 'followup', data: f })}
-                                    >
-                                      <div className="flex items-center justify-between w-full gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div
-                                            className={cn(
-                                              'text-sm font-medium',
-                                              isCompleted
-                                                ? 'text-slate-400 line-through'
-                                                : isOverdue
-                                                  ? 'text-red-600'
-                                                  : 'text-slate-900',
-                                            )}
-                                          >
-                                            {f.description || f.title}
-                                          </div>
-                                          <div
-                                            className={cn(
-                                              'text-xs mt-0.5',
-                                              isCompleted
-                                                ? 'text-slate-400'
-                                                : isOverdue
-                                                  ? 'text-red-500 font-medium'
-                                                  : 'text-slate-400',
-                                            )}
-                                          >
-                                            {f.due_at
-                                              ? isCompleted
-                                                ? format(new Date(f.due_at), 'MMM d')
-                                                : formatDueDate(f.due_at, isOverdue)
-                                              : 'No due date'}
-                                          </div>
-                                        </div>
-                                        <div className="flex-shrink-0 flex items-center">
-                                          {!isCompleted && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleFollowup(f._id, f.status);
-                                              }}
-                                              className="h-5 w-5 rounded border border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors mr-5"
-                                              title="Mark as complete"
-                                            />
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </PopoverTrigger>
-                                </div>
-                                <PopoverContent className="w-64 p-3" align="end">
-                                  <div className="space-y-3">
-                                    <div className="text-sm font-medium text-slate-900">
-                                      {f.description || f.title}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {f.due_at
-                                        ? `Due ${format(new Date(f.due_at), 'MMM d, yyyy')}`
-                                        : 'No due date'}
-                                      {isCompleted && ' · Completed'}
-                                      {isOverdue && ' · Overdue'}
-                                    </div>
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          setEditingFollowup({
-                                            _id: f._id,
-                                            description: f.description || f.title || '',
-                                            due_date: f.due_at ? new Date(f.due_at) : undefined,
-                                          });
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedItem(null);
-                                          removeFollowup(f._id);
-                                        }}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            </motion.div>
+                            <FollowupTimelineItem
+                              key={itemId}
+                              followup={f}
+                              itemId={itemId}
+                              motionProps={getMotionProps(itemId)}
+                              isSelected={
+                                selectedItem?.type === 'followup' &&
+                                selectedItem?.data._id === f._id
+                              }
+                              isEditing={editingFollowup?._id === f._id}
+                              editingFollowup={editingFollowup}
+                              editCalendarOpen={editFollowupCalendarOpen}
+                              onSelect={() => setSelectedItem({ type: 'followup', data: f })}
+                              onDeselect={() => setSelectedItem(null)}
+                              onEdit={() => {
+                                setSelectedItem(null);
+                                setEditingFollowup({
+                                  _id: f._id,
+                                  description: f.description || f.title || '',
+                                  due_date: f.due_at ? new Date(f.due_at) : undefined,
+                                });
+                              }}
+                              onDelete={() => {
+                                setSelectedItem(null);
+                                removeFollowup(f._id);
+                              }}
+                              onToggle={() => toggleFollowup(f._id, f.status)}
+                              onSaveEdit={saveFollowupEdit}
+                              onCancelEdit={() => setEditingFollowup(null)}
+                              onEditChange={(updates) =>
+                                setEditingFollowup((prev) =>
+                                  prev ? { ...prev, ...updates } : null,
+                                )
+                              }
+                              onEditCalendarOpenChange={setEditFollowupCalendarOpen}
+                            />
                           );
                         }
                       })}

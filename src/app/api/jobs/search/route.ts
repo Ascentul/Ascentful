@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     let { query, location, jobType, experienceLevel, page = 1, perPage = 20, sortBy } = body;
     query = typeof query === 'string' ? query.trim() : '';
     location = typeof location === 'string' ? location.trim() : '';
-    // Validate sortBy - Adzuna supports: relevance, date, salary
-    const validSortOptions = ['relevance', 'date', 'salary'];
+    // Validate sortBy - Adzuna supports: relevance, date, salary, distance
+    const validSortOptions = ['relevance', 'date', 'salary', 'distance'];
     sortBy = validSortOptions.includes(sortBy) ? sortBy : 'relevance';
 
     const appId = process.env.ADZUNA_APPLICATION_ID;

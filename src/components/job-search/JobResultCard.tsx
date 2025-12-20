@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatRelativeDate } from '@/lib/date-utils';
 
 import type { JobResult } from './types';
 
@@ -30,26 +31,8 @@ export function JobResultCard({ job, onQuickAdd }: JobResultCardProps) {
     }
   };
 
-  const formatPostedDate = (posted: string | null | undefined): string => {
-    if (!posted) return '';
-    try {
-      const date = new Date(posted);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 0) return 'Today';
-      if (diffDays === 1) return 'Yesterday';
-      if (diffDays < 7) return `${diffDays} days ago`;
-      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-      return date.toLocaleDateString();
-    } catch {
-      return '';
-    }
-  };
-
   const isRemote = job.location?.toLowerCase().includes('remote');
-  const postedText = formatPostedDate(job.posted);
+  const postedText = formatRelativeDate(job.posted);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 px-4 py-4 hover:border-slate-300 hover:shadow-sm transition-all duration-150">

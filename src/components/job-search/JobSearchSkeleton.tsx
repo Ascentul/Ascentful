@@ -36,7 +36,7 @@ export function JobSearchSkeleton({ count = 4 }: JobSearchSkeletonProps) {
               <div className="flex gap-2">
                 <Skeleton className="h-6 w-16 rounded-full" />
                 <Skeleton className="h-6 w-20 rounded-full" />
-                <Skeleton className="h-6 w-18 rounded-full" />
+                <Skeleton className="h-6 w-20 rounded-full" />
               </div>
             </div>
 

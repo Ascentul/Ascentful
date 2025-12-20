@@ -381,11 +381,12 @@ export const getApplicationsForKanban = query({
       throw new Error('User not found');
     }
 
-    // Query 1: Get all applications for this user
+    // Query 1: Get applications for this user (limited to 500 most recent for Kanban performance)
     const applications = await ctx.db
       .query('applications')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
-      .collect();
+      .order('desc')
+      .take(500);
 
     // Query 2: Batch fetch ALL interview_stages for this user
     const allInterviews = await ctx.db
@@ -526,11 +527,10 @@ export const getApplicationsForKanban = query({
         Math.max(i.updated_at || 0, i.scheduled_at || 0),
       );
       const followupTimestamps = appFollowups.map((f) => f.updated_at || f.created_at);
-      const lastActivityAt = Math.max(
-        app.updated_at,
-        ...interviewTimestamps,
-        ...followupTimestamps,
+      const allTimestamps = [app.updated_at, ...interviewTimestamps, ...followupTimestamps].filter(
+        (t): t is number => typeof t === 'number' && t > 0,
       );
+      const lastActivityAt = allTimestamps.length > 0 ? Math.max(...allTimestamps) : app.updated_at;
 
       return {
         ...app,

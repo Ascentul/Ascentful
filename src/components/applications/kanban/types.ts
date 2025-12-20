@@ -31,7 +31,7 @@ export interface InterviewSummary {
 export interface ActionPreview {
   id: string;
   title: string;
-  dueAt?: number | null;
+  dueAt: number | null;
   isOverdue: boolean;
 }
 
@@ -41,7 +41,7 @@ export interface ActionPreview {
 export interface ActionSummary {
   openCount: number; // follow_ups with status = "open"
   overdueCount: number; // open + due_at < now
-  preview?: ActionPreview | null; // Next open action for preview
+  preview: ActionPreview | null; // Next open action for preview
   allActions?: ActionPreview[]; // All open actions for expandable list
 }
 

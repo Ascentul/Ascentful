@@ -697,39 +697,63 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   );
 
   return (
-    <>
-      <div
+    <div className="relative h-full">
+      <motion.div
         ref={sidebarRef}
+        initial={false}
+        animate={{ width: expanded ? 288 : 80 }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         className={`
-          transition-all duration-300 ease-in-out z-30
+          z-30
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${expanded ? 'w-72' : 'w-20'}
           md:translate-x-0
           fixed inset-y-0 left-0 md:relative md:inset-0 flex flex-col
           bg-app-bg pl-6 pr-3 py-5 h-full overflow-y-auto no-scrollbar
-          shadow-none
+          shadow-none transition-transform duration-300
         `}
       >
         <div className="flex h-full w-full flex-col">
           {/* Header */}
-          <div
-            className={`flex items-center ${expanded ? 'justify-between' : 'justify-center'} mb-6`}
-          >
-            {expanded && (
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt="Ascentful logo"
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-[5px] object-contain"
-                />
-                <h1 className="text-xl font-semibold text-primary-500">Ascentful</h1>
-              </div>
-            )}
-            <Button variant="ghost" size="icon" onClick={toggleExpanded} className="hidden md:flex">
-              {expanded ? <ChevronsLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
-            </Button>
+          <div className={`flex items-center mb-6 ${expanded ? '' : 'justify-center'}`}>
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Image
+                src="/logo.png"
+                alt="Ascentful logo"
+                width={28}
+                height={28}
+                className="h-7 w-7 flex-shrink-0 rounded-[5px] object-contain"
+              />
+              <AnimatePresence mode="wait">
+                {expanded && (
+                  <motion.h1
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                    className="text-xl font-semibold text-primary-500 whitespace-nowrap overflow-hidden"
+                  >
+                    Ascentful
+                  </motion.h1>
+                )}
+              </AnimatePresence>
+            </div>
+            <AnimatePresence>
+              {expanded && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  type="button"
+                  onClick={toggleExpanded}
+                  className="hidden md:flex flex-col items-center justify-center gap-[3px] flex-shrink-0 ml-auto h-6 w-6 cursor-pointer hover:opacity-70"
+                  aria-label="Collapse sidebar"
+                >
+                  <span className="w-3 h-[2px] bg-slate-400 rounded-full" />
+                  <span className="w-3 h-[2px] bg-slate-400 rounded-full" />
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Navigation */}
@@ -860,8 +884,8 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             </Dialog>
           </div>
         </div>
-      </div>
-    </>
+      </motion.div>
+    </div>
   );
 });
 

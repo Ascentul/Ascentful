@@ -2,6 +2,8 @@
 
 import { ArrowRight, Clock, MapPin, Search } from 'lucide-react';
 
+import { formatRelativeDate } from '@/lib/date-utils';
+
 import type { JobSearchHistoryItem } from './types';
 
 interface JobSearchHistoryCardProps {
@@ -10,24 +12,7 @@ interface JobSearchHistoryCardProps {
 }
 
 export function JobSearchHistoryCard({ item, onRerun }: JobSearchHistoryCardProps) {
-  const formatDate = (timestamp: number | undefined): string => {
-    if (!timestamp) return '';
-    try {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 0) return 'Today';
-      if (diffDays === 1) return 'Yesterday';
-      if (diffDays < 7) return `${diffDays} days ago`;
-      return date.toLocaleDateString();
-    } catch {
-      return '';
-    }
-  };
-
-  const dateText = formatDate(item.created_at);
+  const dateText = formatRelativeDate(item.created_at);
 
   return (
     <button
