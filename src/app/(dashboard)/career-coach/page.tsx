@@ -2,15 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  MessageSquare,
-  Plus,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowUp, ChevronLeft, Loader2, MessageSquare, Plus, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -93,6 +85,11 @@ export default function AICoachPage() {
       });
       setSelectedConversationId(newConversation.id);
       setAutoCreatingConversation(false);
+      toast({
+        title: 'New conversation created',
+        description: 'Start chatting with your AI career coach!',
+        variant: 'success',
+      });
     },
     onError: () => {
       setAutoCreatingConversation(false);
@@ -182,11 +179,6 @@ export default function AICoachPage() {
 
   const handleCreateConversation = () => {
     createConversationMutation.mutate('New Conversation');
-    toast({
-      title: 'New conversation created',
-      description: 'Start chatting with your AI career coach!',
-      variant: 'success',
-    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

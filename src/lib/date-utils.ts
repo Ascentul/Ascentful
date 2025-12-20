@@ -98,17 +98,16 @@ export const formatInterviewDate = (timestamp: number): string => {
   const timeOptions: Intl.DateTimeFormatOptions = {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
   };
 
   if (isDateToday(timestamp)) {
-    return `Today, ${date.toLocaleTimeString('en-US', timeOptions)}`;
+    return `Today, ${date.toLocaleTimeString(undefined, timeOptions)}`;
   }
   if (isDateTomorrow(timestamp)) {
-    return `Tomorrow, ${date.toLocaleTimeString('en-US', timeOptions)}`;
+    return `Tomorrow, ${date.toLocaleTimeString(undefined, timeOptions)}`;
   }
 
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     ...timeOptions,

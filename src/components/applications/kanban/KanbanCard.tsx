@@ -53,7 +53,11 @@ function FollowupPreview({
   onCompleteFollowup,
 }: FollowupPreviewProps) {
   const allActions = actionSummary.allActions || [];
-  const actionsToShow = followupsExpanded ? allActions : [actionSummary.preview!];
+  const actionsToShow = followupsExpanded
+    ? allActions
+    : actionSummary.preview
+      ? [actionSummary.preview]
+      : [];
   const hasMore = allActions.length > 1;
 
   return (

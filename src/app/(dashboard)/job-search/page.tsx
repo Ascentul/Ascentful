@@ -59,9 +59,9 @@ export default function JobSearchPage() {
     filters.jobType !== DEFAULT_FILTERS.jobType ||
     filters.experience !== DEFAULT_FILTERS.experience;
   const activeFilterCount = [
-    filters.remoteOnly,
-    filters.jobType !== 'all',
-    filters.experience !== 'Mid-level',
+    filters.remoteOnly !== DEFAULT_FILTERS.remoteOnly,
+    filters.jobType !== DEFAULT_FILTERS.jobType,
+    filters.experience !== DEFAULT_FILTERS.experience,
   ].filter(Boolean).length;
 
   // Convex mutations and queries
