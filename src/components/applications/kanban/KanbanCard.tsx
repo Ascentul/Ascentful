@@ -2,20 +2,138 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle, CheckSquare, ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { forwardRef, useEffect, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
 import { KanbanCardMenu } from './KanbanCardMenu';
-import { KanbanCardNextStep } from './KanbanCardNextStep';
+import { KanbanCardMeta } from './KanbanCardMeta';
 import type { ApplicationStatus, KanbanApplication } from './types';
 
 interface KanbanCardProps {
   application: KanbanApplication;
   onClick?: () => void;
   onMoveTo?: (status: ApplicationStatus) => void;
+  onCompleteFollowup?: (followupId: string) => Promise<void>;
   isDragOverlay?: boolean;
+}
+
+// Helper: format due label for follow-up preview
+function formatDueLabel(dueAt: number, isOverdue: boolean): string {
+  if (isOverdue) return 'Overdue';
+  const now = Date.now();
+  const diff = dueAt - now;
+  // Guard against stale data where dueAt is past but isOverdue wasn't updated
+  if (diff < 0) return 'Overdue';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Due today';
+  if (days === 1) return 'Due tomorrow';
+  return `Due in ${days} days`;
+}
+
+// Props for FollowupPreview component
+interface FollowupPreviewProps {
+  actionSummary: NonNullable<KanbanApplication['actionSummary']>;
+  followupsExpanded: boolean;
+  onToggleExpanded: () => void;
+  completingFollowup: string | null;
+  onCompleteFollowup?: (actionId: string) => Promise<void>;
+}
+
+/**
+ * Renders the follow-up actions preview section of a Kanban card.
+ * Extracted for readability and single responsibility.
+ */
+function FollowupPreview({
+  actionSummary,
+  followupsExpanded,
+  onToggleExpanded,
+  completingFollowup,
+  onCompleteFollowup,
+}: FollowupPreviewProps) {
+  const allActions = actionSummary.allActions || [];
+  const actionsToShow = followupsExpanded
+    ? allActions
+    : actionSummary.preview
+      ? [actionSummary.preview]
+      : [];
+  const hasMore = allActions.length > 1;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-100">
+      <div className="space-y-2">
+        {actionsToShow.map((action) => (
+          <div key={action.id} className="flex items-start gap-2">
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (!onCompleteFollowup || completingFollowup) return;
+                await onCompleteFollowup(action.id);
+              }}
+              disabled={!!completingFollowup}
+              className={cn(
+                'flex-shrink-0 mt-0.5 transition-colors',
+                completingFollowup === action.id
+                  ? 'text-green-500'
+                  : 'text-slate-400 hover:text-green-500',
+              )}
+              title="Mark as complete"
+              aria-label="Mark follow-up as complete"
+            >
+              {completingFollowup === action.id ? (
+                <CheckSquare className="h-3.5 w-3.5" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <div className="min-w-0 flex-1">
+              <div
+                className={cn(
+                  'text-xs truncate',
+                  action.isOverdue ? 'text-red-600 font-medium' : 'text-slate-600',
+                )}
+              >
+                {action.title}
+              </div>
+              {action.dueAt && (
+                <div
+                  className={cn(
+                    'text-[10px] mt-0.5',
+                    action.isOverdue ? 'text-red-500' : 'text-slate-400',
+                  )}
+                >
+                  {formatDueLabel(action.dueAt, action.isOverdue)}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpanded();
+          }}
+          className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 mt-1.5 ml-5 transition-colors"
+        >
+          {followupsExpanded ? (
+            <>
+              <ChevronUp className="h-3 w-3" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3 w-3" />+{allActions.length - 1} more
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -23,7 +141,7 @@ interface KanbanCardProps {
  * Entire card is draggable with enhanced visual feedback.
  */
 export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
-  ({ application, onClick, onMoveTo, isDragOverlay = false }, ref) => {
+  ({ application, onClick, onMoveTo, onCompleteFollowup, isDragOverlay = false }, ref) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
       id: application._id,
       disabled: isDragOverlay,
@@ -31,6 +149,10 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
 
     // Track if we started dragging to prevent click
     const [wasDragging, setWasDragging] = useState(false);
+    // Track completing state for optimistic UI
+    const [completingFollowup, setCompletingFollowup] = useState<string | null>(null);
+    // Track expanded state for follow-ups
+    const [followupsExpanded, setFollowupsExpanded] = useState(false);
 
     useEffect(() => {
       if (isDragging) {
@@ -58,14 +180,6 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
       transition,
     };
 
-    // Format date for display
-    const formatDate = (timestamp: number) => {
-      return new Date(timestamp).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-    };
-
     const needsReview = application.review_status === 'needs_review';
 
     return (
@@ -73,12 +187,12 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
         ref={isDragOverlay ? ref : setNodeRef}
         style={isDragOverlay ? undefined : style}
         className={cn(
-          'bg-white rounded-lg border p-3 cursor-pointer group relative',
-          'hover:border-primary-300 hover:shadow-sm transition-all duration-150',
+          'bg-white rounded-xl border border-slate-200 px-4 py-3.5 cursor-pointer group relative',
+          'hover:border-slate-300 hover:shadow-sm transition-all duration-150',
           // Source card ghost effect during drag
           isDragging && 'opacity-30 border-dashed border-2 border-slate-300 bg-slate-50',
           // Drag overlay - floating card being dragged
-          isDragOverlay && 'shadow-lg rotate-1 scale-[1.02] border-primary-300 cursor-grabbing',
+          isDragOverlay && 'shadow-lg rotate-1 scale-[1.02] border-slate-300 cursor-grabbing',
           // Needs review highlight - amber border and subtle background
           needsReview && !isDragging && 'border-amber-400 border-2 bg-amber-50/50',
         )}
@@ -107,13 +221,13 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
 
         {/* Move to menu - top right corner */}
         {!isDragOverlay && onMoveTo && (
-          <div className="absolute top-2 right-2 z-10">
+          <div className="absolute top-3 right-3 z-10">
             <KanbanCardMenu currentStatus={application.status} onMoveTo={onMoveTo} />
           </div>
         )}
 
         {/* Content */}
-        <div className="min-w-0 pr-6">
+        <div className="min-w-0 pr-7">
           {/* Company name - bold */}
           <div className="flex items-center gap-1.5">
             {needsReview && (
@@ -122,42 +236,43 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(
                 aria-label="Needs review"
               />
             )}
-            <span className="font-medium text-sm text-slate-900 truncate">
+            <span className="font-semibold text-sm text-slate-900 truncate">
               {application.company}
             </span>
           </div>
 
           {/* Role title - subtle */}
-          <div className="text-xs text-slate-500 truncate mt-0.5">{application.job_title}</div>
+          <div className="text-xs text-slate-500 truncate mt-1">{application.job_title}</div>
 
-          {/* Next step context */}
-          <KanbanCardNextStep application={application} />
-
-          {/* Metadata row */}
-          <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-            {/* External link */}
-            {application.url && (
-              <a
-                href={application.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="hover:text-primary-500 transition-colors"
-                title="View job posting"
-                aria-label="View job posting"
-              >
-                <ExternalLink className="h-3 w-3" />
-              </a>
+          {/* Interview stages - shows all scheduled interviews with dates */}
+          {application.interviewSummary?.stages &&
+            application.interviewSummary.stages.length > 0 && (
+              <div className="mt-3">
+                <KanbanCardMeta interviewSummary={application.interviewSummary} />
+              </div>
             )}
 
-            {/* Location if available */}
-            {application.location && (
-              <span className="truncate max-w-[100px]">{application.location}</span>
-            )}
-
-            {/* Date */}
-            <span className="ml-auto">{formatDate(application.updated_at)}</span>
-          </div>
+          {/* Follow-up preview - shows incomplete follow-up actions */}
+          {application.actionSummary?.preview && (
+            <FollowupPreview
+              actionSummary={application.actionSummary}
+              followupsExpanded={followupsExpanded}
+              onToggleExpanded={() => setFollowupsExpanded(!followupsExpanded)}
+              completingFollowup={completingFollowup}
+              onCompleteFollowup={
+                onCompleteFollowup
+                  ? async (actionId) => {
+                      setCompletingFollowup(actionId);
+                      try {
+                        await onCompleteFollowup(actionId);
+                      } finally {
+                        setCompletingFollowup(null);
+                      }
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </div>
     );

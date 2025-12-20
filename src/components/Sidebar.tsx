@@ -71,6 +71,7 @@ import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { useSidebarOptional } from '@/contexts/SidebarContext';
 import { useToast } from '@/hooks/use-toast';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
+import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '@/lib/constants/sidebar';
 
 // Sidebar section types
 type SidebarSection = {
@@ -81,6 +82,7 @@ type SidebarSection = {
   href?: string;
   onClick?: () => void;
   pro?: boolean;
+  alsoActiveFor?: string[]; // Additional paths that should highlight this section
 };
 
 type SidebarItem = {
@@ -189,6 +191,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         title: 'Applications',
         icon: <ClipboardList className="h-5 w-5" />,
         href: '/applications',
+        alsoActiveFor: ['/job-search'],
       },
       {
         id: 'resume-studio',
@@ -528,7 +531,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           key={item.href}
           href={disabled ? '#' : item.href}
           className={`
-          flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 border border-transparent
+          flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-all duration-200 border border-transparent min-h-[40px] px-3
           ${
             active
               ? 'bg-white text-slate-900 shadow-sm border-slate-200'
@@ -546,13 +549,13 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
               : undefined
           }
         >
-          <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+          <span className="flex-shrink-0 w-5 h-5 min-w-[20px] flex items-center justify-center scale-[0.95] ml-[1px]">
             {item.icon}
           </span>
           {expanded && (
             <>
-              <span className="flex-1">{item.label}</span>
-              {item.pro && isFreeUser && <Zap className="h-3 w-3 text-warning-500" />}
+              <span className="flex-1 whitespace-nowrap overflow-hidden">{item.label}</span>
+              {item.pro && isFreeUser && <Zap className="h-3 w-3 text-warning-500 flex-shrink-0" />}
             </>
           )}
         </Link>
@@ -565,7 +568,11 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
     (section: SidebarSection) => {
       const hasItems = section.items && section.items.length > 0;
       // Use exact matching for sections with href to avoid highlighting parent when on child routes
-      const sectionActive = section.href ? isActive(section.href, true) : false;
+      // Also check alsoActiveFor paths (e.g., /job-search should highlight Applications)
+      const sectionActive = section.href
+        ? isActive(section.href, true) ||
+          (section.alsoActiveFor?.some((path) => pathname.startsWith(path)) ?? false)
+        : false;
       const isCollapsed = !!collapsedSections[section.id];
 
       // Check if any child items are active (but not the first item in admin sections to avoid double-highlighting)
@@ -587,7 +594,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             key={section.id}
             onClick={section.onClick}
             className={`
-            w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors
+            w-full flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors min-h-[40px] px-3
             ${
               disabled
                 ? 'cursor-not-allowed text-slate-400'
@@ -595,13 +602,13 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             }
           `}
           >
-            <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+            <span className="flex-shrink-0 w-5 h-5 min-w-[20px] flex items-center justify-center scale-[0.95] ml-[1px]">
               {section.icon}
             </span>
             {expanded && (
               <>
-                <span className="flex-1">{section.title}</span>
-                {isPro && isFreeUser && <Zap className="h-3 w-3 text-warning-500" />}
+                <span className="flex-1 whitespace-nowrap overflow-hidden">{section.title}</span>
+                {isPro && isFreeUser && <Zap className="h-3 w-3 text-warning-500 flex-shrink-0" />}
               </>
             )}
           </button>
@@ -615,7 +622,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             key={section.id}
             href={disabled ? '#' : section.href}
             className={`
-            flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 border border-transparent
+            flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-all duration-200 border border-transparent min-h-[40px] px-3
             ${
               sectionActive || hasActiveItem
                 ? 'bg-white text-slate-900 shadow-sm border-slate-200'
@@ -633,13 +640,13 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
                 : undefined
             }
           >
-            <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+            <span className="flex-shrink-0 w-5 h-5 min-w-[20px] flex items-center justify-center scale-[0.95] ml-[1px]">
               {section.icon}
             </span>
             {expanded && (
               <>
-                <span className="flex-1">{section.title}</span>
-                {isPro && isFreeUser && <Zap className="h-3 w-3 text-warning-500" />}
+                <span className="flex-1 whitespace-nowrap overflow-hidden">{section.title}</span>
+                {isPro && isFreeUser && <Zap className="h-3 w-3 text-warning-500 flex-shrink-0" />}
               </>
             )}
           </Link>
@@ -660,15 +667,17 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
       return (
         <div key={section.id} className="space-y-1">
           <div
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium cursor-pointer select-none transition-colors text-slate-500 hover:bg-white/50 hover:text-slate-900"
+            className="flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium cursor-pointer select-none transition-colors text-slate-500 hover:bg-white/50 hover:text-slate-900 min-h-[40px] px-3"
             role="button"
             aria-expanded={!isCollapsed}
             onClick={toggleSectionItems}
           >
-            <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+            <span className="flex-shrink-0 w-5 h-5 min-w-[20px] flex items-center justify-center scale-[0.95] ml-[1px]">
               {section.icon}
             </span>
-            {expanded && <span className="flex-1">{section.title}</span>}
+            {expanded && (
+              <span className="flex-1 whitespace-nowrap overflow-hidden">{section.title}</span>
+            )}
             {expanded && (
               <ChevronRight
                 className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
@@ -693,47 +702,69 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         </div>
       );
     },
-    [isActive, collapsedSections, expanded, isFreeUser, renderSidebarItem],
+    [isActive, collapsedSections, expanded, isFreeUser, renderSidebarItem, pathname],
   );
 
   return (
-    <>
-      <div
+    <div className="relative h-full">
+      <motion.div
         ref={sidebarRef}
+        initial={false}
+        animate={{ width: expanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         className={`
-          transition-all duration-300 ease-in-out z-30
+          z-30
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${expanded ? 'w-72' : 'w-20'}
           md:translate-x-0
           fixed inset-y-0 left-0 md:relative md:inset-0 flex flex-col
           bg-app-bg pl-6 pr-3 py-5 h-full overflow-y-auto no-scrollbar
-          shadow-none
+          shadow-none transition-transform duration-300
         `}
       >
         <div className="flex h-full w-full flex-col">
           {/* Header */}
-          <div
-            className={`flex items-center ${expanded ? 'justify-between' : 'justify-center'} mb-6`}
-          >
-            {expanded && (
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt="Ascentful logo"
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-[5px] object-contain"
-                />
-                <h1 className="text-xl font-semibold text-primary-500">Ascentful</h1>
-              </div>
-            )}
-            <Button variant="ghost" size="icon" onClick={toggleExpanded} className="hidden md:flex">
-              {expanded ? <ChevronsLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
-            </Button>
+          <div className="flex items-center gap-3 mb-6 pl-[10px] pr-2">
+            <Image
+              src="/logo.png"
+              alt="Ascentful logo"
+              width={28}
+              height={28}
+              className="flex-shrink-0 h-7 w-7 rounded-[4px] object-contain mt-[3px]"
+            />
+            <AnimatePresence mode="wait">
+              {expanded && (
+                <motion.h1
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                  className="text-xl font-semibold text-primary-500 whitespace-nowrap overflow-hidden"
+                >
+                  Ascentful
+                </motion.h1>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {expanded && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  type="button"
+                  onClick={toggleExpanded}
+                  className="hidden md:flex flex-col items-center justify-center gap-[3px] flex-shrink-0 ml-auto h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
+                  aria-label="Collapse sidebar"
+                >
+                  <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+                  <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 mb-4 w-full">{allSections.map(renderSection)}</nav>
+          <nav className="flex-1 space-y-2 mb-4 w-full mt-2">{allSections.map(renderSection)}</nav>
 
           {/* Free Plan Tile near footer */}
           {isFreeUser && expanded && (
@@ -860,8 +891,8 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             </Dialog>
           </div>
         </div>
-      </div>
-    </>
+      </motion.div>
+    </div>
   );
 });
 

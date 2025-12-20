@@ -7,30 +7,25 @@ import { ReactNode, useState } from 'react';
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
-import { SidebarProvider } from '@/contexts/SidebarContext';
+import { SidebarProvider, useSidebarOptional } from '@/contexts/SidebarContext';
+import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-export function Layout({ children }: LayoutProps) {
-  const { user, isLoaded } = useUser();
+// Inner component that can access the SidebarContext
+function LayoutContent({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const sidebarContext = useSidebarOptional();
+  const isExpanded = sidebarContext?.isExpanded ?? true;
 
   const toggleMobileSidebar = () => {
     setMobileSidebarOpen(!mobileSidebarOpen);
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#F1F3F9]">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
-      </div>
-    );
-  }
-
   return (
-    <SidebarProvider>
+    <>
       {/* Mobile menu toggle (floating) - only visible on mobile */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Button
@@ -76,6 +71,39 @@ export function Layout({ children }: LayoutProps) {
           </main>
         </div>
       </div>
+
+      {/* Expand sidebar button - only visible when sidebar is collapsed on desktop */}
+      {/* Positioned to align with logo center: top-[22px] centers a 24px button on the 28px logo (py-5 + half logo) */}
+      {!isExpanded && (
+        <button
+          type="button"
+          onClick={() => sidebarContext?.expand()}
+          className="hidden md:flex flex-col items-center justify-center gap-[3px] absolute top-[22px] z-[9999] h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
+          style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
+          aria-label="Expand sidebar"
+        >
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+        </button>
+      )}
+    </>
+  );
+}
+
+export function Layout({ children }: LayoutProps) {
+  const { isLoaded } = useUser();
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F1F3F9]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider>
+      <LayoutContent>{children}</LayoutContent>
     </SidebarProvider>
   );
 }

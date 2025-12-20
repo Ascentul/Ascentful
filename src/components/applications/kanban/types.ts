@@ -6,6 +6,45 @@ import type { Id } from 'convex/_generated/dataModel';
 
 export type ApplicationStatus = 'saved' | 'applied' | 'interview' | 'offer' | 'rejected';
 
+/**
+ * Interview stage info for card display
+ */
+export interface InterviewStagePreview {
+  id: string;
+  title: string;
+  scheduled_at: number;
+  outcome?: 'scheduled' | 'passed' | 'failed' | null;
+}
+
+/**
+ * Summary of interview progress for an application
+ */
+export interface InterviewSummary {
+  completedCount: number; // outcome = "passed" | "failed"
+  totalCount: number; // all interview_stages for this app
+  stages: InterviewStagePreview[]; // All interview stages for display
+}
+
+/**
+ * Preview of next open follow-up action for card display
+ */
+export interface ActionPreview {
+  id: string;
+  title: string;
+  dueAt: number | null;
+  isOverdue: boolean;
+}
+
+/**
+ * Summary of follow-up actions for an application
+ */
+export interface ActionSummary {
+  openCount: number; // follow_ups with status = "open"
+  overdueCount: number; // open + due_at < now
+  preview: ActionPreview | null; // Next open action for preview
+  allActions?: ActionPreview[]; // All open actions for expandable list
+}
+
 export interface KanbanApplication {
   _id: Id<'applications'>;
   company: string;
@@ -32,6 +71,11 @@ export interface KanbanApplication {
   // Email auto-update fields
   auto_created?: boolean | null;
   review_status?: 'confirmed' | 'needs_review' | null;
+  // Interview and follow-up summaries (computed server-side)
+  interviewSummary?: InterviewSummary | null;
+  actionSummary?: ActionSummary | null;
+  // Computed last activity timestamp (max of app, interviews, followups)
+  lastActivityAt?: number;
 }
 
 export interface StatusConfig {

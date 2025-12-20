@@ -170,6 +170,17 @@ export default function InterviewPracticePage() {
     enabled: !!user?.clerkId,
   });
 
+  // Dedupe role profiles by job_title to prevent duplicate entries showing
+  // Guard against undefined job_title values - uses Set for O(n) complexity
+  const seenTitles = new Set<string>();
+  const uniqueRoleProfiles = roleProfiles.filter((profile: RoleProfile) => {
+    if (!profile.job_title || seenTitles.has(profile.job_title)) {
+      return false;
+    }
+    seenTitles.add(profile.job_title);
+    return true;
+  });
+
   // Fetch sessions
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: ['/api/interview-practice/session'],
@@ -492,7 +503,7 @@ export default function InterviewPracticePage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {roleProfiles.slice(0, 5).map((profile: RoleProfile) => (
+                    {uniqueRoleProfiles.slice(0, 5).map((profile: RoleProfile) => (
                       <div
                         key={profile._id}
                         className="p-2 rounded-md border hover:bg-gray-50 transition-colors group"
@@ -511,9 +522,10 @@ export default function InterviewPracticePage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                               >
                                 <MoreHorizontal className="h-3 w-3" />
+                                <span className="sr-only">Role actions</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -542,9 +554,9 @@ export default function InterviewPracticePage() {
                         </Button>
                       </div>
                     ))}
-                    {roleProfiles.length > 5 && (
+                    {uniqueRoleProfiles.length > 5 && (
                       <p className="text-xs text-muted-foreground text-center pt-2">
-                        +{roleProfiles.length - 5} more saved roles
+                        +{uniqueRoleProfiles.length - 5} more saved roles
                       </p>
                     )}
                   </div>

@@ -326,8 +326,48 @@ export const getApplicationsByStatus = query({
 type ApplicationStatus = 'saved' | 'applied' | 'interview' | 'offer' | 'rejected';
 
 /**
+ * Interview stage preview for card display
+ */
+interface InterviewStagePreview {
+  id: string;
+  title: string;
+  scheduled_at: number;
+  outcome?: 'scheduled' | 'passed' | 'failed' | null;
+}
+
+/**
+ * Interview summary for Kanban card display
+ */
+interface InterviewSummary {
+  completedCount: number;
+  totalCount: number;
+  stages: InterviewStagePreview[];
+}
+
+/**
+ * Preview of next open follow-up action for card display
+ */
+interface ActionPreview {
+  id: string;
+  title: string;
+  dueAt: number | null;
+  isOverdue: boolean;
+}
+
+/**
+ * Action/follow-up summary for Kanban card display
+ */
+interface ActionSummary {
+  openCount: number;
+  overdueCount: number;
+  preview: ActionPreview | null;
+  allActions?: ActionPreview[];
+}
+
+/**
  * Get applications grouped by status for Kanban board display.
  * Each group is sorted by sort_order (ascending) for drag-and-drop ordering.
+ * Includes interview and follow-up summaries computed server-side.
  */
 export const getApplicationsForKanban = query({
   args: { clerkId: v.string() },
@@ -341,14 +381,170 @@ export const getApplicationsForKanban = query({
       throw new Error('User not found');
     }
 
-    // Get all applications for this user
+    // Query 1: Get applications for this user (limited to 500 most recent for Kanban performance)
     const applications = await ctx.db
       .query('applications')
       .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .order('desc')
+      .take(500);
+
+    // Query 2: Batch fetch ALL interview_stages for this user
+    // Note: No limit here - we need all interviews to correctly populate the 500 applications above.
+    // The data is filtered down to only those matching displayed applications.
+    const allInterviews = await ctx.db
+      .query('interview_stages')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
       .collect();
 
+    // Query 3: Batch fetch ALL follow_ups for this user
+    // Note: Same rationale as interviews - unlimited to ensure data consistency for displayed apps.
+    const allFollowups = await ctx.db
+      .query('follow_ups')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .collect();
+
+    // Build Maps for O(1) lookup by application_id
+    // Use string keys for consistent lookup (Convex Ids are string-compatible)
+    const interviewsByApp = new Map<string, (typeof allInterviews)[number][]>();
+    for (const interview of allInterviews) {
+      const appId = String(interview.application_id);
+      if (!interviewsByApp.has(appId)) {
+        interviewsByApp.set(appId, []);
+      }
+      interviewsByApp.get(appId)!.push(interview);
+    }
+
+    const followupsByApp = new Map<string, (typeof allFollowups)[number][]>();
+    for (const followup of allFollowups) {
+      if (followup.application_id) {
+        const appId = String(followup.application_id);
+        if (!followupsByApp.has(appId)) {
+          followupsByApp.set(appId, []);
+        }
+        followupsByApp.get(appId)!.push(followup);
+      }
+    }
+
+    const now = Date.now();
+
+    // Compute summaries and augment applications
+    const applicationsWithSummaries = applications.map((app) => {
+      const appIdStr = String(app._id);
+      const stageInterviews = interviewsByApp.get(appIdStr) || [];
+      const appFollowups = followupsByApp.get(appIdStr) || [];
+
+      // Interview summary - check both interview_stages table AND embedded interviews array
+      let interviewSummary: InterviewSummary | null = null;
+
+      // First, try interview_stages table (newer normalized data)
+      if (stageInterviews.length > 0) {
+        const completedCount = stageInterviews.filter(
+          (i) => i.outcome === 'passed' || i.outcome === 'failed',
+        ).length;
+
+        // Get only non-completed stages (scheduled or null outcome) sorted by date
+        const stages = stageInterviews
+          .filter((i) => i.outcome !== 'passed' && i.outcome !== 'failed')
+          .sort((a, b) => (a.scheduled_at || a._creationTime) - (b.scheduled_at || b._creationTime))
+          .map((i) => ({
+            id: String(i._id),
+            title: i.title,
+            scheduled_at: i.scheduled_at || i._creationTime,
+            outcome: i.outcome as 'scheduled' | 'passed' | 'failed' | null,
+          }));
+
+        interviewSummary = {
+          completedCount,
+          totalCount: stageInterviews.length,
+          stages,
+        };
+      }
+      // Fallback: check embedded interviews array (legacy data)
+      else if (app.interviews && app.interviews.length > 0) {
+        const embeddedInterviews = app.interviews;
+        // Embedded interviews don't have outcome, so count past interviews as "completed"
+        const completedCount = embeddedInterviews.filter((i) => i.date < now).length;
+
+        // Get only future interviews (past ones are considered completed)
+        const stages = embeddedInterviews
+          .filter((i) => i.date >= now)
+          .sort((a, b) => a.date - b.date)
+          .map((i, idx) => ({
+            id: `legacy-${idx}`,
+            title: i.interview_type || 'Interview',
+            scheduled_at: i.date,
+            outcome: 'scheduled' as const,
+          }));
+
+        interviewSummary = {
+          completedCount,
+          totalCount: embeddedInterviews.length,
+          stages,
+        };
+      }
+
+      // Action summary with preview
+      let actionSummary: ActionSummary | null = null;
+      const openFollowups = appFollowups.filter((f) => f.status === 'open');
+      if (openFollowups.length > 0) {
+        const overdueCount = openFollowups.filter((f) => f.due_at && f.due_at < now).length;
+
+        // Sort to get next action: prioritize overdue, then by due_at, then by created_at
+        const sortedFollowups = [...openFollowups].sort((a, b) => {
+          const aOverdue = a.due_at && a.due_at < now;
+          const bOverdue = b.due_at && b.due_at < now;
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          if (a.due_at && b.due_at) return a.due_at - b.due_at;
+          if (a.due_at) return -1;
+          if (b.due_at) return 1;
+          return a.created_at - b.created_at;
+        });
+
+        const nextFollowup = sortedFollowups[0];
+        const preview: ActionPreview = {
+          id: String(nextFollowup._id),
+          title: nextFollowup.description || 'Follow-up',
+          dueAt: nextFollowup.due_at || null,
+          isOverdue: nextFollowup.due_at ? nextFollowup.due_at < now : false,
+        };
+
+        // Build all actions array for expandable list
+        const allActions: ActionPreview[] = sortedFollowups.map((f) => ({
+          id: String(f._id),
+          title: f.description || 'Follow-up',
+          dueAt: f.due_at || null,
+          isOverdue: f.due_at ? f.due_at < now : false,
+        }));
+
+        actionSummary = {
+          openCount: openFollowups.length,
+          overdueCount,
+          preview,
+          allActions,
+        };
+      }
+
+      // Compute lastActivityAt - max of app update, interviews, followups
+      const interviewTimestamps = stageInterviews.map((i) =>
+        Math.max(i.updated_at || 0, i.scheduled_at || 0),
+      );
+      const followupTimestamps = appFollowups.map((f) => f.updated_at || f.created_at);
+      const allTimestamps = [app.updated_at, ...interviewTimestamps, ...followupTimestamps].filter(
+        (t): t is number => typeof t === 'number' && t > 0,
+      );
+      const lastActivityAt = allTimestamps.length > 0 ? Math.max(...allTimestamps) : app.updated_at;
+
+      return {
+        ...app,
+        interviewSummary,
+        actionSummary,
+        lastActivityAt,
+      };
+    });
+
     // Group by status
-    const grouped: Record<ApplicationStatus, typeof applications> = {
+    const grouped: Record<ApplicationStatus, typeof applicationsWithSummaries> = {
       saved: [],
       applied: [],
       interview: [],
@@ -356,7 +552,7 @@ export const getApplicationsForKanban = query({
       rejected: [],
     };
 
-    for (const app of applications) {
+    for (const app of applicationsWithSummaries) {
       const status = app.status as ApplicationStatus;
       if (grouped[status]) {
         grouped[status].push(app);

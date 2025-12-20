@@ -15,9 +15,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    let { query, location, jobType, experienceLevel, page = 1, perPage = 20 } = body;
+    let { query, location, jobType, experienceLevel, page = 1, perPage = 20, sortBy } = body;
     query = typeof query === 'string' ? query.trim() : '';
     location = typeof location === 'string' ? location.trim() : '';
+    // Validate sortBy - Adzuna supports: relevance, date, salary, distance
+    const validSortOptions = ['relevance', 'date', 'salary', 'distance'];
+    sortBy = typeof sortBy === 'string' && validSortOptions.includes(sortBy) ? sortBy : 'relevance';
 
     const appId = process.env.ADZUNA_APPLICATION_ID;
     const apiKey = process.env.ADZUNA_API_KEY;
@@ -54,6 +57,11 @@ export async function POST(request: NextRequest) {
     else if (jobType === 'Part-time') params.set('part_time', '1');
     else if (jobType === 'Contract') params.set('contract', '1');
     // Internship not directly supported; included in query keywords
+
+    // Add sort_by parameter (Adzuna supports: relevance, date, salary, distance)
+    if (sortBy && sortBy !== 'relevance') {
+      params.set('sort_by', sortBy);
+    }
 
     const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/${page}?${params.toString()}`;
     const headers: Record<string, string> = {
@@ -170,7 +178,7 @@ export async function POST(request: NextRequest) {
         page: Number(page),
         perPage: Number(perPage),
         totalPages: Math.max(1, Math.ceil(Number(data.count ?? jobs.length) / Number(perPage))),
-        query: { query, location, jobType, experienceLevel },
+        query: { query, location, jobType, experienceLevel, sortBy },
       },
       { headers: { 'x-correlation-id': correlationId } },
     );

@@ -84,7 +84,7 @@ export function ApplicationStatusBadge({
         variant="outline"
         className={cn(
           config.color,
-          size === 'sm' ? 'text-xs py-0 px-1.5' : '',
+          size === 'sm' ? 'text-xs h-6 px-2' : '',
           'flex items-center',
           className,
         )}
@@ -100,9 +100,9 @@ export function ApplicationStatusBadge({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            'inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 font-semibold transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'inline-flex items-center gap-1 rounded-control border font-medium transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500',
             config.color,
-            size === 'sm' ? 'text-xs py-0 px-1.5' : 'text-xs',
+            size === 'sm' ? 'text-xs h-6 px-2' : 'text-xs h-7 px-3',
             className,
           )}
         >

@@ -1106,14 +1106,14 @@ export function PathwaysStep({
   }
 
   return (
-    <div className="w-full px-4">
+    <div className="w-full px-4 pt-16">
       {/* Header */}
       <div
-        className={`mb-6 ${showSaveButton ? 'flex items-center justify-between' : 'text-center'}`}
+        className={`mb-24 ${showSaveButton ? 'flex items-center justify-between' : 'text-center'}`}
       >
         {showSaveButton && <div className="flex-1" />}
         <div className={showSaveButton ? 'text-center flex-1' : ''}>
-          <h1 className="text-2xl font-semibold text-neutral-900">Build your career path</h1>
+          <h1 className="text-2xl font-semibold text-primary-500">Build your career path</h1>
           <p className="text-neutral-500 mt-1">
             Select a job from the first column to see related career paths
           </p>
@@ -1167,7 +1167,7 @@ export function PathwaysStep({
 
                 onFinish(completePath);
               }}
-              className="min-w-[160px]"
+              className="min-w-[160px] font-semibold text-base"
             >
               Save Career Path
             </Button>
@@ -1238,7 +1238,7 @@ export function PathwaysStep({
         <div className={`grid grid-cols-1 gap-3 relative z-10 ${getGridCols()}`}>
           {/* Column 0: Starting Point */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-4 px-1">
+            <div className="flex items-center gap-2 mb-8 px-1">
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMajor ? 'bg-amber-100' : isInternship ? 'bg-emerald-100' : 'bg-primary-100'}`}
               >
@@ -1266,7 +1266,7 @@ export function PathwaysStep({
 
           {/* Column 1: Entry-level Jobs */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-4 px-1">
+            <div className="flex items-center gap-2 mb-8 px-1">
               <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
                 {columnConfig.col1Icon}
               </div>
@@ -1314,7 +1314,7 @@ export function PathwaysStep({
                               selectedCol1Role?.id === role.id
                                 ? 'border-blue-400 bg-blue-50 shadow-sm'
                                 : isSuggested
-                                  ? 'border-purple-400 border-dashed bg-purple-50/50 shadow-sm'
+                                  ? 'border-neutral-200 bg-white shadow-sm'
                                   : hoveredCol1Role === role.id
                                     ? 'border-blue-300 bg-blue-50 shadow-sm'
                                     : 'border-neutral-200 bg-white hover:border-blue-200'
@@ -1365,7 +1365,7 @@ export function PathwaysStep({
 
           {/* Column 2: Related Roles */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-4 px-1">
+            <div className="flex items-center gap-2 mb-8 px-1">
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedCol1Role ? 'bg-purple-100 text-purple-600' : 'bg-neutral-100 text-neutral-400'}`}
               >
@@ -1427,7 +1427,7 @@ export function PathwaysStep({
                               selectedCol2Role?.id === role.id
                                 ? 'border-purple-400 bg-purple-50 shadow-sm'
                                 : isSuggested
-                                  ? 'border-purple-400 border-dashed bg-purple-50/50 shadow-sm'
+                                  ? 'border-neutral-200 bg-white shadow-sm'
                                   : hoveredCol2Role === role.id
                                     ? 'border-purple-300 bg-purple-50 shadow-sm'
                                     : 'border-neutral-200 bg-white hover:border-purple-200'
@@ -1489,7 +1489,7 @@ export function PathwaysStep({
 
           {/* Column 3: Growth Opportunities */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-4 px-1">
+            <div className="flex items-center gap-2 mb-8 px-1">
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedCol2Role ? 'bg-emerald-100 text-emerald-600' : 'bg-neutral-100 text-neutral-400'}`}
               >
@@ -1551,7 +1551,7 @@ export function PathwaysStep({
                               selectedCol3Role?.id === role.id
                                 ? 'border-emerald-400 bg-emerald-50 shadow-sm'
                                 : isSuggested
-                                  ? 'border-purple-400 border-dashed bg-purple-50/50 shadow-sm'
+                                  ? 'border-neutral-200 bg-white shadow-sm'
                                   : hoveredCol3Role === role.id
                                     ? 'border-emerald-300 bg-emerald-50 shadow-sm'
                                     : 'border-neutral-200 bg-white hover:border-emerald-200'
@@ -1614,7 +1614,7 @@ export function PathwaysStep({
           {/* Column 4: Next Steps or Add Another Path button */}
           {isPathComplete && !showCol4 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-4 px-1">
+              <div className="flex items-center gap-2 mb-8 px-1">
                 <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-400">
                   <Plus className="w-4 h-4" />
                 </div>
@@ -1643,7 +1643,7 @@ export function PathwaysStep({
           {/* Column 4: Extended Path Options (shown after clicking Add or maintained during editing) */}
           {showCol4 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-4 px-1">
+              <div className="flex items-center gap-2 mb-8 px-1">
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedCol3Role ? 'bg-amber-100 text-amber-600' : 'bg-neutral-100 text-neutral-400'}`}
                 >
@@ -1713,7 +1713,7 @@ export function PathwaysStep({
                                 selectedCol4Role?.id === role.id
                                   ? 'border-amber-400 bg-amber-50 shadow-sm'
                                   : isSuggested
-                                    ? 'border-purple-400 border-dashed bg-purple-50/50 shadow-sm'
+                                    ? 'border-neutral-200 bg-white shadow-sm'
                                     : hoveredCol4Role === role.id
                                       ? 'border-amber-300 bg-amber-50 shadow-sm'
                                       : 'border-neutral-200 bg-white hover:border-amber-200'
