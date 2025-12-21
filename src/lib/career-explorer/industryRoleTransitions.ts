@@ -15,9 +15,22 @@ export interface RoleTransition {
   fit_score: number;
   reason: string;
   skills: string[];
+  /**
+   * The type of career transition:
+   * - 'entry_level': First role in career path
+   * - 'lateral': Same level, similar function
+   * - 'promotion': Higher level role
+   * - 'pivot': Same level, different function (stored in lateral array)
+   * - 'specialization': Same level, narrower focus (stored in lateral array)
+   */
   relationship: 'entry_level' | 'lateral' | 'promotion' | 'pivot' | 'specialization';
 }
 
+/**
+ * Organizes role transitions by movement type.
+ * Note: 'pivot' and 'specialization' relationships are stored in the lateral array
+ * since they represent same-level moves with different functions.
+ */
 export interface RoleTransitionSet {
   entry_level: RoleTransition[];
   lateral: RoleTransition[];
@@ -1268,7 +1281,8 @@ export const INDUSTRY_ROLE_TRANSITIONS: Record<Industry, IndustryRoleTransitions
 };
 
 /**
- * Get role transitions for a specific industry and role
+ * Get role transitions for a specific industry and role.
+ * Uses exact matching first, then partial matching with specificity scoring.
  */
 export function getIndustryRoleTransitions(
   industry: Industry,
@@ -1282,19 +1296,34 @@ export function getIndustryRoleTransitions(
 
   const roleLower = role.toLowerCase().trim();
 
-  // Exact match
+  // Exact match (highest priority)
   if (industryTransitions[roleLower]) {
     return industryTransitions[roleLower];
   }
 
-  // Partial match
+  // Partial match with specificity scoring
+  // Prioritize matches where the search term is more specific (longer overlap)
+  let bestMatch: { key: string; transitions: RoleTransitionSet; score: number } | null = null;
+
   for (const [roleKey, transitions] of Object.entries(industryTransitions)) {
-    if (roleLower.includes(roleKey) || roleKey.includes(roleLower)) {
-      return transitions;
+    // Search term contains the role key (e.g., "senior nurse manager" contains "nurse manager")
+    if (roleLower.includes(roleKey)) {
+      const score = roleKey.length; // Longer key = more specific match
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { key: roleKey, transitions, score };
+      }
+    }
+    // Role key contains the search term - only if search term is specific enough
+    // Require at least 6 chars to avoid "manager" matching "nurse manager"
+    else if (roleLower.length >= 6 && roleKey.includes(roleLower)) {
+      const score = roleLower.length * 0.8; // Slight penalty for reverse matching
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { key: roleKey, transitions, score };
+      }
     }
   }
 
-  return null;
+  return bestMatch?.transitions ?? null;
 }
 
 /**

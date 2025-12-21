@@ -1575,6 +1575,60 @@ export function getCareerLevel(
 }
 
 /**
+ * Generic career level detection (industry-agnostic)
+ * Use as fallback when industry-specific detection returns no match
+ */
+const GENERIC_CAREER_LEVELS: { keywords: string[]; level: number; name: string }[] = [
+  { keywords: ['intern', 'internship'], level: 0, name: 'Intern' },
+  {
+    keywords: ['junior', 'associate', 'entry', 'assistant', 'trainee', 'apprentice'],
+    level: 1,
+    name: 'Entry Level',
+  },
+  {
+    keywords: ['specialist', 'analyst', 'coordinator', 'representative'],
+    level: 2,
+    name: 'Individual Contributor',
+  },
+  { keywords: ['senior', 'sr.', 'sr '], level: 3, name: 'Senior' },
+  { keywords: ['lead', 'team lead', 'tech lead', 'principal'], level: 4, name: 'Lead' },
+  { keywords: ['manager', 'mgr'], level: 5, name: 'Manager' },
+  { keywords: ['senior manager', 'sr. manager', 'sr manager'], level: 6, name: 'Senior Manager' },
+  { keywords: ['director', 'head of', 'head '], level: 7, name: 'Director' },
+  {
+    keywords: ['senior director', 'sr. director', 'sr director'],
+    level: 8,
+    name: 'Senior Director',
+  },
+  { keywords: ['vp', 'vice president', 'v.p.'], level: 9, name: 'VP' },
+  { keywords: ['svp', 'senior vice president', 'senior vp'], level: 10, name: 'SVP' },
+  { keywords: ['evp', 'executive vice president'], level: 11, name: 'EVP' },
+  { keywords: ['ceo', 'cto', 'cfo', 'cmo', 'coo', 'cio', 'chief'], level: 12, name: 'C-Suite' },
+];
+
+/**
+ * Detect the career level of a role title using generic keywords
+ * Returns level 2 (IC) as default if no specific level markers found
+ */
+export function detectCareerLevelGeneric(title: string): { level: number; name: string } {
+  const titleLower = title.toLowerCase();
+
+  // Check from highest to lowest level (more specific matches first)
+  // This ensures "Senior Director" is matched before "Director"
+  for (let i = GENERIC_CAREER_LEVELS.length - 1; i >= 0; i--) {
+    const levelInfo = GENERIC_CAREER_LEVELS[i];
+    for (const keyword of levelInfo.keywords) {
+      if (titleLower.includes(keyword)) {
+        return { level: levelInfo.level, name: levelInfo.name };
+      }
+    }
+  }
+
+  // Default to IC level (2) for unrecognized roles
+  return { level: 2, name: 'Individual Contributor' };
+}
+
+/**
  * Get the max reasonable level jump for promotions in an industry
  */
 export function getMaxReasonableLevelJump(industry: Industry): number {

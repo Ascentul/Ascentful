@@ -1328,7 +1328,10 @@ export function findMajorConfig(majorName: string): MajorConfig | null {
     if (
       key.includes(normalized) ||
       normalized.includes(key) ||
-      config.aliases.some((alias) => alias.includes(normalized) || normalized.includes(alias))
+      config.aliases.some((alias) => {
+        const aliasLower = alias.toLowerCase();
+        return aliasLower.includes(normalized) || normalized.includes(aliasLower);
+      })
     ) {
       return config;
     }

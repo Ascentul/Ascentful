@@ -396,10 +396,24 @@ export const ATS_DOMAINS: Set<string> = new Set([
 export function normalizeCompanyForMatching(name: string): string {
   return name
     .toLowerCase()
-    .replace(/\b(inc|inc\.|llc|l\.l\.c\.|ltd|ltd\.|corp|corp\.|co|co\.|company|plc)\b/gi, '')
+    .replace(/\b(inc|inc\.|llc|l\.l\.c\.|ltd|ltd\.|corp|corp\.|co|co\.|company|plc)\b/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Pre-built reverse lookup map for O(1) alias lookups
+// Maps normalized alias -> canonical company name
+const ALIAS_TO_CANONICAL: Map<string, string> = new Map();
+
+// Build the reverse lookup map at module load time
+for (const [canonical, aliases] of Object.entries(COMPANY_ALIASES)) {
+  // Add the canonical name itself
+  ALIAS_TO_CANONICAL.set(normalizeCompanyForMatching(canonical), canonical);
+  // Add all aliases
+  for (const alias of aliases) {
+    ALIAS_TO_CANONICAL.set(normalizeCompanyForMatching(alias), canonical);
+  }
 }
 
 /**
@@ -413,7 +427,10 @@ export function companiesMatch(name1: string, name2: string): boolean {
   if (norm1 === norm2) return true;
 
   // Check if one contains the other (for partial matches)
-  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+  // Only use contains match for strings with reasonable length to avoid false positives
+  // (e.g., "at" matching "atlassian")
+  const minLength = Math.min(norm1.length, norm2.length);
+  if (minLength >= 4 && (norm1.includes(norm2) || norm2.includes(norm1))) return true;
 
   // Check aliases
   const canonical1 = findCanonicalCompany(norm1);
@@ -426,24 +443,11 @@ export function companiesMatch(name1: string, name2: string): boolean {
 
 /**
  * Find the canonical company name for a given name (if it's an alias).
+ * Uses pre-built reverse lookup map for O(1) performance.
  */
 export function findCanonicalCompany(name: string): string | null {
   const normalized = normalizeCompanyForMatching(name);
-
-  // Check if it's a canonical name
-  if (COMPANY_ALIASES[normalized]) {
-    return normalized;
-  }
-
-  // Check if it's an alias
-  for (const [canonical, aliases] of Object.entries(COMPANY_ALIASES)) {
-    const normalizedAliases = aliases.map(normalizeCompanyForMatching);
-    if (normalizedAliases.includes(normalized)) {
-      return canonical;
-    }
-  }
-
-  return null;
+  return ALIAS_TO_CANONICAL.get(normalized) ?? null;
 }
 
 /**

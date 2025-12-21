@@ -629,9 +629,10 @@ const REJECTION_PATTERNS: ClassificationPattern[] = [
     id: 'rej_1',
     category: 'rejection',
     eventType: 'rejection',
-    pattern: /\bunfortunately\b/i,
-    baseConfidence: 0.88,
-    description: 'Unfortunately (rejection)',
+    pattern:
+      /\bunfortunately.{0,60}(not|won't|cannot|unable|decided|other candidates|different direction|proceed|move forward|continue|selected|chosen)/i,
+    baseConfidence: 0.9,
+    description: 'Unfortunately + rejection context',
   },
   {
     id: 'rej_2',

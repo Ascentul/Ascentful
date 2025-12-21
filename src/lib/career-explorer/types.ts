@@ -337,6 +337,14 @@ export interface RoleCertification {
   url?: string;
 }
 
+// Role relationship types for career progression
+export type RoleRelationshipType =
+  | 'entry_level'
+  | 'lateral'
+  | 'promotion'
+  | 'pivot'
+  | 'specialization';
+
 // Industry context for role details
 export interface RoleIndustryContext {
   industry: string;
@@ -365,7 +373,7 @@ export interface RoleDetail {
     role_id: string;
     title: string;
     fit_score: number;
-    relationship?: 'entry_level' | 'lateral' | 'promotion' | 'pivot' | 'specialization';
+    relationship?: RoleRelationshipType;
   }[];
   // Industry context (new)
   industryContext?: RoleIndustryContext;

@@ -1,3 +1,10 @@
+import {
+  companiesMatch,
+  getCompanyFromDomain,
+  isATSDomain,
+  stringSimilarity,
+} from './companyAliases';
+
 export const EMAIL_SUBJECT_GATE_VERSION = 'v2';
 
 export type EmailProvider = 'gmail' | 'outlook';
@@ -493,14 +500,6 @@ export function rankApplicationsForEmail(input: {
   from: string;
   threadLinkedApplicationId?: string;
 }): { best?: ApplicationMatchCandidate; top: ApplicationMatchCandidate[] } {
-  // Import enhanced matching utilities
-  const {
-    companiesMatch,
-    getCompanyFromDomain,
-    isATSDomain,
-    stringSimilarity,
-  } = require('./companyAliases');
-
   if (input.threadLinkedApplicationId) {
     const linked = input.applications.find((a) => a._id === input.threadLinkedApplicationId);
     if (linked) {
@@ -537,13 +536,13 @@ export function rankApplicationsForEmail(input: {
       let companyScore = 0;
 
       if (extractedCompany) {
-        // 1. Check alias-aware match first (highest confidence)
-        if (companiesMatch(app.company, input.extracted.companyName || '')) {
-          companyScore = 0.98;
-        }
-        // 2. Exact normalized match
-        else if (companyNorm === extractedCompany) {
+        // 1. Exact normalized match (highest confidence)
+        if (companyNorm === extractedCompany) {
           companyScore = 1.0;
+        }
+        // 2. Check alias-aware match
+        else if (companiesMatch(app.company, input.extracted.companyName || '')) {
+          companyScore = 0.98;
         }
         // 3. Contains match
         else if (companyNorm.includes(extractedCompany) || extractedCompany.includes(companyNorm)) {

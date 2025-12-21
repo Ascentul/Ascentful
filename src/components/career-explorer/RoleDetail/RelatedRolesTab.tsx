@@ -15,14 +15,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getFitScoreColor } from '@/lib/career-explorer/fit-scoring';
-
-type RelationshipType = 'entry_level' | 'lateral' | 'promotion' | 'pivot' | 'specialization';
+import type { RoleRelationshipType } from '@/lib/career-explorer/types';
 
 interface RelatedRole {
   role_id: string;
   title: string;
   fit_score: number;
-  relationship?: RelationshipType;
+  relationship?: RoleRelationshipType;
 }
 
 interface RelatedRolesTabProps {
@@ -31,7 +30,7 @@ interface RelatedRolesTabProps {
 }
 
 const RELATIONSHIP_CONFIG: Record<
-  RelationshipType,
+  RoleRelationshipType,
   { label: string; icon: React.ReactNode; color: string; bgColor: string }
 > = {
   promotion: {

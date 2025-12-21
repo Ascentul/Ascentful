@@ -3,6 +3,7 @@ import { fetchQuery } from 'convex/nextjs';
 import { NextResponse } from 'next/server';
 
 import {
+  detectCareerLevelGeneric,
   detectIndustryFromRole,
   getCareerLevel,
   getMaxReasonableLevelJump,
@@ -30,83 +31,6 @@ interface SuggestedRoleResponse {
   suggestedRoleId: string | null;
   reason: string;
   confidenceScore: number; // 0-100
-}
-
-/**
- * Career Level Hierarchy (lower number = more junior)
- * This represents realistic career progression in most industries
- */
-const CAREER_LEVELS: { keywords: string[]; level: number; name: string }[] = [
-  { keywords: ['intern', 'internship'], level: 0, name: 'Intern' },
-  {
-    keywords: ['junior', 'associate', 'entry', 'assistant', 'trainee', 'apprentice'],
-    level: 1,
-    name: 'Entry Level',
-  },
-  {
-    keywords: ['specialist', 'analyst', 'coordinator', 'representative'],
-    level: 2,
-    name: 'Individual Contributor',
-  },
-  { keywords: ['senior', 'sr.', 'sr '], level: 3, name: 'Senior' },
-  { keywords: ['lead', 'team lead', 'tech lead', 'principal'], level: 4, name: 'Lead' },
-  { keywords: ['manager', 'mgr'], level: 5, name: 'Manager' },
-  { keywords: ['senior manager', 'sr. manager', 'sr manager'], level: 6, name: 'Senior Manager' },
-  { keywords: ['director', 'head of', 'head '], level: 7, name: 'Director' },
-  {
-    keywords: ['senior director', 'sr. director', 'sr director'],
-    level: 8,
-    name: 'Senior Director',
-  },
-  { keywords: ['vp', 'vice president', 'v.p.'], level: 9, name: 'VP' },
-  { keywords: ['svp', 'senior vice president', 'senior vp'], level: 10, name: 'SVP' },
-  { keywords: ['evp', 'executive vice president'], level: 11, name: 'EVP' },
-  { keywords: ['ceo', 'cto', 'cfo', 'cmo', 'coo', 'cio', 'chief'], level: 12, name: 'C-Suite' },
-];
-
-/**
- * Detect the career level of a role title
- * Returns level 2 (IC) as default if no specific level markers found
- */
-function detectCareerLevel(title: string): { level: number; name: string } {
-  const titleLower = title.toLowerCase();
-
-  // Check from highest to lowest level (more specific matches first)
-  // This ensures "Senior Director" is matched before "Director"
-  for (let i = CAREER_LEVELS.length - 1; i >= 0; i--) {
-    const levelInfo = CAREER_LEVELS[i];
-    for (const keyword of levelInfo.keywords) {
-      if (titleLower.includes(keyword)) {
-        return { level: levelInfo.level, name: levelInfo.name };
-      }
-    }
-  }
-
-  // Default to IC level (2) for unrecognized roles
-  return { level: 2, name: 'Individual Contributor' };
-}
-
-/**
- * Calculate the appropriate next level for career progression
- * Realistic progression is typically +1 level at a time
- */
-function getIdealNextLevel(currentLevel: number, column: string): number {
-  switch (column) {
-    case 'internship':
-      return 0; // Looking for internships
-    case 'entry_level':
-      // From intern/major → entry level (1-2)
-      // From entry level → senior (3)
-      return currentLevel <= 1 ? 2 : currentLevel + 1;
-    case 'lateral':
-      // Same level, different function
-      return currentLevel;
-    case 'promotion':
-      // One level up is realistic
-      return Math.min(currentLevel + 1, 12);
-    default:
-      return currentLevel + 1;
-  }
 }
 
 /**
@@ -319,7 +243,7 @@ export async function POST(request: Request) {
       const roleLevelInfo = getCareerLevel(role.title, detectedIndustry);
       const roleLevel = roleLevelInfo
         ? { level: roleLevelInfo.level, name: roleLevelInfo.name }
-        : detectCareerLevel(role.title); // Fallback to generic detection
+        : detectCareerLevelGeneric(role.title); // Fallback to generic detection
       const roleFunctionalAreas = extractFunctionalArea(role.title);
 
       // Start with base fit score

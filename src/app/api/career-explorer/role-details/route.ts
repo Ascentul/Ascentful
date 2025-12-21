@@ -6,19 +6,9 @@ import {
   getCareerLevel,
   INDUSTRIES,
 } from '@/lib/career-explorer/industryTaxonomy';
+import type { RoleIndustryContext } from '@/lib/career-explorer/types';
 
-interface IndustryContext {
-  industry: string;
-  industryName: string;
-  careerLevel?: {
-    level: number;
-    name: string;
-  };
-  typicalProgression?: string[];
-  entryPathType?: string;
-  hasInternships?: boolean;
-  requiredCredentials?: string[];
-}
+type IndustryContext = RoleIndustryContext;
 
 interface RoleDetailsResponse {
   title: string;

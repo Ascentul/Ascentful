@@ -174,9 +174,9 @@ export function validateCareerPath(steps: PlacedStep[], industry?: Industry): Va
   }
 
   return {
-    valid: errors.filter((e) => e.severity === 'error').length === 0,
-    errors: errors.filter((e) => e.severity === 'error'),
-    warnings: [...errors.filter((e) => e.severity === 'warning'), ...warnings],
+    valid: errors.length === 0,
+    errors,
+    warnings,
     suggestions,
   };
 }
@@ -343,11 +343,9 @@ export function calculatePathRealismScore(
   let consistencyScore = 100;
 
   // Calculate progression score
-  let transitionCount = 0;
   let problematicTransitions = 0;
 
   for (let i = 1; i < steps.length; i++) {
-    transitionCount++;
     const prevLevel = getCareerLevel(steps[i - 1].title, detectedIndustry);
     const currLevel = getCareerLevel(steps[i].title, detectedIndustry);
 

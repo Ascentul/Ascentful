@@ -10,7 +10,11 @@
 import { z } from 'zod';
 import type OpenAI from 'openai';
 
-import type { EmailEventType, ExtractedEmailEntities } from './emailAutoUpdates';
+import {
+  AUTO_UPDATE_CONFIDENCE_THRESHOLD,
+  type EmailEventType,
+  type ExtractedEmailEntities,
+} from './emailAutoUpdates';
 
 export const EMAIL_AI_BATCH_EXTRACTOR_PROMPT_VERSION = 'v2';
 
@@ -232,6 +236,10 @@ export async function batchClassifyEmails(input: {
   const batchSize = Math.min(input.emails.length, 10);
   const emailsToProcess = input.emails.slice(0, batchSize);
 
+  if (input.emails.length > 10) {
+    console.warn(`[batchClassifyEmails] Truncating batch from ${input.emails.length} to 10 emails`);
+  }
+
   let attempts = 0;
   let delay = config.baseDelayMs;
 
@@ -271,13 +279,19 @@ export async function batchClassifyEmails(input: {
         await sleep(delay);
         delay = Math.min(delay * 2, config.maxDelayMs);
         attempts++;
+      } else if (isRateLimitError(error)) {
+        // All rate-limit retries exhausted
+        console.error('[batchClassifyEmails] Rate limit retries exhausted:', error);
+        return createFallbackClassifications(emailsToProcess);
       } else {
+        // Non-recoverable error
         console.error('[batchClassifyEmails] Failed:', error);
         return createFallbackClassifications(emailsToProcess);
       }
     }
   }
 
+  // Should not reach here, but fallback just in case
   return createFallbackClassifications(emailsToProcess);
 }
 
@@ -378,7 +392,7 @@ export function mergeBatchClassification(input: {
   entities: ExtractedEmailEntities & Partial<ExtendedEntities>;
   classificationSource: 'rules' | 'rules+ai' | 'rules+ai_conflict' | 'ai';
 } {
-  const AUTO_UPDATE_THRESHOLD = 0.85;
+  const AUTO_UPDATE_THRESHOLD = AUTO_UPDATE_CONFIDENCE_THRESHOLD;
   const mergedEntities = mergeEntities(input.rule.entities, input.ai.entities);
 
   const ruleType = input.rule.eventType;
