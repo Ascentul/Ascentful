@@ -23,6 +23,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CoverLetterPreviewModal } from '@/components/cover-letter-preview-modal';
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { ResumeDocument } from '@/components/resume/ResumeDocument';
+import { ResumeStartModal } from '@/components/resume/ResumeStartModal';
 import { ResumePreviewModal } from '@/components/resume-preview-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,7 @@ export default function ResumeStudioPage() {
   // ============================================================================
   const [creatingResume, setCreatingResume] = useState(false);
   const [previewResume, setPreviewResume] = useState<ResumeDoc | null>(null);
+  const [showResumeStartModal, setShowResumeStartModal] = useState(false);
 
   // AI Generation state (resumes)
   const [resumeJobDescription, setResumeJobDescription] = useState('');
@@ -188,7 +190,104 @@ export default function ResumeStudioPage() {
   // ============================================================================
   const createResume = () => {
     if (!clerkId) return;
-    router.push('/resumes/new');
+    setShowResumeStartModal(true);
+  };
+
+  const handleResumeStartCreate = () => {
+    setShowResumeStartModal(false);
+    router.push('/resumes/builder/new');
+  };
+
+  const handleResumeStartUpload = async (file: File) => {
+    setShowResumeStartModal(false);
+    setImportingResume(true);
+
+    try {
+      toast({
+        title: 'Importing Resume',
+        description: 'Extracting text from your resume...',
+      });
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const extractResponse = await fetch('/api/resumes/extract', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!extractResponse.ok) {
+        throw new Error('Failed to extract text from resume');
+      }
+
+      const { text } = await extractResponse.json();
+
+      if (!text || text.trim().length === 0) {
+        toast({
+          title: 'Warning',
+          description: 'Could not extract text from PDF. The file may be image-based or corrupted.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Parsing Resume',
+        description: 'Analyzing resume content...',
+      });
+
+      const parseResponse = await fetch('/api/resumes/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText: text }),
+      });
+
+      if (!parseResponse.ok) {
+        throw new Error('Failed to parse resume');
+      }
+
+      const { data: parsedData, warning } = await parseResponse.json();
+
+      const resumeTitle = parsedData.personalInfo?.name
+        ? `${parsedData.personalInfo.name}'s Resume`
+        : `Imported Resume - ${file.name.replace('.pdf', '').replace('.doc', '').replace('.docx', '')}`;
+
+      const newResumeId = await createResumeMutation({
+        clerkId: clerkId!,
+        title: resumeTitle,
+        content: {
+          contactInfo: parsedData.personalInfo,
+          summary: parsedData.summary || '',
+          skills: parsedData.skills || [],
+          experiences: parsedData.experience || [],
+          education: parsedData.education || [],
+          projects: parsedData.projects || [],
+          achievements: parsedData.achievements || [],
+        },
+        visibility: 'private',
+        source: 'pdf_upload',
+        extracted_text: text,
+      });
+
+      toast({
+        title: 'Resume Imported!',
+        description: warning
+          ? `${warning}. Your resume has been imported.`
+          : 'Your resume has been imported and parsed successfully',
+        variant: 'success',
+      });
+
+      // Navigate to the new resume editor
+      router.push(`/resumes/${newResumeId}`);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to import resume',
+        variant: 'destructive',
+      });
+    } finally {
+      setImportingResume(false);
+    }
   };
 
   const getUserProfile = () => {
@@ -2038,6 +2137,17 @@ export default function ResumeStudioPage() {
       </div>
 
       {/* Modals - outside the white wrapper */}
+      <ResumeStartModal
+        open={showResumeStartModal}
+        onClose={() => setShowResumeStartModal(false)}
+        onSelectCreate={handleResumeStartCreate}
+        onSelectUpload={handleResumeStartUpload}
+        onSelectAI={() => {
+          setShowResumeStartModal(false);
+          setResumeSubTab('generate-ai');
+        }}
+      />
+
       {previewResume && (
         <ResumePreviewModal
           open={!!previewResume}

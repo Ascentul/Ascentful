@@ -1421,11 +1421,21 @@ export const INDUSTRIES: Record<Industry, IndustryConfig> = {
 export function detectIndustryFromRole(role: string): Industry {
   const roleLower = role.toLowerCase();
 
-  // Healthcare keywords
+  // Technology keywords - CHECK FIRST as these are most common and specific
   if (
-    /nurse|rn|md|physician|doctor|clinical|patient|medical|healthcare|hospital|pharma|dental|therapist|radiolog|patholog/i.test(
+    /software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack|product manager|ux|ui|web developer|mobile developer|cloud|infrastructure|platform|api|data engineer|data scientist|machine learning|ml engineer|ai engineer|security engineer|qa engineer|test engineer|site reliability/i.test(
       roleLower,
     )
+  ) {
+    return 'technology';
+  }
+
+  // Healthcare keywords - exclude "clinical" if it's clearly tech (e.g., "clinical data")
+  if (
+    /nurse|rn|md|physician|doctor|patient|medical|healthcare|hospital|pharma|dental|therapist|radiolog|patholog/i.test(
+      roleLower,
+    ) &&
+    !/software|developer|engineer|data/i.test(roleLower)
   ) {
     return 'healthcare';
   }
@@ -1533,16 +1543,7 @@ export function detectIndustryFromRole(role: string): Industry {
     return 'real_estate';
   }
 
-  // Default to technology for software/engineering roles
-  if (
-    /software|developer|engineer|programmer|devops|sre|data|frontend|backend|fullstack|product manager|ux|ui/i.test(
-      roleLower,
-    )
-  ) {
-    return 'technology';
-  }
-
-  // Default fallback
+  // Default fallback - technology is a safe default for general business/office roles
   return 'technology';
 }
 

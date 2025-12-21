@@ -982,20 +982,21 @@ export const PATTERNS_BY_CONFIDENCE = [...ALL_PATTERNS].sort(
 // Group patterns by event type for quick lookup
 export const PATTERNS_BY_EVENT_TYPE: Record<EmailEventType, ClassificationPattern[]> = {
   applied_confirmation: ALL_PATTERNS.filter((p) => p.eventType === 'applied_confirmation'),
+  application_viewed: ALL_PATTERNS.filter((p) => p.eventType === 'application_viewed'),
   interview_request: ALL_PATTERNS.filter((p) => p.eventType === 'interview_request'),
   interview_scheduled: ALL_PATTERNS.filter((p) => p.eventType === 'interview_scheduled'),
   interview_rescheduled: ALL_PATTERNS.filter((p) => p.eventType === 'interview_rescheduled'),
   interview_reminder: ALL_PATTERNS.filter((p) => p.eventType === 'interview_reminder'),
+  interview_feedback: ALL_PATTERNS.filter((p) => p.eventType === 'interview_feedback'),
   take_home_assignment: ALL_PATTERNS.filter((p) => p.eventType === 'take_home_assignment'),
-  rejection: ALL_PATTERNS.filter((p) => p.eventType === 'rejection'),
   offer: ALL_PATTERNS.filter((p) => p.eventType === 'offer'),
+  offer_negotiation: ALL_PATTERNS.filter((p) => p.eventType === 'offer_negotiation'),
   background_check: ALL_PATTERNS.filter((p) => p.eventType === 'background_check'),
   reference_request: ALL_PATTERNS.filter((p) => p.eventType === 'reference_request'),
   onboarding: ALL_PATTERNS.filter((p) => p.eventType === 'onboarding'),
-  // New event types
-  application_viewed: ALL_PATTERNS.filter((p) => p.eventType === 'application_viewed'),
+  rejection: ALL_PATTERNS.filter((p) => p.eventType === 'rejection'),
+  withdrawal_confirmation: ALL_PATTERNS.filter((p) => p.eventType === 'withdrawal_confirmation'),
   recruiter_outreach: ALL_PATTERNS.filter((p) => p.eventType === 'recruiter_outreach'),
-  offer_negotiation: ALL_PATTERNS.filter((p) => p.eventType === 'offer_negotiation'),
 };
 
 /**

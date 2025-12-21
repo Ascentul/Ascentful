@@ -263,3 +263,381 @@ export const getResumeById = query({
     return resume;
   },
 });
+
+// ============================================================================
+// Resume Builder 2.0: New mutations and queries
+// ============================================================================
+
+// Create resume from the 3-step funnel
+export const createResumeFromFunnel = mutation({
+  args: {
+    clerkId: v.string(),
+    title: v.string(),
+    intent: v.union(
+      v.literal('internship'),
+      v.literal('fulltime'),
+      v.literal('parttime'),
+      v.literal('grad_school'),
+      v.literal('unsure'),
+    ),
+    startSource: v.union(v.literal('profile'), v.literal('upload'), v.literal('blank')),
+    templateId: v.string(),
+    enabledSections: v.array(v.string()),
+    sectionOrder: v.array(v.string()),
+    content: v.any(),
+    styleConfig: v.optional(
+      v.object({
+        font_pairing: v.optional(v.string()),
+        accent_color: v.optional(v.string()),
+        density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
+        heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const membership =
+      user.role === 'student'
+        ? (await requireMembership(ctx, { role: 'student' })).membership
+        : null;
+
+    const now = Date.now();
+
+    // Create the resume
+    const resumeId = await ctx.db.insert('resumes', {
+      user_id: user._id,
+      university_id: membership?.university_id ?? user.university_id,
+      title: args.title,
+      content: args.content,
+      visibility: 'private',
+      source: 'manual',
+      intent: args.intent,
+      start_source: args.startSource,
+      template_id: args.templateId,
+      style_config: args.styleConfig || {
+        font_pairing: 'modern',
+        accent_color: '#5371FF',
+        density: 'comfortable',
+        heading_style: 'title_case',
+      },
+      sections_config: {
+        enabled_sections: args.enabledSections,
+        section_order: args.sectionOrder,
+      },
+      is_draft: true,
+      last_autosave_at: now,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Create initial version snapshot
+    await ctx.db.insert('resume_versions', {
+      resume_id: resumeId,
+      user_id: user._id,
+      version_number: 1,
+      version_label: 'Initial draft',
+      content_snapshot: args.content,
+      trigger: 'creation',
+      created_at: now,
+    });
+
+    // Audit log
+    await safeLogAudit(ctx, {
+      category: 'user_action',
+      action: 'resume.created_from_funnel',
+      actorUserId: user._id,
+      actorRole: user.role,
+      actorUniversityId: user.university_id,
+      targetType: 'resume',
+      targetId: resumeId,
+      metadata: {
+        title: args.title,
+        intent: args.intent,
+        startSource: args.startSource,
+        templateId: args.templateId,
+      },
+    });
+
+    return resumeId;
+  },
+});
+
+// Autosave resume (debounced from frontend)
+export const autosaveResume = mutation({
+  args: {
+    clerkId: v.string(),
+    resumeId: v.id('resumes'),
+    content: v.optional(v.any()),
+    styleConfig: v.optional(
+      v.object({
+        font_pairing: v.optional(v.string()),
+        accent_color: v.optional(v.string()),
+        density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
+        heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
+      }),
+    ),
+    sectionsConfig: v.optional(
+      v.object({
+        enabled_sections: v.optional(v.array(v.string())),
+        section_order: v.optional(v.array(v.string())),
+      }),
+    ),
+    templateId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume || resume.user_id !== user._id) {
+      throw new Error('Resume not found or access denied');
+    }
+
+    // University isolation check
+    if (resume.university_id && user.university_id && resume.university_id !== user.university_id) {
+      throw new Error('Unauthorized: Resume belongs to another university');
+    }
+
+    const now = Date.now();
+    const updates: Record<string, unknown> = {
+      updated_at: now,
+      last_autosave_at: now,
+    };
+
+    if (args.content !== undefined) {
+      updates.content = args.content;
+    }
+    if (args.styleConfig !== undefined) {
+      updates.style_config = args.styleConfig;
+    }
+    if (args.sectionsConfig !== undefined) {
+      updates.sections_config = args.sectionsConfig;
+    }
+    if (args.templateId !== undefined) {
+      updates.template_id = args.templateId;
+    }
+
+    await ctx.db.patch(args.resumeId, updates);
+
+    return { success: true, savedAt: now };
+  },
+});
+
+// Create a version snapshot (for undo support)
+export const createResumeVersion = mutation({
+  args: {
+    clerkId: v.string(),
+    resumeId: v.id('resumes'),
+    versionLabel: v.optional(v.string()),
+    trigger: v.union(
+      v.literal('creation'),
+      v.literal('ai_edit'),
+      v.literal('manual_save'),
+      v.literal('section_change'),
+    ),
+    contentSnapshot: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume || resume.user_id !== user._id) {
+      throw new Error('Resume not found or access denied');
+    }
+
+    // Get the latest version number
+    const latestVersion = await ctx.db
+      .query('resume_versions')
+      .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+      .order('desc')
+      .first();
+
+    const newVersionNumber = (latestVersion?.version_number || 0) + 1;
+
+    const versionId = await ctx.db.insert('resume_versions', {
+      resume_id: args.resumeId,
+      user_id: user._id,
+      version_number: newVersionNumber,
+      version_label: args.versionLabel,
+      content_snapshot: args.contentSnapshot,
+      trigger: args.trigger,
+      created_at: Date.now(),
+    });
+
+    return { versionId, versionNumber: newVersionNumber };
+  },
+});
+
+// Restore a previous version
+export const restoreResumeVersion = mutation({
+  args: {
+    clerkId: v.string(),
+    resumeId: v.id('resumes'),
+    versionNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume || resume.user_id !== user._id) {
+      throw new Error('Resume not found or access denied');
+    }
+
+    // Find the version to restore
+    const versions = await ctx.db
+      .query('resume_versions')
+      .withIndex('by_resume_version', (q) =>
+        q.eq('resume_id', args.resumeId).eq('version_number', args.versionNumber),
+      )
+      .collect();
+
+    const versionToRestore = versions[0];
+    if (!versionToRestore) {
+      throw new Error('Version not found');
+    }
+
+    // Update the resume with the snapshot
+    await ctx.db.patch(args.resumeId, {
+      content: versionToRestore.content_snapshot,
+      updated_at: Date.now(),
+    });
+
+    // Create a new version snapshot for the restore action
+    const latestVersion = await ctx.db
+      .query('resume_versions')
+      .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+      .order('desc')
+      .first();
+
+    await ctx.db.insert('resume_versions', {
+      resume_id: args.resumeId,
+      user_id: user._id,
+      version_number: (latestVersion?.version_number || 0) + 1,
+      version_label: `Restored from version ${args.versionNumber}`,
+      content_snapshot: versionToRestore.content_snapshot,
+      trigger: 'manual_save',
+      created_at: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Get version history for a resume
+export const getResumeVersions = query({
+  args: {
+    clerkId: v.string(),
+    resumeId: v.id('resumes'),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume || resume.user_id !== user._id) {
+      return [];
+    }
+
+    const versions = await ctx.db
+      .query('resume_versions')
+      .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+      .order('desc')
+      .take(20); // Limit to last 20 versions
+
+    return versions;
+  },
+});
+
+// Get user profile data for resume prefill
+export const getUserProfileForResume = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      return null;
+    }
+
+    // Fetch user's projects
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .order('desc')
+      .take(10);
+
+    return {
+      // Contact info
+      name: user.name,
+      email: user.email,
+      phone: user.phone_number,
+      location: user.location,
+      linkedin: user.linkedin_url,
+      github: user.github_url,
+      website: user.website,
+
+      // Career data
+      current_position: user.current_position,
+      current_company: user.current_company,
+      bio: user.bio,
+      skills: user.skills, // Comma-separated string
+      industry: user.industry,
+      experience_level: user.experience_level,
+
+      // History arrays
+      work_history: user.work_history || [],
+      education_history: user.education_history || [],
+      achievements_history: user.achievements_history || [],
+
+      // Projects from separate table
+      projects: projects.map((p) => ({
+        id: p._id,
+        title: p.title,
+        role: p.role,
+        company: p.company,
+        description: p.description,
+        technologies: p.technologies,
+        url: p.url,
+        github_url: p.github_url,
+        start_date: p.start_date,
+        end_date: p.end_date,
+      })),
+    };
+  },
+});
