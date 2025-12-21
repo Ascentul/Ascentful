@@ -12,34 +12,12 @@ import type OpenAI from 'openai';
 
 import {
   AUTO_UPDATE_CONFIDENCE_THRESHOLD,
+  EMAIL_EVENT_TYPES,
   type EmailEventType,
   type ExtractedEmailEntities,
 } from './emailAutoUpdates';
 
 export const EMAIL_AI_BATCH_EXTRACTOR_PROMPT_VERSION = 'v2';
-
-// =============================================================================
-// EXTENDED EVENT TYPES FOR AI
-// =============================================================================
-
-const EMAIL_EVENT_TYPES: EmailEventType[] = [
-  'applied_confirmation',
-  'application_viewed',
-  'interview_request',
-  'interview_scheduled',
-  'interview_rescheduled',
-  'interview_reminder',
-  'interview_feedback',
-  'take_home_assignment',
-  'offer',
-  'offer_negotiation',
-  'background_check',
-  'reference_request',
-  'onboarding',
-  'rejection',
-  'withdrawal_confirmation',
-  'recruiter_outreach',
-];
 
 // =============================================================================
 // ENHANCED ENTITY SCHEMA
@@ -82,7 +60,7 @@ export type ExtendedEntities = z.infer<typeof ExtendedEntitiesSchema>;
 const BatchEmailClassificationSchema = z.object({
   emailIndex: z.number(),
   classification: z.object({
-    eventType: z.enum(EMAIL_EVENT_TYPES as [EmailEventType, ...EmailEventType[]]),
+    eventType: z.enum([...EMAIL_EVENT_TYPES] as [EmailEventType, ...EmailEventType[]]),
     confidence: z.number().min(0).max(1),
     entities: ExtendedEntitiesSchema.default({}),
     summary: z.string().min(1).max(160),
@@ -470,9 +448,8 @@ export async function processBatchWithAI(input: {
   }>;
 }): Promise<BatchProcessResult> {
   // Filter emails that need AI enhancement (below auto-apply threshold)
-  const AUTO_APPLY_THRESHOLD = 0.85;
   const needsAI = input.emails.filter(
-    (e) => e.ruleClassification.confidence < AUTO_APPLY_THRESHOLD,
+    (e) => e.ruleClassification.confidence < AUTO_UPDATE_CONFIDENCE_THRESHOLD,
   );
 
   // Get AI classifications for those that need it

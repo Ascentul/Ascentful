@@ -126,7 +126,11 @@ function CredentialRequirements({
   hasInternships?: boolean;
   entryPathType?: string;
 }) {
-  if ((!credentials || credentials.length === 0) && hasInternships !== false) {
+  // Show if we have credentials OR a non-standard entry path to display
+  const hasCredentials = credentials && credentials.length > 0;
+  const hasNonStandardEntry = hasInternships === false && entryPathType;
+
+  if (!hasCredentials && !hasNonStandardEntry) {
     return null;
   }
 

@@ -10,38 +10,43 @@ export const EMAIL_SUBJECT_GATE_VERSION = 'v2';
 export type EmailProvider = 'gmail' | 'outlook';
 export type EmailScanMode = 'metadata_only' | 'enhanced';
 
-export type EmailEventType =
+// Email event types - single source of truth
+// The array is used for validation, the type is derived from it
+export const EMAIL_EVENT_TYPES = [
   // Application lifecycle
-  | 'applied_confirmation'
-  | 'application_viewed' // NEW: "Your application was viewed"
+  'applied_confirmation',
+  'application_viewed',
 
   // Interview lifecycle
-  | 'interview_request'
-  | 'interview_scheduled'
-  | 'interview_rescheduled'
-  | 'interview_reminder'
-  | 'interview_feedback' // NEW: Post-interview feedback
+  'interview_request',
+  'interview_scheduled',
+  'interview_rescheduled',
+  'interview_reminder',
+  'interview_feedback',
 
   // Assessment
-  | 'take_home_assignment'
+  'take_home_assignment',
 
   // Offer lifecycle
-  | 'offer'
-  | 'offer_negotiation' // NEW: Counter-offer discussions
+  'offer',
+  'offer_negotiation',
 
   // Pre-offer
-  | 'background_check'
-  | 'reference_request'
+  'background_check',
+  'reference_request',
 
   // Post-offer
-  | 'onboarding'
+  'onboarding',
 
   // Rejection
-  | 'rejection'
-  | 'withdrawal_confirmation' // NEW: Withdrawal acknowledged
+  'rejection',
+  'withdrawal_confirmation',
 
   // Recruiter outreach
-  | 'recruiter_outreach'; // NEW: Inbound recruiter contact
+  'recruiter_outreach',
+] as const;
+
+export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
 
 export const AUTO_UPDATE_CONFIDENCE_THRESHOLD = 0.85;
 export const SUGGEST_CONFIDENCE_THRESHOLD = 0.6;
