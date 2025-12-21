@@ -1,20 +1,52 @@
-export const EMAIL_SUBJECT_GATE_VERSION = 'v1';
+import {
+  companiesMatch,
+  getCompanyFromDomain,
+  isATSDomain,
+  stringSimilarity,
+} from './companyAliases';
+
+export const EMAIL_SUBJECT_GATE_VERSION = 'v2';
 
 export type EmailProvider = 'gmail' | 'outlook';
 export type EmailScanMode = 'metadata_only' | 'enhanced';
 
-export type EmailEventType =
-  | 'applied_confirmation'
-  | 'interview_request'
-  | 'interview_scheduled'
-  | 'interview_rescheduled'
-  | 'interview_reminder'
-  | 'take_home_assignment'
-  | 'rejection'
-  | 'offer'
-  | 'background_check'
-  | 'reference_request'
-  | 'onboarding';
+// Email event types - single source of truth
+// The array is used for validation, the type is derived from it
+export const EMAIL_EVENT_TYPES = [
+  // Application lifecycle
+  'applied_confirmation',
+  'application_viewed',
+
+  // Interview lifecycle
+  'interview_request',
+  'interview_scheduled',
+  'interview_rescheduled',
+  'interview_reminder',
+  'interview_feedback',
+
+  // Assessment
+  'take_home_assignment',
+
+  // Offer lifecycle
+  'offer',
+  'offer_negotiation',
+
+  // Pre-offer
+  'background_check',
+  'reference_request',
+
+  // Post-offer
+  'onboarding',
+
+  // Rejection
+  'rejection',
+  'withdrawal_confirmation',
+
+  // Recruiter outreach
+  'recruiter_outreach',
+] as const;
+
+export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
 
 export const AUTO_UPDATE_CONFIDENCE_THRESHOLD = 0.85;
 export const SUGGEST_CONFIDENCE_THRESHOLD = 0.6;
@@ -194,18 +226,29 @@ export function classifyEmail(input: { subject: string; from: string; snippet?: 
   const entities = extractEntities({ subject, from: input.from, snippet: input.snippet });
 
   const rules: Array<{ type: EmailEventType; re: RegExp; base: number; reason: string }> = [
+    // Rejection patterns (high priority - clear signals)
     {
       type: 'rejection',
-      re: /\b(unfortunately|not moving forward|we regret|rejected|declined)\b/i,
+      re: /\b(unfortunately|not moving forward|we regret|rejected|declined|not selected|position.*filled|chosen another candidate)\b/i,
       base: 0.92,
       reason: 'rejection_phrases',
     },
+
+    // Offer patterns
     {
       type: 'offer',
-      re: /\b(job offer|offer extended|offer letter)\b/i,
-      base: 0.9,
+      re: /\b(job offer|offer extended|offer letter|pleased to offer|excited to offer|would like to offer you)\b/i,
+      base: 0.92,
       reason: 'offer_phrases',
     },
+    {
+      type: 'offer_negotiation',
+      re: /\b(counter.?offer|negotiat.*offer|salary.*discussion)\b/i,
+      base: 0.85,
+      reason: 'offer_negotiation_phrases',
+    },
+
+    // Interview patterns
     {
       type: 'interview_rescheduled',
       re: /\b(rescheduled|new time|updated time)\b.*\binterview\b/i,
@@ -214,51 +257,87 @@ export function classifyEmail(input: { subject: string; from: string; snippet?: 
     },
     {
       type: 'interview_reminder',
-      re: /\b(reminder)\b.*\binterview\b/i,
+      re: /\b(reminder|don't forget|upcoming)\b.*\binterview\b/i,
       base: 0.82,
       reason: 'interview_reminder_phrases',
     },
     {
       type: 'interview_scheduled',
-      re: /\b(interview (confirmation|confirmed)|confirmed interview|calendar invite)\b/i,
-      base: 0.85,
+      re: /\b(interview (confirmation|confirmed)|confirmed interview|calendar invite|interview.*scheduled|interview.*booked)\b/i,
+      base: 0.88,
       reason: 'interview_scheduled_phrases',
     },
     {
       type: 'interview_request',
-      re: /\b(interview request|interview invitation|schedule (an )?interview|availability)\b/i,
-      base: 0.84,
+      re: /\b(interview request|interview invitation|schedule (an )?interview|your availability.*interview|phone screen|video interview|onsite interview|technical interview|panel interview)\b/i,
+      base: 0.86,
       reason: 'interview_request_phrases',
     },
     {
+      type: 'interview_feedback',
+      re: /\b(interview feedback|feedback.*interview|how.*interview went|following up.*interview)\b/i,
+      base: 0.78,
+      reason: 'interview_feedback_phrases',
+    },
+
+    // Assessment patterns
+    {
       type: 'take_home_assignment',
-      re: /\b(take[- ]home|coding challenge|assessment|assignment)\b/i,
-      base: 0.8,
+      re: /\b(take[- ]?home|coding challenge|technical assessment|skills? assessment|coding assignment|hackerrank|codility|codesignal)\b/i,
+      base: 0.84,
       reason: 'assessment_phrases',
     },
+
+    // Background/Reference patterns
     {
       type: 'background_check',
-      re: /\b(background check)\b/i,
-      base: 0.86,
+      re: /\b(background check|background (screening|verification)|checkr|sterling|hireright)\b/i,
+      base: 0.88,
       reason: 'background_check_phrases',
     },
     {
       type: 'reference_request',
-      re: /\b(reference(s)? (request|check)|provide references)\b/i,
-      base: 0.82,
+      re: /\b(reference(s)? (request|check)|provide references|contact.*references)\b/i,
+      base: 0.84,
       reason: 'reference_request_phrases',
     },
+
+    // Onboarding patterns
     {
       type: 'onboarding',
-      re: /\b(onboarding|welcome aboard)\b/i,
-      base: 0.8,
+      re: /\b(onboarding|welcome aboard|first day|new hire|start date confirmed)\b/i,
+      base: 0.84,
       reason: 'onboarding_phrases',
     },
+
+    // Application patterns
     {
       type: 'applied_confirmation',
-      re: /\b(application received|thanks for applying|thank you for applying|we received your application|application was sent|application submitted|successfully applied)\b/i,
+      re: /\b(application received|thanks for applying|thank you for applying|we received your application|application was sent|application submitted|successfully applied|your application to.*was submitted)\b/i,
       base: 0.9,
       reason: 'application_received_phrases',
+    },
+    {
+      type: 'application_viewed',
+      re: /\b(application.*viewed|profile.*viewed|recruiter.*viewed|your application.*being reviewed)\b/i,
+      base: 0.82,
+      reason: 'application_viewed_phrases',
+    },
+
+    // Withdrawal patterns
+    {
+      type: 'withdrawal_confirmation',
+      re: /\b(withdrawal.*confirmed|withdrawn.*application|application.*withdrawn)\b/i,
+      base: 0.86,
+      reason: 'withdrawal_phrases',
+    },
+
+    // Recruiter outreach patterns (lower confidence - could be spam)
+    {
+      type: 'recruiter_outreach',
+      re: /\b(reaching out about.*position|interested in your profile|opportunity at|recruiting for|saw your (profile|resume|linkedin)|open (role|position|opportunity))\b/i,
+      base: 0.72,
+      reason: 'recruiter_outreach_phrases',
     },
   ];
 
@@ -448,31 +527,58 @@ export function rankApplicationsForEmail(input: {
 
   const subjectNorm = normalizeRoleTitle(input.subject);
 
+  // Try to get company name from email domain (if not an ATS)
+  let domainCompany: string | null = null;
+  if (emailDomain && !isATSDomain(emailDomain)) {
+    domainCompany = getCompanyFromDomain(emailDomain);
+  }
+
   const scored = input.applications
     .map((app) => {
       const companyNorm = normalizeCompanyName(app.company);
       const roleNorm = normalizeRoleTitle(app.job_title);
 
-      const companyScore = extractedCompany
-        ? Math.max(
+      let companyScore = 0;
+
+      if (extractedCompany) {
+        // 1. Exact normalized match (highest confidence)
+        if (companyNorm === extractedCompany) {
+          companyScore = 1.0;
+        }
+        // 2. Check alias-aware match
+        else if (companiesMatch(app.company, input.extracted.companyName || '')) {
+          companyScore = 0.98;
+        }
+        // 3. Contains match
+        else if (companyNorm.includes(extractedCompany) || extractedCompany.includes(companyNorm)) {
+          companyScore = 0.9;
+        }
+        // 4. Fuzzy string similarity
+        else {
+          companyScore = Math.max(
             tokenJaccard(companyNorm, extractedCompany),
-            companyNorm === extractedCompany ? 1 : 0,
-            companyNorm.includes(extractedCompany) || extractedCompany.includes(companyNorm)
-              ? 0.9
-              : 0,
-          )
-        : tokenJaccard(companyNorm, subjectNorm) * 0.7;
+            stringSimilarity(companyNorm, extractedCompany) * 0.9,
+          );
+        }
+      } else {
+        companyScore = tokenJaccard(companyNorm, subjectNorm) * 0.7;
+      }
 
       const roleScore = extractedRole
         ? tokenJaccard(roleNorm, extractedRole)
         : tokenJaccard(roleNorm, subjectNorm);
 
-      const domainBoost =
+      // Enhanced domain boost using company alias database
+      let domainBoost = 0;
+      if (domainCompany && companiesMatch(app.company, domainCompany)) {
+        domainBoost = 0.15; // Strong boost if domain matches company
+      } else if (
         emailDomain &&
         companyNorm &&
         safeLower(emailDomain).includes(companyNorm.split(' ')[0] || '')
-          ? 0.08
-          : 0;
+      ) {
+        domainBoost = 0.08; // Fallback to original heuristic
+      }
 
       const score = clamp01(companyScore * 0.7 + roleScore * 0.3 + domainBoost);
 
@@ -519,25 +625,44 @@ export type ApplicationStage =
 
 export function mapEmailEventTypeToStage(eventType: EmailEventType): ApplicationStage {
   switch (eventType) {
+    // Application lifecycle
     case 'applied_confirmation':
       return 'Applied';
+    case 'application_viewed':
+      return 'Applied'; // Still in Applied stage, just viewed
+
+    // Interview lifecycle
     case 'interview_request':
     case 'interview_scheduled':
     case 'interview_rescheduled':
     case 'interview_reminder':
+    case 'interview_feedback':
       return 'Interview';
+
+    // Assessment
     case 'take_home_assignment':
-      // No dedicated Assessment stage in Ascentful stage model
-      return 'Interview';
+      return 'Interview'; // No dedicated Assessment stage in Ascentful stage model
+
+    // Offer lifecycle
     case 'offer':
+    case 'offer_negotiation':
     case 'background_check':
     case 'reference_request':
       return 'Offer';
+
+    // Post-offer
     case 'onboarding':
-      // Best fit for "hired" in Ascentful stage model
-      return 'Accepted';
+      return 'Accepted'; // Best fit for "hired" in Ascentful stage model
+
+    // Rejection
     case 'rejection':
       return 'Rejected';
+    case 'withdrawal_confirmation':
+      return 'Withdrawn';
+
+    // Recruiter outreach
+    case 'recruiter_outreach':
+      return 'Prospect'; // Not yet applied, just contacted
   }
 }
 

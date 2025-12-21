@@ -171,9 +171,13 @@ export default function InterviewPracticePage() {
   });
 
   // Dedupe role profiles by job_title to prevent duplicate entries showing
+  // Sort by created_at descending first to keep the most recent profile for each title
   // Guard against undefined job_title values - uses Set for O(n) complexity
+  const sortedProfiles = [...roleProfiles].sort(
+    (a: RoleProfile, b: RoleProfile) => (b.created_at || 0) - (a.created_at || 0),
+  );
   const seenTitles = new Set<string>();
-  const uniqueRoleProfiles = roleProfiles.filter((profile: RoleProfile) => {
+  const uniqueRoleProfiles = sortedProfiles.filter((profile: RoleProfile) => {
     if (!profile.job_title || seenTitles.has(profile.job_title)) {
       return false;
     }

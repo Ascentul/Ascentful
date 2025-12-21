@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 import { evaluate } from '@/lib/ai-evaluation';
+import {
+  getAlternativeEntryRoles,
+  getIndustryRoleTransitions,
+} from '@/lib/career-explorer/industryRoleTransitions';
+import {
+  detectIndustryFromRole,
+  INDUSTRIES,
+  Industry,
+} from '@/lib/career-explorer/industryTaxonomy';
+import {
+  getEntryPathForMajor,
+  getIndustryForMajor,
+} from '@/lib/career-explorer/majorIndustryMapping';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
@@ -2820,6 +2833,7 @@ function roleSimilarity(role1: string, role2: string): number {
 }
 
 // Try to get instant results from pre-built database
+// Now prioritizes industry-specific role transitions
 function getInstantResults(
   currentRole: string,
   category: string | undefined,
@@ -2831,8 +2845,28 @@ function getInstantResults(
   const isMajor = category?.toLowerCase().includes('major');
   const isInternship = category?.toLowerCase().includes('intern');
 
+  // Detect industry from major or current role
+  let detectedIndustry: Industry = 'technology';
+  if (isMajor) {
+    detectedIndustry = getIndustryForMajor(currentRole) || 'technology';
+  } else {
+    detectedIndustry = detectIndustryFromRole(currentRole);
+  }
+
+  const industryConfig = INDUSTRIES[detectedIndustry];
+
   // For majors requesting internships (column 1 when starting from major)
   if (isMajor && column === 'internship') {
+    // Check if this industry has internships
+    if (!industryConfig.hasInternships) {
+      // Return alternative entry path roles instead
+      const altRoles = getAlternativeEntryRoles(detectedIndustry, currentRole);
+      if (altRoles.length > 0) {
+        return altRoles.slice(0, count);
+      }
+    }
+
+    // Fall back to major-specific internships for industries with internships
     for (const [majorKey, roles] of Object.entries(MAJOR_INTERNSHIPS)) {
       if (roleLower.includes(majorKey) || majorKey.includes(roleLower)) {
         return roles.slice(0, count);
@@ -2858,17 +2892,25 @@ function getInstantResults(
     }
   }
 
-  // For professional roles, try the transitions database with improved matching
-  // Note: ROLE_TRANSITIONS only has entry_level, lateral, promotion - not internship
+  // For professional roles, try industry-specific transitions FIRST
   if (column && column !== 'internship') {
-    // First, try exact/contains match
+    // First, try industry-specific role transitions
+    const industryTransitions = getIndustryRoleTransitions(detectedIndustry, currentRole);
+    if (industryTransitions && industryTransitions[column]) {
+      const roles = industryTransitions[column];
+      if (roles && roles.length > 0) {
+        return roles.slice(0, count);
+      }
+    }
+
+    // Second, try generic ROLE_TRANSITIONS database with exact/contains match
     for (const [roleKey, transitions] of Object.entries(ROLE_TRANSITIONS)) {
       if (roleLower.includes(roleKey) || roleKey.includes(roleLower)) {
         return transitions[column]?.slice(0, count) || null;
       }
     }
 
-    // Second, try normalized matching (strips "Senior", "Junior", etc.)
+    // Third, try normalized matching (strips "Senior", "Junior", etc.)
     for (const [roleKey, transitions] of Object.entries(ROLE_TRANSITIONS)) {
       const keyNormalized = normalizeRoleTitle(roleKey);
       if (
@@ -2880,7 +2922,7 @@ function getInstantResults(
       }
     }
 
-    // Third, try fuzzy word matching
+    // Fourth, try fuzzy word matching
     let bestMatch: { key: string; score: number } | null = null;
     for (const roleKey of Object.keys(ROLE_TRANSITIONS)) {
       const score = roleSimilarity(currentRole, roleKey);

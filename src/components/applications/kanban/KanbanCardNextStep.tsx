@@ -2,6 +2,7 @@
 
 import { AlertCircle, Clock } from 'lucide-react';
 
+import { formatDuration } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 import type { KanbanApplication } from './types';
@@ -17,21 +18,6 @@ interface KanbanCardNextStepProps {
  */
 export function KanbanCardNextStep({ application }: KanbanCardNextStepProps) {
   const now = Date.now();
-
-  // Helper to format relative time
-  const formatDistanceToNow = (timestamp: number): string => {
-    const diff = Math.abs(now - timestamp);
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-
-    if (days > 0) {
-      return `${days} day${days === 1 ? '' : 's'}`;
-    }
-    if (hours > 0) {
-      return `${hours} hour${hours === 1 ? '' : 's'}`;
-    }
-    return 'less than an hour';
-  };
 
   // Priority 1: Due date / follow-up
   if (application.due_date) {
@@ -52,8 +38,8 @@ export function KanbanCardNextStep({ application }: KanbanCardNextStepProps) {
         )}
         <span className="truncate">
           {isOverdue
-            ? `Overdue • ${formatDistanceToNow(dueDate)} ago`
-            : `Due • in ${formatDistanceToNow(dueDate)}`}
+            ? `Overdue • ${formatDuration(dueDate, now)} ago`
+            : `Due • in ${formatDuration(dueDate, now)}`}
         </span>
       </div>
     );

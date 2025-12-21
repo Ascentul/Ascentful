@@ -432,6 +432,13 @@ export function ApplicationDetails({
         due_at: due,
       } as any);
       setFollowForm({ description: '', due_date: undefined });
+    } catch (e) {
+      console.error('Failed to add follow-up:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to add follow-up',
+        variant: 'destructive',
+      });
     } finally {
       setAddingFollowup(false);
     }

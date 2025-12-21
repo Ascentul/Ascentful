@@ -47,7 +47,7 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         <button
           type="button"
           onClick={() => sidebarContext?.expand()}
-          className="hidden md:flex items-center justify-center fixed top-5 z-[9999] h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
+          className="hidden md:flex items-center justify-center fixed top-5 z-40 h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
           style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
           aria-label="Expand sidebar"
         >

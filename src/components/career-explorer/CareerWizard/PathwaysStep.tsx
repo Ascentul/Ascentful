@@ -1,22 +1,198 @@
 'use client';
 
 import {
+  AlertTriangle,
   Briefcase,
   Check,
+  ChevronDown,
+  ChevronUp,
   GraduationCap,
+  Info,
   Loader2,
   Plus,
   Sparkles,
   TrendingUp,
   Users,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import {
+  calculatePathRealismScore,
+  validateCareerPath,
+  type ValidationResult,
+} from '@/lib/career-explorer/careerPathValidator';
+import { detectIndustryFromRole } from '@/lib/career-explorer/industryTaxonomy';
 import type { PlacedStep, StartingRole } from '@/lib/career-explorer/types';
 
 import { RoleHoverCard } from './RoleHoverCard';
+
+// Path Validation Feedback Component
+interface PathValidationFeedbackProps {
+  validation: ValidationResult | null;
+  realismScore: number;
+  showExpanded?: boolean;
+}
+
+function PathValidationFeedback({
+  validation,
+  realismScore,
+  showExpanded = false,
+}: PathValidationFeedbackProps) {
+  const [isExpanded, setIsExpanded] = useState(showExpanded);
+
+  if (!validation || (validation.errors.length === 0 && validation.warnings.length === 0)) {
+    // Show positive feedback when path is valid
+    if (realismScore >= 80) {
+      return (
+        <div className="mt-6 p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <Check className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-medium text-emerald-900 text-sm">Great career path!</p>
+              <p className="text-xs text-emerald-700">
+                Your selected progression follows realistic career steps.
+              </p>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className="text-xs text-emerald-600">Realism Score</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 text-xs font-semibold">
+                {realismScore}%
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const hasErrors = validation.errors.length > 0;
+  const totalIssues = validation.errors.length + validation.warnings.length;
+
+  return (
+    <div
+      className={`mt-6 p-4 rounded-xl border ${hasErrors ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50'}`}
+    >
+      {/* Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasErrors ? 'bg-amber-100' : 'bg-blue-100'}`}
+        >
+          {hasErrors ? (
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+          ) : (
+            <Info className="w-4 h-4 text-blue-600" />
+          )}
+        </div>
+        <div className="flex-1">
+          <p className={`font-medium text-sm ${hasErrors ? 'text-amber-900' : 'text-blue-900'}`}>
+            {hasErrors ? 'Career path needs attention' : 'Suggestions for your path'}
+          </p>
+          <p className={`text-xs ${hasErrors ? 'text-amber-700' : 'text-blue-700'}`}>
+            {totalIssues} {totalIssues === 1 ? 'item' : 'items'} to review
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className={`text-xs ${hasErrors ? 'text-amber-600' : 'text-blue-600'}`}>
+              Realism
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                realismScore >= 80
+                  ? 'bg-emerald-200 text-emerald-800'
+                  : realismScore >= 60
+                    ? 'bg-amber-200 text-amber-800'
+                    : 'bg-red-200 text-red-800'
+              }`}
+            >
+              {realismScore}%
+            </span>
+          </div>
+          {isExpanded ? (
+            <ChevronUp className={`w-4 h-4 ${hasErrors ? 'text-amber-500' : 'text-blue-500'}`} />
+          ) : (
+            <ChevronDown className={`w-4 h-4 ${hasErrors ? 'text-amber-500' : 'text-blue-500'}`} />
+          )}
+        </div>
+      </button>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="mt-4 space-y-3">
+          {/* Errors */}
+          {validation.errors.map((error, idx) => (
+            <div
+              key={`error-${idx}`}
+              className="p-3 rounded-lg bg-amber-100/50 border border-amber-200"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm text-amber-900">{error.message}</p>
+                  {error.suggestion && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      {typeof error.suggestion === 'string'
+                        ? error.suggestion
+                        : `Consider: ${(error.suggestion as string[]).join(', ')}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Warnings */}
+          {validation.warnings.map((warning, idx) => (
+            <div
+              key={`warning-${idx}`}
+              className="p-3 rounded-lg bg-blue-100/50 border border-blue-200"
+            >
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm text-blue-900">{warning.message}</p>
+                  {warning.suggestion && (
+                    <p className="text-xs text-blue-700 mt-1">
+                      {typeof warning.suggestion === 'string'
+                        ? warning.suggestion
+                        : `Consider: ${(warning.suggestion as string[]).join(', ')}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Suggestions */}
+          {validation.suggestions.length > 0 && (
+            <div className="pt-2 border-t border-neutral-200">
+              <p className="text-xs font-medium text-neutral-600 mb-2">Tips for improvement:</p>
+              <ul className="space-y-1">
+                {validation.suggestions.map((suggestion, idx) => (
+                  <li
+                    key={`suggestion-${idx}`}
+                    className="text-xs text-neutral-600 flex items-start gap-1.5"
+                  >
+                    <span className="text-neutral-400 mt-0.5">•</span>
+                    <span>{suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface NextRole {
   id: string;
@@ -192,6 +368,58 @@ export function PathwaysStep({
   const [suggestedCol2, setSuggestedCol2] = useState<string | null>(null);
   const [suggestedCol3, setSuggestedCol3] = useState<string | null>(null);
   const [suggestedCol4, setSuggestedCol4] = useState<string | null>(null);
+
+  // Career path validation - validates the current selected path for realism
+  const pathValidation = useMemo(() => {
+    // Build the current path from selected roles
+    const currentPath: PlacedStep[] = [];
+
+    if (selectedCol1Role) {
+      currentPath.push({
+        id: selectedCol1Role.id,
+        title: selectedCol1Role.title,
+        fit_score: selectedCol1Role.fit_score,
+        index: 0,
+      });
+    }
+    if (selectedCol2Role) {
+      currentPath.push({
+        id: selectedCol2Role.id,
+        title: selectedCol2Role.title,
+        fit_score: selectedCol2Role.fit_score,
+        index: 1,
+      });
+    }
+    if (selectedCol3Role) {
+      currentPath.push({
+        id: selectedCol3Role.id,
+        title: selectedCol3Role.title,
+        fit_score: selectedCol3Role.fit_score,
+        index: 2,
+      });
+    }
+    if (selectedCol4Role) {
+      currentPath.push({
+        id: selectedCol4Role.id,
+        title: selectedCol4Role.title,
+        fit_score: selectedCol4Role.fit_score,
+        index: 3,
+      });
+    }
+
+    // Only validate if we have at least 2 roles selected (need a transition to validate)
+    if (currentPath.length < 2) {
+      return { validation: null, realismScore: 100 };
+    }
+
+    // Detect industry from starting role or major
+    const industry = detectIndustryFromRole(startingRole.title || currentPath[0]?.title || '');
+
+    const validation = validateCareerPath(currentPath, industry);
+    const { score: realismScore } = calculatePathRealismScore(currentPath, industry);
+
+    return { validation, realismScore };
+  }, [selectedCol1Role, selectedCol2Role, selectedCol3Role, selectedCol4Role, startingRole.title]);
 
   // Fetch suggested role for a column based on user data
   const fetchSuggestedRole = useCallback(
@@ -1769,6 +1997,14 @@ export function PathwaysStep({
             </div>
           )}
         </div>
+
+        {/* Path Validation Feedback - shows when at least 2 roles are selected */}
+        {selectedCol1Role && selectedCol2Role && (
+          <PathValidationFeedback
+            validation={pathValidation.validation}
+            realismScore={pathValidation.realismScore}
+          />
+        )}
       </div>
     </div>
   );

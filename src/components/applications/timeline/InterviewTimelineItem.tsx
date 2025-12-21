@@ -124,7 +124,12 @@ export function InterviewTimelineItem({
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelEdit}>
               Cancel
             </Button>
-            <Button size="sm" className="h-7 text-xs" onClick={onSaveEdit}>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onSaveEdit}
+              disabled={!editingStage.title.trim()}
+            >
               Save
             </Button>
           </div>

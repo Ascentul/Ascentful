@@ -3,20 +3,40 @@ import { z } from 'zod';
 import type { EmailEventType, ExtractedEmailEntities } from './emailAutoUpdates';
 import { AUTO_UPDATE_CONFIDENCE_THRESHOLD } from './emailAutoUpdates';
 
-export const EMAIL_AI_EXTRACTOR_PROMPT_VERSION = 'v1';
+export const EMAIL_AI_EXTRACTOR_PROMPT_VERSION = 'v2';
 
 const EMAIL_EVENT_TYPES: EmailEventType[] = [
+  // Application lifecycle
   'applied_confirmation',
+  'application_viewed',
+
+  // Interview lifecycle
   'interview_request',
   'interview_scheduled',
   'interview_rescheduled',
   'interview_reminder',
+  'interview_feedback',
+
+  // Assessment
   'take_home_assignment',
-  'rejection',
+
+  // Offer lifecycle
   'offer',
+  'offer_negotiation',
+
+  // Pre-offer
   'background_check',
   'reference_request',
+
+  // Post-offer
   'onboarding',
+
+  // Rejection
+  'rejection',
+  'withdrawal_confirmation',
+
+  // Outreach
+  'recruiter_outreach',
 ];
 
 export const EmailAiExtractorOutputSchema = z.object({
@@ -45,19 +65,49 @@ export function buildEmailAiExtractorMessages(input: {
   const snippet = input.snippet ? input.snippet.trim() : '';
   const hasSnippet = snippet.length > 0;
 
+  const eventTypesList = EMAIL_EVENT_TYPES.map((t) => `"${t}"`).join(' | ');
+
   const system = `You classify job application lifecycle emails for a personal job tracker.
 Return STRICT JSON only (no markdown) matching this schema:
 {
-  "eventType": ${EMAIL_EVENT_TYPES.map((t) => `"${t}"`).join(' | ')},
+  "eventType": ${eventTypesList},
   "confidence": number (0..1),
-  "entities": { "companyName"?: string, "roleTitle"?: string, "interviewDateTime"?: string, "recruiterName"?: string, "trackingId"?: string, "requisitionId"?: string },
+  "entities": {
+    "companyName"?: string,
+    "roleTitle"?: string,
+    "interviewDateTime"?: string (ISO 8601 format preferred),
+    "recruiterName"?: string,
+    "trackingId"?: string,
+    "requisitionId"?: string
+  },
   "summary": string (<=160 chars, one short line)
 }
-Rules:
+
+EVENT TYPE GUIDE:
+- applied_confirmation: "We received your application", "Thanks for applying"
+- application_viewed: "Your application was viewed", "Recruiter viewed your profile"
+- interview_request: "We'd like to schedule an interview", "Your availability"
+- interview_scheduled: "Your interview is confirmed", "Calendar invite"
+- interview_rescheduled: "Interview time has changed", "New interview time"
+- interview_reminder: "Reminder about your upcoming interview"
+- interview_feedback: "Following up on your interview", "How did the interview go"
+- take_home_assignment: "Please complete this assessment", "Coding challenge"
+- offer: "We're pleased to offer you", "Job offer", "Offer letter"
+- offer_negotiation: "Regarding your compensation package", "Counter offer"
+- background_check: "Background verification required", "Checkr/Sterling"
+- reference_request: "Please provide references"
+- onboarding: "Welcome aboard", "Start date info", "New hire paperwork"
+- rejection: "Unfortunately", "Not moving forward", "Position filled"
+- withdrawal_confirmation: "Your withdrawal has been processed"
+- recruiter_outreach: "I found your profile", "Opportunity at...", "Reaching out"
+
+RULES:
 - Use only the provided subject/from${hasSnippet ? '/snippet' : ''}; never assume unseen content.
 - If unsure, set confidence < 0.6.
 - Prefer conservative confidence; reserve >= 0.85 for very clear cases.
-- Do not include any sensitive personal data in "summary".`;
+- Do not include any sensitive personal data in "summary".
+- Extract company name from subject if present (e.g., "at Google", "from Meta").
+- Extract role title if mentioned (e.g., "Software Engineer position").`;
 
   const user = `PROMPT_VERSION=${EMAIL_AI_EXTRACTOR_PROMPT_VERSION}
 

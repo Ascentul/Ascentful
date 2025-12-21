@@ -2,6 +2,16 @@ import { auth } from '@clerk/nextjs/server';
 import { fetchQuery } from 'convex/nextjs';
 import { NextResponse } from 'next/server';
 
+import {
+  detectCareerLevelGeneric,
+  detectIndustryFromRole,
+  getCareerLevel,
+  getMaxReasonableLevelJump,
+  INDUSTRIES,
+  Industry,
+} from '@/lib/career-explorer/industryTaxonomy';
+import { getIndustryForMajor } from '@/lib/career-explorer/majorIndustryMapping';
+
 import { api } from '../../../../../convex/_generated/api';
 
 interface SuggestedRoleRequest {
@@ -14,6 +24,7 @@ interface SuggestedRoleRequest {
   }>;
   column: 'entry_level' | 'lateral' | 'promotion' | 'internship';
   currentPathTitles?: string[]; // Titles already in the path
+  major?: string; // User's major for industry detection
 }
 
 interface SuggestedRoleResponse {
@@ -23,92 +34,38 @@ interface SuggestedRoleResponse {
 }
 
 /**
- * Career Level Hierarchy (lower number = more junior)
- * This represents realistic career progression in most industries
+ * Get industry context from major or current role
  */
-const CAREER_LEVELS: { keywords: string[]; level: number; name: string }[] = [
-  { keywords: ['intern', 'internship'], level: 0, name: 'Intern' },
-  {
-    keywords: ['junior', 'associate', 'entry', 'assistant', 'trainee', 'apprentice'],
-    level: 1,
-    name: 'Entry Level',
-  },
-  {
-    keywords: ['specialist', 'analyst', 'coordinator', 'representative'],
-    level: 2,
-    name: 'Individual Contributor',
-  },
-  { keywords: ['senior', 'sr.', 'sr '], level: 3, name: 'Senior' },
-  { keywords: ['lead', 'team lead', 'tech lead', 'principal'], level: 4, name: 'Lead' },
-  { keywords: ['manager', 'mgr'], level: 5, name: 'Manager' },
-  { keywords: ['senior manager', 'sr. manager', 'sr manager'], level: 6, name: 'Senior Manager' },
-  { keywords: ['director', 'head of', 'head '], level: 7, name: 'Director' },
-  {
-    keywords: ['senior director', 'sr. director', 'sr director'],
-    level: 8,
-    name: 'Senior Director',
-  },
-  { keywords: ['vp', 'vice president', 'v.p.'], level: 9, name: 'VP' },
-  { keywords: ['svp', 'senior vice president', 'senior vp'], level: 10, name: 'SVP' },
-  { keywords: ['evp', 'executive vice president'], level: 11, name: 'EVP' },
-  { keywords: ['ceo', 'cto', 'cfo', 'cmo', 'coo', 'cio', 'chief'], level: 12, name: 'C-Suite' },
-];
-
-/**
- * Detect the career level of a role title
- * Returns level 2 (IC) as default if no specific level markers found
- */
-function detectCareerLevel(title: string): { level: number; name: string } {
-  const titleLower = title.toLowerCase();
-
-  // Check from highest to lowest level (more specific matches first)
-  // This ensures "Senior Director" is matched before "Director"
-  for (let i = CAREER_LEVELS.length - 1; i >= 0; i--) {
-    const levelInfo = CAREER_LEVELS[i];
-    for (const keyword of levelInfo.keywords) {
-      if (titleLower.includes(keyword)) {
-        return { level: levelInfo.level, name: levelInfo.name };
-      }
+function getIndustryFromContext(role?: string, major?: string): Industry {
+  // 1. Check major mapping first (more reliable)
+  if (major) {
+    const industryFromMajor = getIndustryForMajor(major);
+    if (industryFromMajor) {
+      return industryFromMajor;
     }
   }
-
-  // Default to IC level (2) for unrecognized roles
-  return { level: 2, name: 'Individual Contributor' };
-}
-
-/**
- * Calculate the appropriate next level for career progression
- * Realistic progression is typically +1 level at a time
- */
-function getIdealNextLevel(currentLevel: number, column: string): number {
-  switch (column) {
-    case 'internship':
-      return 0; // Looking for internships
-    case 'entry_level':
-      // From intern/major → entry level (1-2)
-      // From entry level → senior (3)
-      return currentLevel <= 1 ? 2 : currentLevel + 1;
-    case 'lateral':
-      // Same level, different function
-      return currentLevel;
-    case 'promotion':
-      // One level up is realistic
-      return Math.min(currentLevel + 1, 12);
-    default:
-      return currentLevel + 1;
+  // 2. Check role keywords
+  if (role) {
+    return detectIndustryFromRole(role);
   }
+  // 3. Default to technology
+  return 'technology';
 }
 
 /**
  * Check if a progression from one level to another is realistic
- * Returns a score modifier (-50 to +20)
+ * Uses industry-specific maximum level jumps
+ * Returns a score modifier (-50 to +25)
  */
 function getProgressionRealism(
   fromLevel: number,
   toLevel: number,
   column: string,
+  industry: Industry = 'technology',
 ): { modifier: number; reason: string; isRealistic: boolean } {
   const levelDiff = toLevel - fromLevel;
+  const maxJump = getMaxReasonableLevelJump(industry);
+  const industryConfig = INDUSTRIES[industry];
 
   if (column === 'lateral') {
     // Lateral moves should be same level
@@ -122,24 +79,29 @@ function getProgressionRealism(
   }
 
   if (column === 'promotion') {
-    // Ideal promotion is +1 level, but +2-3 is still realistic in many careers
-    // (e.g., Specialist→Manager is often a direct path)
+    // Use industry-specific max jump (stricter for academia, legal, healthcare, trades)
     if (levelDiff === 1) {
       return { modifier: 25, reason: 'Natural next step', isRealistic: true };
-    } else if (levelDiff === 2) {
+    } else if (levelDiff === 2 && maxJump >= 2) {
       return { modifier: 15, reason: 'Strong promotion path', isRealistic: true };
-    } else if (levelDiff === 3) {
-      return { modifier: 5, reason: 'Ambitious but achievable', isRealistic: true };
+    } else if (levelDiff === 2 && maxJump === 1) {
+      // Industries with strict progression (academia, legal, healthcare, trades)
+      return {
+        modifier: -20,
+        reason: `${industryConfig.name} typically requires step-by-step progression`,
+        isRealistic: false,
+      };
+    } else if (levelDiff >= 3) {
+      // All industries: 3+ level jumps are unrealistic
+      return {
+        modifier: -50,
+        reason: `Skipping ${levelDiff - 1} level(s) is unrealistic`,
+        isRealistic: false,
+      };
     } else if (levelDiff === 0) {
       return { modifier: -10, reason: 'Not a promotion', isRealistic: false };
     } else if (levelDiff < 0) {
       return { modifier: -40, reason: 'Demotion, not promotion', isRealistic: false };
-    } else if (levelDiff >= 4) {
-      return {
-        modifier: -50,
-        reason: 'Unrealistic jump - skips too many levels',
-        isRealistic: false,
-      };
     }
   }
 
@@ -155,6 +117,15 @@ function getProgressionRealism(
   }
 
   if (column === 'internship') {
+    // Check if industry has internships
+    if (!industryConfig.hasInternships) {
+      const altPath = industryConfig.entryPathType;
+      return {
+        modifier: -30,
+        reason: `${industryConfig.name} typically uses ${altPath.replace('_', ' ')} instead of internships`,
+        isRealistic: false,
+      };
+    }
     if (toLevel === 0) {
       return { modifier: 20, reason: 'Appropriate internship', isRealistic: true };
     } else {
@@ -238,7 +209,7 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
-    const { roles, column, currentPathTitles = [] } = body;
+    const { roles, column, currentPathTitles = [], major } = body;
 
     if (!roles || roles.length === 0) {
       return NextResponse.json({
@@ -250,8 +221,14 @@ export async function POST(request: Request) {
 
     // Determine the current role level from the path
     const lastPathTitle = currentPathTitles[currentPathTitles.length - 1];
-    const currentLevel = lastPathTitle
-      ? detectCareerLevel(lastPathTitle)
+
+    // Detect industry from major or current role
+    const detectedIndustry = getIndustryFromContext(lastPathTitle, major);
+
+    // Use industry-aware career level detection
+    const currentLevelInfo = lastPathTitle ? getCareerLevel(lastPathTitle, detectedIndustry) : null;
+    const currentLevel = currentLevelInfo
+      ? { level: currentLevelInfo.level, name: currentLevelInfo.name }
       : { level: 1, name: 'Entry Level' }; // Default for new paths
 
     const currentFunctionalAreas = lastPathTitle ? extractFunctionalArea(lastPathTitle) : [];
@@ -262,7 +239,11 @@ export async function POST(request: Request) {
 
     // Calculate alignment scores for each role
     const scoredRoles = roles.map((role) => {
-      const roleLevel = detectCareerLevel(role.title);
+      // Use industry-aware level detection
+      const roleLevelInfo = getCareerLevel(role.title, detectedIndustry);
+      const roleLevel = roleLevelInfo
+        ? { level: roleLevelInfo.level, name: roleLevelInfo.name }
+        : detectCareerLevelGeneric(role.title); // Fallback to generic detection
       const roleFunctionalAreas = extractFunctionalArea(role.title);
 
       // Start with base fit score
@@ -271,7 +252,13 @@ export async function POST(request: Request) {
       let isRealistic = true;
 
       // 1. CAREER PROGRESSION REALISM (highest weight - can heavily penalize unrealistic paths)
-      const progression = getProgressionRealism(currentLevel.level, roleLevel.level, column);
+      // Now uses industry-specific maximum level jumps
+      const progression = getProgressionRealism(
+        currentLevel.level,
+        roleLevel.level,
+        column,
+        detectedIndustry,
+      );
       alignmentScore += progression.modifier;
       isRealistic = progression.isRealistic;
 

@@ -5,12 +5,14 @@ import {
   Bookmark,
   BookmarkCheck,
   Briefcase,
+  Building2,
   Calendar,
   ChevronRight,
   Clock,
   DollarSign,
   GraduationCap,
   Plus,
+  Shield,
   TrendingUp,
   Users,
   X,
@@ -30,7 +32,12 @@ import {
   getFitScoreColor,
   getFitScoreLabel,
 } from '@/lib/career-explorer/fit-scoring';
-import type { ConfidenceLabel, FitScore, RoleDetail } from '@/lib/career-explorer/types';
+import type {
+  ConfidenceLabel,
+  FitScore,
+  RoleDetail,
+  RoleIndustryContext,
+} from '@/lib/career-explorer/types';
 
 import { CertificationsTab } from './CertificationsTab';
 import { CompensationTab } from './CompensationTab';
@@ -66,6 +73,99 @@ function ConfidenceBadge({ confidence }: { confidence: ConfidenceLabel }) {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+function IndustryBadge({ industryContext }: { industryContext: RoleIndustryContext }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="outline"
+            className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs"
+          >
+            <Building2 className="w-3 h-3 mr-1" />
+            {industryContext.industryName}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <div className="space-y-1">
+            {industryContext.careerLevel && (
+              <p className="text-xs">
+                <span className="font-medium">Level:</span> {industryContext.careerLevel.name}
+              </p>
+            )}
+            {industryContext.typicalProgression && (
+              <p className="text-xs">
+                <span className="font-medium">Typical path:</span>{' '}
+                {industryContext.typicalProgression.slice(0, 4).join(' → ')}
+              </p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function CareerLevelBadge({ level }: { level: { level: number; name: string } }) {
+  return (
+    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+      Level {level.level}: {level.name}
+    </Badge>
+  );
+}
+
+function CredentialRequirements({
+  credentials,
+  hasInternships,
+  entryPathType,
+}: {
+  credentials?: string[];
+  hasInternships?: boolean;
+  entryPathType?: string;
+}) {
+  // Show if we have credentials OR a non-standard entry path to display
+  const hasCredentials = credentials && credentials.length > 0;
+  const hasNonStandardEntry = hasInternships === false && entryPathType;
+
+  if (!hasCredentials && !hasNonStandardEntry) {
+    return null;
+  }
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/50">
+      <CardContent className="p-3">
+        <div className="flex items-start gap-2">
+          <Shield className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="space-y-1">
+            {!hasInternships && entryPathType && (
+              <p className="text-xs text-amber-800">
+                <span className="font-medium">Entry path:</span> {entryPathType.replace(/_/g, ' ')}{' '}
+                (not traditional internships)
+              </p>
+            )}
+            {credentials && credentials.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-amber-800 mb-1">Common credentials:</p>
+                <div className="flex flex-wrap gap-1">
+                  {credentials.map((cred, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="bg-white text-amber-700 border-amber-300 text-xs"
+                    >
+                      {cred}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -179,6 +279,15 @@ export function RoleDetailPanel({
             <div className="min-w-0">
               <h2 className="text-xl font-semibold text-neutral-900 truncate">{role.title}</h2>
               <p className="text-sm text-neutral-500 line-clamp-2">{role.description}</p>
+              {/* Industry and Career Level Badges */}
+              {role.industryContext && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <IndustryBadge industryContext={role.industryContext} />
+                  {role.industryContext.careerLevel && (
+                    <CareerLevelBadge level={role.industryContext.careerLevel} />
+                  )}
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -190,6 +299,15 @@ export function RoleDetailPanel({
               <X className="w-5 h-5" />
             </Button>
           </div>
+
+          {/* Credential Requirements (if applicable) */}
+          {role.industryContext && (
+            <CredentialRequirements
+              credentials={role.industryContext.requiredCredentials}
+              hasInternships={role.industryContext.hasInternships}
+              entryPathType={role.industryContext.entryPathType}
+            />
+          )}
 
           {/* Fit Score Summary */}
           <FitScoreDisplay fitScore={role.fit_score} />
