@@ -11,10 +11,10 @@ interface EditorTabBarProps {
   onChange: (tab: EditorTab) => void;
 }
 
-const TABS: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'content', label: 'Content', icon: <FileText className="h-4 w-4" /> },
-  { id: 'style', label: 'Style', icon: <Palette className="h-4 w-4" /> },
-  { id: 'review', label: 'Review', icon: <CheckCircle className="h-4 w-4" /> },
+const TABS: { id: EditorTab; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  { id: 'content', label: 'Content', Icon: FileText },
+  { id: 'style', label: 'Style', Icon: Palette },
+  { id: 'review', label: 'Review', Icon: CheckCircle },
 ];
 
 export function EditorTabBar({ activeTab, onChange }: EditorTabBarProps) {
@@ -32,7 +32,7 @@ export function EditorTabBar({ activeTab, onChange }: EditorTabBarProps) {
               : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300',
           )}
         >
-          {tab.icon}
+          <tab.Icon className="h-4 w-4" />
           {tab.label}
         </button>
       ))}

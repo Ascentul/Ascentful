@@ -4,7 +4,6 @@ import React from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
-import type { StyleConfig } from '../types';
 import { TEMPLATE_LAYOUTS } from '../types';
 import {
   EducationItem,
@@ -24,7 +23,6 @@ import {
 
 interface BoldTemplateProps {
   data: ResumeData;
-  styleConfig?: StyleConfig;
   className?: string;
 }
 

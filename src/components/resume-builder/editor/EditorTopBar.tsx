@@ -64,6 +64,7 @@ export function EditorTopBar({
           size="icon"
           onClick={onClose}
           className="text-slate-500 hover:text-slate-900"
+          aria-label="Close editor"
         >
           <X className="h-5 w-5" />
         </Button>

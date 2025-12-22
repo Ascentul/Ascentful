@@ -2,7 +2,6 @@
 
 import { ChevronRight, Zap } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TopFix } from '@/types/resume-editor';
 
@@ -18,7 +17,7 @@ export function TopFixesList({ fixes, onApplyFix }: TopFixesListProps) {
     <div className="p-4 border-b border-slate-200">
       <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
         <Zap className="h-4 w-4 text-amber-500" />
-        Top 3 Fixes
+        Top {fixes.length} Fix{fixes.length !== 1 ? 'es' : ''}
       </h3>
       <div className="space-y-2">
         {fixes.map((fix) => (
@@ -71,17 +70,14 @@ function getImpactConfig(impact: TopFix['impact']) {
     case 'high':
       return {
         dotClass: 'bg-red-500',
-        label: 'High Impact',
       };
     case 'medium':
       return {
         dotClass: 'bg-amber-500',
-        label: 'Medium Impact',
       };
     case 'low':
       return {
         dotClass: 'bg-green-500',
-        label: 'Low Impact',
       };
   }
 }

@@ -4,7 +4,6 @@ import React from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
-import type { StyleConfig } from '../types';
 import { TEMPLATE_LAYOUTS } from '../types';
 import {
   EducationItem,
@@ -23,34 +22,40 @@ import {
 
 interface ClassicTemplateProps {
   data: ResumeData;
-  styleConfig?: StyleConfig;
   className?: string;
+}
+
+interface ClassicSectionHeaderProps {
+  children: React.ReactNode;
+  color: string;
+  fontFamily: string;
+}
+
+function ClassicSectionHeader({ children, color, fontFamily }: ClassicSectionHeaderProps) {
+  return (
+    <h2
+      style={{
+        fontFamily,
+        fontSize: '13pt',
+        fontWeight: 700,
+        color,
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        textAlign: 'center',
+        marginBottom: '12px',
+        paddingBottom: '8px',
+        borderBottom: `1px solid ${color}40`,
+      }}
+    >
+      {children}
+    </h2>
+  );
 }
 
 export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) {
   const config = TEMPLATE_LAYOUTS.classic;
   const fonts = getFontStyles(config.fontPairing);
   const { contactInfo, summary, skills, experience, education, projects } = data;
-
-  // Custom section header for classic (centered)
-  const ClassicSectionHeader = ({ children }: { children: React.ReactNode }) => (
-    <h2
-      style={{
-        fontFamily: fonts.heading,
-        fontSize: '13pt',
-        fontWeight: 700,
-        color: config.accentColor,
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
-        textAlign: 'center',
-        marginBottom: '12px',
-        paddingBottom: '8px',
-        borderBottom: `1px solid ${config.accentColor}40`,
-      }}
-    >
-      {children}
-    </h2>
-  );
 
   return (
     <div
@@ -111,7 +116,9 @@ export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) 
       {/* Summary */}
       {summary && summary.trim() && (
         <SectionContainer config={config}>
-          <ClassicSectionHeader>Professional Summary</ClassicSectionHeader>
+          <ClassicSectionHeader color={config.accentColor} fontFamily={fonts.heading}>
+            Professional Summary
+          </ClassicSectionHeader>
           <SummaryText text={summary} config={config} />
         </SectionContainer>
       )}
@@ -119,7 +126,9 @@ export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) 
       {/* Experience */}
       {experience && experience.length > 0 && (
         <SectionContainer config={config}>
-          <ClassicSectionHeader>Professional Experience</ClassicSectionHeader>
+          <ClassicSectionHeader color={config.accentColor} fontFamily={fonts.heading}>
+            Professional Experience
+          </ClassicSectionHeader>
           {experience.map((exp, index) => (
             <ExperienceItem key={exp.id} experience={exp} config={config} isFirst={index === 0} />
           ))}
@@ -129,7 +138,9 @@ export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) 
       {/* Education */}
       {education && education.length > 0 && (
         <SectionContainer config={config}>
-          <ClassicSectionHeader>Education</ClassicSectionHeader>
+          <ClassicSectionHeader color={config.accentColor} fontFamily={fonts.heading}>
+            Education
+          </ClassicSectionHeader>
           {education.map((edu, index) => (
             <EducationItem key={edu.id} education={edu} config={config} isFirst={index === 0} />
           ))}
@@ -139,7 +150,9 @@ export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) 
       {/* Skills */}
       {skills && skills.length > 0 && (
         <SectionContainer config={config}>
-          <ClassicSectionHeader>Skills & Competencies</ClassicSectionHeader>
+          <ClassicSectionHeader color={config.accentColor} fontFamily={fonts.heading}>
+            Skills & Competencies
+          </ClassicSectionHeader>
           <SkillsList skills={skills} config={config} />
         </SectionContainer>
       )}
@@ -147,7 +160,9 @@ export function ClassicTemplate({ data, className = '' }: ClassicTemplateProps) 
       {/* Projects */}
       {projects && projects.length > 0 && (
         <SectionContainer config={config}>
-          <ClassicSectionHeader>Projects</ClassicSectionHeader>
+          <ClassicSectionHeader color={config.accentColor} fontFamily={fonts.heading}>
+            Projects
+          </ClassicSectionHeader>
           {projects.map((project, index) => (
             <ProjectItem key={project.id} project={project} config={config} isFirst={index === 0} />
           ))}

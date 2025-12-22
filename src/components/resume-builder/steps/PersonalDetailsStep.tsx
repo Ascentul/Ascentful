@@ -36,7 +36,8 @@ export function PersonalDetailsStep({
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) {
+    const maxSize = 5 * 1024 * 1024;
+    if (!file || !file.type.startsWith('image/') || file.size > maxSize) {
       event.target.value = '';
       return;
     }

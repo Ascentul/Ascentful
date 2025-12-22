@@ -641,6 +641,21 @@ function generateTopFixes(
 ): TopFix[] {
   const fixes: TopFix[] = [];
 
+  // Prioritize critical suggestions first
+  if (suggestions) {
+    const criticalSuggestions = suggestions.filter(
+      (s) => s.severity === 'critical' && !s.dismissed,
+    );
+    if (criticalSuggestions.length > 0) {
+      fixes.push({
+        fixId: 'fix-critical',
+        suggestionIds: criticalSuggestions.slice(0, 5).map((s) => s.suggestionId),
+        message: `Fix ${criticalSuggestions.length} critical issue${criticalSuggestions.length > 1 ? 's' : ''}`,
+        impact: 'high',
+      });
+    }
+  }
+
   // Sort subscores to find weakest areas
   const sortedScores = Object.entries(subscores)
     .sort(([, a], [, b]) => a - b)
@@ -652,21 +667,6 @@ function generateTopFixes(
     const fix = generateFixForArea(area as keyof typeof subscores, score, data, suggestions);
     if (fix) {
       fixes.push(fix);
-    }
-  }
-
-  // If we have suggestions, prioritize critical ones
-  if (suggestions) {
-    const criticalSuggestions = suggestions.filter(
-      (s) => s.severity === 'critical' && !s.dismissed,
-    );
-    if (criticalSuggestions.length > 0 && fixes.length < 3) {
-      fixes.push({
-        fixId: 'fix-critical',
-        suggestionIds: criticalSuggestions.slice(0, 5).map((s) => s.suggestionId),
-        message: `Fix ${criticalSuggestions.length} critical issue${criticalSuggestions.length > 1 ? 's' : ''}`,
-        impact: 'high',
-      });
     }
   }
 

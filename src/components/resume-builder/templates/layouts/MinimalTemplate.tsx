@@ -4,7 +4,6 @@ import React from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
-import type { StyleConfig } from '../types';
 import { TEMPLATE_LAYOUTS } from '../types';
 import {
   EducationItem,
@@ -21,20 +20,19 @@ import {
 
 interface MinimalTemplateProps {
   data: ResumeData;
-  styleConfig?: StyleConfig;
   className?: string;
 }
 
-export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) {
-  const config = TEMPLATE_LAYOUTS.minimal;
-  const fonts = getFontStyles(config.fontPairing);
-  const { contactInfo, summary, skills, experience, education, projects } = data;
+interface MinimalSectionHeaderProps {
+  children: React.ReactNode;
+  fontFamily: string;
+}
 
-  // Custom section header for minimal (no dividers, title case)
-  const MinimalSectionHeader = ({ children }: { children: React.ReactNode }) => (
+function MinimalSectionHeader({ children, fontFamily }: MinimalSectionHeaderProps) {
+  return (
     <h2
       style={{
-        fontFamily: fonts.heading,
+        fontFamily,
         fontSize: '12pt',
         fontWeight: 400,
         color: '#374151',
@@ -46,6 +44,12 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {children}
     </h2>
   );
+}
+
+export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) {
+  const config = TEMPLATE_LAYOUTS.minimal;
+  const fonts = getFontStyles(config.fontPairing);
+  const { contactInfo, summary, skills, experience, education, projects } = data;
 
   return (
     <div
@@ -102,7 +106,7 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {/* Summary */}
       {summary && summary.trim() && (
         <section style={{ marginBottom: '40px' }}>
-          <MinimalSectionHeader>Summary</MinimalSectionHeader>
+          <MinimalSectionHeader fontFamily={fonts.heading}>Summary</MinimalSectionHeader>
           <p
             style={{
               fontFamily: fonts.body,
@@ -120,7 +124,7 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {/* Experience */}
       {experience && experience.length > 0 && (
         <section style={{ marginBottom: '40px' }}>
-          <MinimalSectionHeader>Experience</MinimalSectionHeader>
+          <MinimalSectionHeader fontFamily={fonts.heading}>Experience</MinimalSectionHeader>
           {experience.map((exp, index) => (
             <ExperienceItem key={exp.id} experience={exp} config={config} isFirst={index === 0} />
           ))}
@@ -130,7 +134,7 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {/* Education */}
       {education && education.length > 0 && (
         <section style={{ marginBottom: '40px' }}>
-          <MinimalSectionHeader>Education</MinimalSectionHeader>
+          <MinimalSectionHeader fontFamily={fonts.heading}>Education</MinimalSectionHeader>
           {education.map((edu, index) => (
             <EducationItem key={edu.id} education={edu} config={config} isFirst={index === 0} />
           ))}
@@ -140,7 +144,7 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {/* Skills */}
       {skills && skills.length > 0 && (
         <section style={{ marginBottom: '40px' }}>
-          <MinimalSectionHeader>Skills</MinimalSectionHeader>
+          <MinimalSectionHeader fontFamily={fonts.heading}>Skills</MinimalSectionHeader>
           <SkillsList skills={skills} config={config} />
         </section>
       )}
@@ -148,7 +152,7 @@ export function MinimalTemplate({ data, className = '' }: MinimalTemplateProps) 
       {/* Projects */}
       {projects && projects.length > 0 && (
         <section style={{ marginBottom: '40px' }}>
-          <MinimalSectionHeader>Projects</MinimalSectionHeader>
+          <MinimalSectionHeader fontFamily={fonts.heading}>Projects</MinimalSectionHeader>
           {projects.map((project, index) => (
             <ProjectItem key={project.id} project={project} config={config} isFirst={index === 0} />
           ))}

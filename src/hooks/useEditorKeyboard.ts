@@ -32,9 +32,7 @@ export function useEditorKeyboard({
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Detect platform
-      const platform = navigator.userAgentData?.platform ?? navigator.platform;
-      const isMac = platform.toUpperCase().indexOf('MAC') >= 0;
+      const isMac = isMacPlatform();
       const cmdKey = isMac ? event.metaKey : event.ctrlKey;
 
       // Cmd/Ctrl + Z (with or without Shift)
@@ -118,7 +116,11 @@ export function getShortcutText(action: 'undo' | 'redo' | 'save'): string {
 /**
  * Hook for specific key press detection
  */
-export function useKeyPress(targetKey: string, callback: () => void, enabled = true): void {
+export function useKeyPress(
+  targetKey: string,
+  callback: (event: KeyboardEvent) => void,
+  enabled = true,
+): void {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
@@ -127,7 +129,7 @@ export function useKeyPress(targetKey: string, callback: () => void, enabled = t
 
     const handler = (event: KeyboardEvent) => {
       if (event.key === targetKey) {
-        callbackRef.current();
+        callbackRef.current(event);
       }
     };
 

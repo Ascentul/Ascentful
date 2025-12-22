@@ -16,7 +16,7 @@ interface SectionCardProps {
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   isEmpty?: boolean;
-  dragHandleProps?: ComponentPropsWithoutRef<'div'>;
+  dragHandleProps?: ComponentPropsWithoutRef<'button'>;
 }
 
 export function SectionCard({
@@ -42,12 +42,14 @@ export function SectionCard({
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
         {/* Drag handle */}
-        <div
+        <button
+          type="button"
+          aria-label={`Drag to reorder ${title}`}
           {...dragHandleProps}
-          className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+          className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
         >
           <GripVertical className="h-4 w-4" />
-        </div>
+        </button>
 
         {/* Title */}
         <button
@@ -72,6 +74,7 @@ export function SectionCard({
               onClick={onMoveUp}
               disabled={!canMoveUp}
               className="h-7 w-7 text-slate-400 hover:text-slate-600"
+              aria-label="Move section up"
             >
               <ChevronUp className="h-4 w-4" />
             </Button>
@@ -83,6 +86,7 @@ export function SectionCard({
               onClick={onMoveDown}
               disabled={!canMoveDown}
               className="h-7 w-7 text-slate-400 hover:text-slate-600"
+              aria-label="Move section down"
             >
               <ChevronDown className="h-4 w-4" />
             </Button>
@@ -93,6 +97,7 @@ export function SectionCard({
               size="icon"
               onClick={onDelete}
               className="h-7 w-7 text-slate-400 hover:text-red-500"
+              aria-label={`Delete ${title} section`}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

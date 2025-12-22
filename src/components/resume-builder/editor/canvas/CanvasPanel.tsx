@@ -32,9 +32,10 @@ interface CanvasPanelProps {
   onUpdateSummary: (value: string) => void;
   onUpdateExperience: (experiences: Experience[]) => void;
   onUpdateEducation: (education: Education[]) => void;
-  onUpdateSkills: (skills: string[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   // Page toolbar actions (optional)
+  onMovePageUp?: () => void;
+  onMovePageDown?: () => void;
   onCopyPage?: () => void;
   onDuplicatePage?: () => void;
   onDeletePage?: () => void;
@@ -57,8 +58,9 @@ export function CanvasPanel({
   onUpdateSummary,
   onUpdateExperience,
   onUpdateEducation,
-  onUpdateSkills,
   onUpdateProjects,
+  onMovePageUp,
+  onMovePageDown,
   onCopyPage,
   onDuplicatePage,
   onDeletePage,
@@ -115,7 +117,7 @@ export function CanvasPanel({
             {/* Right side: Action buttons */}
             <div className="flex items-center gap-0.5">
               {/* Page navigation */}
-              {totalPages > 1 && (
+              {totalPages > 1 && (onMovePageUp || onMovePageDown) && (
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -123,7 +125,8 @@ export function CanvasPanel({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
-                        disabled={currentPage <= 1}
+                        onClick={onMovePageUp}
+                        disabled={!onMovePageUp || currentPage <= 1}
                       >
                         <ChevronUp className="h-4 w-4" />
                       </Button>
@@ -137,7 +140,8 @@ export function CanvasPanel({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
-                        disabled={currentPage >= totalPages}
+                        onClick={onMovePageDown}
+                        disabled={!onMovePageDown || currentPage >= totalPages}
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -250,7 +254,6 @@ export function CanvasPanel({
               onUpdateSummary={onUpdateSummary}
               onUpdateExperience={onUpdateExperience}
               onUpdateEducation={onUpdateEducation}
-              onUpdateSkills={onUpdateSkills}
               onUpdateProjects={onUpdateProjects}
             />
           </div>

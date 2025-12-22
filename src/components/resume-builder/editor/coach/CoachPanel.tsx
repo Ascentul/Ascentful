@@ -91,6 +91,7 @@ function CoachModeSelector({ mode, onModeChange, suggestionCount }: CoachModeSel
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onModeChange(tab.id)}
           className={cn(
             'flex-1 py-2 text-sm font-medium transition-colors relative',

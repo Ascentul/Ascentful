@@ -50,7 +50,6 @@ const STRONG_VERBS = {
 const METRIC_PATTERNS = [
   /\d+%/, // Percentages: 50%
   /\$[\d,]+/, // Dollar amounts: $1,000
-  /\d+\+?/, // Numbers: 100, 50+
   /\d+x/, // Multipliers: 3x
   /\d+k/i, // Thousands: 10k
   /\d+m/i, // Millions: 5M

@@ -50,8 +50,14 @@ Respond with JSON: { "bullets": ["bullet1", "bullet2", ...] }`,
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-    const bullets = parsed.bullets || [];
+    let bullets: string[] = [];
+    try {
+      const parsed = JSON.parse(content);
+      bullets = parsed.bullets || [];
+    } catch {
+      console.error('Failed to parse OpenAI response:', content);
+      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+    }
 
     const evaluation = await evaluate({
       tool_id: 'resume-suggestions',

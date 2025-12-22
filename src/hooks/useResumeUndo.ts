@@ -60,30 +60,40 @@ export function useResumeUndo(options: UseResumeUndoOptions = {}): UseResumeUndo
    * Returns the action that was undone (to be applied externally)
    */
   const undo = useCallback((): EditorAction | null => {
-    if (undoStack.length === 0) return null;
+    let action: EditorAction | null = null;
 
-    const action = undoStack[undoStack.length - 1];
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      action = prev[prev.length - 1];
+      return prev.slice(0, -1);
+    });
 
-    setUndoStack((prev) => prev.slice(0, -1));
-    setRedoStack((prev) => [...prev, action]);
+    if (action) {
+      setRedoStack((prev) => [...prev, action]);
+    }
 
     return action;
-  }, [undoStack]);
+  }, []);
 
   /**
    * Redo the last undone action
    * Returns the action that was redone (to be applied externally)
    */
   const redo = useCallback((): EditorAction | null => {
-    if (redoStack.length === 0) return null;
+    let action: EditorAction | null = null;
 
-    const action = redoStack[redoStack.length - 1];
+    setRedoStack((prev) => {
+      if (prev.length === 0) return prev;
+      action = prev[prev.length - 1];
+      return prev.slice(0, -1);
+    });
 
-    setRedoStack((prev) => prev.slice(0, -1));
-    setUndoStack((prev) => [...prev, action]);
+    if (action) {
+      setUndoStack((prev) => [...prev, action]);
+    }
 
     return action;
-  }, [redoStack]);
+  }, []);
 
   /**
    * Clear all history

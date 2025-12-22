@@ -173,7 +173,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        experience: prev.resumeData.experience?.filter((_, i) => i !== index),
+        experience: (prev.resumeData.experience ?? []).filter((_, i) => i !== index),
       },
     }));
   }, []);
@@ -209,7 +209,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        education: prev.resumeData.education?.filter((_, i) => i !== index),
+        education: (prev.resumeData.education ?? []).filter((_, i) => i !== index),
       },
     }));
   }, []);
@@ -243,7 +243,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        projects: prev.resumeData.projects?.filter((_, i) => i !== index),
+        projects: (prev.resumeData.projects ?? []).filter((_, i) => i !== index),
       },
     }));
   }, []);
@@ -279,7 +279,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        achievements: prev.resumeData.achievements?.filter((_, i) => i !== index),
+        achievements: (prev.resumeData.achievements ?? []).filter((_, i) => i !== index),
       },
     }));
   }, []);
@@ -342,12 +342,17 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
 
   // Load existing resume data
   const loadResumeData = useCallback((data: Partial<ResumeBuilderState>) => {
+    const emptyResumeData = createEmptyResumeData();
     setState((prev) => ({
       ...prev,
       ...data,
       resumeData: {
-        ...prev.resumeData,
+        ...emptyResumeData,
         ...data.resumeData,
+        contactInfo: {
+          ...emptyResumeData.contactInfo,
+          ...data.resumeData?.contactInfo,
+        },
       },
       isDirty: false,
     }));

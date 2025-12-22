@@ -12,22 +12,19 @@ interface FontPairingPickerProps {
   onChange: (fontPairing: FontPairingId) => void;
 }
 
-const FONT_PAIRING_IDS: FontPairingId[] = ['classic', 'modern', 'elegant', 'minimal'];
-
 export function FontPairingPicker({ value, onChange }: FontPairingPickerProps) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-slate-700">Font Pairing</h3>
       <div className="space-y-2">
-        {FONT_PAIRING_IDS.map((pairingId) => {
-          const pairing = FONT_PAIRINGS[pairingId];
+        {Object.entries(FONT_PAIRINGS).map(([pairingId, pairing]) => {
           const isSelected = value === pairingId;
 
           return (
             <button
               key={pairingId}
               type="button"
-              onClick={() => onChange(pairingId)}
+              onClick={() => onChange(pairingId as FontPairingId)}
               className={cn(
                 'w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left',
                 'hover:border-primary-300',

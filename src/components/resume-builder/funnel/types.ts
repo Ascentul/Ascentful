@@ -1,7 +1,6 @@
-'use client';
+import type { ResumeData } from '@/components/resume/ResumeDocument';
 
 // Resume Builder 2.0 Funnel Types
-
 export type ResumeIntent = 'internship' | 'fulltime' | 'parttime' | 'grad_school' | 'unsure';
 
 export type ResumeStartSource = 'profile' | 'upload' | 'blank';
@@ -16,8 +15,6 @@ export type SectionId =
   | 'certifications'
   | 'skills'
   | 'achievements';
-
-import type { ResumeData } from '@/components/resume/ResumeDocument';
 
 export interface FunnelData {
   startSource: ResumeStartSource;

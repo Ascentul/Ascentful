@@ -149,7 +149,7 @@ export interface ThreePanelEditorState {
 
   // Suggestions
   suggestions: Suggestion[];
-  dismissedSuggestionIds: Set<string>;
+  dismissedSuggestionIds: Set<string>; // Convert to string[] when serializing (Set isn't JSON-safe).
 
   // Score
   score: ResumeScore | null;

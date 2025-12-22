@@ -142,6 +142,14 @@ const APPLICATION_PATTERNS: ClassificationPattern[] = [
     baseConfidence: 0.75,
     description: 'Generic status update',
   },
+  {
+    id: 'withdraw_1',
+    category: 'application',
+    eventType: 'withdrawal_confirmation',
+    pattern: /\bwithdr(ew|awal).*(application|candidacy)\b/i,
+    baseConfidence: 0.9,
+    description: 'Application withdrawal confirmation',
+  },
 
   // Referral patterns
   {
@@ -309,6 +317,14 @@ const INTERVIEW_PATTERNS: ClassificationPattern[] = [
     pattern: /\bupcoming interview\b/i,
     baseConfidence: 0.84,
     description: 'Upcoming interview notification',
+  },
+  {
+    id: 'int_feedback_1',
+    category: 'interview',
+    eventType: 'interview_feedback',
+    pattern: /\binterview feedback\b/i,
+    baseConfidence: 0.88,
+    description: 'Interview feedback received',
   },
 
   // Scheduling tools (Calendly, etc.)

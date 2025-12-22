@@ -2,6 +2,8 @@ import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import { evaluate } from '@/lib/ai-evaluation';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -77,12 +79,30 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
     const content = response.choices[0]?.message?.content || '{}';
     try {
       const parsed = JSON.parse(content);
-      return NextResponse.json({ rewritten: parsed.rewritten || bullet });
+      const rewritten = parsed.rewritten || bullet;
+      const evaluation = await evaluate({
+        tool_id: 'resume-suggestions',
+        input: { bullet, mode, context },
+        output: { rewritten },
+        user_id: userId,
+      });
+
+      if (!evaluation.passed) {
+        return NextResponse.json(
+          { error: 'Generated content failed safety checks' },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({ rewritten });
     } catch {
       return NextResponse.json({ rewritten: bullet });
     }
   } catch (error) {
-    console.error('Error rewriting bullet:', error);
+    console.error(
+      'Error rewriting bullet:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return NextResponse.json({ error: 'Failed to rewrite bullet' }, { status: 500 });
   }
 }

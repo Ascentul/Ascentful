@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { generateMockSuggestions, generateTopFixes } from '@/lib/resume-editor/suggestion-rules';
@@ -27,6 +27,11 @@ interface UseSuggestionsReturn {
   clearAll: () => void;
 }
 
+// spanId format is expected to be "<section>-<id>" (e.g., "experience-0").
+const getSectionKeyFromSpanId = (spanId: string): string => {
+  return spanId.split('-')[0];
+};
+
 /**
  * Hook for managing AI suggestions in the resume editor
  */
@@ -36,11 +41,21 @@ export function useSuggestions(
 ): UseSuggestionsReturn {
   const { enabled = true, autoFetch = true, debounceMs = 1000 } = options;
 
+  const resumeDataRef = useRef(resumeData);
+
   const [allSuggestions, setAllSuggestions] = useState<Suggestion[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    resumeDataRef.current = resumeData;
+  }, [resumeData]);
+
+  const resumeDataKey = useMemo(() => {
+    return JSON.stringify(resumeData);
+  }, [resumeData]);
 
   // Filter out dismissed and applied suggestions
   const activeSuggestions = useMemo(() => {
@@ -62,7 +77,7 @@ export function useSuggestions(
   const suggestionCounts = useMemo((): SuggestionCounts => {
     const counts = new Map<string, number>();
     for (const suggestion of activeSuggestions) {
-      const sectionType = suggestion.spanId.split('-')[0];
+      const sectionType = getSectionKeyFromSpanId(suggestion.spanId);
       counts.set(sectionType, (counts.get(sectionType) ?? 0) + 1);
     }
     return Object.fromEntries(counts) as SuggestionCounts;
@@ -91,7 +106,7 @@ export function useSuggestions(
       // });
 
       // For now, use mock suggestions
-      const mockSuggestions = generateMockSuggestions(resumeData);
+      const mockSuggestions = generateMockSuggestions(resumeDataRef.current);
       setAllSuggestions(mockSuggestions);
     } catch (err) {
       console.error('Error fetching suggestions:', err);
@@ -99,7 +114,7 @@ export function useSuggestions(
     } finally {
       setLoading(false);
     }
-  }, [enabled, resumeData]);
+  }, [enabled, resumeDataKey]);
 
   // Auto-fetch on mount and when resume data changes (debounced)
   useEffect(() => {

@@ -6,6 +6,7 @@ import React, { useRef, useState } from 'react';
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { CreateResumeFunnel } from '@/components/resume-builder/funnel';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface ResumeStartModalProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface ResumeStartModalProps {
 type StartSource = 'profile' | 'upload' | 'blank';
 
 export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showFunnel, setShowFunnel] = useState(false);
   const [startSource, setStartSource] = useState<StartSource>('profile');
@@ -85,6 +87,12 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
             education: parsedData.education || [],
             projects: parsedData.projects || [],
             achievements: parsedData.achievements || [],
+          });
+        } else {
+          toast({
+            title: 'Unable to parse resume',
+            description: 'We could not parse your resume. Continue with a blank draft.',
+            variant: 'destructive',
           });
         }
       }

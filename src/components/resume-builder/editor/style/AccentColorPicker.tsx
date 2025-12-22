@@ -32,7 +32,9 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
               )}
               style={{ backgroundColor: color.value }}
             >
-              {isSelected && <Check className="h-4 w-4 text-white" />}
+              {isSelected && (
+                <Check className="h-4 w-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" />
+              )}
             </button>
           );
         })}

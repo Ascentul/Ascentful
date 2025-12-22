@@ -4,7 +4,6 @@ import React from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
-import type { StyleConfig } from '../types';
 import { TEMPLATE_LAYOUTS } from '../types';
 import {
   EducationItem,
@@ -22,20 +21,19 @@ import {
 
 interface ExecutiveTemplateProps {
   data: ResumeData;
-  styleConfig?: StyleConfig;
   className?: string;
 }
 
-export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplateProps) {
-  const config = TEMPLATE_LAYOUTS.ats;
-  const fonts = getFontStyles(config.fontPairing);
-  const { contactInfo, summary, skills, experience, education, projects } = data;
+interface SidebarHeaderProps {
+  children: React.ReactNode;
+  fontFamily: string;
+}
 
-  // Sidebar section header
-  const SidebarHeader = ({ children }: { children: React.ReactNode }) => (
+function SidebarHeader({ children, fontFamily }: SidebarHeaderProps) {
+  return (
     <h3
       style={{
-        fontFamily: fonts.heading,
+        fontFamily,
         fontSize: '10pt',
         fontWeight: 600,
         color: '#fff',
@@ -49,25 +47,38 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
       {children}
     </h3>
   );
+}
 
-  // Main content section header
-  const MainHeader = ({ children }: { children: React.ReactNode }) => (
+interface MainHeaderProps {
+  children: React.ReactNode;
+  fontFamily: string;
+  color: string;
+}
+
+function MainHeader({ children, fontFamily, color }: MainHeaderProps) {
+  return (
     <h2
       style={{
-        fontFamily: fonts.heading,
+        fontFamily,
         fontSize: '13pt',
         fontWeight: 700,
-        color: config.accentColor,
+        color,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
         marginBottom: '10px',
         paddingBottom: '6px',
-        borderBottom: `1px solid ${config.accentColor}30`,
+        borderBottom: `1px solid ${color}30`,
       }}
     >
       {children}
     </h2>
   );
+}
+
+export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplateProps) {
+  const config = TEMPLATE_LAYOUTS.ats;
+  const fonts = getFontStyles(config.fontPairing);
+  const { contactInfo, summary, skills, experience, education, projects } = data;
 
   return (
     <div
@@ -104,17 +115,24 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
               marginBottom: '4px',
             }}
           >
-            {contactInfo.name.split(' ').map((part, i) => (
-              <span key={i} style={{ display: 'block' }}>
-                {part}
-              </span>
-            ))}
+            {(() => {
+              const nameParts = contactInfo.name.split(' ').filter(Boolean);
+              const firstName = nameParts[0] || '';
+              const lastName = nameParts.slice(1).join(' ');
+
+              return (
+                <>
+                  <span style={{ display: 'block' }}>{firstName}</span>
+                  {lastName && <span style={{ display: 'block' }}>{lastName}</span>}
+                </>
+              );
+            })()}
           </h1>
         </div>
 
         {/* Contact Info */}
         <div style={{ marginBottom: '28px' }}>
-          <SidebarHeader>Contact</SidebarHeader>
+          <SidebarHeader fontFamily={fonts.heading}>Contact</SidebarHeader>
           <div style={{ fontSize: '9pt', lineHeight: '1.6' }}>
             {contactInfo.phone && <div style={{ marginBottom: '6px' }}>{contactInfo.phone}</div>}
             {contactInfo.email && (
@@ -142,7 +160,7 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Skills in sidebar */}
         {skills && skills.length > 0 && (
           <div style={{ marginBottom: '28px' }}>
-            <SidebarHeader>Skills</SidebarHeader>
+            <SidebarHeader fontFamily={fonts.heading}>Skills</SidebarHeader>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {skills.map((skill, idx) => (
                 <li
@@ -165,7 +183,7 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Education in sidebar (if short) */}
         {education && education.length > 0 && education.length <= 2 && (
           <div>
-            <SidebarHeader>Education</SidebarHeader>
+            <SidebarHeader fontFamily={fonts.heading}>Education</SidebarHeader>
             {education.map((edu) => (
               <div key={edu.id} style={{ marginBottom: '12px' }}>
                 <div style={{ fontSize: '10pt', fontWeight: 600, marginBottom: '2px' }}>
@@ -190,7 +208,9 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Summary */}
         {summary && summary.trim() && (
           <section style={{ marginBottom: '20px' }}>
-            <MainHeader>Professional Summary</MainHeader>
+            <MainHeader fontFamily={fonts.heading} color={config.accentColor}>
+              Professional Summary
+            </MainHeader>
             <SummaryText text={summary} config={config} />
           </section>
         )}
@@ -198,7 +218,9 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Experience */}
         {experience && experience.length > 0 && (
           <section style={{ marginBottom: '20px' }}>
-            <MainHeader>Experience</MainHeader>
+            <MainHeader fontFamily={fonts.heading} color={config.accentColor}>
+              Experience
+            </MainHeader>
             {experience.map((exp, index) => (
               <ExperienceItem key={exp.id} experience={exp} config={config} isFirst={index === 0} />
             ))}
@@ -208,7 +230,9 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Education (if more than 2, put in main) */}
         {education && education.length > 2 && (
           <section style={{ marginBottom: '20px' }}>
-            <MainHeader>Education</MainHeader>
+            <MainHeader fontFamily={fonts.heading} color={config.accentColor}>
+              Education
+            </MainHeader>
             {education.map((edu, index) => (
               <EducationItem key={edu.id} education={edu} config={config} isFirst={index === 0} />
             ))}
@@ -218,7 +242,9 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
         {/* Projects */}
         {projects && projects.length > 0 && (
           <section style={{ marginBottom: '20px' }}>
-            <MainHeader>Projects</MainHeader>
+            <MainHeader fontFamily={fonts.heading} color={config.accentColor}>
+              Projects
+            </MainHeader>
             {projects.map((project, index) => (
               <ProjectItem
                 key={project.id}

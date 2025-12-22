@@ -1420,13 +1420,11 @@ export const INDUSTRIES: Record<Industry, IndustryConfig> = {
  */
 export function detectIndustryFromRole(role: string): Industry {
   const roleLower = role.toLowerCase();
+  const techRoleRegex =
+    /software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack|product manager|ux|ui|web developer|mobile developer|cloud|infrastructure|platform|api|data engineer|data scientist|data analyst|machine learning|ml engineer|ai engineer|security engineer|qa engineer|test engineer|site reliability/i;
 
   // Technology keywords - CHECK FIRST as these are most common and specific
-  if (
-    /software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack|product manager|ux|ui|web developer|mobile developer|cloud|infrastructure|platform|api|data engineer|data scientist|machine learning|ml engineer|ai engineer|security engineer|qa engineer|test engineer|site reliability/i.test(
-      roleLower,
-    )
-  ) {
+  if (techRoleRegex.test(roleLower)) {
     return 'technology';
   }
 
@@ -1435,7 +1433,7 @@ export function detectIndustryFromRole(role: string): Industry {
     /nurse|rn|md|physician|doctor|patient|medical|healthcare|hospital|pharma|dental|therapist|radiolog|patholog/i.test(
       roleLower,
     ) &&
-    !/software|developer|engineer|data/i.test(roleLower)
+    !techRoleRegex.test(roleLower)
   ) {
     return 'healthcare';
   }

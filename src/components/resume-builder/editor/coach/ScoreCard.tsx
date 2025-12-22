@@ -1,12 +1,23 @@
 'use client';
 
-import { cn } from '@/lib/utils';
+import { getScoreColor, getScoreMessage } from '@/lib/resume-score';
 import type { ResumeScore } from '@/types/resume-editor';
 
 interface ScoreCardProps {
   score: ResumeScore | null;
   loading?: boolean;
 }
+
+const SUBSCORE_LABELS: Record<
+  keyof ResumeScore['subscores'],
+  { label: string; description: string }
+> = {
+  impact: { label: 'Impact', description: 'Action verbs & quantified achievements' },
+  clarity: { label: 'Clarity', description: 'Readability & conciseness' },
+  relevance: { label: 'Relevance', description: 'Job fit & keyword matching' },
+  ats: { label: 'ATS', description: 'Format compliance for applicant tracking' },
+  consistency: { label: 'Consistency', description: 'Style & formatting uniformity' },
+};
 
 export function ScoreCard({ score, loading }: ScoreCardProps) {
   if (loading) {
@@ -66,22 +77,11 @@ interface SubscoreBreakdownProps {
 export function SubscoreBreakdown({ subscores }: SubscoreBreakdownProps) {
   if (!subscores) return null;
 
-  const subscoreLabels: Record<
-    keyof ResumeScore['subscores'],
-    { label: string; description: string }
-  > = {
-    impact: { label: 'Impact', description: 'Action verbs & quantified achievements' },
-    clarity: { label: 'Clarity', description: 'Readability & conciseness' },
-    relevance: { label: 'Relevance', description: 'Job fit & keyword matching' },
-    ats: { label: 'ATS', description: 'Format compliance for applicant tracking' },
-    consistency: { label: 'Consistency', description: 'Style & formatting uniformity' },
-  };
-
   return (
     <div className="p-4 space-y-3">
       <h3 className="text-sm font-semibold text-slate-900">Score Breakdown</h3>
       {Object.entries(subscores).map(([key, value]) => {
-        const info = subscoreLabels[key as keyof ResumeScore['subscores']];
+        const info = SUBSCORE_LABELS[key as keyof ResumeScore['subscores']];
         const color = getScoreColor(value);
 
         return (
@@ -112,18 +112,3 @@ export function SubscoreBreakdown({ subscores }: SubscoreBreakdownProps) {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#22c55e'; // Green
-  if (score >= 60) return '#eab308'; // Yellow
-  if (score >= 40) return '#f97316'; // Orange
-  return '#ef4444'; // Red
-}
-
-function getScoreMessage(score: number): string {
-  if (score >= 80) return 'Excellent resume!';
-  if (score >= 60) return 'Looking good!';
-  if (score >= 40) return 'Making progress';
-  if (score >= 20) return 'Keep going!';
-  return 'Just getting started';
-}

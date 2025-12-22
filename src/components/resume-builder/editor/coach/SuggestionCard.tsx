@@ -57,6 +57,7 @@ export function SuggestionCard({
           {suggestion.explainText && (
             <div className="mt-2">
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsExpanded(!isExpanded);
@@ -204,5 +205,9 @@ function getSeverityConfig(severity: Suggestion['severity']) {
         borderClass: 'border-slate-200',
         iconClass: 'text-slate-400',
       };
+    default: {
+      const _exhaustiveCheck: never = severity;
+      return _exhaustiveCheck;
+    }
   }
 }

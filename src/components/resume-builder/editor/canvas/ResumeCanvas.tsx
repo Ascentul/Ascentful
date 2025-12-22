@@ -25,7 +25,6 @@ interface ResumeCanvasProps {
   onUpdateSummary: (value: string) => void;
   onUpdateExperience: (experiences: Experience[]) => void;
   onUpdateEducation: (education: Education[]) => void;
-  onUpdateSkills: (skills: string[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
 }
 
@@ -44,27 +43,10 @@ export function ResumeCanvas({
   onUpdateSummary,
   onUpdateExperience,
   onUpdateEducation,
-  onUpdateSkills,
   onUpdateProjects,
 }: ResumeCanvasProps) {
   // Get template-specific layout configuration
-  const templateConfig = (() => {
-    switch (templateId) {
-      case 'clean':
-        return TEMPLATE_LAYOUTS.clean;
-      case 'bold':
-        return TEMPLATE_LAYOUTS.bold;
-      case 'minimal':
-        return TEMPLATE_LAYOUTS.minimal;
-      case 'classic':
-        return TEMPLATE_LAYOUTS.classic;
-      case 'ats':
-        return TEMPLATE_LAYOUTS.ats;
-      case 'modern':
-      default:
-        return TEMPLATE_LAYOUTS.modern;
-    }
-  })();
+  const templateConfig = TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_LAYOUTS.modern;
   const fontPairing = Object.prototype.hasOwnProperty.call(FONT_PAIRINGS, styleConfig.font_pairing)
     ? FONT_PAIRINGS[styleConfig.font_pairing]
     : FONT_PAIRINGS.modern;
@@ -81,10 +63,18 @@ export function ResumeCanvas({
 
   // Helper to determine if sidebar background is dark (for text contrast)
   const isSidebarDark = (() => {
-    const hex = sidebarBgColor.replace('#', '');
+    let hex = sidebarBgColor.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+    if (hex.length !== 6) return false;
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false;
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     return luminance < 0.5;
   })();
@@ -158,16 +148,16 @@ export function ResumeCanvas({
               Work Experience
             </h2>
             <div className="space-y-4">
-              {(data.experience || []).map((exp, index) => (
+              {(data.experience || []).map((item, index) => (
                 <ExperienceEntry
-                  key={exp.id}
-                  experience={exp}
+                  key={item.id}
+                  experience={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
                   accentColor={accentColor}
                   onChange={(updated) => {
-                    const newExperiences = (data.experience || []).map((exp, i) =>
-                      i === index ? updated : exp,
+                    const newExperiences = (data.experience || []).map((e, i) =>
+                      i === index ? updated : e,
                     );
                     onUpdateExperience(newExperiences);
                   }}
@@ -184,15 +174,15 @@ export function ResumeCanvas({
               Education
             </h2>
             <div className="space-y-3">
-              {(data.education || []).map((edu, index) => (
+              {(data.education || []).map((item, index) => (
                 <EducationEntry
-                  key={edu.id}
-                  education={edu}
+                  key={item.id}
+                  education={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
                   onChange={(updated) => {
-                    const newEducation = (data.education || []).map((edu, i) =>
-                      i === index ? updated : edu,
+                    const newEducation = (data.education || []).map((e, i) =>
+                      i === index ? updated : e,
                     );
                     onUpdateEducation(newEducation);
                   }}
@@ -210,7 +200,6 @@ export function ResumeCanvas({
             </h2>
             <SkillsEditor
               skills={data.skills || []}
-              onChange={onUpdateSkills}
               suggestions={suggestions}
               coachEnabled={coachEnabled}
             />
@@ -224,15 +213,15 @@ export function ResumeCanvas({
               Projects
             </h2>
             <div className="space-y-3">
-              {(data.projects || []).map((project, index) => (
+              {(data.projects || []).map((item, index) => (
                 <ProjectEntry
-                  key={project.id}
-                  project={project}
+                  key={item.id}
+                  project={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
                   onChange={(updated) => {
-                    const newProjects = (data.projects || []).map((project, i) =>
-                      i === index ? updated : project,
+                    const newProjects = (data.projects || []).map((p, i) =>
+                      i === index ? updated : p,
                     );
                     onUpdateProjects(newProjects);
                   }}
@@ -411,7 +400,7 @@ export function ResumeCanvas({
             <h3
               className="text-[11pt] font-semibold mb-2 uppercase tracking-wider border-b pb-1"
               style={{
-                borderColor: isSidebarDark ? accentColor : accentColor,
+                borderColor: accentColor,
                 color: isSidebarDark ? '#ffffff' : accentColor,
               }}
             >
@@ -468,7 +457,7 @@ export function ResumeCanvas({
               <h3
                 className="text-[11pt] font-semibold mb-2 uppercase tracking-wider border-b pb-1"
                 style={{
-                  borderColor: isSidebarDark ? accentColor : accentColor,
+                  borderColor: accentColor,
                   color: isSidebarDark ? '#ffffff' : accentColor,
                 }}
               >
@@ -476,7 +465,6 @@ export function ResumeCanvas({
               </h3>
               <SkillsEditor
                 skills={data.skills || []}
-                onChange={onUpdateSkills}
                 suggestions={suggestions}
                 coachEnabled={coachEnabled}
                 compact
@@ -648,14 +636,12 @@ function EducationEntry({
 
 function SkillsEditor({
   skills,
-  onChange: _onChange,
   suggestions,
   coachEnabled,
   compact = false,
   darkMode = false,
 }: {
   skills: string[];
-  onChange: (skills: string[]) => void;
   suggestions: Suggestion[];
   coachEnabled: boolean;
   compact?: boolean;

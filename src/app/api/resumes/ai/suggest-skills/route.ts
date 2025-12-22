@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4o',
       temperature: 0.7,
       response_format: { type: 'json_object' },
+      timeout: 30000,
       messages: [
         {
           role: 'system',

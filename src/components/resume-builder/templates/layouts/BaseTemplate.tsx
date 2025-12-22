@@ -21,19 +21,7 @@ interface BaseProps {
 
 // Get font styles from pairing
 export function getFontStyles(fontPairing: FontPairingId) {
-  const fonts = (() => {
-    switch (fontPairing) {
-      case 'modern':
-        return FONT_PAIRINGS.modern;
-      case 'elegant':
-        return FONT_PAIRINGS.elegant;
-      case 'minimal':
-        return FONT_PAIRINGS.minimal;
-      case 'classic':
-      default:
-        return FONT_PAIRINGS.classic;
-    }
-  })();
+  const fonts = FONT_PAIRINGS[fontPairing] ?? FONT_PAIRINGS.classic;
   return {
     heading: fonts.heading,
     body: fonts.body,

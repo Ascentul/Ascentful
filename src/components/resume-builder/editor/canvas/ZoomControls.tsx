@@ -1,6 +1,5 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import type { ZoomLevel } from '@/types/resume-editor';
 
 interface ZoomControlsProps {
@@ -8,31 +7,36 @@ interface ZoomControlsProps {
   onChange: (level: ZoomLevel) => void;
 }
 
-const ZOOM_OPTIONS: { value: ZoomLevel; label: string }[] = [
-  { value: 'fit', label: 'Fit' },
-  { value: '50', label: '50%' },
-  { value: '75', label: '75%' },
-  { value: '100', label: '100%' },
-];
-
 export function ZoomControls({ value, onChange }: ZoomControlsProps) {
+  const isFit = value === 'fit';
+  const sliderValue = isFit ? '100' : value;
+
   return (
-    <div className="flex items-center gap-1 bg-white rounded-full shadow-sm border border-slate-200 p-1">
-      {ZOOM_OPTIONS.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={cn(
-            'px-3 py-1 text-xs font-medium rounded-full transition-colors',
-            value === option.value
-              ? 'bg-slate-900 text-white'
-              : 'text-slate-600 hover:bg-slate-100',
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-3 bg-white rounded-full shadow-sm border border-slate-200 px-3 py-2">
+      <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+        <input
+          type="checkbox"
+          checked={isFit}
+          onChange={(event) => onChange(event.target.checked ? 'fit' : '100')}
+          className="h-3.5 w-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
+        />
+        Fit
+      </label>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min="50"
+          max="100"
+          step="25"
+          value={sliderValue}
+          onChange={(event) => onChange(event.target.value as ZoomLevel)}
+          disabled={isFit}
+          className="accent-slate-900"
+          aria-label="Zoom level"
+        />
+        <span className="text-xs font-medium text-slate-600">{sliderValue}%</span>
+      </div>
     </div>
   );
 }

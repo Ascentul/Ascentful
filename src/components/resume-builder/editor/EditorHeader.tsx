@@ -60,6 +60,7 @@ export function EditorHeader({
           onChange={(e) => onTitleChange?.(e.target.value)}
           className="text-lg font-semibold text-slate-900 bg-transparent border-none focus:outline-none focus:ring-0 min-w-[200px]"
           placeholder="Untitled Resume"
+          aria-label="Resume title"
         />
 
         {/* Save status */}

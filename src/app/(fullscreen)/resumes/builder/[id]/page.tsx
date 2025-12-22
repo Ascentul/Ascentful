@@ -25,6 +25,8 @@ import { generateResumePDF } from '@/lib/resume-pdf-generator';
 const DEFAULT_SECTION_ORDER = ['summary', 'experience', 'education', 'projects', 'skills'];
 const DEFAULT_ENABLED_SECTIONS = ['summary', 'experience', 'education', 'skills'];
 
+type ResumeResponse = Awaited<ReturnType<typeof api.resumes.getResumeById>>;
+
 export default function ResumeBuilderPage() {
   const params = useParams();
   const router = useRouter();
@@ -65,7 +67,7 @@ export default function ResumeBuilderPage() {
   const existingResume = useQuery(
     api.resumes.getResumeById,
     !isNewResume && clerkId ? { clerkId, resumeId: resumeId as Id<'resumes'> } : 'skip',
-  );
+  ) as ResumeResponse | null | undefined;
 
   const autosaveMutation = useMutation(api.resumes.autosaveResume);
   const createResumeMutation = useMutation(api.resumes.createResume);
@@ -89,17 +91,8 @@ export default function ResumeBuilderPage() {
       setIsInitialized(true);
     } else if (existingResume) {
       // Load existing resume data
-      const resume = existingResume as {
-        title?: string;
-        content?: ResumeData;
-        template_id?: TemplateId;
-        style_config?: StyleConfig;
-        sections_config?: {
-          section_order?: string[];
-          enabled_sections?: string[];
-        };
-      };
-      const content = resume.content || {};
+      const resume = existingResume;
+      const content = resume?.content ?? {};
       setResumeData({
         contactInfo: content.contactInfo || {
           name: '',
@@ -221,11 +214,6 @@ export default function ResumeBuilderPage() {
     markDirty();
   };
 
-  const handleUpdateSkills = (skills: string[]) => {
-    setResumeData((prev) => ({ ...prev, skills }));
-    markDirty();
-  };
-
   const handleUpdateProjects = (projects: Project[]) => {
     setResumeData((prev) => ({ ...prev, projects }));
     markDirty();
@@ -342,7 +330,6 @@ export default function ResumeBuilderPage() {
       onUpdateSummary={handleUpdateSummary}
       onUpdateExperience={handleUpdateExperience}
       onUpdateEducation={handleUpdateEducation}
-      onUpdateSkills={handleUpdateSkills}
       onUpdateProjects={handleUpdateProjects}
       onSetSectionOrder={handleSetSectionOrder}
       onToggleSection={handleToggleSection}

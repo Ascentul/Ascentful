@@ -1,9 +1,8 @@
 'use client';
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, jsx-a11y/label-has-associated-control */
-
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
+import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import {
   AlertCircle,
@@ -38,19 +37,32 @@ import { generateResumePDF } from '@/lib/resume-pdf-generator';
 import { exportCoverLetterPDF } from '@/utils/exportCoverLetter';
 
 // Types
+type ResumeAnalysisResult = {
+  score?: number;
+  summary?: string;
+  strengths?: string[];
+  gaps?: string[];
+  recommendations?: string[];
+};
+
+type ResumeContent = Partial<ResumeData> & {
+  personalInfo?: Partial<ResumeData['contactInfo']>;
+  experiences?: ResumeData['experience'];
+};
+
 type ResumeDoc = {
-  _id: string;
+  _id: Id<'resumes'>;
   title: string;
-  content: any;
+  content: ResumeContent | null;
   visibility: 'private' | 'public';
   source?: 'manual' | 'ai_generated' | 'ai_optimized' | 'pdf_upload';
-  analysis_result?: any;
+  analysis_result?: ResumeAnalysisResult | null;
   created_at: number;
   updated_at: number;
 };
 
 export type CoverLetterDoc = {
-  _id: string;
+  _id: Id<'cover_letters'>;
   name: string;
   job_title: string;
   company_name?: string;
@@ -69,6 +81,26 @@ type CoverLetterAnalysis = {
   gaps: string[];
   recommendations: string[];
   optimizedLetter?: string;
+};
+
+type GeneratedResumeExperience = {
+  company?: string;
+  title?: string;
+  bullets?: string[];
+  startDate?: string;
+  endDate?: string;
+  summary?: string;
+};
+
+type GeneratedResume = {
+  personalInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  summary?: string;
+  skills?: string[];
+  experience?: GeneratedResumeExperience[];
 };
 
 type MainTab = 'resumes' | 'cover-letters';
@@ -110,17 +142,18 @@ export default function ResumeStudioPage() {
   // AI Generation state (resumes)
   const [resumeJobDescription, setResumeJobDescription] = useState('');
   const [generatingResume, setGeneratingResume] = useState(false);
-  const [generatedResume, setGeneratedResume] = useState<any>(null);
+  const [generatedResume, setGeneratedResume] = useState<GeneratedResume | null>(null);
 
   // Upload & Analyze state (resumes)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [analyzeJobDescription, setAnalyzeJobDescription] = useState('');
   const [analyzingResume, setAnalyzingResume] = useState(false);
-  const [resumeAnalysisResult, setResumeAnalysisResult] = useState<any>(null);
+  const [resumeAnalysisResult, setResumeAnalysisResult] = useState<ResumeAnalysisResult | null>(
+    null,
+  );
   const [extractedText, setExtractedText] = useState('');
 
   // Import resume state
-  const [importingResume, setImportingResume] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // ============================================================================
@@ -218,7 +251,7 @@ export default function ResumeStudioPage() {
     };
   };
 
-  const duplicateResume = async (resumeId: string, title: string) => {
+  const duplicateResume = async (resumeId: Id<'resumes'>, title: string) => {
     if (!clerkId) return;
     try {
       const original = resumes?.find((r) => r._id === resumeId);
@@ -238,7 +271,7 @@ export default function ResumeStudioPage() {
       });
 
       router.push(`/resumes/builder/${id}`);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to copy resume',
@@ -247,18 +280,18 @@ export default function ResumeStudioPage() {
     }
   };
 
-  const deleteResume = async (resumeId: string) => {
+  const deleteResume = async (resumeId: Id<'resumes'>) => {
     if (!clerkId) return;
     if (!confirm('Are you sure you want to delete this resume?')) return;
 
     try {
-      await deleteResumeMutation({ clerkId, resumeId: resumeId as any });
+      await deleteResumeMutation({ clerkId, resumeId });
       toast({
         title: 'Resume Deleted',
         description: 'Your resume has been deleted successfully',
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to delete resume',
@@ -300,7 +333,7 @@ export default function ResumeStudioPage() {
           'Review your AI-generated resume below. You can save it or optimize your profile.',
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to generate resume',
@@ -333,7 +366,7 @@ export default function ResumeStudioPage() {
       setGeneratedResume(null);
       setResumeJobDescription('');
       setResumeSubTab('my-resumes');
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save resume',
@@ -364,8 +397,6 @@ export default function ResumeStudioPage() {
       });
       return;
     }
-
-    setImportingResume(true);
 
     try {
       toast({
@@ -454,8 +485,6 @@ export default function ResumeStudioPage() {
         description: error instanceof Error ? error.message : 'Failed to import resume',
         variant: 'destructive',
       });
-    } finally {
-      setImportingResume(false);
     }
   };
 
@@ -576,7 +605,7 @@ export default function ResumeStudioPage() {
       setAnalyzeJobDescription('');
       setUploadedFile(null);
       setResumeSubTab('my-resumes');
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to optimize resume',
@@ -589,7 +618,7 @@ export default function ResumeStudioPage() {
 
   const exportResumePDF = async (resume: ResumeDoc) => {
     try {
-      const content = (resume.content || {}) as any;
+      const content: ResumeContent = resume.content ?? {};
       const personalInfo = content.contactInfo || content.personalInfo || {};
       const fullName =
         personalInfo.name ||
@@ -643,7 +672,7 @@ export default function ResumeStudioPage() {
     if (!clerkId) return;
     setCreatingCoverLetter(true);
     try {
-      const doc = await createCoverLetterMutation({
+      const doc = (await createCoverLetterMutation({
         clerkId,
         name: 'Untitled Cover Letter',
         job_title: 'Position',
@@ -652,9 +681,9 @@ export default function ResumeStudioPage() {
         content: '',
         closing: 'Sincerely,',
         source: 'manual',
-      });
-      if (doc && (doc as any)._id) {
-        router.push(`/cover-letters/${(doc as any)._id}`);
+      })) as { _id?: Id<'cover_letters'> } | null;
+      if (doc?._id) {
+        router.push(`/cover-letters/${doc._id}`);
       }
     } catch {
       toast({
@@ -667,13 +696,13 @@ export default function ResumeStudioPage() {
     }
   };
 
-  const duplicateCoverLetter = async (letterId: string, name: string) => {
+  const duplicateCoverLetter = async (letterId: Id<'cover_letters'>, name: string) => {
     if (!clerkId) return;
     try {
       const original = coverLetters?.find((c) => c._id === letterId);
       if (!original) return;
 
-      const doc = await createCoverLetterMutation({
+      const doc = (await createCoverLetterMutation({
         clerkId,
         name: `${name} (Copy)`,
         job_title: original.job_title,
@@ -682,7 +711,7 @@ export default function ResumeStudioPage() {
         content: original.content || '',
         closing: original.closing,
         source: original.source || 'manual',
-      });
+      })) as { _id?: Id<'cover_letters'> } | null;
 
       toast({
         title: 'Cover Letter Copied',
@@ -690,10 +719,10 @@ export default function ResumeStudioPage() {
         variant: 'success',
       });
 
-      if (doc && (doc as any)._id) {
-        router.push(`/cover-letters/${(doc as any)._id}`);
+      if (doc?._id) {
+        router.push(`/cover-letters/${doc._id}`);
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to copy cover letter',
@@ -702,18 +731,18 @@ export default function ResumeStudioPage() {
     }
   };
 
-  const deleteCoverLetter = async (letterId: string) => {
+  const deleteCoverLetter = async (letterId: Id<'cover_letters'>) => {
     if (!clerkId) return;
     if (!confirm('Are you sure you want to delete this cover letter?')) return;
 
     try {
-      await deleteCoverLetterMutation({ clerkId, coverLetterId: letterId as any });
+      await deleteCoverLetterMutation({ clerkId, coverLetterId: letterId });
       toast({
         title: 'Cover Letter Deleted',
         description: 'Your cover letter has been deleted successfully',
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to delete cover letter',
@@ -763,7 +792,7 @@ export default function ResumeStudioPage() {
       if (created && created._id) {
         router.push(`/cover-letters/${created._id}`);
       } else {
-        const doc = await createCoverLetterMutation({
+        const doc = (await createCoverLetterMutation({
           clerkId,
           name: `AI Cover Letter - ${clJobCompany}`,
           job_title: clJobRole,
@@ -774,10 +803,10 @@ export default function ResumeStudioPage() {
             `Generated from job description: ${clJobDescription.substring(0, 100)}...`,
           closing: 'Sincerely,',
           source: 'ai_generated',
-        });
-        if (doc && (doc as any)._id) router.push(`/cover-letters/${(doc as any)._id}`);
+        })) as { _id?: Id<'cover_letters'> } | null;
+        if (doc?._id) router.push(`/cover-letters/${doc._id}`);
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to generate cover letter',
@@ -845,7 +874,7 @@ export default function ResumeStudioPage() {
     if (!clerkId || !clAnalysisResult?.optimizedLetter) return;
     setSavingOptimized(true);
     try {
-      const doc = await createCoverLetterMutation({
+      const doc = (await createCoverLetterMutation({
         clerkId,
         name: `Optimized Cover Letter - ${clAnalyzeCompany || 'Saved'}`,
         job_title: clAnalyzeRole || 'Target Role',
@@ -854,16 +883,16 @@ export default function ResumeStudioPage() {
         content: clAnalysisResult.optimizedLetter,
         closing: 'Sincerely,',
         source: 'ai_optimized',
-      });
+      })) as { _id?: Id<'cover_letters'> } | null;
       toast({
         title: 'Optimized letter saved',
         description: 'Your improved cover letter is now in My Cover Letters.',
         variant: 'success',
       });
-      if (doc && (doc as any)._id) {
-        router.push(`/cover-letters/${(doc as any)._id}`);
+      if (doc?._id) {
+        router.push(`/cover-letters/${doc._id}`);
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save optimized letter',
@@ -876,9 +905,13 @@ export default function ResumeStudioPage() {
 
   const exportCoverLetter = (letter: CoverLetterDoc) => {
     try {
-      const exportUserName = clerkUser?.fullName || (profile as any)?.name || '';
+      const profileInfo =
+        profile && typeof profile === 'object'
+          ? (profile as { name?: string; email?: string })
+          : {};
+      const exportUserName = clerkUser?.fullName || profileInfo.name || '';
       const exportUserEmail =
-        clerkUser?.primaryEmailAddress?.emailAddress || (profile as any)?.email || '';
+        clerkUser?.primaryEmailAddress?.emailAddress || profileInfo.email || '';
       exportCoverLetterPDF({
         letter,
         userName: exportUserName,
@@ -889,77 +922,12 @@ export default function ResumeStudioPage() {
         description: 'PDF downloaded successfully.',
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Export failed',
         description: 'Unable to export this cover letter.',
         variant: 'destructive',
       });
-    }
-  };
-
-  // ============================================================================
-  // RENDER HELPERS
-  // ============================================================================
-  const getResumeSourceBadge = (source?: string) => {
-    switch (source) {
-      case 'ai_generated':
-        return (
-          <span className="text-[11px] bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-            AI Generated
-          </span>
-        );
-      case 'ai_optimized':
-        return (
-          <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-            AI Optimized
-          </span>
-        );
-      case 'pdf_upload':
-        return (
-          <span className="text-[11px] bg-green-100 text-green-700 px-2 py-1 rounded-full">
-            PDF Upload
-          </span>
-        );
-      case 'manual':
-        return (
-          <span className="text-[11px] bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
-            Manual
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getCoverLetterSourceBadge = (source?: string) => {
-    switch (source) {
-      case 'ai_generated':
-        return (
-          <span className="text-[11px] bg-purple-100 text-purple-700 px-2 py-1 rounded-full whitespace-nowrap">
-            AI Generated
-          </span>
-        );
-      case 'ai_optimized':
-        return (
-          <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full whitespace-nowrap">
-            AI Optimized
-          </span>
-        );
-      case 'pdf_upload':
-        return (
-          <span className="text-[11px] bg-green-100 text-green-700 px-2 py-1 rounded-full whitespace-nowrap">
-            PDF Upload
-          </span>
-        );
-      case 'manual':
-        return (
-          <span className="text-[11px] bg-gray-100 text-gray-700 px-2 py-1 rounded-full whitespace-nowrap">
-            Manual
-          </span>
-        );
-      default:
-        return null;
     }
   };
 
@@ -1266,8 +1234,14 @@ export default function ResumeStudioPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <label
+                        className="text-sm font-medium mb-2 block"
+                        htmlFor="resume-job-description"
+                      >
+                        Job Description
+                      </label>
                       <Textarea
+                        id="resume-job-description"
                         placeholder="Paste the job description here..."
                         value={resumeJobDescription}
                         onChange={(e) => setResumeJobDescription(e.target.value)}
@@ -1351,7 +1325,7 @@ export default function ResumeStudioPage() {
                               <div>
                                 <h4 className="font-semibold text-sm mb-2">Experience</h4>
                                 <div className="space-y-3">
-                                  {generatedResume.experience.map((exp: any, idx: number) => (
+                                  {generatedResume.experience.map((exp, idx) => (
                                     <div key={idx} className="border-l-2 border-blue-500 pl-3">
                                       <h5 className="font-semibold text-sm">{exp.title}</h5>
                                       <div className="text-xs text-muted-foreground">
@@ -1418,8 +1392,14 @@ export default function ResumeStudioPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Upload Resume (PDF)</label>
+                      <label
+                        className="text-sm font-medium mb-2 block"
+                        htmlFor="resume-upload-file"
+                      >
+                        Upload Resume (PDF)
+                      </label>
                       <Input
+                        id="resume-upload-file"
                         type="file"
                         accept=".pdf"
                         onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
@@ -1431,8 +1411,14 @@ export default function ResumeStudioPage() {
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <label
+                        className="text-sm font-medium mb-2 block"
+                        htmlFor="resume-analyze-job-description"
+                      >
+                        Job Description
+                      </label>
                       <Textarea
+                        id="resume-analyze-job-description"
                         placeholder="Paste the job description here..."
                         value={analyzeJobDescription}
                         onChange={(e) => setAnalyzeJobDescription(e.target.value)}
@@ -1755,8 +1741,11 @@ export default function ResumeStudioPage() {
                   <CardContent className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Company Name</label>
+                        <label className="text-sm font-medium mb-2 block" htmlFor="cl-company-name">
+                          Company Name
+                        </label>
                         <Input
+                          id="cl-company-name"
                           placeholder="e.g. Acme Corporation"
                           value={clJobCompany}
                           onChange={(e) => setClJobCompany(e.target.value)}
@@ -1764,8 +1753,11 @@ export default function ResumeStudioPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Role / Position</label>
+                        <label className="text-sm font-medium mb-2 block" htmlFor="cl-role">
+                          Role / Position
+                        </label>
                         <Input
+                          id="cl-role"
                           placeholder="e.g. Senior Product Manager"
                           value={clJobRole}
                           onChange={(e) => setClJobRole(e.target.value)}
@@ -1774,8 +1766,14 @@ export default function ResumeStudioPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <label
+                        className="text-sm font-medium mb-2 block"
+                        htmlFor="cl-job-description"
+                      >
+                        Job Description
+                      </label>
                       <Textarea
+                        id="cl-job-description"
                         placeholder="Paste the job description here..."
                         value={clJobDescription}
                         onChange={(e) => setClJobDescription(e.target.value)}
@@ -1825,10 +1823,11 @@ export default function ResumeStudioPage() {
                   <CardContent className="space-y-6">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="text-sm font-medium mb-2 block">
+                        <label className="text-sm font-medium mb-2 block" htmlFor="cl-analyze-role">
                           Target Role (optional)
                         </label>
                         <Input
+                          id="cl-analyze-role"
                           placeholder="e.g. Product Marketing Manager"
                           value={clAnalyzeRole}
                           onChange={(e) => setClAnalyzeRole(e.target.value)}
@@ -1836,8 +1835,14 @@ export default function ResumeStudioPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Company (optional)</label>
+                        <label
+                          className="text-sm font-medium mb-2 block"
+                          htmlFor="cl-analyze-company"
+                        >
+                          Company (optional)
+                        </label>
                         <Input
+                          id="cl-analyze-company"
                           placeholder="e.g. Northwind Labs"
                           value={clAnalyzeCompany}
                           onChange={(e) => setClAnalyzeCompany(e.target.value)}
@@ -1846,8 +1851,11 @@ export default function ResumeStudioPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Cover Letter</label>
+                      <label className="text-sm font-medium mb-2 block" htmlFor="cl-draft">
+                        Cover Letter
+                      </label>
                       <Textarea
+                        id="cl-draft"
                         placeholder="Paste the cover letter you want to analyze..."
                         value={coverLetterDraft}
                         onChange={(e) => setCoverLetterDraft(e.target.value)}
@@ -1860,8 +1868,14 @@ export default function ResumeStudioPage() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Job Description</label>
+                      <label
+                        className="text-sm font-medium mb-2 block"
+                        htmlFor="cl-analyze-job-description"
+                      >
+                        Job Description
+                      </label>
                       <Textarea
+                        id="cl-analyze-job-description"
                         placeholder="Paste the target job description..."
                         value={clAnalyzeJobDescription}
                         onChange={(e) => setClAnalyzeJobDescription(e.target.value)}

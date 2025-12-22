@@ -61,6 +61,7 @@ export function SectionOutlineItem({
     >
       {/* Drag handle */}
       <button
+        type="button"
         {...attributes}
         {...listeners}
         className={cn(

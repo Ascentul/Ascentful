@@ -10,12 +10,21 @@ import type {
   ResumeData,
 } from '@/components/resume/ResumeDocument';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
-import { createReorderSectionAction, useResumeUndo } from '@/hooks/useResumeUndo';
+import {
+  createApplySuggestionAction,
+  createReorderSectionAction,
+  useResumeUndo,
+} from '@/hooks/useResumeUndo';
 import { useSuggestions } from '@/hooks/useSuggestions';
-import { scrollToSpan } from '@/lib/resume-editor/span-utils';
+import {
+  bulletPointsToDescription,
+  parseBulletPoints,
+  parseSpanId,
+  scrollToSpan,
+} from '@/lib/resume-editor/span-utils';
 import { calculateEnhancedScore } from '@/lib/resume-score';
 import { cn } from '@/lib/utils';
-import type { EditorTab, TopFix, ZoomLevel } from '@/types/resume-editor';
+import type { EditorAction, EditorTab, TopFix, ZoomLevel } from '@/types/resume-editor';
 
 import type { StyleConfig, TemplateId } from '../templates/types';
 import { CanvasPanel } from './canvas/CanvasPanel';
@@ -37,7 +46,6 @@ interface ThreePanelEditorProps {
   onUpdateSummary: (summary: string) => void;
   onUpdateExperience: (experiences: Experience[]) => void;
   onUpdateEducation: (education: Education[]) => void;
-  onUpdateSkills: (skills: string[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
@@ -64,7 +72,6 @@ export function ThreePanelEditor({
   onUpdateSummary,
   onUpdateExperience,
   onUpdateEducation,
-  onUpdateSkills,
   onUpdateProjects,
   onSetSectionOrder,
   onToggleSection,
@@ -99,19 +106,315 @@ export function ThreePanelEditor({
   }, [resumeData, suggestions]);
 
   // Keyboard shortcuts
+  const getSpanValue = useCallback(
+    (spanId: string): string | null => {
+      const parsed = parseSpanId(spanId);
+      if (!parsed) return null;
+
+      switch (parsed.sectionType) {
+        case 'summary':
+          return parsed.field === 'text' ? resumeData.summary || '' : null;
+        case 'contact': {
+          const { contactInfo } = resumeData;
+          switch (parsed.field) {
+            case 'name':
+              return contactInfo.name || '';
+            case 'email':
+              return contactInfo.email || '';
+            case 'phone':
+              return contactInfo.phone || '';
+            case 'location':
+              return contactInfo.location || '';
+            case 'linkedin':
+              return contactInfo.linkedin || '';
+            case 'github':
+              return contactInfo.github || '';
+            case 'website':
+              return contactInfo.website || '';
+            default:
+              return null;
+          }
+        }
+        case 'experience': {
+          const experience = (resumeData.experience || []).find((exp) => exp.id === parsed.itemId);
+          if (!experience) return null;
+          switch (parsed.field) {
+            case 'title':
+              return experience.title || '';
+            case 'company':
+              return experience.company || '';
+            case 'location':
+              return experience.location || '';
+            case 'startDate':
+              return experience.startDate || '';
+            case 'endDate':
+              return experience.endDate || '';
+            case 'description':
+            case 'bullets': {
+              const bullets = parseBulletPoints(experience.description || '');
+              if (parsed.lineIndex !== undefined) {
+                return bullets[parsed.lineIndex] ?? null;
+              }
+              return experience.description || '';
+            }
+            case 'summary':
+              return experience.summary || '';
+            default:
+              return null;
+          }
+        }
+        case 'education': {
+          const education = (resumeData.education || []).find((edu) => edu.id === parsed.itemId);
+          if (!education) return null;
+          switch (parsed.field) {
+            case 'school':
+              return education.school || '';
+            case 'degree':
+              return education.degree || '';
+            case 'field':
+              return education.field || '';
+            case 'location':
+              return education.location || '';
+            case 'startYear':
+              return education.startYear || '';
+            case 'endYear':
+              return education.endYear || '';
+            case 'gpa':
+              return education.gpa || '';
+            case 'honors':
+              return education.honors || '';
+            default:
+              return null;
+          }
+        }
+        case 'projects': {
+          const project = (resumeData.projects || []).find((proj) => proj.id === parsed.itemId);
+          if (!project) return null;
+          switch (parsed.field) {
+            case 'name':
+              return project.name || '';
+            case 'role':
+              return project.role || '';
+            case 'description':
+              return project.description || '';
+            case 'technologies':
+              return project.technologies || '';
+            case 'url':
+              return project.url || '';
+            default:
+              return null;
+          }
+        }
+        default:
+          return null;
+      }
+    },
+    [resumeData],
+  );
+
+  const applySpanText = useCallback(
+    (spanId: string, text: string): boolean => {
+      const parsed = parseSpanId(spanId);
+      if (!parsed) return false;
+
+      switch (parsed.sectionType) {
+        case 'summary':
+          if (parsed.field === 'text') {
+            onUpdateSummary(text);
+            return true;
+          }
+          return false;
+        case 'contact': {
+          switch (parsed.field) {
+            case 'name':
+            case 'email':
+            case 'phone':
+            case 'location':
+            case 'linkedin':
+            case 'github':
+            case 'website':
+              onUpdateContactInfo(parsed.field as keyof ContactInfo, text);
+              return true;
+            default:
+              return false;
+          }
+        }
+        case 'experience': {
+          const experiences = resumeData.experience || [];
+          const index = experiences.findIndex((exp) => exp.id === parsed.itemId);
+          if (index === -1) return false;
+          const experience = experiences[index];
+          let updated: Experience | null = null;
+
+          switch (parsed.field) {
+            case 'title':
+              updated = { ...experience, title: text };
+              break;
+            case 'company':
+              updated = { ...experience, company: text };
+              break;
+            case 'location':
+              updated = { ...experience, location: text };
+              break;
+            case 'startDate':
+              updated = { ...experience, startDate: text };
+              break;
+            case 'endDate':
+              updated = { ...experience, endDate: text };
+              break;
+            case 'summary':
+              updated = { ...experience, summary: text };
+              break;
+            case 'description':
+            case 'bullets': {
+              if (parsed.lineIndex !== undefined) {
+                const bullets = parseBulletPoints(experience.description || '');
+                if (parsed.lineIndex < 0 || parsed.lineIndex >= bullets.length) return false;
+                const updatedBullets = [...bullets];
+                updatedBullets[parsed.lineIndex] = text;
+                updated = {
+                  ...experience,
+                  description: bulletPointsToDescription(updatedBullets),
+                };
+              } else {
+                updated = { ...experience, description: text };
+              }
+              break;
+            }
+            default:
+              return false;
+          }
+
+          const next = experiences.map((exp, i) => (i === index ? updated! : exp));
+          onUpdateExperience(next);
+          return true;
+        }
+        case 'education': {
+          const educationItems = resumeData.education || [];
+          const index = educationItems.findIndex((edu) => edu.id === parsed.itemId);
+          if (index === -1) return false;
+          const education = educationItems[index];
+          let updated: Education | null = null;
+
+          switch (parsed.field) {
+            case 'school':
+              updated = { ...education, school: text };
+              break;
+            case 'degree':
+              updated = { ...education, degree: text };
+              break;
+            case 'field':
+              updated = { ...education, field: text };
+              break;
+            case 'location':
+              updated = { ...education, location: text };
+              break;
+            case 'startYear':
+              updated = { ...education, startYear: text };
+              break;
+            case 'endYear':
+              updated = { ...education, endYear: text };
+              break;
+            case 'gpa':
+              updated = { ...education, gpa: text };
+              break;
+            case 'honors':
+              updated = { ...education, honors: text };
+              break;
+            default:
+              return false;
+          }
+
+          const next = educationItems.map((edu, i) => (i === index ? updated! : edu));
+          onUpdateEducation(next);
+          return true;
+        }
+        case 'projects': {
+          const projects = resumeData.projects || [];
+          const index = projects.findIndex((proj) => proj.id === parsed.itemId);
+          if (index === -1) return false;
+          const project = projects[index];
+          let updated: Project | null = null;
+
+          switch (parsed.field) {
+            case 'name':
+              updated = { ...project, name: text };
+              break;
+            case 'role':
+              updated = { ...project, role: text };
+              break;
+            case 'description':
+              updated = { ...project, description: text };
+              break;
+            case 'technologies':
+              updated = { ...project, technologies: text };
+              break;
+            case 'url':
+              updated = { ...project, url: text };
+              break;
+            default:
+              return false;
+          }
+
+          const next = projects.map((proj, i) => (i === index ? updated! : proj));
+          onUpdateProjects(next);
+          return true;
+        }
+        default:
+          return false;
+      }
+    },
+    [
+      resumeData,
+      onUpdateSummary,
+      onUpdateContactInfo,
+      onUpdateExperience,
+      onUpdateEducation,
+      onUpdateProjects,
+    ],
+  );
+
+  const applyEditorAction = useCallback(
+    (action: EditorAction, direction: 'undo' | 'redo') => {
+      const payload = direction === 'undo' ? action.before : action.after;
+
+      switch (action.type) {
+        case 'reorder_section':
+          if (Array.isArray(payload)) {
+            onSetSectionOrder(payload as string[]);
+          }
+          break;
+        case 'toggle_section':
+          if (action.sectionId && typeof payload === 'boolean') {
+            onToggleSection(action.sectionId, payload);
+          }
+          break;
+        case 'apply_suggestion':
+        case 'text_edit':
+          if (action.spanId && typeof payload === 'string') {
+            applySpanText(action.spanId, payload);
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [onSetSectionOrder, onToggleSection, applySpanText],
+  );
+
   const handleUndo = useCallback(() => {
     const action = undo();
     if (action) {
-      // TODO: Apply the undo - restore previous state.
+      applyEditorAction(action, 'undo');
     }
-  }, [undo]);
+  }, [undo, applyEditorAction]);
 
   const handleRedo = useCallback(() => {
     const action = redo();
     if (action) {
-      // TODO: Apply the redo - apply the action's 'after' state.
+      applyEditorAction(action, 'redo');
     }
-  }, [redo]);
+  }, [redo, applyEditorAction]);
 
   const handleSave = useCallback(() => {
     onSave?.();
@@ -155,13 +458,29 @@ export function ThreePanelEditor({
   const handleApplySuggestion = useCallback(
     (suggestionId: string) => {
       const suggestion = suggestions.find((s) => s.suggestionId === suggestionId);
-      if (suggestion?.proposedText) {
-        // For now, just mark as applied
-        // In a full implementation, we'd update the actual text
+      if (!suggestion || !suggestion.proposedText) return;
+
+      const before = getSpanValue(suggestion.spanId);
+      if (before === null || before === suggestion.proposedText) {
+        applySuggestion(suggestionId);
+        return;
+      }
+
+      const applied = applySpanText(suggestion.spanId, suggestion.proposedText);
+      if (applied) {
+        pushAction(
+          createApplySuggestionAction(
+            suggestion.spanId,
+            suggestion.suggestionId,
+            before,
+            suggestion.proposedText,
+            'Apply suggestion',
+          ),
+        );
         applySuggestion(suggestionId);
       }
     },
-    [suggestions, applySuggestion],
+    [suggestions, applySuggestion, getSpanValue, applySpanText, pushAction],
   );
 
   // Apply fix
@@ -283,7 +602,6 @@ export function ThreePanelEditor({
           onUpdateSummary={onUpdateSummary}
           onUpdateExperience={onUpdateExperience}
           onUpdateEducation={onUpdateEducation}
-          onUpdateSkills={onUpdateSkills}
           onUpdateProjects={onUpdateProjects}
         />
 

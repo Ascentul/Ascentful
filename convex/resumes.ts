@@ -456,6 +456,11 @@ export const createResumeVersion = mutation({
       throw new Error('Resume not found or access denied');
     }
 
+    // University isolation check
+    if (resume.university_id && user.university_id && resume.university_id !== user.university_id) {
+      throw new Error('Unauthorized: Resume belongs to another university');
+    }
+
     // Get the latest version number
     const latestVersion = await ctx.db
       .query('resume_versions')
@@ -499,6 +504,11 @@ export const restoreResumeVersion = mutation({
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
       throw new Error('Resume not found or access denied');
+    }
+
+    // University isolation check
+    if (resume.university_id && user.university_id && resume.university_id !== user.university_id) {
+      throw new Error('Unauthorized: Resume belongs to another university');
     }
 
     // Find the version to restore
@@ -557,6 +567,11 @@ export const getResumeVersions = query({
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
+      return [];
+    }
+
+    // University isolation check
+    if (resume.university_id && user.university_id && resume.university_id !== user.university_id) {
       return [];
     }
 
