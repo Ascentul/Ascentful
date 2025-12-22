@@ -890,6 +890,7 @@ export default defineSchema({
     // Resume Builder 2.0: Autosave tracking
     last_autosave_at: v.optional(v.number()),
     is_draft: v.optional(v.boolean()),
+    version_counter: v.optional(v.number()),
 
     // Analysis data
     extracted_text: v.optional(v.string()), // Text extracted from uploaded PDF/DOCX

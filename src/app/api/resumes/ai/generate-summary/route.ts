@@ -90,20 +90,23 @@ function buildContext(
     parts.push(`Purpose: ${intent}`);
   }
 
-  if (resumeData.experience?.length > 0) {
-    const expSummary = resumeData.experience
+  const experience = resumeData.experience ?? [];
+  if (experience.length > 0) {
+    const expSummary = experience
       .slice(0, 3)
       .map((exp) => `${exp.title} at ${exp.company}`)
       .join(', ');
     parts.push(`Recent experience: ${expSummary}`);
   }
 
-  if (resumeData.skills?.length > 0) {
-    parts.push(`Key skills: ${resumeData.skills.slice(0, 10).join(', ')}`);
+  const skills = resumeData.skills ?? [];
+  if (skills.length > 0) {
+    parts.push(`Key skills: ${skills.slice(0, 10).join(', ')}`);
   }
 
-  if (resumeData.education?.length > 0) {
-    const edu = resumeData.education[0];
+  const education = resumeData.education ?? [];
+  if (education.length > 0) {
+    const edu = education[0];
     parts.push(`Education: ${edu.degree} in ${edu.field} from ${edu.school}`);
   }
 

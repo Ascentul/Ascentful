@@ -90,7 +90,8 @@ export function useEditorKeyboard({
  */
 export function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') return false;
-  const platform = navigator.userAgentData?.platform ?? navigator.platform;
+  const navigatorData = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = navigatorData.userAgentData?.platform ?? navigator.platform;
   return platform.toUpperCase().indexOf('MAC') >= 0;
 }
 

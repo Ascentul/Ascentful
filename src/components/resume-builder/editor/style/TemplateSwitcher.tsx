@@ -21,7 +21,7 @@ export function TemplateSwitcher({ value, onChange }: TemplateSwitcherProps) {
       <h3 className="text-sm font-medium text-slate-700">Template</h3>
       <div className="grid grid-cols-3 gap-3">
         {TEMPLATES.map((templateId) => {
-          const meta = Object.values(TEMPLATE_METADATA).find((value) => value.id === templateId);
+          const meta = TEMPLATE_METADATA[templateId];
           if (!meta) return null;
           const isSelected = value === templateId;
 

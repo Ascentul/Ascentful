@@ -69,7 +69,7 @@ export function useResumeUndo(options: UseResumeUndoOptions = {}): UseResumeUndo
     });
 
     if (action) {
-      setRedoStack((prev) => [...prev, action]);
+      setRedoStack((prev) => [...prev, action!]);
     }
 
     return action;
@@ -89,7 +89,7 @@ export function useResumeUndo(options: UseResumeUndoOptions = {}): UseResumeUndo
     });
 
     if (action) {
-      setUndoStack((prev) => [...prev, action]);
+      setUndoStack((prev) => [...prev, action!]);
     }
 
     return action;

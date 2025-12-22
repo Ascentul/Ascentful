@@ -75,6 +75,7 @@ export const createResume = mutation({
       job_description: args.job_description,
       extracted_text: args.extracted_text,
       analysis_result: args.analysis_result,
+      version_counter: 0,
       created_at: Date.now(),
       updated_at: Date.now(),
     });
@@ -271,7 +272,14 @@ export const createResumeFromFunnel = mutation({
       v.literal('unsure'),
     ),
     startSource: v.union(v.literal('profile'), v.literal('upload'), v.literal('blank')),
-    templateId: v.string(),
+    templateId: v.union(
+      v.literal('clean'),
+      v.literal('modern'),
+      v.literal('bold'),
+      v.literal('minimal'),
+      v.literal('classic'),
+      v.literal('ats'),
+    ),
     enabledSections: v.array(v.string()),
     sectionOrder: v.array(v.string()),
     content: v.any(),
@@ -323,6 +331,7 @@ export const createResumeFromFunnel = mutation({
         section_order: args.sectionOrder,
       },
       is_draft: true,
+      version_counter: 1,
       last_autosave_at: now,
       created_at: now,
       updated_at: now,
@@ -461,14 +470,19 @@ export const createResumeVersion = mutation({
       throw new Error('Unauthorized: Resume belongs to another university');
     }
 
-    // Get the latest version number
-    const latestVersion = await ctx.db
-      .query('resume_versions')
-      .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
-      .order('desc')
-      .first();
+    let baseVersion = resume.version_counter ?? null;
+    if (baseVersion === null) {
+      const latestVersion = await ctx.db
+        .query('resume_versions')
+        .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+        .order('desc')
+        .first();
+      baseVersion = latestVersion?.version_number ?? 0;
+    }
 
-    const newVersionNumber = (latestVersion?.version_number || 0) + 1;
+    const newVersionNumber = baseVersion + 1;
+
+    await ctx.db.patch(args.resumeId, { version_counter: newVersionNumber });
 
     const versionId = await ctx.db.insert('resume_versions', {
       resume_id: args.resumeId,
@@ -528,17 +542,24 @@ export const restoreResumeVersion = mutation({
       updated_at: Date.now(),
     });
 
-    // Create a new version snapshot for the restore action
-    const latestVersion = await ctx.db
-      .query('resume_versions')
-      .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
-      .order('desc')
-      .first();
+    let baseVersion = resume.version_counter ?? null;
+    if (baseVersion === null) {
+      const latestVersion = await ctx.db
+        .query('resume_versions')
+        .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+        .order('desc')
+        .first();
+      baseVersion = latestVersion?.version_number ?? 0;
+    }
+
+    const newVersionNumber = baseVersion + 1;
+
+    await ctx.db.patch(args.resumeId, { version_counter: newVersionNumber });
 
     await ctx.db.insert('resume_versions', {
       resume_id: args.resumeId,
       user_id: user._id,
-      version_number: (latestVersion?.version_number || 0) + 1,
+      version_number: newVersionNumber,
       version_label: `Restored from version ${args.versionNumber}`,
       content_snapshot: versionToRestore.content_snapshot,
       trigger: 'manual_save',

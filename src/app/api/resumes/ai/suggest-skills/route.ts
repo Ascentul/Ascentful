@@ -24,15 +24,15 @@ export async function POST(request: NextRequest) {
 
     const prompt = buildPrompt(resumeData, intent, jobTarget);
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-      timeout: 30000,
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert career advisor and resume writer. Analyze the provided resume data and suggest relevant skills.
+    const response = await openai.chat.completions.create(
+      {
+        model: 'gpt-4o',
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert career advisor and resume writer. Analyze the provided resume data and suggest relevant skills.
 
 Guidelines:
 - Suggest 8-12 skills that would strengthen the resume
@@ -44,13 +44,15 @@ Guidelines:
 - Include industry-specific terminology when appropriate
 
 Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "technical": ["skill1", ...], "soft": ["skill1", ...], "tools": ["skill1", ...] } }`,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      },
+      { timeout: 30000 },
+    );
 
     const content = response.choices[0]?.message?.content || '{}';
     let parsed: { skills?: string[]; categories?: Record<string, string[]> };

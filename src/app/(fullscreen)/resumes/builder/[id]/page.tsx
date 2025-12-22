@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
+import type { FunctionReturnType } from 'convex/server';
 import { Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,7 +26,7 @@ import { generateResumePDF } from '@/lib/resume-pdf-generator';
 const DEFAULT_SECTION_ORDER = ['summary', 'experience', 'education', 'projects', 'skills'];
 const DEFAULT_ENABLED_SECTIONS = ['summary', 'experience', 'education', 'skills'];
 
-type ResumeResponse = Awaited<ReturnType<typeof api.resumes.getResumeById>>;
+type ResumeResponse = FunctionReturnType<typeof api.resumes.getResumeById>;
 
 export default function ResumeBuilderPage() {
   const params = useParams();
@@ -109,7 +110,8 @@ export default function ResumeBuilderPage() {
       });
       setTitle(resume.title || 'My Resume');
       setTemplateId(resume.template_id || 'modern');
-      setStyleConfig(resume.style_config || DEFAULT_STYLE_CONFIG);
+      const storedStyleConfig = (resume.style_config ?? {}) as Partial<StyleConfig>;
+      setStyleConfig({ ...DEFAULT_STYLE_CONFIG, ...storedStyleConfig });
       setSectionOrder(resume.sections_config?.section_order || DEFAULT_SECTION_ORDER);
       setEnabledSections(resume.sections_config?.enabled_sections || DEFAULT_ENABLED_SECTIONS);
       setIsInitialized(true);
