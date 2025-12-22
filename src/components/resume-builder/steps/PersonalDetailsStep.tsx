@@ -7,6 +7,7 @@ import React, { useRef, useState } from 'react';
 import type { ContactInfo } from '@/components/resume/ResumeDocument';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 interface PersonalDetailsStepProps {
   contactInfo: ContactInfo;
@@ -23,6 +24,7 @@ export function PersonalDetailsStep({
 }: PersonalDetailsStepProps) {
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Split name into first and last for display
   const nameParts = contactInfo.name.split(' ');
@@ -37,7 +39,24 @@ export function PersonalDetailsStep({
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     const maxSize = 5 * 1024 * 1024;
-    if (!file || !file.type.startsWith('image/') || file.size > maxSize) {
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file.',
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
+    if (file.size > maxSize) {
+      toast({
+        title: 'Image too large',
+        description: 'Image must be less than 5MB.',
+        variant: 'destructive',
+      });
       event.target.value = '';
       return;
     }

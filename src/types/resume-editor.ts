@@ -89,16 +89,11 @@ export interface TopFix {
 
 export type EditorTab = 'content' | 'style' | 'review';
 
-export type CoachMode = 'score' | 'suggestions' | 'ats';
+export type ZoomLevel = number;
 
-export type ZoomLevel = 'fit' | '50' | '75' | '100';
-
-export const ZOOM_SCALES: Record<ZoomLevel, number> = {
-  fit: 0.65,
-  '50': 0.5,
-  '75': 0.75,
-  '100': 1.0,
-};
+export function getZoomScale(level: ZoomLevel): number {
+  return level / 100;
+}
 
 // ============================================================================
 // Undo/Redo
@@ -135,7 +130,6 @@ export interface ThreePanelEditorState {
 
   // Coach panel
   coachEnabled: boolean;
-  coachMode: CoachMode;
 
   // Zoom
   zoomLevel: ZoomLevel;

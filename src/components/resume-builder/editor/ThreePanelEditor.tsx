@@ -1,5 +1,6 @@
 'use client';
 
+import { FileText, ImageIcon, LayoutList, Palette, Type } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import type {
@@ -9,6 +10,7 @@ import type {
   Project,
   ResumeData,
 } from '@/components/resume/ResumeDocument';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import {
   createApplySuggestionAction,
@@ -24,14 +26,20 @@ import {
 } from '@/lib/resume-editor/span-utils';
 import { calculateEnhancedScore } from '@/lib/resume-score';
 import { cn } from '@/lib/utils';
-import type { EditorAction, EditorTab, TopFix, ZoomLevel } from '@/types/resume-editor';
+import type { EditorAction, TopFix, ZoomLevel } from '@/types/resume-editor';
 
-import type { StyleConfig, TemplateId } from '../templates/types';
+import type { FontPairingId, StyleConfig, TemplateId } from '../templates/types';
 import { CanvasPanel } from './canvas/CanvasPanel';
+import { ZoomControls } from './canvas/ZoomControls';
 import { CoachPanel } from './coach/CoachPanel';
 import { EditorTopBar } from './EditorTopBar';
 import { OutlinePanel } from './outline/OutlinePanel';
+import { FontPairingPicker } from './style/FontPairingPicker';
 import { StyleTab } from './style/StyleTab';
+import { TemplateSwitcher } from './style/TemplateSwitcher';
+
+// Side rail panel types
+type SideRailPanel = 'sections' | 'templates' | 'theme' | 'fonts' | 'uploads' | null;
 
 interface ThreePanelEditorProps {
   resumeData: ResumeData;
@@ -47,6 +55,7 @@ interface ThreePanelEditorProps {
   onUpdateExperience: (experiences: Experience[]) => void;
   onUpdateEducation: (education: Education[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
+  onUpdateSkills: (skills: string[]) => void;
   onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
   onTemplateChange: (templateId: TemplateId) => void;
@@ -73,6 +82,7 @@ export function ThreePanelEditor({
   onUpdateExperience,
   onUpdateEducation,
   onUpdateProjects,
+  onUpdateSkills,
   onSetSectionOrder,
   onToggleSection,
   onTemplateChange,
@@ -85,12 +95,13 @@ export function ThreePanelEditor({
   isExporting,
 }: ThreePanelEditorProps) {
   // UI State
-  const [activeTab, setActiveTab] = useState<EditorTab>('content');
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('fit');
+  const [activeSidePanel, setActiveSidePanel] = useState<SideRailPanel>('sections');
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(80);
 
   // Coach is always enabled
   const coachEnabled = true;
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [inlineEditingSpanId, setInlineEditingSpanId] = useState<string | null>(null);
 
   // Undo/Redo
@@ -454,6 +465,89 @@ export function ThreePanelEditor({
     [onToggleSection],
   );
 
+  // Select item within a section
+  const handleSelectItem = useCallback((sectionId: string, itemId: string) => {
+    setSelectedSectionId(sectionId);
+    setSelectedItemId(itemId);
+  }, []);
+
+  // Add/Delete Experience
+  const handleAddExperience = useCallback(() => {
+    const newExperience: Experience = {
+      id: `exp-${Date.now()}`,
+      title: '',
+      company: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      current: false,
+      description: '',
+    };
+    onUpdateExperience([...(resumeData.experience || []), newExperience]);
+    setSelectedSectionId('experience');
+    setSelectedItemId(newExperience.id);
+  }, [resumeData.experience, onUpdateExperience]);
+
+  const handleDeleteExperience = useCallback(
+    (id: string) => {
+      onUpdateExperience((resumeData.experience || []).filter((exp) => exp.id !== id));
+      if (selectedItemId === id) {
+        setSelectedItemId(null);
+      }
+    },
+    [resumeData.experience, onUpdateExperience, selectedItemId],
+  );
+
+  // Add/Delete Education
+  const handleAddEducation = useCallback(() => {
+    const newEducation: Education = {
+      id: `edu-${Date.now()}`,
+      school: '',
+      degree: '',
+      field: '',
+      location: '',
+      startYear: '',
+      endYear: '',
+    };
+    onUpdateEducation([...(resumeData.education || []), newEducation]);
+    setSelectedSectionId('education');
+    setSelectedItemId(newEducation.id);
+  }, [resumeData.education, onUpdateEducation]);
+
+  const handleDeleteEducation = useCallback(
+    (id: string) => {
+      onUpdateEducation((resumeData.education || []).filter((edu) => edu.id !== id));
+      if (selectedItemId === id) {
+        setSelectedItemId(null);
+      }
+    },
+    [resumeData.education, onUpdateEducation, selectedItemId],
+  );
+
+  // Add/Delete Project
+  const handleAddProject = useCallback(() => {
+    const newProject: Project = {
+      id: `proj-${Date.now()}`,
+      name: '',
+      role: '',
+      description: '',
+      technologies: '',
+    };
+    onUpdateProjects([...(resumeData.projects || []), newProject]);
+    setSelectedSectionId('projects');
+    setSelectedItemId(newProject.id);
+  }, [resumeData.projects, onUpdateProjects]);
+
+  const handleDeleteProject = useCallback(
+    (id: string) => {
+      onUpdateProjects((resumeData.projects || []).filter((proj) => proj.id !== id));
+      if (selectedItemId === id) {
+        setSelectedItemId(null);
+      }
+    },
+    [resumeData.projects, onUpdateProjects, selectedItemId],
+  );
+
   // Apply suggestion
   const handleApplySuggestion = useCallback(
     (suggestionId: string) => {
@@ -499,29 +593,53 @@ export function ThreePanelEditor({
     scrollToSpan(spanId);
   }, []);
 
-  // Tab configuration - Content and Style only (Review is handled by Coach panel)
-  const tabs: { id: EditorTab; label: string }[] = [
-    { id: 'content', label: 'Content' },
-    { id: 'style', label: 'Style' },
+  // Side rail button configuration
+  const sideRailButtons: { id: SideRailPanel; label: string; icon: typeof FileText }[] = [
+    { id: 'sections', label: 'Sections', icon: LayoutList },
+    { id: 'theme', label: 'Theme', icon: Palette },
+    { id: 'fonts', label: 'Fonts', icon: Type },
+    { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'uploads', label: 'Uploads', icon: ImageIcon },
   ];
 
-  // Render left panel content based on active tab
-  const renderLeftPanelContent = () => {
-    switch (activeTab) {
-      case 'content':
+  // Toggle side panel - if same panel clicked, close it; otherwise open new one
+  const handleSidePanelToggle = (panelId: SideRailPanel) => {
+    setActiveSidePanel((current) => (current === panelId ? null : panelId));
+  };
+
+  // Render expanded panel content based on active side panel
+  const renderSidePanelContent = () => {
+    switch (activeSidePanel) {
+      case 'sections':
         return (
           <OutlinePanel
             sectionOrder={sectionOrder}
             enabledSections={enabledSections}
             selectedSectionId={selectedSectionId}
-            suggestionCounts={coachEnabled ? suggestionCounts : {}}
-            onSelectSection={setSelectedSectionId}
+            selectedItemId={selectedItemId}
+            resumeData={resumeData}
+            onSelectSection={(sectionId) => {
+              setSelectedSectionId(sectionId);
+              setSelectedItemId(null);
+            }}
+            onSelectItem={handleSelectItem}
             onReorderSections={handleReorderSections}
-            onToggleSection={onToggleSection}
             onAddSection={handleAddSection}
+            onAddExperience={handleAddExperience}
+            onDeleteExperience={handleDeleteExperience}
+            onAddEducation={handleAddEducation}
+            onDeleteEducation={handleDeleteEducation}
+            onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
           />
         );
-      case 'style':
+      case 'templates':
+        return (
+          <div className="p-4">
+            <TemplateSwitcher value={templateId} onChange={onTemplateChange} />
+          </div>
+        );
+      case 'theme':
         return (
           <StyleTab
             templateId={templateId}
@@ -530,36 +648,100 @@ export function ThreePanelEditor({
             onStyleChange={onStyleChange}
           />
         );
+      case 'fonts':
+        return (
+          <div className="p-4">
+            <FontPairingPicker
+              value={styleConfig.font_pairing}
+              onChange={(font_pairing: FontPairingId) => onStyleChange({ font_pairing })}
+            />
+          </div>
+        );
+      case 'uploads':
+        return (
+          <div className="p-4">
+            <h3 className="font-semibold text-slate-900 text-sm mb-3">Uploads</h3>
+            <p className="text-xs text-slate-500">
+              Upload custom images and assets to personalize your resume.
+            </p>
+            <div className="mt-4 p-8 border-2 border-dashed border-slate-200 rounded-lg text-center">
+              <ImageIcon className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-xs text-slate-400">Drag and drop or click to upload</p>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
   };
 
-  // Render left panel with tabs
+  // Get panel title
+  const getPanelTitle = () => {
+    switch (activeSidePanel) {
+      case 'sections':
+        return 'Sections';
+      case 'templates':
+        return 'Templates';
+      case 'theme':
+        return 'Theme & Style';
+      case 'fonts':
+        return 'Fonts';
+      case 'uploads':
+        return 'Uploads';
+      default:
+        return '';
+    }
+  };
+
+  // Render left panel with icon rail and expandable panel
   const renderLeftPanel = () => {
     return (
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        {/* Tab bar */}
-        <div className="flex items-center gap-1 p-3 border-b border-slate-100">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors',
-                activeTab === tab.id
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex h-full">
+          {/* Icon Rail - always visible */}
+          <div className="w-20 bg-slate-50 border-r border-slate-200 flex flex-col items-center py-4 gap-2">
+            {sideRailButtons.map((button) => {
+              const Icon = button.icon;
+              const isActive = activeSidePanel === button.id;
+              return (
+                <Tooltip key={button.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSidePanelToggle(button.id)}
+                      className={cn(
+                        'w-16 h-14 flex flex-col items-center justify-center rounded-xl transition-all',
+                        isActive
+                          ? 'bg-white shadow-sm text-slate-900'
+                          : 'text-slate-500 hover:bg-white/50 hover:text-slate-700',
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px] mt-1.5 font-medium">{button.label}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {button.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">{renderLeftPanelContent()}</div>
-      </div>
+          {/* Expandable Panel - shows when a button is active */}
+          {activeSidePanel && (
+            <div className="w-64 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+              {/* Panel header */}
+              <div className="px-4 py-3 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900 text-sm">{getPanelTitle()}</h2>
+              </div>
+              {/* Panel content */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+                {renderSidePanelContent()}
+              </div>
+            </div>
+          )}
+        </div>
+      </TooltipProvider>
     );
   };
 
@@ -603,6 +785,7 @@ export function ThreePanelEditor({
           onUpdateExperience={onUpdateExperience}
           onUpdateEducation={onUpdateEducation}
           onUpdateProjects={onUpdateProjects}
+          onUpdateSkills={onUpdateSkills}
         />
 
         {/* Right Panel - Coach (always visible) */}
@@ -615,6 +798,22 @@ export function ThreePanelEditor({
           onApplyFix={handleApplyFix}
           onScrollToSpan={handleScrollToSpan}
         />
+      </div>
+
+      {/* Bottom Rail */}
+      <div className="h-10 bg-slate-50 border-t border-slate-200 flex items-center justify-between px-4 text-xs text-slate-500">
+        {/* Left side: Zoom controls */}
+        <ZoomControls value={zoomLevel} onChange={setZoomLevel} />
+
+        {/* Right side: Score and status */}
+        <div className="flex items-center gap-4">
+          <span>
+            Score: <strong className="text-slate-700">{score.overallScore}</strong>/100
+          </span>
+          <span>
+            {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
     </div>
   );

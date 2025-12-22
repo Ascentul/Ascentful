@@ -20,8 +20,8 @@ Reduce word count by 20-30% while preserving the key impact.
 Remove filler words and redundancies.`,
 
   add_metric: `Rewrite this bullet point to include a quantifiable metric.
-Add a realistic percentage, number, or dollar amount that demonstrates impact.
-If no specific metric is available, add a reasonable estimate (e.g., "15+ stakeholders", "3x improvement").`,
+Only use metrics explicitly stated in the original bullet or provided context.
+If no metric is available, return the original bullet unchanged.`,
 };
 
 export async function POST(request: NextRequest) {
@@ -95,7 +95,7 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
     if (!evaluation.passed) {
       return NextResponse.json(
         { error: 'Generated content failed safety checks' },
-        { status: 500 },
+        { status: 422 },
       );
     }
 

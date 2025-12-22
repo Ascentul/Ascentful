@@ -65,6 +65,8 @@ export const createResume = mutation({
         ? (await requireMembership(ctx, { role: 'student' })).membership
         : null;
 
+    const now = Date.now();
+
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
       university_id: membership?.university_id ?? user.university_id,
@@ -75,9 +77,19 @@ export const createResume = mutation({
       job_description: args.job_description,
       extracted_text: args.extracted_text,
       analysis_result: args.analysis_result,
-      version_counter: 0,
-      created_at: Date.now(),
-      updated_at: Date.now(),
+      version_counter: 1,
+      created_at: now,
+      updated_at: now,
+    });
+
+    await ctx.db.insert('resume_versions', {
+      resume_id: resumeId,
+      user_id: user._id,
+      version_number: 1,
+      version_label: 'Initial draft',
+      content_snapshot: args.content,
+      trigger: 'creation',
+      created_at: now,
     });
 
     // Audit log: resume created

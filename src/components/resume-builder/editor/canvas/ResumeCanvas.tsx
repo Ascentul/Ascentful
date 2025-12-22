@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import type {
   Education,
   Experience,
@@ -26,6 +28,7 @@ interface ResumeCanvasProps {
   onUpdateExperience: (experiences: Experience[]) => void;
   onUpdateEducation: (education: Education[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
+  onUpdateSkills: (skills: string[]) => void;
 }
 
 /* Intentionally keeping types as Experience[] since the handlers
@@ -44,6 +47,7 @@ export function ResumeCanvas({
   onUpdateExperience,
   onUpdateEducation,
   onUpdateProjects,
+  onUpdateSkills,
 }: ResumeCanvasProps) {
   // Get template-specific layout configuration
   const templateConfig = TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_LAYOUTS.modern;
@@ -202,6 +206,7 @@ export function ResumeCanvas({
               skills={data.skills || []}
               suggestions={suggestions}
               coachEnabled={coachEnabled}
+              onChange={onUpdateSkills}
             />
           </section>
         );
@@ -464,6 +469,7 @@ export function ResumeCanvas({
                 skills={data.skills || []}
                 suggestions={suggestions}
                 coachEnabled={coachEnabled}
+                onChange={onUpdateSkills}
                 compact
                 darkMode={isSidebarDark}
               />
@@ -635,16 +641,97 @@ function SkillsEditor({
   skills,
   suggestions,
   coachEnabled,
+  onChange,
   compact = false,
   darkMode = false,
 }: {
   skills: string[];
   suggestions: Suggestion[];
   coachEnabled: boolean;
+  onChange?: (skills: string[]) => void;
   compact?: boolean;
   darkMode?: boolean;
 }) {
   const hasSuggestion = coachEnabled && suggestions.some((s) => s.spanId.startsWith('skills-'));
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newSkillValue, setNewSkillValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const newInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingIndex !== null && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingIndex]);
+
+  useEffect(() => {
+    if (isAddingNew && newInputRef.current) {
+      newInputRef.current.focus();
+    }
+  }, [isAddingNew]);
+
+  const handleStartEdit = useCallback((index: number, skill: string) => {
+    setEditingIndex(index);
+    setEditValue(skill);
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (editingIndex === null || !onChange) return;
+
+    const trimmed = editValue.trim();
+    if (trimmed) {
+      const newSkills = [...skills];
+      newSkills[editingIndex] = trimmed;
+      onChange(newSkills);
+    }
+    setEditingIndex(null);
+    setEditValue('');
+  }, [editingIndex, editValue, skills, onChange]);
+
+  const handleDeleteSkill = useCallback(
+    (index: number) => {
+      if (!onChange) return;
+      const newSkills = skills.filter((_, i) => i !== index);
+      onChange(newSkills);
+    },
+    [skills, onChange],
+  );
+
+  const handleAddSkill = useCallback(() => {
+    if (!onChange) return;
+    const trimmed = newSkillValue.trim();
+    if (trimmed) {
+      onChange([...skills, trimmed]);
+    }
+    setNewSkillValue('');
+    setIsAddingNew(false);
+  }, [newSkillValue, skills, onChange]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, type: 'edit' | 'add') => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (type === 'edit') {
+          handleSaveEdit();
+        } else {
+          handleAddSkill();
+        }
+      } else if (e.key === 'Escape') {
+        if (type === 'edit') {
+          setEditingIndex(null);
+          setEditValue('');
+        } else {
+          setIsAddingNew(false);
+          setNewSkillValue('');
+        }
+      }
+    },
+    [handleSaveEdit, handleAddSkill],
+  );
 
   // Compact view for sidebar (vertical list)
   if (compact) {
@@ -660,36 +747,164 @@ function SkillsEditor({
       >
         {skills.length > 0 ? (
           skills.map((skill, idx) => (
-            <div key={idx} className="flex items-center gap-1">
+            <div key={idx} className="group flex items-center gap-1">
               <span
-                className="w-1 h-1 rounded-full"
+                className="w-1 h-1 rounded-full flex-shrink-0"
                 style={{ backgroundColor: darkMode ? '#94a3b8' : '#94a3b8' }}
               />
-              {skill}
+              {editingIndex === idx ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={(e) => handleKeyDown(e, 'edit')}
+                  className="flex-1 bg-transparent border-b border-slate-400 outline-none text-[9pt] min-w-0"
+                  style={{ color: darkMode ? '#e2e8f0' : undefined }}
+                />
+              ) : (
+                <>
+                  <span
+                    className="flex-1 cursor-text hover:bg-slate-100/20 rounded px-0.5 -mx-0.5"
+                    onClick={() => onChange && handleStartEdit(idx, skill)}
+                  >
+                    {skill}
+                  </span>
+                  {onChange && (
+                    <button
+                      onClick={() => handleDeleteSkill(idx)}
+                      className="opacity-0 group-hover:opacity-100 text-[8pt] text-red-400 hover:text-red-500 transition-opacity"
+                      aria-label={`Delete ${skill}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           ))
         ) : (
-          <span style={{ color: darkMode ? '#64748b' : '#cbd5e1' }}>Add your skills...</span>
+          <span
+            style={{ color: darkMode ? '#64748b' : '#cbd5e1' }}
+            className={onChange ? 'cursor-pointer hover:underline' : ''}
+            onClick={() => onChange && setIsAddingNew(true)}
+          >
+            {onChange ? 'Click to add skills...' : 'Add your skills...'}
+          </span>
+        )}
+        {/* Add new skill input */}
+        {onChange && isAddingNew && (
+          <div className="flex items-center gap-1">
+            <span
+              className="w-1 h-1 rounded-full flex-shrink-0"
+              style={{ backgroundColor: darkMode ? '#94a3b8' : '#94a3b8' }}
+            />
+            <input
+              ref={newInputRef}
+              type="text"
+              value={newSkillValue}
+              onChange={(e) => setNewSkillValue(e.target.value)}
+              onBlur={() => {
+                handleAddSkill();
+                setIsAddingNew(false);
+              }}
+              onKeyDown={(e) => handleKeyDown(e, 'add')}
+              placeholder="Type skill..."
+              className="flex-1 bg-transparent border-b border-slate-400 outline-none text-[9pt] min-w-0"
+              style={{ color: darkMode ? '#e2e8f0' : undefined }}
+            />
+          </div>
+        )}
+        {/* Add button */}
+        {onChange && !isAddingNew && skills.length > 0 && (
+          <button
+            onClick={() => setIsAddingNew(true)}
+            className="text-[8pt] text-slate-400 hover:text-slate-600 mt-1"
+          >
+            + Add skill
+          </button>
         )}
       </div>
     );
   }
 
-  // Standard inline view
+  // Standard inline view (pill/tag style)
   return (
     <div
       data-span-id="skills-list"
-      className={`text-[11pt] ${
+      className={`text-[11pt] flex flex-wrap gap-1.5 ${
         hasSuggestion
           ? 'underline decoration-wavy decoration-amber-400 underline-offset-4 decoration-2'
           : ''
       }`}
     >
-      {skills.length > 0 ? (
-        skills.join(' • ')
-      ) : (
+      {skills.length > 0
+        ? skills.map((skill, idx) => (
+            <span
+              key={idx}
+              className="group inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 rounded px-2 py-0.5 transition-colors"
+            >
+              {editingIndex === idx ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={(e) => handleKeyDown(e, 'edit')}
+                  className="bg-transparent outline-none text-[11pt] min-w-[60px] w-auto"
+                  style={{ width: `${Math.max(60, editValue.length * 8)}px` }}
+                />
+              ) : (
+                <>
+                  <span
+                    className={onChange ? 'cursor-text' : ''}
+                    onClick={() => onChange && handleStartEdit(idx, skill)}
+                  >
+                    {skill}
+                  </span>
+                  {onChange && (
+                    <button
+                      onClick={() => handleDeleteSkill(idx)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 text-xs transition-opacity ml-0.5"
+                      aria-label={`Delete ${skill}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </>
+              )}
+            </span>
+          ))
+        : null}
+      {/* Add new skill */}
+      {onChange && isAddingNew ? (
+        <span className="inline-flex items-center bg-slate-100 rounded px-2 py-0.5">
+          <input
+            ref={newInputRef}
+            type="text"
+            value={newSkillValue}
+            onChange={(e) => setNewSkillValue(e.target.value)}
+            onBlur={() => {
+              handleAddSkill();
+              setIsAddingNew(false);
+            }}
+            onKeyDown={(e) => handleKeyDown(e, 'add')}
+            placeholder="Type skill..."
+            className="bg-transparent outline-none text-[11pt] min-w-[80px]"
+          />
+        </span>
+      ) : onChange ? (
+        <button
+          onClick={() => setIsAddingNew(true)}
+          className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded px-2 py-0.5 transition-colors border border-dashed border-slate-300"
+        >
+          + Add skill
+        </button>
+      ) : skills.length === 0 ? (
         <span className="text-slate-300">Add your skills...</span>
-      )}
+      ) : null}
     </div>
   );
 }

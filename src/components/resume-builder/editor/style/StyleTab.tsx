@@ -1,19 +1,11 @@
 'use client';
 
-import type {
-  DensityOption,
-  FontPairingId,
-  HeadingStyle,
-  StyleConfig,
-  TemplateId,
-} from '../../templates/types';
+import type { DensityOption, HeadingStyle, StyleConfig, TemplateId } from '../../templates/types';
 import { TEMPLATE_LAYOUTS } from '../../templates/types';
 import { AccentColorPicker } from './AccentColorPicker';
 import { DensityToggle } from './DensityToggle';
-import { FontPairingPicker } from './FontPairingPicker';
 import { HeadingStyleToggle } from './HeadingStyleToggle';
 import { SidebarColorPicker } from './SidebarColorPicker';
-import { TemplateSwitcher } from './TemplateSwitcher';
 
 interface StyleTabProps {
   templateId: TemplateId;
@@ -25,7 +17,7 @@ interface StyleTabProps {
 export function StyleTab({
   templateId,
   styleConfig,
-  onTemplateChange,
+  onTemplateChange: _onTemplateChange,
   onStyleChange,
 }: StyleTabProps) {
   // Check if current template is a two-column layout
@@ -48,10 +40,6 @@ export function StyleTab({
   })();
   const isTwoColumnLayout = templateConfig?.layoutType === 'two-column-sidebar';
 
-  const handleFontChange = (font_pairing: FontPairingId) => {
-    onStyleChange({ font_pairing });
-  };
-
   const handleColorChange = (accent_color: string) => {
     onStyleChange({ accent_color });
   };
@@ -69,17 +57,7 @@ export function StyleTab({
   };
 
   return (
-    <div className="p-6 space-y-8 overflow-y-auto h-full">
-      {/* Template */}
-      <TemplateSwitcher value={templateId} onChange={onTemplateChange} />
-
-      <div className="border-t border-slate-100" />
-
-      {/* Font Pairing */}
-      <FontPairingPicker value={styleConfig.font_pairing} onChange={handleFontChange} />
-
-      <div className="border-t border-slate-100" />
-
+    <div className="p-4 space-y-6 overflow-y-auto h-full">
       {/* Accent Color */}
       <AccentColorPicker value={styleConfig.accent_color} onChange={handleColorChange} />
 

@@ -2,104 +2,194 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+export interface SectionItem {
+  id: string;
+  label: string;
+  sublabel?: string;
+}
 
 interface SectionOutlineItemProps {
   sectionId: string;
   label: string;
   selected: boolean;
-  enabled: boolean;
-  suggestionCount: number;
-  required?: boolean;
   onSelect: () => void;
-  onToggle: (enabled: boolean) => void;
+  // For sections with multiple items (experience, education, projects)
+  items?: SectionItem[];
+  selectedItemId?: string | null;
+  onSelectItem?: (itemId: string) => void;
+  onAddItem?: () => void;
+  onDeleteItem?: (itemId: string) => void;
 }
 
 export function SectionOutlineItem({
   sectionId,
   label,
   selected,
-  enabled,
-  suggestionCount,
-  required,
   onSelect,
-  onToggle,
+  items,
+  selectedItemId,
+  onSelectItem,
+  onAddItem,
+  onDeleteItem,
 }: SectionOutlineItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: sectionId,
   });
+
+  const [isExpanded, setIsExpanded] = useState(true);
+  const hasItems = items && items.length > 0;
+  const canExpand = hasItems || onAddItem;
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  const handleToggleExpand = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (canExpand) {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        'flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all',
-        'hover:bg-slate-50',
-        selected && 'bg-primary-50 border border-primary-200',
-        isDragging && 'opacity-50 shadow-lg bg-white z-50',
-        !enabled && 'opacity-60',
-      )}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
-      role="button"
-      tabIndex={0}
+      className={cn(isDragging && 'opacity-50 shadow-lg bg-white z-50')}
     >
-      {/* Drag handle */}
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
+      {/* Section header */}
+      <div
         className={cn(
-          'cursor-grab active:cursor-grabbing p-1 -ml-1 rounded',
-          'text-slate-400 hover:text-slate-600 hover:bg-slate-100',
-          'focus:outline-none focus:ring-2 focus:ring-primary-500',
+          'flex items-center gap-1 p-2 rounded-lg cursor-pointer transition-all',
+          'hover:bg-slate-50',
+          selected && !selectedItemId && 'bg-primary-50 border border-primary-200',
         )}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={`Drag to reorder ${label}`}
+        onClick={onSelect}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect();
+          }
+        }}
+        role="button"
+        tabIndex={0}
       >
-        <GripVertical className="h-4 w-4" />
-      </button>
-
-      {/* Label */}
-      <span
-        className={cn('flex-1 text-sm truncate', enabled ? 'text-slate-900' : 'text-slate-400')}
-      >
-        {label}
-      </span>
-
-      {/* Suggestion count badge */}
-      {suggestionCount > 0 && enabled && (
-        <Badge
-          variant="secondary"
-          className="bg-amber-100 text-amber-700 hover:bg-amber-100 px-1.5 py-0 h-5 text-xs"
-        >
-          {suggestionCount}
-        </Badge>
-      )}
-
-      {/* Toggle switch */}
-      {!required && (
-        <Switch
-          checked={enabled}
-          onCheckedChange={onToggle}
+        {/* Drag handle */}
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className={cn(
+            'cursor-grab active:cursor-grabbing p-1 -ml-1 rounded flex-shrink-0',
+            'text-slate-400 hover:text-slate-600 hover:bg-slate-100',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500',
+          )}
           onClick={(e) => e.stopPropagation()}
-          className="scale-75"
-        />
+          aria-label={`Drag to reorder ${label}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+
+        {/* Expand/collapse button for sections with items */}
+        {canExpand ? (
+          <button
+            type="button"
+            onClick={handleToggleExpand}
+            className="p-0.5 rounded text-slate-400 hover:text-slate-600 flex-shrink-0"
+            aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+          </button>
+        ) : (
+          <div className="w-4" /> // Spacer for alignment
+        )}
+
+        {/* Label */}
+        <span className="flex-1 text-sm truncate text-slate-900 font-medium">{label}</span>
+
+        {/* Item count badge */}
+        {hasItems && (
+          <span className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-100 rounded-full">
+            {items.length}
+          </span>
+        )}
+      </div>
+
+      {/* Nested items */}
+      {canExpand && isExpanded && (
+        <div className="ml-6 mt-1 space-y-0.5">
+          {/* Existing items */}
+          {items?.map((item) => (
+            <div
+              key={item.id}
+              className={cn(
+                'group flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-all',
+                'hover:bg-slate-50',
+                selectedItemId === item.id && 'bg-primary-50 border border-primary-200',
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectItem?.(item.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelectItem?.(item.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-slate-700 truncate">{item.label || 'Untitled'}</div>
+                {item.sublabel && (
+                  <div className="text-xs text-slate-400 truncate">{item.sublabel}</div>
+                )}
+              </div>
+              {/* Delete button */}
+              {onDeleteItem && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteItem(item.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                  aria-label={`Delete ${item.label}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Add item button */}
+          {onAddItem && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-1.5 h-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddItem();
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="text-xs">Add {label.replace(/s$/, '').toLowerCase()}</span>
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

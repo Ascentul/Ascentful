@@ -42,6 +42,7 @@ function TopFixItem({ fix, onApply }: TopFixItemProps) {
 
   return (
     <button
+      type="button"
       onClick={onApply}
       className={cn(
         'w-full flex items-center gap-3 p-3 rounded-lg border transition-all',

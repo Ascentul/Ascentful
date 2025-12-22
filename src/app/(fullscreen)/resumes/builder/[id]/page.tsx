@@ -221,6 +221,11 @@ export default function ResumeBuilderPage() {
     markDirty();
   };
 
+  const handleUpdateSkills = (skills: string[]) => {
+    setResumeData((prev) => ({ ...prev, skills }));
+    markDirty();
+  };
+
   const handleSetSectionOrder = (newOrder: string[]) => {
     setSectionOrder(newOrder);
     markDirty();
@@ -230,6 +235,10 @@ export default function ResumeBuilderPage() {
     setEnabledSections((prev) =>
       enabled ? [...prev, sectionId] : prev.filter((id) => id !== sectionId),
     );
+    // When enabling a section, also add it to sectionOrder if not present
+    if (enabled) {
+      setSectionOrder((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+    }
     markDirty();
   };
 
@@ -333,6 +342,7 @@ export default function ResumeBuilderPage() {
       onUpdateExperience={handleUpdateExperience}
       onUpdateEducation={handleUpdateEducation}
       onUpdateProjects={handleUpdateProjects}
+      onUpdateSkills={handleUpdateSkills}
       onSetSectionOrder={handleSetSectionOrder}
       onToggleSection={handleToggleSection}
       onTemplateChange={handleTemplateChange}

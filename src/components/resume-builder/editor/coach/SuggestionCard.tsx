@@ -1,17 +1,58 @@
 'use client';
 
-import { AlertCircle, AlertTriangle, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Suggestion } from '@/types/resume-editor';
+import type { Suggestion, SuggestionType } from '@/types/resume-editor';
 
 interface SuggestionCardProps {
   suggestion: Suggestion;
   onApply: (suggestionId: string) => void;
   onDismiss: (suggestionId: string) => void;
   onScrollTo: (spanId: string) => void;
+}
+
+// Category colors matching the ScoreCard subscores
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  impact: { bg: 'bg-orange-500', text: 'text-orange-500' },
+  clarity: { bg: 'bg-green-500', text: 'text-green-500' },
+  relevance: { bg: 'bg-amber-500', text: 'text-amber-500' },
+  consistency: { bg: 'bg-cyan-500', text: 'text-cyan-500' },
+  ats: { bg: 'bg-blue-500', text: 'text-blue-500' },
+};
+
+// Map suggestion types to their parent category (matching ScoreCard subscores)
+function getTypeCategory(type: SuggestionType): string {
+  switch (type) {
+    case 'impact':
+    case 'metric':
+    case 'verb':
+      return 'impact';
+    case 'clarity':
+    case 'length':
+      return 'clarity';
+    case 'keyword':
+      return 'relevance';
+    case 'consistency':
+      return 'consistency';
+    case 'ats':
+      return 'ats';
+    default:
+      return 'impact';
+  }
+}
+
+// Get category color for the dot indicator
+function getCategoryDot(type: SuggestionType): string {
+  const category = getTypeCategory(type);
+  return CATEGORY_COLORS[category]?.bg ?? 'bg-slate-400';
+}
+
+// Get category text color
+function getCategoryTextColor(type: SuggestionType): string {
+  const category = getTypeCategory(type);
+  return CATEGORY_COLORS[category]?.text ?? 'text-slate-500';
 }
 
 export function SuggestionCard({
@@ -22,91 +63,100 @@ export function SuggestionCard({
 }: SuggestionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const severityConfig = getSeverityConfig(suggestion.severity);
-  const Icon = severityConfig.icon;
+  const handleCardClick = () => {
+    if (!isExpanded) {
+      setIsExpanded(true);
+    }
+  };
 
+  const handleScrollTo = () => {
+    onScrollTo(suggestion.spanId);
+  };
+
+  // Collapsed view - clean card with message and chevron
+  if (!isExpanded) {
+    return (
+      <button
+        type="button"
+        onClick={handleCardClick}
+        className="w-full text-left mb-2 p-3 rounded-xl border-2 border-slate-200 hover:border-primary-300 bg-white transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          {/* Category color dot */}
+          <div
+            className={cn(
+              'w-2.5 h-2.5 rounded-full flex-shrink-0',
+              getCategoryDot(suggestion.type),
+            )}
+          />
+
+          {/* Message */}
+          <p className="text-sm text-slate-700 flex-1 line-clamp-2 leading-relaxed">
+            {suggestion.message}
+          </p>
+
+          {/* Chevron */}
+          <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-colors" />
+        </div>
+      </button>
+    );
+  }
+
+  // Expanded view - full details with actions
   return (
-    <div
-      className={cn(
-        'p-3 rounded-lg border transition-all cursor-pointer',
-        'hover:shadow-sm',
-        severityConfig.bgClass,
-        severityConfig.borderClass,
-      )}
-      onClick={() => onScrollTo(suggestion.spanId)}
-    >
-      <div className="flex items-start gap-2">
-        {/* Icon */}
-        <div className={cn('mt-0.5', severityConfig.iconClass)}>
-          <Icon className="h-4 w-4" />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-900">{suggestion.message}</p>
-
-          {/* Proposed text */}
-          {suggestion.proposedText && (
-            <div className="mt-2 p-2 bg-white rounded border border-slate-200">
-              <p className="text-xs text-slate-500 mb-1">Suggested:</p>
-              <p className="text-sm text-slate-700 italic">"{suggestion.proposedText}"</p>
-            </div>
+    <div className="mb-2 p-4 rounded-xl border-2 border-primary-400 bg-white shadow-sm">
+      {/* Header with category */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn('w-2.5 h-2.5 rounded-full', getCategoryDot(suggestion.type))} />
+        <span
+          className={cn(
+            'text-xs font-medium uppercase tracking-wide',
+            getCategoryTextColor(suggestion.type),
           )}
-
-          {/* Expand for explanation */}
-          {suggestion.explainText && (
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsExpanded(!isExpanded);
-                }}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-              >
-                <Info className="h-3 w-3" />
-                <span>Why this matters</span>
-                {isExpanded ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </button>
-              {isExpanded && (
-                <p className="text-xs text-slate-600 mt-1 pl-4 border-l-2 border-slate-200">
-                  {suggestion.explainText}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        >
+          {suggestion.category}
+        </span>
       </div>
 
+      {/* Full message */}
+      <p className="text-sm text-slate-700 leading-relaxed mb-3">{suggestion.message}</p>
+
+      {/* Proposed text if available */}
+      {suggestion.proposedText && (
+        <div className="mb-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+          <p className="text-xs text-slate-500 mb-1">Suggested change:</p>
+          <p className="text-sm text-slate-900 font-medium">{suggestion.proposedText}</p>
+        </div>
+      )}
+
+      {/* Explanation if available */}
+      {suggestion.explainText && (
+        <p className="text-xs text-slate-500 mb-3 leading-relaxed">{suggestion.explainText}</p>
+      )}
+
       {/* Actions */}
-      <div className="flex gap-2 mt-3 pt-2 border-t border-slate-200/50">
-        <Button
-          size="sm"
-          variant="default"
-          onClick={(e) => {
-            e.stopPropagation();
-            onApply(suggestion.suggestionId);
-          }}
-          className="flex-1 h-7 text-xs"
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+        <button
+          type="button"
+          onClick={() => onApply(suggestion.suggestionId)}
+          className="flex-1 text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
         >
-          <Check className="h-3 w-3 mr-1" />
           Accept
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDismiss(suggestion.suggestionId);
-          }}
-          className="h-7 text-xs text-slate-500"
+        </button>
+        <button
+          type="button"
+          onClick={() => onDismiss(suggestion.suggestionId)}
+          className="text-sm text-slate-600 hover:text-slate-800 px-4 py-2 transition-colors"
         >
-          <X className="h-3 w-3" />
-        </Button>
+          Dismiss
+        </button>
+        <button
+          type="button"
+          onClick={handleScrollTo}
+          className="text-xs text-primary-600 hover:text-primary-700 ml-auto transition-colors"
+        >
+          Show in resume
+        </button>
       </div>
     </div>
   );
@@ -133,15 +183,10 @@ export function SuggestionGroups({
   onDismiss,
   onScrollTo,
 }: SuggestionGroupsProps) {
-  const groups = [
-    { title: 'Critical', suggestions: critical, color: 'text-red-600' },
-    { title: 'Improvements', suggestions: improve, color: 'text-amber-600' },
-    { title: 'Optional', suggestions: optional, color: 'text-slate-500' },
-  ];
+  // Combine all suggestions, sorted by severity (critical first)
+  const allSuggestions = [...critical, ...improve, ...optional];
 
-  const totalCount = critical.length + improve.length + optional.length;
-
-  if (totalCount === 0) {
+  if (allSuggestions.length === 0) {
     return (
       <div className="p-6 text-center">
         <div className="text-4xl mb-2">✨</div>
@@ -152,62 +197,16 @@ export function SuggestionGroups({
   }
 
   return (
-    <div className="p-4 space-y-4">
-      {groups.map(
-        (group) =>
-          group.suggestions.length > 0 && (
-            <div key={group.title}>
-              <h4 className={cn('text-xs font-semibold uppercase tracking-wide mb-2', group.color)}>
-                {group.title} ({group.suggestions.length})
-              </h4>
-              <div className="space-y-2">
-                {group.suggestions.map((suggestion) => (
-                  <SuggestionCard
-                    key={suggestion.suggestionId}
-                    suggestion={suggestion}
-                    onApply={onApply}
-                    onDismiss={onDismiss}
-                    onScrollTo={onScrollTo}
-                  />
-                ))}
-              </div>
-            </div>
-          ),
-      )}
+    <div className="px-4 pt-3">
+      {allSuggestions.map((suggestion) => (
+        <SuggestionCard
+          key={suggestion.suggestionId}
+          suggestion={suggestion}
+          onApply={onApply}
+          onDismiss={onDismiss}
+          onScrollTo={onScrollTo}
+        />
+      ))}
     </div>
   );
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function getSeverityConfig(severity: Suggestion['severity']) {
-  switch (severity) {
-    case 'critical':
-      return {
-        icon: AlertCircle,
-        bgClass: 'bg-red-50',
-        borderClass: 'border-red-200',
-        iconClass: 'text-red-500',
-      };
-    case 'improve':
-      return {
-        icon: AlertTriangle,
-        bgClass: 'bg-amber-50',
-        borderClass: 'border-amber-200',
-        iconClass: 'text-amber-500',
-      };
-    case 'optional':
-      return {
-        icon: Info,
-        bgClass: 'bg-slate-50',
-        borderClass: 'border-slate-200',
-        iconClass: 'text-slate-400',
-      };
-    default: {
-      const _exhaustiveCheck: never = severity;
-      return _exhaustiveCheck;
-    }
-  }
 }

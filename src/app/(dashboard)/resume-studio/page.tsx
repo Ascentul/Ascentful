@@ -9,7 +9,6 @@ import {
   Copy,
   Download,
   Edit,
-  Eye,
   FileText,
   Loader2,
   Mail,
@@ -1039,22 +1038,20 @@ export default function ResumeStudioPage() {
                 {sortedResumes.map((r) => (
                   <div
                     key={r._id}
-                    className="flex bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow w-full md:w-[calc(50%-12px)]"
+                    className="flex bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow w-full md:w-[calc(50%-12px)] cursor-pointer group"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/resumes/builder/${r._id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(`/resumes/builder/${r._id}`);
+                      }
+                    }}
+                    aria-label={`Edit ${r.title || 'Untitled'} resume`}
                   >
                     {/* Thumbnail - Mini Resume Preview */}
-                    <div
-                      className="w-32 min-h-[180px] bg-white flex-shrink-0 cursor-pointer relative group overflow-hidden border-r border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setPreviewResume(r)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setPreviewResume(r);
-                        }
-                      }}
-                      aria-label={`Preview ${r.title || 'Untitled'} resume`}
-                    >
+                    <div className="w-32 min-h-[180px] bg-white flex-shrink-0 relative overflow-hidden border-r border-slate-200">
                       {/* Scaled down resume preview - fills thumbnail width */}
                       <div
                         className="absolute origin-top-left"
@@ -1073,28 +1070,17 @@ export default function ResumeStudioPage() {
                       </div>
                       {/* Hover overlay */}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                        <Edit className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                       </div>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col min-w-0">
-                      <div className="flex items-start gap-2 mb-1">
-                        <button
-                          type="button"
-                          className="font-medium text-slate-900 truncate cursor-pointer hover:text-primary-500 text-left"
-                          onClick={() => router.push(`/resumes/builder/${r._id}`)}
-                        >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-900 truncate group-hover:text-primary-500 transition-colors">
                           {r.title || 'Untitled'}
-                        </button>
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-slate-600"
-                          onClick={() => router.push(`/resumes/builder/${r._id}`)}
-                          title="Edit title"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </button>
+                        </span>
+                        <Edit className="h-3.5 w-3.5 text-slate-400 group-hover:text-primary-500 transition-colors flex-shrink-0" />
                       </div>
                       <p className="text-xs text-slate-500 mb-3">
                         Updated{' '}
@@ -1120,7 +1106,8 @@ export default function ResumeStudioPage() {
                       <div className="space-y-1.5 mt-auto">
                         <button
                           className="flex items-center gap-2 text-sm text-primary-500 hover:text-primary-600"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setAnalyzeJobDescription('');
                             setUploadedFile(null);
                             setResumeSubTab('upload-analyze');
@@ -1131,21 +1118,30 @@ export default function ResumeStudioPage() {
                         </button>
                         <button
                           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-                          onClick={() => exportResumePDF(r)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportResumePDF(r);
+                          }}
                         >
                           <Download className="h-3.5 w-3.5" />
                           Download PDF
                         </button>
                         <button
                           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-                          onClick={() => duplicateResume(r._id, r.title)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            duplicateResume(r._id, r.title);
+                          }}
                         >
                           <Copy className="h-3.5 w-3.5" />
                           Duplicate
                         </button>
                         <button
                           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-                          onClick={() => deleteResume(r._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteResume(r._id);
+                          }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Delete
