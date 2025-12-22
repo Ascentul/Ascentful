@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { evaluate } from '@/lib/ai-evaluation';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -58,6 +59,23 @@ Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "techn
     } catch {
       console.error('Failed to parse AI response:', content);
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+    }
+
+    const evaluation = await evaluate({
+      tool_id: 'resume-suggestions',
+      input: { resumeData, intent, jobTarget },
+      output: {
+        skills: parsed.skills || [],
+        categories: parsed.categories || { technical: [], soft: [], tools: [] },
+      },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({

@@ -76,8 +76,11 @@ export function ExperienceSection({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">Job Title</label>
+              <label htmlFor={`title-${exp.id}`} className="text-sm font-medium text-slate-700">
+                Job Title
+              </label>
               <Input
+                id={`title-${exp.id}`}
                 value={exp.title}
                 onChange={(e) => handleUpdate(index, { title: e.target.value })}
                 placeholder="Software Engineer"
@@ -85,8 +88,11 @@ export function ExperienceSection({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Company</label>
+              <label htmlFor={`company-${exp.id}`} className="text-sm font-medium text-slate-700">
+                Company
+              </label>
               <Input
+                id={`company-${exp.id}`}
                 value={exp.company}
                 onChange={(e) => handleUpdate(index, { company: e.target.value })}
                 placeholder="Acme Inc."
@@ -97,8 +103,14 @@ export function ExperienceSection({
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">Start Date</label>
+              <label
+                htmlFor={`start-date-${exp.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Start Date
+              </label>
               <Input
+                id={`start-date-${exp.id}`}
                 value={exp.startDate}
                 onChange={(e) => handleUpdate(index, { startDate: e.target.value })}
                 placeholder="Jan 2022"
@@ -106,8 +118,11 @@ export function ExperienceSection({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">End Date</label>
+              <label htmlFor={`end-date-${exp.id}`} className="text-sm font-medium text-slate-700">
+                End Date
+              </label>
               <Input
+                id={`end-date-${exp.id}`}
                 value={exp.current ? 'Present' : exp.endDate}
                 onChange={(e) => handleUpdate(index, { endDate: e.target.value })}
                 placeholder="Dec 2023"
@@ -116,8 +131,11 @@ export function ExperienceSection({
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Location</label>
+              <label htmlFor={`location-${exp.id}`} className="text-sm font-medium text-slate-700">
+                Location
+              </label>
               <Input
+                id={`location-${exp.id}`}
                 value={exp.location}
                 onChange={(e) => handleUpdate(index, { location: e.target.value })}
                 placeholder="San Francisco, CA"
@@ -144,7 +162,10 @@ export function ExperienceSection({
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label
+                htmlFor={`description-${exp.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
                 Description & Achievements
               </label>
               {onGenerateBullets && (
@@ -161,6 +182,7 @@ export function ExperienceSection({
               )}
             </div>
             <Textarea
+              id={`description-${exp.id}`}
               value={exp.description}
               onChange={(e) => handleUpdate(index, { description: e.target.value })}
               placeholder="• Led development of new features serving 10K+ users

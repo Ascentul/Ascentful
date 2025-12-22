@@ -77,27 +77,29 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
     });
 
     const content = response.choices[0]?.message?.content || '{}';
+    let parsed: { rewritten?: string };
     try {
-      const parsed = JSON.parse(content);
-      const rewritten = parsed.rewritten || bullet;
-      const evaluation = await evaluate({
-        tool_id: 'resume-suggestions',
-        input: { bullet, mode, context },
-        output: { rewritten },
-        user_id: userId,
-      });
-
-      if (!evaluation.passed) {
-        return NextResponse.json(
-          { error: 'Generated content failed safety checks' },
-          { status: 500 },
-        );
-      }
-
-      return NextResponse.json({ rewritten });
+      parsed = JSON.parse(content);
     } catch {
       return NextResponse.json({ rewritten: bullet });
     }
+
+    const rewritten = parsed.rewritten || bullet;
+    const evaluation = await evaluate({
+      tool_id: 'resume-suggestions',
+      input: { bullet, mode, context },
+      output: { rewritten },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ rewritten });
   } catch (error) {
     console.error(
       'Error rewriting bullet:',

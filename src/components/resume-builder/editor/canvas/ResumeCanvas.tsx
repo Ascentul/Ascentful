@@ -338,10 +338,7 @@ export function ResumeCanvas({
 
     // Left-aligned header (Clean, Modern, Minimal templates)
     return (
-      <header
-        className={`pb-3 mb-6 ${sectionDivider === 'accent-line' ? 'border-b-2' : 'border-b-2'}`}
-        style={{ borderColor: accentColor }}
-      >
+      <header className="pb-3 mb-6 border-b-2" style={{ borderColor: accentColor }}>
         <InlineEditableText
           spanId="contact-name"
           value={data.contactInfo.name}

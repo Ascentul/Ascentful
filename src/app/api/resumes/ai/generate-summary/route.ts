@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { evaluate } from '@/lib/ai-evaluation';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -48,6 +49,20 @@ Respond with ONLY the summary text, no quotes or additional formatting.`,
     });
 
     const summary = response.choices[0]?.message?.content?.trim() || '';
+
+    const evaluation = await evaluate({
+      tool_id: 'resume-suggestions',
+      input: { resumeData, intent, jobTarget },
+      output: { summary },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 422 },
+      );
+    }
 
     return NextResponse.json({ summary });
   } catch (error) {
