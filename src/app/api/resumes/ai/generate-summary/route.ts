@@ -2,6 +2,8 @@ import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -54,7 +56,11 @@ Respond with ONLY the summary text, no quotes or additional formatting.`,
   }
 }
 
-function buildContext(resumeData: any, intent?: string, jobTarget?: string): string {
+function buildContext(
+  resumeData: Partial<ResumeData>,
+  intent?: string,
+  jobTarget?: string,
+): string {
   const parts: string[] = [];
 
   if (resumeData.contactInfo?.name) {
@@ -72,7 +78,7 @@ function buildContext(resumeData: any, intent?: string, jobTarget?: string): str
   if (resumeData.experience?.length > 0) {
     const expSummary = resumeData.experience
       .slice(0, 3)
-      .map((exp: any) => `${exp.title} at ${exp.company}`)
+      .map((exp) => `${exp.title} at ${exp.company}`)
       .join(', ');
     parts.push(`Recent experience: ${expSummary}`);
   }

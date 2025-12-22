@@ -3,13 +3,7 @@
 import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
-import type {
-  CoachMode,
-  GroupedSuggestions,
-  ResumeScore,
-  Suggestion,
-  TopFix,
-} from '@/types/resume-editor';
+import type { CoachMode, GroupedSuggestions, ResumeScore, TopFix } from '@/types/resume-editor';
 
 import { ScoreCard, SubscoreBreakdown } from './ScoreCard';
 import { SuggestionGroups } from './SuggestionCard';
@@ -52,7 +46,7 @@ export function CoachPanel({
       <CoachModeSelector mode={mode} onModeChange={setMode} suggestionCount={totalSuggestions} />
 
       {/* Content based on mode */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
         {mode === 'score' && <SubscoreBreakdown subscores={score?.subscores} />}
 
         {mode === 'suggestions' && (
@@ -122,6 +116,7 @@ function CoachModeSelector({ mode, onModeChange, suggestionCount }: CoachModeSel
 // ============================================================================
 
 function ATSChecklist() {
+  // TODO: Replace with real ATS checks once analysis data is available.
   const checks = [
     { id: 'format', label: 'Simple, single-column layout', passed: true },
     { id: 'fonts', label: 'Standard fonts used', passed: true },

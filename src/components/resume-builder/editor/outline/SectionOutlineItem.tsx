@@ -50,6 +50,14 @@ export function SectionOutlineItem({
         !enabled && 'opacity-60',
       )}
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       {/* Drag handle */}
       <button
@@ -61,6 +69,7 @@ export function SectionOutlineItem({
           'focus:outline-none focus:ring-2 focus:ring-primary-500',
         )}
         onClick={(e) => e.stopPropagation()}
+        aria-label={`Drag to reorder ${label}`}
       >
         <GripVertical className="h-4 w-4" />
       </button>

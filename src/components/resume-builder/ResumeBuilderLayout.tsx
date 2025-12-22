@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { calculateResumeScore } from '@/lib/resume-score';
 
 import { EditCustomizeToggle } from './EditCustomizeToggle';
-import type { ResumeBuilderActions, ResumeBuilderState, STEPS } from './hooks/useResumeBuilder';
+import type { ResumeBuilderActions, ResumeBuilderState } from './hooks/useResumeBuilder';
 import { LivePreview } from './preview/LivePreview';
 import { ResumeScoreIndicator } from './ResumeScoreIndicator';
 import { StepNavigation } from './StepNavigation';
@@ -25,7 +25,7 @@ export function ResumeBuilderLayout({
   customizeContent,
   onFinish,
 }: ResumeBuilderLayoutProps) {
-  const score = calculateResumeScore(state.resumeData);
+  const score = useMemo(() => calculateResumeScore(state.resumeData), [state.resumeData]);
 
   return (
     <div className="flex h-screen bg-neutral-100">

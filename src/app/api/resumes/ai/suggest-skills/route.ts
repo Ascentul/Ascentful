@@ -2,6 +2,8 @@ import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -49,7 +51,13 @@ Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "techn
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    let parsed: { skills?: string[]; categories?: Record<string, string[]> };
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      console.error('Failed to parse AI response:', content);
+      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+    }
 
     return NextResponse.json({
       skills: parsed.skills || [],
@@ -61,7 +69,7 @@ Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "techn
   }
 }
 
-function buildPrompt(resumeData: any, intent?: string, jobTarget?: string): string {
+function buildPrompt(resumeData: Partial<ResumeData>, intent?: string, jobTarget?: string): string {
   const parts: string[] = [];
 
   // Current skills
@@ -72,10 +80,7 @@ function buildPrompt(resumeData: any, intent?: string, jobTarget?: string): stri
   // Experience summary
   if (resumeData.experience && resumeData.experience.length > 0) {
     const experienceSummary = resumeData.experience
-      .map((exp: any) => {
-        const bullets = exp.bullets?.join('; ') || exp.description || '';
-        return `- ${exp.title} at ${exp.company}: ${bullets}`;
-      })
+      .map((exp) => `- ${exp.title} at ${exp.company}: ${exp.description || ''}`)
       .join('\n');
     parts.push(`Work Experience:\n${experienceSummary}`);
   }
@@ -83,7 +88,7 @@ function buildPrompt(resumeData: any, intent?: string, jobTarget?: string): stri
   // Education
   if (resumeData.education && resumeData.education.length > 0) {
     const educationSummary = resumeData.education
-      .map((edu: any) => `- ${edu.degree} in ${edu.field || 'N/A'} from ${edu.school}`)
+      .map((edu) => `- ${edu.degree} in ${edu.field || 'N/A'} from ${edu.school}`)
       .join('\n');
     parts.push(`Education:\n${educationSummary}`);
   }
@@ -91,7 +96,7 @@ function buildPrompt(resumeData: any, intent?: string, jobTarget?: string): stri
   // Projects
   if (resumeData.projects && resumeData.projects.length > 0) {
     const projectSummary = resumeData.projects
-      .map((proj: any) => `- ${proj.name}: ${proj.description || ''}`)
+      .map((proj) => `- ${proj.name}: ${proj.description || ''}`)
       .join('\n');
     parts.push(`Projects:\n${projectSummary}`);
   }

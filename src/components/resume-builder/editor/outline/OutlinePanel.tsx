@@ -66,6 +66,7 @@ export function OutlinePanel({
     if (over && active.id !== over.id) {
       const oldIndex = sectionOrder.indexOf(active.id as string);
       const newIndex = sectionOrder.indexOf(over.id as string);
+      if (oldIndex === -1 || newIndex === -1) return;
       const newOrder = arrayMove(sectionOrder, oldIndex, newIndex);
       onReorderSections(newOrder);
     }
@@ -89,8 +90,10 @@ export function OutlinePanel({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
             {sectionOrder.map((sectionId) => {
-              const config = SECTION_CONFIGS[sectionId];
+              const config = Object.values(SECTION_CONFIGS).find((value) => value.id === sectionId);
               if (!config) return null;
+              const suggestionCount =
+                Object.entries(suggestionCounts).find(([key]) => key === sectionId)?.[1] ?? 0;
 
               return (
                 <SectionOutlineItem
@@ -99,7 +102,7 @@ export function OutlinePanel({
                   label={config.label}
                   selected={sectionId === selectedSectionId}
                   enabled={enabledSections.includes(sectionId)}
-                  suggestionCount={suggestionCounts[sectionId] || 0}
+                  suggestionCount={suggestionCount}
                   required={config.required}
                   onSelect={() => onSelectSection(sectionId)}
                   onToggle={(enabled) => onToggleSection(sectionId, enabled)}

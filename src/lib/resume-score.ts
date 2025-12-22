@@ -1,4 +1,7 @@
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import type { ResumeScore, Suggestion, TopFix } from '@/types/resume-editor';
+
+import { parseBulletPoints } from './resume-editor/span-utils';
 
 export interface ScoreBreakdown {
   total: number;
@@ -202,10 +205,6 @@ export function getScoreMessage(score: number): string {
 // Enhanced Scoring System for 3-Panel Editor
 // ============================================================================
 
-import type { ResumeScore, Suggestion, TopFix } from '@/types/resume-editor';
-
-import { parseBulletPoints } from './resume-editor/span-utils';
-
 /**
  * Score weight configuration
  * Impact 25%, Clarity 20%, Relevance 25%, ATS 15%, Consistency 15%
@@ -252,27 +251,6 @@ const STRONG_ACTION_VERBS = [
   'automated',
   'integrated',
   'deployed',
-];
-
-/**
- * Weak verbs that should be replaced
- */
-const WEAK_VERBS = [
-  'helped',
-  'worked',
-  'did',
-  'made',
-  'got',
-  'used',
-  'tried',
-  'was responsible for',
-  'was in charge of',
-  'handled',
-  'dealt with',
-  'assisted',
-  'participated',
-  'contributed',
-  'supported',
 ];
 
 /**
@@ -408,7 +386,7 @@ function calculateImpactScore(data: ResumeData): number {
     checks++;
   }
 
-  return checks > 0 ? Math.min(Math.round(score / checks), 100) : 50;
+  return checks > 0 ? Math.min(Math.round(score / checks), 100) : 0;
 }
 
 /**
@@ -417,7 +395,6 @@ function calculateImpactScore(data: ResumeData): number {
  */
 function calculateClarityScore(data: ResumeData): number {
   let score = 100; // Start at 100 and deduct
-  let deductions = 0;
 
   // Check summary length and clarity
   if (data.summary) {
@@ -426,20 +403,16 @@ function calculateClarityScore(data: ResumeData): number {
     // Ideal summary: 50-100 words
     if (wordCount < 30) {
       score -= 15; // Too short
-      deductions++;
     } else if (wordCount > 150) {
       score -= 20; // Too long
-      deductions++;
     }
 
     // Check for first person pronouns
     if (/\bI\b/.test(data.summary)) {
       score -= 10;
-      deductions++;
     }
   } else {
     score -= 20; // No summary
-    deductions++;
   }
 
   // Check experience bullet clarity
@@ -570,7 +543,7 @@ function calculateATSScore(data: ResumeData): number {
 
   // Check for proper phone format
   if (data.contactInfo.phone) {
-    const phoneRegex = /[\d\s\-().+]+/;
+    const phoneRegex = /^[\d\s\-().+]{7,}$/;
     if (phoneRegex.test(data.contactInfo.phone)) {
       score += 5;
     }
@@ -585,7 +558,6 @@ function calculateATSScore(data: ResumeData): number {
  */
 function calculateConsistencyScore(data: ResumeData): number {
   let score = 80; // Start with base score
-  let deductions = 0;
 
   // Check date format consistency in experience
   if (data.experience && data.experience.length > 1) {
@@ -605,7 +577,6 @@ function calculateConsistencyScore(data: ResumeData): number {
     // Deduct for inconsistent date formats
     if (dateFormats.size > 1) {
       score -= 15;
-      deductions++;
     }
   }
 
@@ -616,7 +587,6 @@ function calculateConsistencyScore(data: ResumeData): number {
 
     if (!hasStartYear || !hasEndYear) {
       score -= 10;
-      deductions++;
     }
   }
 
@@ -643,7 +613,6 @@ function calculateConsistencyScore(data: ResumeData): number {
       const ratio = Math.min(bulletsWithPeriod, bulletsWithoutPeriod) / totalBullets;
       if (ratio > 0.2) {
         score -= 10;
-        deductions++;
       }
     }
   }

@@ -64,8 +64,14 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">Project Name</label>
+              <label
+                htmlFor={`proj-name-${proj.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Project Name
+              </label>
               <Input
+                id={`proj-name-${proj.id}`}
                 value={proj.name}
                 onChange={(e) => handleUpdate(index, { name: e.target.value })}
                 placeholder="E-commerce Platform"
@@ -73,8 +79,14 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Your Role</label>
+              <label
+                htmlFor={`proj-role-${proj.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Your Role
+              </label>
               <Input
+                id={`proj-role-${proj.id}`}
                 value={proj.role}
                 onChange={(e) => handleUpdate(index, { role: e.target.value })}
                 placeholder="Lead Developer"
@@ -84,8 +96,11 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700">Technologies Used</label>
+            <label htmlFor={`proj-tech-${proj.id}`} className="text-sm font-medium text-slate-700">
+              Technologies Used
+            </label>
             <Input
+              id={`proj-tech-${proj.id}`}
               value={proj.technologies}
               onChange={(e) => handleUpdate(index, { technologies: e.target.value })}
               placeholder="React, Node.js, PostgreSQL"
@@ -94,8 +109,11 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700">Description</label>
+            <label htmlFor={`proj-desc-${proj.id}`} className="text-sm font-medium text-slate-700">
+              Description
+            </label>
             <Textarea
+              id={`proj-desc-${proj.id}`}
               value={proj.description}
               onChange={(e) => handleUpdate(index, { description: e.target.value })}
               placeholder="Built a full-stack e-commerce platform with user authentication, product management, and payment processing..."
@@ -104,8 +122,11 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700">Project URL (optional)</label>
+            <label htmlFor={`proj-url-${proj.id}`} className="text-sm font-medium text-slate-700">
+              Project URL (optional)
+            </label>
             <Input
+              id={`proj-url-${proj.id}`}
               value={proj.url || ''}
               onChange={(e) => handleUpdate(index, { url: e.target.value })}
               placeholder="https://github.com/username/project"

@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
+import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
@@ -54,7 +55,6 @@ export default function ResumeBuilderPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
   // Autosave timer ref
@@ -64,7 +64,7 @@ export default function ResumeBuilderPage() {
   const clerkId = clerkUser?.id;
   const existingResume = useQuery(
     api.resumes.getResumeById,
-    !isNewResume && clerkId ? { clerkId, resumeId: resumeId as any } : 'skip',
+    !isNewResume && clerkId ? { clerkId, resumeId: resumeId as Id<'resumes'> } : 'skip',
   );
 
   const autosaveMutation = useMutation(api.resumes.autosaveResume);
@@ -89,7 +89,17 @@ export default function ResumeBuilderPage() {
       setIsInitialized(true);
     } else if (existingResume) {
       // Load existing resume data
-      const content = existingResume.content || {};
+      const resume = existingResume as {
+        title?: string;
+        content?: ResumeData;
+        template_id?: TemplateId;
+        style_config?: StyleConfig;
+        sections_config?: {
+          section_order?: string[];
+          enabled_sections?: string[];
+        };
+      };
+      const content = resume.content || {};
       setResumeData({
         contactInfo: content.contactInfo || {
           name: '',
@@ -104,15 +114,11 @@ export default function ResumeBuilderPage() {
         projects: content.projects || [],
         achievements: content.achievements || [],
       });
-      setTitle(existingResume.title || 'My Resume');
-      setTemplateId((existingResume as any).template_id || 'modern');
-      setStyleConfig((existingResume as any).style_config || DEFAULT_STYLE_CONFIG);
-      setSectionOrder(
-        (existingResume as any).sections_config?.section_order || DEFAULT_SECTION_ORDER,
-      );
-      setEnabledSections(
-        (existingResume as any).sections_config?.enabled_sections || DEFAULT_ENABLED_SECTIONS,
-      );
+      setTitle(resume.title || 'My Resume');
+      setTemplateId(resume.template_id || 'modern');
+      setStyleConfig(resume.style_config || DEFAULT_STYLE_CONFIG);
+      setSectionOrder(resume.sections_config?.section_order || DEFAULT_SECTION_ORDER);
+      setEnabledSections(resume.sections_config?.enabled_sections || DEFAULT_ENABLED_SECTIONS);
       setIsInitialized(true);
     }
   }, [isNewResume, existingResume, clerkUser, isInitialized]);
@@ -120,12 +126,13 @@ export default function ResumeBuilderPage() {
   // Autosave logic
   const triggerAutosave = useCallback(async () => {
     if (!clerkId || isNewResume) return;
+    const resumeConvexId = resumeId as Id<'resumes'>;
 
     setSaveStatus('saving');
     try {
       await autosaveMutation({
         clerkId,
-        resumeId: resumeId as any,
+        resumeId: resumeConvexId,
         content: {
           contactInfo: resumeData.contactInfo,
           summary: resumeData.summary,
@@ -193,6 +200,7 @@ export default function ResumeBuilderPage() {
   const handleUpdateContactInfo = (field: keyof ContactInfo, value: string) => {
     setResumeData((prev) => ({
       ...prev,
+      // eslint-disable-next-line security/detect-object-injection
       contactInfo: { ...prev.contactInfo, [field]: value },
     }));
     markDirty();
@@ -223,13 +231,8 @@ export default function ResumeBuilderPage() {
     markDirty();
   };
 
-  const handleReorderSection = (fromIndex: number, toIndex: number) => {
-    setSectionOrder((prev) => {
-      const newOrder = [...prev];
-      const [moved] = newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, moved);
-      return newOrder;
-    });
+  const handleSetSectionOrder = (newOrder: string[]) => {
+    setSectionOrder(newOrder);
     markDirty();
   };
 
@@ -282,6 +285,12 @@ export default function ResumeBuilderPage() {
         });
       } catch (error) {
         console.error('Error saving resume:', error);
+        toast({
+          title: 'Save failed',
+          description: 'Could not save your resume. Please try again.',
+          variant: 'destructive',
+        });
+        return;
       }
     }
 
@@ -310,123 +319,6 @@ export default function ResumeBuilderPage() {
     }
   };
 
-  // AI handlers (placeholder - will be connected to actual endpoints)
-  const handleGenerateSummary = async () => {
-    setIsGenerating(true);
-    try {
-      // TODO: Call AI endpoint to generate summary
-      const response = await fetch('/api/resumes/ai/generate-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeData,
-          intent: 'fulltime',
-        }),
-      });
-
-      if (response.ok) {
-        const { summary } = await response.json();
-        setResumeData((prev) => ({ ...prev, summary }));
-        markDirty();
-        toast({
-          title: 'Summary generated',
-          description: 'AI has created a professional summary for you',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      toast({
-        title: 'Generation failed',
-        description: 'Failed to generate summary. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleGenerateBullets = async (experienceIndex: number) => {
-    setIsGenerating(true);
-    try {
-      const experience = resumeData.experience?.[experienceIndex];
-      if (!experience) return;
-
-      // TODO: Call AI endpoint to generate bullets
-      const response = await fetch('/api/resumes/ai/generate-bullets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          experience,
-          intent: 'fulltime',
-        }),
-      });
-
-      if (response.ok) {
-        const { bullets } = await response.json();
-        const newExperience = [...(resumeData.experience || [])];
-        newExperience[experienceIndex] = {
-          ...experience,
-          description: bullets.map((b: string) => `• ${b}`).join('\n'),
-        };
-        setResumeData((prev) => ({ ...prev, experience: newExperience }));
-        markDirty();
-        toast({
-          title: 'Bullets generated',
-          description: 'AI has created bullet points for this experience',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      toast({
-        title: 'Generation failed',
-        description: 'Failed to generate bullets. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleSuggestSkills = async () => {
-    setIsGenerating(true);
-    try {
-      // TODO: Call AI endpoint to suggest skills
-      const response = await fetch('/api/resumes/ai/suggest-skills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeData,
-          intent: 'fulltime',
-        }),
-      });
-
-      if (response.ok) {
-        const { skills } = await response.json();
-        setResumeData((prev) => ({
-          ...prev,
-          skills: [...new Set([...(prev.skills || []), ...skills])],
-        }));
-        markDirty();
-        toast({
-          title: 'Skills suggested',
-          description: 'AI has added relevant skills to your resume',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('AI suggestion error:', error);
-      toast({
-        title: 'Suggestion failed',
-        description: 'Failed to suggest skills. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   // Loading state
   if (!isUserLoaded || (!isNewResume && existingResume === undefined)) {
     return (
@@ -452,7 +344,7 @@ export default function ResumeBuilderPage() {
       onUpdateEducation={handleUpdateEducation}
       onUpdateSkills={handleUpdateSkills}
       onUpdateProjects={handleUpdateProjects}
-      onReorderSection={handleReorderSection}
+      onSetSectionOrder={handleSetSectionOrder}
       onToggleSection={handleToggleSection}
       onTemplateChange={handleTemplateChange}
       onStyleChange={handleStyleChange}

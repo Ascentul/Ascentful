@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import type {
   ContactInfo,
@@ -12,7 +12,7 @@ import type {
 
 import { LivePreview } from '../preview/LivePreview';
 import type { StyleConfig, TemplateId } from '../templates/types';
-import { DEFAULT_STYLE_CONFIG, styleConfigToTheme } from '../templates/types';
+import { styleConfigToTheme } from '../templates/types';
 import { ContentTab } from './content/ContentTab';
 import { EditorHeader } from './EditorHeader';
 import { type EditorTab, EditorTabBar } from './EditorTabBar';

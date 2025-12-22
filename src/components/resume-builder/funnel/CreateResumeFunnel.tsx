@@ -5,8 +5,9 @@ import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -22,8 +23,7 @@ interface CreateResumeFunnelProps {
   open: boolean;
   onClose: () => void;
   startSource: 'profile' | 'upload' | 'blank';
-  uploadedContent?: any;
-  uploadedFile?: File | null;
+  uploadedContent?: ResumeData | null;
 }
 
 const TOTAL_STEPS = 3;
@@ -59,16 +59,17 @@ export function CreateResumeFunnel({
   const createResumeMutation = useMutation(api.resumes.createResumeFromFunnel);
 
   // Compute which sections have data from profile
-  const profileSectionData = profileData
-    ? {
-        hasWorkHistory: (profileData.work_history?.length ?? 0) > 0,
-        hasEducation: (profileData.education_history?.length ?? 0) > 0,
-        hasSkills: !!profileData.skills && profileData.skills.length > 0,
-        hasProjects: (profileData.projects?.length ?? 0) > 0,
-        hasBio: !!profileData.bio,
-        hasAchievements: (profileData.achievements_history?.length ?? 0) > 0,
-      }
-    : undefined;
+  const profileSectionData = useMemo(() => {
+    if (!profileData) return undefined;
+    return {
+      hasWorkHistory: (profileData.work_history?.length ?? 0) > 0,
+      hasEducation: (profileData.education_history?.length ?? 0) > 0,
+      hasSkills: !!profileData.skills && profileData.skills.length > 0,
+      hasProjects: (profileData.projects?.length ?? 0) > 0,
+      hasBio: !!profileData.bio,
+      hasAchievements: (profileData.achievements_history?.length ?? 0) > 0,
+    };
+  }, [profileData]);
 
   // Auto-enable sections that have data when source is profile
   const getInitialEnabledSections = useCallback((): SectionId[] => {
@@ -86,14 +87,14 @@ export function CreateResumeFunnel({
   }, [startSource, profileSectionData]);
 
   // Update enabled sections when profile data loads
-  useState(() => {
+  useEffect(() => {
     if (startSource === 'profile' && profileSectionData) {
       setFunnelData((prev) => ({
         ...prev,
         enabledSections: getInitialEnabledSections(),
       }));
     }
-  });
+  }, [startSource, profileSectionData, getInitialEnabledSections]);
 
   const handleIntentChange = (intent: ResumeIntent) => {
     setFunnelData((prev) => ({ ...prev, intent }));
@@ -162,7 +163,7 @@ export function CreateResumeFunnel({
               .map((s: string) => s.trim())
               .filter(Boolean)
           : [],
-        experience: (profileData.work_history || []).map((job: any, index: number) => ({
+        experience: (profileData.work_history || []).map((job, index: number) => ({
           id: `exp-${index}`,
           title: job.role || '',
           company: job.company || '',
@@ -172,7 +173,7 @@ export function CreateResumeFunnel({
           current: job.is_current || false,
           description: job.summary || '',
         })),
-        education: (profileData.education_history || []).map((edu: any, index: number) => ({
+        education: (profileData.education_history || []).map((edu, index: number) => ({
           id: `edu-${index}`,
           school: edu.school || '',
           degree: edu.degree || '',
@@ -181,7 +182,7 @@ export function CreateResumeFunnel({
           startYear: edu.start_year || '',
           endYear: edu.is_current ? 'Present' : edu.end_year || '',
         })),
-        projects: (profileData.projects || []).map((proj: any, index: number) => ({
+        projects: (profileData.projects || []).map((proj, index: number) => ({
           id: `proj-${index}`,
           name: proj.title || '',
           role: proj.role || '',
@@ -189,7 +190,7 @@ export function CreateResumeFunnel({
           technologies: (proj.technologies || []).join(', '),
           url: proj.url || '',
         })),
-        achievements: (profileData.achievements_history || []).map((ach: any, index: number) => ({
+        achievements: (profileData.achievements_history || []).map((ach, index: number) => ({
           id: `ach-${index}`,
           title: ach.title || '',
           description: ach.description || '',
@@ -291,6 +292,7 @@ export function CreateResumeFunnel({
       templateId: null,
       enabledSections: DEFAULT_ENABLED_SECTIONS,
       sectionOrder: DEFAULT_SECTION_ORDER,
+      uploadedContent: undefined,
     });
     onClose();
   };

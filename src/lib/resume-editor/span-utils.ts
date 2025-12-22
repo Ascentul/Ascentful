@@ -5,6 +5,17 @@
 
 import type { SectionType, TextSpan } from '@/types/resume-editor';
 
+const VALID_SECTION_TYPES = new Set<SectionType>([
+  'summary',
+  'experience',
+  'education',
+  'projects',
+  'skills',
+  'certifications',
+  'achievements',
+  'contact',
+]);
+
 // ============================================================================
 // Span ID Generation
 // ============================================================================
@@ -56,6 +67,9 @@ export function parseSpanId(spanId: string): {
   }
 
   const sectionType = parts[0] as SectionType;
+  if (!VALID_SECTION_TYPES.has(sectionType)) {
+    return null;
+  }
 
   // Simple case: section-field (e.g., "summary-text", "contact-name")
   if (parts.length === 2) {

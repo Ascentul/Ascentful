@@ -125,11 +125,6 @@ export const updateResume = mutation({
       throw new Error('User not found');
     }
 
-    const membership =
-      user.role === 'student'
-        ? (await requireMembership(ctx, { role: 'student' })).membership
-        : null;
-
     // Verify ownership
     const resume = await ctx.db.get(resumeId);
     if (!resume || resume.user_id !== user._id) {
@@ -180,11 +175,6 @@ export const deleteResume = mutation({
     if (!user) {
       throw new Error('User not found');
     }
-
-    const membership =
-      user.role === 'student'
-        ? (await requireMembership(ctx, { role: 'student' })).membership
-        : null;
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
@@ -512,14 +502,12 @@ export const restoreResumeVersion = mutation({
     }
 
     // Find the version to restore
-    const versions = await ctx.db
+    const versionToRestore = await ctx.db
       .query('resume_versions')
       .withIndex('by_resume_version', (q) =>
         q.eq('resume_id', args.resumeId).eq('version_number', args.versionNumber),
       )
-      .collect();
-
-    const versionToRestore = versions[0];
+      .first();
     if (!versionToRestore) {
       throw new Error('Version not found');
     }

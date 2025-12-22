@@ -108,6 +108,8 @@ export function InlineEditableText({
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       onInput={handleInput}
+      role="textbox"
+      tabIndex={0}
       className={cn(
         'outline-none cursor-text transition-all',
         // Editing state
@@ -141,7 +143,6 @@ interface BulletEditableProps {
   onChange: (bullets: string[]) => void;
   suggestions?: Suggestion[];
   coachEnabled?: boolean;
-  itemId: string;
 }
 
 export function BulletEditable({
@@ -150,15 +151,14 @@ export function BulletEditable({
   onChange,
   suggestions = [],
   coachEnabled = true,
-  itemId,
 }: BulletEditableProps) {
   const handleBulletChange = (index: number, newValue: string) => {
-    const newBullets = [...bullets];
-    newBullets[index] = newValue;
-    onChange(newBullets);
+    onChange(bullets.map((bullet, i) => (i === index ? newValue : bullet)));
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    const currentBullet = bullets.at(index) ?? '';
+
     if (e.key === 'Enter') {
       e.preventDefault();
       // Add new bullet after current
@@ -166,28 +166,28 @@ export function BulletEditable({
       newBullets.splice(index + 1, 0, '');
       onChange(newBullets);
       // Focus the new bullet (after state update)
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const newSpanId = `${spanId}-${index + 1}`;
         const element = document.querySelector(`[data-span-id="${newSpanId}"]`);
         if (element instanceof HTMLElement) {
           element.click();
         }
-      }, 50);
+      });
     }
-    if (e.key === 'Backspace' && bullets[index] === '' && bullets.length > 1) {
+    if (e.key === 'Backspace' && currentBullet === '' && bullets.length > 1) {
       e.preventDefault();
       // Remove empty bullet
       const newBullets = bullets.filter((_, i) => i !== index);
       onChange(newBullets);
       // Focus previous bullet
       if (index > 0) {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           const prevSpanId = `${spanId}-${index - 1}`;
           const element = document.querySelector(`[data-span-id="${prevSpanId}"]`);
           if (element instanceof HTMLElement) {
             element.click();
           }
-        }, 50);
+        });
       }
     }
   };
@@ -195,12 +195,12 @@ export function BulletEditable({
   return (
     <ul className="list-none space-y-1">
       {bullets.map((bullet, index) => {
-        const bulletSpanId = `experience-${itemId}-description-${index}`;
+        const bulletSpanId = `${spanId}-${index}`;
         const bulletSuggestions = suggestions.filter((s) => s.spanId === bulletSpanId);
         const hasSuggestion = coachEnabled && bulletSuggestions.length > 0;
 
         return (
-          <li key={index} className="flex items-start gap-2">
+          <li key={bulletSpanId} className="flex items-start gap-2">
             <span className="text-slate-400 select-none mt-0.5">•</span>
             <div
               data-span-id={bulletSpanId}
@@ -213,6 +213,8 @@ export function BulletEditable({
                 }
               }}
               onKeyDown={(e) => handleKeyDown(index, e)}
+              role="textbox"
+              tabIndex={0}
               className={cn(
                 'flex-1 outline-none cursor-text',
                 'focus:ring-2 focus:ring-primary-300 focus:rounded focus:px-1 focus:-mx-1 focus:bg-white',

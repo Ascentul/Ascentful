@@ -17,6 +17,8 @@ export type SectionId =
   | 'skills'
   | 'achievements';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
+
 export interface FunnelData {
   startSource: ResumeStartSource;
   intent: ResumeIntent | null;
@@ -24,7 +26,7 @@ export interface FunnelData {
   enabledSections: SectionId[];
   sectionOrder: SectionId[];
   // For upload source, store parsed data
-  uploadedContent?: any;
+  uploadedContent?: ResumeData | null;
   // File reference for upload
   uploadedFile?: File | null;
 }
@@ -47,7 +49,7 @@ export const TEMPLATE_OPTIONS: { id: TemplateId; name: string; description: stri
   { id: 'bold', name: 'Bold', description: 'Strong typography' },
   { id: 'minimal', name: 'Minimal', description: 'Whitespace-focused' },
   { id: 'classic', name: 'Classic', description: 'Traditional format' },
-  { id: 'ats', name: 'ATS-Friendly', description: 'Optimized for parsing' },
+  { id: 'ats', name: 'Executive', description: 'Two-column professional' },
 ];
 
 export const SECTION_OPTIONS: { id: SectionId; label: string; description: string }[] = [

@@ -75,9 +75,12 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-
-    return NextResponse.json({ rewritten: parsed.rewritten || bullet });
+    try {
+      const parsed = JSON.parse(content);
+      return NextResponse.json({ rewritten: parsed.rewritten || bullet });
+    } catch {
+      return NextResponse.json({ rewritten: bullet });
+    }
   } catch (error) {
     console.error('Error rewriting bullet:', error);
     return NextResponse.json({ error: 'Failed to rewrite bullet' }, { status: 500 });

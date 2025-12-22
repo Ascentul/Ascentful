@@ -4,13 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { generateMockSuggestions, generateTopFixes } from '@/lib/resume-editor/suggestion-rules';
-import type {
-  getSuggestionCountsBySection,
-  GroupedSuggestions,
-  groupSuggestionsBySeverity,
-  Suggestion,
-  SuggestionCounts,
-} from '@/types/resume-editor';
+import type { GroupedSuggestions, Suggestion, SuggestionCounts } from '@/types/resume-editor';
 
 interface UseSuggestionsOptions {
   enabled?: boolean;
@@ -66,12 +60,12 @@ export function useSuggestions(
 
   // Count suggestions per section
   const suggestionCounts = useMemo((): SuggestionCounts => {
-    const counts: SuggestionCounts = {};
+    const counts = new Map<string, number>();
     for (const suggestion of activeSuggestions) {
       const sectionType = suggestion.spanId.split('-')[0];
-      counts[sectionType] = (counts[sectionType] || 0) + 1;
+      counts.set(sectionType, (counts.get(sectionType) ?? 0) + 1);
     }
-    return counts;
+    return Object.fromEntries(counts) as SuggestionCounts;
   }, [activeSuggestions]);
 
   // Generate top fixes

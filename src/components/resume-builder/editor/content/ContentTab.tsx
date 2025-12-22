@@ -51,14 +51,20 @@ export function ContentTab({
   onSuggestSkills,
   isGenerating,
 }: ContentTabProps) {
-  const handleMoveUp = (index: number) => {
-    if (onReorderSection && index > 0) {
+  const handleMoveUp = (sectionId: string) => {
+    if (!onReorderSection) return;
+
+    const index = sectionOrder.indexOf(sectionId);
+    if (index > 0) {
       onReorderSection(index, index - 1);
     }
   };
 
-  const handleMoveDown = (index: number) => {
-    if (onReorderSection && index < sectionOrder.length - 1) {
+  const handleMoveDown = (sectionId: string) => {
+    if (!onReorderSection) return;
+
+    const index = sectionOrder.indexOf(sectionId);
+    if (index >= 0 && index < sectionOrder.length - 1) {
       onReorderSection(index, index + 1);
     }
   };
@@ -69,9 +75,10 @@ export function ContentTab({
     }
   };
 
-  const renderSection = (sectionId: string, index: number) => {
-    const canMoveUp = index > 0;
-    const canMoveDown = index < sectionOrder.length - 1;
+  const renderSection = (sectionId: string) => {
+    const sectionIndex = sectionOrder.indexOf(sectionId);
+    const canMoveUp = sectionIndex > 0;
+    const canMoveDown = sectionIndex >= 0 && sectionIndex < sectionOrder.length - 1;
 
     switch (sectionId) {
       case 'contact':
@@ -79,10 +86,8 @@ export function ContentTab({
           <SectionCard
             key={sectionId}
             title="Contact Information"
-            canMoveUp={canMoveUp}
-            canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            canMoveUp={false}
+            canMoveDown={false}
           >
             <ContactSection contactInfo={resumeData.contactInfo} onChange={onUpdateContactInfo} />
           </SectionCard>
@@ -96,8 +101,8 @@ export function ContentTab({
             onDelete={() => handleDeleteSection(sectionId)}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            onMoveUp={() => handleMoveUp(sectionId)}
+            onMoveDown={() => handleMoveDown(sectionId)}
             isEmpty={!resumeData.summary}
           >
             <SummarySection
@@ -117,8 +122,8 @@ export function ContentTab({
             onDelete={() => handleDeleteSection(sectionId)}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            onMoveUp={() => handleMoveUp(sectionId)}
+            onMoveDown={() => handleMoveDown(sectionId)}
             isEmpty={!resumeData.experience?.length}
           >
             <ExperienceSection
@@ -138,8 +143,8 @@ export function ContentTab({
             onDelete={() => handleDeleteSection(sectionId)}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            onMoveUp={() => handleMoveUp(sectionId)}
+            onMoveDown={() => handleMoveDown(sectionId)}
             isEmpty={!resumeData.education?.length}
           >
             <EducationSection education={resumeData.education || []} onChange={onUpdateEducation} />
@@ -154,8 +159,8 @@ export function ContentTab({
             onDelete={() => handleDeleteSection(sectionId)}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            onMoveUp={() => handleMoveUp(sectionId)}
+            onMoveDown={() => handleMoveDown(sectionId)}
             isEmpty={!resumeData.skills?.length}
           >
             <SkillsSection
@@ -175,8 +180,8 @@ export function ContentTab({
             onDelete={() => handleDeleteSection(sectionId)}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
-            onMoveUp={() => handleMoveUp(index)}
-            onMoveDown={() => handleMoveDown(index)}
+            onMoveUp={() => handleMoveUp(sectionId)}
+            onMoveDown={() => handleMoveDown(sectionId)}
             isEmpty={!resumeData.projects?.length}
           >
             <ProjectsSection projects={resumeData.projects || []} onChange={onUpdateProjects} />
@@ -189,11 +194,14 @@ export function ContentTab({
   };
 
   // Always show contact first, then the rest in order
-  const sectionsToRender = ['contact', ...sectionOrder.filter((s) => enabledSections.includes(s))];
+  const sectionsToRender = [
+    'contact',
+    ...sectionOrder.filter((s) => s !== 'contact' && enabledSections.includes(s)),
+  ];
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full">
-      {sectionsToRender.map((sectionId, index) => renderSection(sectionId, index))}
+      {sectionsToRender.map((sectionId) => renderSection(sectionId))}
     </div>
   );
 }

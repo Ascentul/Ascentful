@@ -62,12 +62,17 @@ const initialState: ResumeBuilderState = {
 };
 
 export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
+  const emptyResumeData = createEmptyResumeData();
   const [state, setState] = useState<ResumeBuilderState>({
     ...initialState,
     ...existingData,
     resumeData: {
-      ...createEmptyResumeData(),
+      ...emptyResumeData,
       ...existingData?.resumeData,
+      contactInfo: {
+        ...emptyResumeData.contactInfo,
+        ...existingData?.resumeData?.contactInfo,
+      },
     },
   });
 
@@ -155,7 +160,9 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        experience: prev.resumeData.experience?.map((exp, i) => (i === index ? experience : exp)),
+        experience: (prev.resumeData.experience ?? []).map((exp, i) =>
+          i === index ? experience : exp,
+        ),
       },
     }));
   }, []);
@@ -189,7 +196,9 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        education: prev.resumeData.education?.map((edu, i) => (i === index ? education : edu)),
+        education: (prev.resumeData.education ?? []).map((edu, i) =>
+          i === index ? education : edu,
+        ),
       },
     }));
   }, []);
@@ -223,7 +232,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        projects: prev.resumeData.projects?.map((p, i) => (i === index ? project : p)),
+        projects: (prev.resumeData.projects ?? []).map((p, i) => (i === index ? project : p)),
       },
     }));
   }, []);
@@ -257,7 +266,9 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
       isDirty: true,
       resumeData: {
         ...prev.resumeData,
-        achievements: prev.resumeData.achievements?.map((a, i) => (i === index ? achievement : a)),
+        achievements: (prev.resumeData.achievements ?? []).map((a, i) =>
+          i === index ? achievement : a,
+        ),
       },
     }));
   }, []);

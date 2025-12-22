@@ -39,6 +39,7 @@ export type HeadingStyle = 'caps' | 'title_case';
 export interface StyleConfig {
   font_pairing: FontPairingId;
   accent_color: string;
+  sidebar_bg_color?: string; // Background color for two-column sidebar layouts
   density: DensityOption;
   heading_style: HeadingStyle;
 }
@@ -114,15 +115,107 @@ export const ACCENT_COLORS: AccentColor[] = [
   { value: '#000000', label: 'Black' },
 ];
 
-// Template metadata
+// Sidebar Background Color Configuration (for two-column layouts)
+export interface SidebarBgColor {
+  value: string;
+  label: string;
+}
+
+export const SIDEBAR_BG_COLORS: SidebarBgColor[] = [
+  { value: '#f8fafc', label: 'Light Gray' }, // Default slate-50
+  { value: '#f1f5f9', label: 'Gray' }, // slate-100
+  { value: '#e2e8f0', label: 'Medium Gray' }, // slate-200
+  { value: '#1e293b', label: 'Dark Slate' }, // slate-800
+  { value: '#111827', label: 'Charcoal' }, // gray-900
+  { value: '#eff6ff', label: 'Light Blue' }, // blue-50
+  { value: '#ecfdf5', label: 'Light Green' }, // emerald-50
+  { value: '#fef3c7', label: 'Light Amber' }, // amber-100
+];
+
+// Template metadata (derived from TEMPLATE_LAYOUTS for consistency)
 export const TEMPLATE_METADATA: Record<TemplateId, { name: string; description: string }> = {
   clean: { name: 'Clean', description: 'Simple and elegant' },
   modern: { name: 'Modern', description: 'Contemporary design' },
   bold: { name: 'Bold', description: 'Strong typography' },
   minimal: { name: 'Minimal', description: 'Whitespace-focused' },
   classic: { name: 'Classic', description: 'Traditional format' },
-  ats: { name: 'ATS-Friendly', description: 'Optimized for parsing' },
+  ats: { name: 'Executive', description: 'Two-column professional' },
 };
+
+// Template layout configurations
+export const TEMPLATE_LAYOUTS: Record<TemplateId, TemplateLayoutConfig> = {
+  clean: {
+    id: 'clean',
+    name: 'Clean',
+    description: 'Simple and elegant',
+    layoutType: 'single-column',
+    headerStyle: 'left',
+    accentColor: '#4B5563', // slate-600
+    fontPairing: 'minimal',
+    sectionDivider: 'line',
+    density: 'comfortable',
+  },
+  modern: {
+    id: 'modern',
+    name: 'Modern',
+    description: 'Contemporary design',
+    layoutType: 'single-column',
+    headerStyle: 'left',
+    accentColor: '#5371FF', // brand blue
+    fontPairing: 'modern',
+    sectionDivider: 'accent-line',
+    density: 'comfortable',
+  },
+  bold: {
+    id: 'bold',
+    name: 'Bold',
+    description: 'Strong typography',
+    layoutType: 'single-column',
+    headerStyle: 'dark-bg',
+    accentColor: '#111827', // gray-900
+    fontPairing: 'modern',
+    sectionDivider: 'line',
+    density: 'compact',
+  },
+  minimal: {
+    id: 'minimal',
+    name: 'Minimal',
+    description: 'Whitespace-focused',
+    layoutType: 'single-column',
+    headerStyle: 'left',
+    accentColor: '#9CA3AF', // gray-400
+    fontPairing: 'minimal',
+    sectionDivider: 'none',
+    density: 'comfortable',
+    fontWeight: 'light',
+  },
+  classic: {
+    id: 'classic',
+    name: 'Classic',
+    description: 'Traditional format',
+    layoutType: 'single-column',
+    headerStyle: 'center',
+    accentColor: '#374151', // gray-700
+    fontPairing: 'classic',
+    sectionDivider: 'double-line',
+    density: 'comfortable',
+  },
+  ats: {
+    id: 'ats',
+    name: 'Executive',
+    description: 'Two-column professional',
+    layoutType: 'two-column-sidebar',
+    headerStyle: 'left',
+    sidebarPosition: 'left',
+    accentColor: '#1f2937', // gray-800
+    fontPairing: 'minimal',
+    sectionDivider: 'line',
+    density: 'compact',
+  },
+};
+
+// Template options for selection UI
+export const TEMPLATE_OPTIONS = Object.values(TEMPLATE_LAYOUTS);
 
 // Legacy support
 export const PRESET_COLORS = ACCENT_COLORS.map((c) => c.value);
@@ -150,7 +243,9 @@ export function styleConfigToTheme(config: StyleConfig): TemplateTheme {
 
 // Helper to get CSS variables for a style config
 export function getStyleVariables(config: StyleConfig): Record<string, string> {
-  const fontPairing = FONT_PAIRINGS[config.font_pairing];
+  const fontPairing = Object.prototype.hasOwnProperty.call(FONT_PAIRINGS, config.font_pairing)
+    ? FONT_PAIRINGS[config.font_pairing]
+    : FONT_PAIRINGS.classic;
 
   return {
     '--font-heading': fontPairing.heading,

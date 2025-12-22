@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
+import { TemplateThumbnail } from '../templates/TemplateThumbnail';
 import type { TemplateId } from './types';
 import { TEMPLATE_OPTIONS } from './types';
 
@@ -11,75 +12,6 @@ interface TemplateStepProps {
   value: TemplateId | null;
   onChange: (templateId: TemplateId) => void;
 }
-
-// Simple visual representation for each template
-const TEMPLATE_PREVIEWS: Record<TemplateId, React.ReactNode> = {
-  clean: (
-    <div className="w-full h-full bg-white p-2">
-      <div className="h-3 w-16 bg-slate-800 rounded mb-2" />
-      <div className="h-1.5 w-20 bg-slate-300 rounded mb-3" />
-      <div className="space-y-1.5">
-        <div className="h-1 w-full bg-slate-200 rounded" />
-        <div className="h-1 w-3/4 bg-slate-200 rounded" />
-        <div className="h-1 w-5/6 bg-slate-200 rounded" />
-      </div>
-    </div>
-  ),
-  modern: (
-    <div className="w-full h-full bg-white p-2">
-      <div className="h-4 w-20 bg-primary-500 rounded mb-2" />
-      <div className="h-1.5 w-16 bg-primary-200 rounded mb-3" />
-      <div className="space-y-1.5">
-        <div className="h-1 w-full bg-slate-200 rounded" />
-        <div className="h-1 w-4/5 bg-slate-200 rounded" />
-        <div className="h-1 w-3/4 bg-slate-200 rounded" />
-      </div>
-    </div>
-  ),
-  bold: (
-    <div className="w-full h-full bg-white p-2">
-      <div className="h-5 w-24 bg-slate-900 rounded mb-1" />
-      <div className="h-2 w-20 bg-slate-400 rounded mb-3" />
-      <div className="space-y-1.5">
-        <div className="h-1.5 w-full bg-slate-300 rounded" />
-        <div className="h-1.5 w-5/6 bg-slate-300 rounded" />
-      </div>
-    </div>
-  ),
-  minimal: (
-    <div className="w-full h-full bg-white p-3">
-      <div className="h-2 w-14 bg-slate-700 rounded mb-4" />
-      <div className="space-y-2">
-        <div className="h-0.5 w-full bg-slate-150 rounded" />
-        <div className="h-0.5 w-4/5 bg-slate-150 rounded" />
-        <div className="h-0.5 w-5/6 bg-slate-150 rounded" />
-      </div>
-    </div>
-  ),
-  classic: (
-    <div className="w-full h-full bg-white p-2">
-      <div className="text-center mb-2">
-        <div className="h-2.5 w-16 bg-slate-800 rounded mx-auto mb-1" />
-        <div className="h-1 w-24 bg-slate-300 rounded mx-auto" />
-      </div>
-      <div className="border-t border-slate-200 pt-2 space-y-1">
-        <div className="h-1 w-full bg-slate-200 rounded" />
-        <div className="h-1 w-3/4 bg-slate-200 rounded" />
-      </div>
-    </div>
-  ),
-  ats: (
-    <div className="w-full h-full bg-white p-2">
-      <div className="h-2 w-20 bg-slate-800 rounded mb-1" />
-      <div className="h-1 w-28 bg-slate-400 rounded mb-2" />
-      <div className="border-t border-slate-300 pt-2 space-y-1">
-        <div className="h-1 w-full bg-slate-200 rounded" />
-        <div className="h-1 w-full bg-slate-200 rounded" />
-        <div className="h-1 w-4/5 bg-slate-200 rounded" />
-      </div>
-    </div>
-  ),
-};
 
 export function TemplateStep({ value, onChange }: TemplateStepProps) {
   return (
@@ -104,8 +36,8 @@ export function TemplateStep({ value, onChange }: TemplateStepProps) {
             )}
           >
             {/* Preview */}
-            <div className="aspect-[3/4] bg-slate-100 relative">
-              {TEMPLATE_PREVIEWS[template.id]}
+            <div className="aspect-[3/4] bg-slate-50 relative">
+              <TemplateThumbnail templateId={template.id} />
               {value === template.id && (
                 <div className="absolute top-2 right-2 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
                   <Check className="h-4 w-4 text-white" />

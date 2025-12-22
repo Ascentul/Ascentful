@@ -7,10 +7,12 @@ import type {
   StyleConfig,
   TemplateId,
 } from '../../templates/types';
+import { TEMPLATE_LAYOUTS } from '../../templates/types';
 import { AccentColorPicker } from './AccentColorPicker';
 import { DensityToggle } from './DensityToggle';
 import { FontPairingPicker } from './FontPairingPicker';
 import { HeadingStyleToggle } from './HeadingStyleToggle';
+import { SidebarColorPicker } from './SidebarColorPicker';
 import { TemplateSwitcher } from './TemplateSwitcher';
 
 interface StyleTabProps {
@@ -26,12 +28,36 @@ export function StyleTab({
   onTemplateChange,
   onStyleChange,
 }: StyleTabProps) {
+  // Check if current template is a two-column layout
+  const templateConfig = (() => {
+    switch (templateId) {
+      case 'clean':
+        return TEMPLATE_LAYOUTS.clean;
+      case 'bold':
+        return TEMPLATE_LAYOUTS.bold;
+      case 'minimal':
+        return TEMPLATE_LAYOUTS.minimal;
+      case 'classic':
+        return TEMPLATE_LAYOUTS.classic;
+      case 'ats':
+        return TEMPLATE_LAYOUTS.ats;
+      case 'modern':
+      default:
+        return TEMPLATE_LAYOUTS.modern;
+    }
+  })();
+  const isTwoColumnLayout = templateConfig?.layoutType === 'two-column-sidebar';
+
   const handleFontChange = (font_pairing: FontPairingId) => {
     onStyleChange({ font_pairing });
   };
 
   const handleColorChange = (accent_color: string) => {
     onStyleChange({ accent_color });
+  };
+
+  const handleSidebarColorChange = (sidebar_bg_color: string) => {
+    onStyleChange({ sidebar_bg_color });
   };
 
   const handleDensityChange = (density: DensityOption) => {
@@ -56,6 +82,17 @@ export function StyleTab({
 
       {/* Accent Color */}
       <AccentColorPicker value={styleConfig.accent_color} onChange={handleColorChange} />
+
+      {/* Sidebar Background Color - only for two-column layouts */}
+      {isTwoColumnLayout && (
+        <>
+          <div className="border-t border-slate-100" />
+          <SidebarColorPicker
+            value={styleConfig.sidebar_bg_color || '#f8fafc'}
+            onChange={handleSidebarColorChange}
+          />
+        </>
+      )}
 
       <div className="border-t border-slate-100" />
 

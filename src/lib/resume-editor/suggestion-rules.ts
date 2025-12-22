@@ -10,7 +10,7 @@ import type {
   Project,
   ResumeData,
 } from '@/components/resume/ResumeDocument';
-import type { Suggestion, SuggestionSeverity, SuggestionType, TopFix } from '@/types/resume-editor';
+import type { Suggestion, TopFix } from '@/types/resume-editor';
 
 import { generateSpanId, parseBulletPoints } from './span-utils';
 
@@ -67,6 +67,14 @@ const PASSIVE_INDICATORS = [
   'was built',
   'were improved',
 ];
+
+function replaceFirstInsensitive(text: string, search: string, replacement: string): string {
+  const lowerText = text.toLowerCase();
+  const lowerSearch = search.toLowerCase();
+  const index = lowerText.indexOf(lowerSearch);
+  if (index === -1) return text;
+  return text.slice(0, index) + replacement + text.slice(index + search.length);
+}
 
 // ============================================================================
 // Suggestion Generation
@@ -204,7 +212,7 @@ function generateExperienceSuggestions(experience: Experience): Suggestion[] {
           type: 'verb',
           category: 'Impact',
           message: `"${weakVerb}" is a weak verb. Use a stronger action verb.`,
-          proposedText: strongVerb ? bullet.replace(new RegExp(weakVerb, 'i'), strongVerb) : null,
+          proposedText: strongVerb ? replaceFirstInsensitive(bullet, weakVerb, strongVerb) : null,
           explainText:
             'Strong action verbs make your achievements more compelling and demonstrate leadership.',
           dismissed: false,
@@ -446,6 +454,7 @@ function generateProjectSuggestions(project: Project): Suggestion[] {
  */
 export function suggestStrongerVerb(text: string): string | null {
   const lowerText = text.toLowerCase();
+  const hash = lowerText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
   // Map context to verb category
   if (
@@ -453,28 +462,28 @@ export function suggestStrongerVerb(text: string): string | null {
     lowerText.includes('project') ||
     lowerText.includes('initiative')
   ) {
-    return STRONG_VERBS.leadership[Math.floor(Math.random() * STRONG_VERBS.leadership.length)];
+    return STRONG_VERBS.leadership[hash % STRONG_VERBS.leadership.length];
   }
   if (lowerText.includes('build') || lowerText.includes('create') || lowerText.includes('design')) {
-    return STRONG_VERBS.creation[Math.floor(Math.random() * STRONG_VERBS.creation.length)];
+    return STRONG_VERBS.creation[hash % STRONG_VERBS.creation.length];
   }
   if (
     lowerText.includes('improve') ||
     lowerText.includes('enhance') ||
     lowerText.includes('optim')
   ) {
-    return STRONG_VERBS.improvement[Math.floor(Math.random() * STRONG_VERBS.improvement.length)];
+    return STRONG_VERBS.improvement[hash % STRONG_VERBS.improvement.length];
   }
   if (
     lowerText.includes('code') ||
     lowerText.includes('develop') ||
     lowerText.includes('software')
   ) {
-    return STRONG_VERBS.technical[Math.floor(Math.random() * STRONG_VERBS.technical.length)];
+    return STRONG_VERBS.technical[hash % STRONG_VERBS.technical.length];
   }
 
   // Default to achievement verbs
-  return STRONG_VERBS.achievement[Math.floor(Math.random() * STRONG_VERBS.achievement.length)];
+  return STRONG_VERBS.achievement[hash % STRONG_VERBS.achievement.length];
 }
 
 /**

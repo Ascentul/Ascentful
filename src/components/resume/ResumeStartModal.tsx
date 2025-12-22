@@ -3,15 +3,13 @@
 import { CloudUpload, FileText, User } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { CreateResumeFunnel } from '@/components/resume-builder/funnel';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 interface ResumeStartModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectCreate: () => void;
-  onSelectUpload: (file: File) => void;
-  onSelectAI?: () => void;
 }
 
 type StartSource = 'profile' | 'upload' | 'blank';
@@ -20,8 +18,7 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showFunnel, setShowFunnel] = useState(false);
   const [startSource, setStartSource] = useState<StartSource>('profile');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadedContent, setUploadedContent] = useState<any>(null);
+  const [uploadedContent, setUploadedContent] = useState<ResumeData | null>(null);
   const [isParsingUpload, setIsParsingUpload] = useState(false);
 
   const handleSelectProfile = () => {
@@ -42,7 +39,6 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadedFile(file);
     setIsParsingUpload(true);
 
     try {
@@ -113,14 +109,12 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
       fileInputRef.current.value = '';
     }
     setShowFunnel(false);
-    setUploadedFile(null);
     setUploadedContent(null);
     onClose();
   };
 
   const handleFunnelClose = () => {
     setShowFunnel(false);
-    setUploadedFile(null);
     setUploadedContent(null);
     onClose();
   };
@@ -133,7 +127,6 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
         onClose={handleFunnelClose}
         startSource={startSource}
         uploadedContent={uploadedContent}
-        uploadedFile={uploadedFile}
       />
     );
   }

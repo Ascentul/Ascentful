@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
+import type { ComponentPropsWithoutRef } from 'react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ interface SectionCardProps {
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   isEmpty?: boolean;
-  dragHandleProps?: any;
+  dragHandleProps?: ComponentPropsWithoutRef<'div'>;
 }
 
 export function SectionCard({

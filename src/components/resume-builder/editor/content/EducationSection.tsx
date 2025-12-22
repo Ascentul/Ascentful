@@ -14,7 +14,7 @@ interface EducationSectionProps {
 export function EducationSection({ education, onChange }: EducationSectionProps) {
   const handleAdd = () => {
     const newEducation: Education = {
-      id: `edu-${Date.now()}`,
+      id: `edu-${crypto.randomUUID()}`,
       school: '',
       degree: '',
       field: '',
@@ -64,8 +64,14 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">School</label>
+              <label
+                htmlFor={`edu-school-${edu.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                School
+              </label>
               <Input
+                id={`edu-school-${edu.id}`}
                 value={edu.school}
                 onChange={(e) => handleUpdate(index, { school: e.target.value })}
                 placeholder="University of California"
@@ -73,8 +79,14 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Location</label>
+              <label
+                htmlFor={`edu-location-${edu.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Location
+              </label>
               <Input
+                id={`edu-location-${edu.id}`}
                 value={edu.location}
                 onChange={(e) => handleUpdate(index, { location: e.target.value })}
                 placeholder="Berkeley, CA"
@@ -85,8 +97,14 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">Degree</label>
+              <label
+                htmlFor={`edu-degree-${edu.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Degree
+              </label>
               <Input
+                id={`edu-degree-${edu.id}`}
                 value={edu.degree}
                 onChange={(e) => handleUpdate(index, { degree: e.target.value })}
                 placeholder="Bachelor of Science"
@@ -94,8 +112,11 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Field of Study</label>
+              <label htmlFor={`edu-field-${edu.id}`} className="text-sm font-medium text-slate-700">
+                Field of Study
+              </label>
               <Input
+                id={`edu-field-${edu.id}`}
                 value={edu.field}
                 onChange={(e) => handleUpdate(index, { field: e.target.value })}
                 placeholder="Computer Science"
@@ -106,8 +127,11 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">Start Year</label>
+              <label htmlFor={`edu-start-${edu.id}`} className="text-sm font-medium text-slate-700">
+                Start Year
+              </label>
               <Input
+                id={`edu-start-${edu.id}`}
                 value={edu.startYear}
                 onChange={(e) => handleUpdate(index, { startYear: e.target.value })}
                 placeholder="2018"
@@ -115,8 +139,11 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">End Year</label>
+              <label htmlFor={`edu-end-${edu.id}`} className="text-sm font-medium text-slate-700">
+                End Year
+              </label>
               <Input
+                id={`edu-end-${edu.id}`}
                 value={edu.endYear}
                 onChange={(e) => handleUpdate(index, { endYear: e.target.value })}
                 placeholder="2022"
@@ -127,8 +154,11 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700">GPA (optional)</label>
+              <label htmlFor={`edu-gpa-${edu.id}`} className="text-sm font-medium text-slate-700">
+                GPA (optional)
+              </label>
               <Input
+                id={`edu-gpa-${edu.id}`}
                 value={edu.gpa || ''}
                 onChange={(e) => handleUpdate(index, { gpa: e.target.value })}
                 placeholder="3.8"
@@ -136,8 +166,14 @@ export function EducationSection({ education, onChange }: EducationSectionProps)
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Honors (optional)</label>
+              <label
+                htmlFor={`edu-honors-${edu.id}`}
+                className="text-sm font-medium text-slate-700"
+              >
+                Honors (optional)
+              </label>
               <Input
+                id={`edu-honors-${edu.id}`}
                 value={edu.honors || ''}
                 onChange={(e) => handleUpdate(index, { honors: e.target.value })}
                 placeholder="Magna Cum Laude"

@@ -860,7 +860,16 @@ export default defineSchema({
     ),
 
     // Resume Builder 2.0: Template and styling
-    template_id: v.optional(v.string()), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
+    template_id: v.optional(
+      v.union(
+        v.literal('clean'),
+        v.literal('modern'),
+        v.literal('bold'),
+        v.literal('minimal'),
+        v.literal('classic'),
+        v.literal('ats'),
+      ),
+    ), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
     style_config: v.optional(
       v.object({
         font_pairing: v.optional(v.string()), // 'classic', 'modern', 'elegant', 'minimal'

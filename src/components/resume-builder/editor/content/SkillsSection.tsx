@@ -18,7 +18,8 @@ export function SkillsSection({ skills, onChange, onSuggestAI, isSuggesting }: S
 
   const handleAddSkill = () => {
     const trimmed = newSkill.trim();
-    if (trimmed && !skills.includes(trimmed)) {
+    const isDuplicate = skills.some((skill) => skill.toLowerCase() === trimmed.toLowerCase());
+    if (trimmed && !isDuplicate) {
       onChange([...skills, trimmed]);
       setNewSkill('');
     }
@@ -65,6 +66,7 @@ export function SkillsSection({ skills, onChange, onSuggestAI, isSuggesting }: S
               type="button"
               onClick={() => handleRemoveSkill(skill)}
               className="text-slate-400 hover:text-slate-600"
+              aria-label={`Remove ${skill}`}
             >
               <X className="h-3.5 w-3.5" />
             </button>

@@ -19,6 +19,9 @@ export function EditorHeader({
   lastSavedAt,
   onClose,
 }: EditorHeaderProps) {
+  const formatTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const getSaveStatusDisplay = () => {
     switch (saveStatus) {
       case 'saving':
@@ -32,7 +35,7 @@ export function EditorHeader({
         return (
           <span className="flex items-center gap-1.5 text-sm text-green-600">
             <Check className="h-3.5 w-3.5" />
-            All changes saved
+            {lastSavedAt ? `Saved at ${formatTime(lastSavedAt)}` : 'All changes saved'}
           </span>
         );
       case 'error':

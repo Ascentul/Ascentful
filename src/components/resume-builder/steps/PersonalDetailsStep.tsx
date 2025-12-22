@@ -1,7 +1,8 @@
 'use client';
 
 import { ChevronDown, Lock, User } from 'lucide-react';
-import React, { useState } from 'react';
+import Image from 'next/image';
+import React, { useRef, useState } from 'react';
 
 import type { ContactInfo } from '@/components/resume/ResumeDocument';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ export function PersonalDetailsStep({
   onJobTargetChange,
 }: PersonalDetailsStepProps) {
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Split name into first and last for display
   const nameParts = contactInfo.name.split(' ');
@@ -30,6 +32,23 @@ export function PersonalDetailsStep({
   const handleNameChange = (first: string, last: string) => {
     const fullName = `${first} ${last}`.trim();
     onContactInfoChange('name', fullName);
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        onContactInfoChange('photoUrl', reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
   };
 
   return (
@@ -63,10 +82,28 @@ export function PersonalDetailsStep({
       {/* Photo upload placeholder */}
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center">
-          <User className="w-8 h-8 text-slate-400" />
+          {contactInfo.photoUrl ? (
+            <Image
+              src={contactInfo.photoUrl}
+              alt="Profile"
+              width={64}
+              height={64}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          ) : (
+            <User className="w-8 h-8 text-slate-400" />
+          )}
         </div>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoUpload}
+          className="hidden"
+        />
         <button
           type="button"
+          onClick={() => photoInputRef.current?.click()}
           className="text-sm text-primary-500 hover:text-primary-600 font-medium"
         >
           Upload photo
@@ -143,8 +180,8 @@ export function PersonalDetailsStep({
           <Input
             id="postalCode"
             placeholder="12345"
-            value=""
-            onChange={() => {}}
+            value={contactInfo.postalCode || ''}
+            onChange={(e) => onContactInfoChange('postalCode', e.target.value)}
             className="bg-slate-50"
           />
         </div>
@@ -164,7 +201,13 @@ export function PersonalDetailsStep({
         </div>
         <div className="space-y-2">
           <Label htmlFor="country">Country</Label>
-          <Input id="country" placeholder="" className="bg-slate-50" />
+          <Input
+            id="country"
+            placeholder="United States"
+            value={contactInfo.country || ''}
+            onChange={(e) => onContactInfoChange('country', e.target.value)}
+            className="bg-slate-50"
+          />
           <p className="text-xs text-slate-400">For users outside the US</p>
         </div>
       </div>

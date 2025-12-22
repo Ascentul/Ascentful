@@ -2,6 +2,9 @@ import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import type { Experience } from '@/components/resume/ResumeDocument';
+import { evaluate } from '@/lib/ai-evaluation';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -48,15 +51,30 @@ Respond with JSON: { "bullets": ["bullet1", "bullet2", ...] }`,
 
     const content = response.choices[0]?.message?.content || '{}';
     const parsed = JSON.parse(content);
+    const bullets = parsed.bullets || [];
 
-    return NextResponse.json({ bullets: parsed.bullets || [] });
+    const evaluation = await evaluate({
+      tool_id: 'resume-suggestions',
+      input: { experience, intent, jobTarget },
+      output: { bullets },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ bullets });
   } catch (error) {
     console.error('Error generating bullets:', error);
     return NextResponse.json({ error: 'Failed to generate bullets' }, { status: 500 });
   }
 }
 
-function buildPrompt(experience: any, intent?: string, jobTarget?: string): string {
+function buildPrompt(experience: Partial<Experience>, intent?: string, jobTarget?: string): string {
   const parts: string[] = [];
 
   parts.push(`Job Title: ${experience.title}`);

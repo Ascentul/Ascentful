@@ -121,7 +121,7 @@ function getATSChecks(data: ResumeData): CheckItem[] {
     });
   }
 
-  if (!data.skills || data.skills.length < 3) {
+  if (!data.skills || data.skills.length < 5) {
     checks.push({
       id: 'skills',
       label: 'Skills',

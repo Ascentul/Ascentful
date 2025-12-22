@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface UseEditorKeyboardOptions {
   onUndo: () => void;
@@ -33,7 +33,8 @@ export function useEditorKeyboard({
       if (!enabled) return;
 
       // Detect platform
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const platform = navigator.userAgentData?.platform ?? navigator.platform;
+      const isMac = platform.toUpperCase().indexOf('MAC') >= 0;
       const cmdKey = isMac ? event.metaKey : event.ctrlKey;
 
       // Cmd/Ctrl + Z (with or without Shift)
@@ -91,7 +92,8 @@ export function useEditorKeyboard({
  */
 export function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const platform = navigator.userAgentData?.platform ?? navigator.platform;
+  return platform.toUpperCase().indexOf('MAC') >= 0;
 }
 
 /**
@@ -117,16 +119,19 @@ export function getShortcutText(action: 'undo' | 'redo' | 'save'): string {
  * Hook for specific key press detection
  */
 export function useKeyPress(targetKey: string, callback: () => void, enabled = true): void {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
   useEffect(() => {
     if (!enabled) return;
 
     const handler = (event: KeyboardEvent) => {
       if (event.key === targetKey) {
-        callback();
+        callbackRef.current();
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [targetKey, callback, enabled]);
+  }, [targetKey, enabled]);
 }

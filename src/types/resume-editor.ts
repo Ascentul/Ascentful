@@ -14,7 +14,8 @@ export type SectionType =
   | 'projects'
   | 'skills'
   | 'achievements'
-  | 'contact';
+  | 'contact'
+  | 'certifications';
 
 export interface TextSpan {
   spanId: string; // Format: "{sectionType}-{itemId}-{field}-{lineIndex}"
@@ -119,6 +120,7 @@ export interface EditorAction {
   before: unknown;
   after: unknown;
   spanId?: string;
+  suggestionId?: string;
   sectionId?: string;
   description: string;
 }
@@ -229,10 +231,10 @@ export function groupSuggestionsBySeverity(suggestions: Suggestion[]): GroupedSu
 }
 
 export function getSuggestionCountsBySection(suggestions: Suggestion[]): SuggestionCounts {
-  const counts: SuggestionCounts = {};
+  const counts = new Map<string, number>();
   for (const suggestion of suggestions) {
     const sectionType = suggestion.spanId.split('-')[0];
-    counts[sectionType] = (counts[sectionType] || 0) + 1;
+    counts.set(sectionType, (counts.get(sectionType) ?? 0) + 1);
   }
-  return counts;
+  return Object.fromEntries(counts) as SuggestionCounts;
 }

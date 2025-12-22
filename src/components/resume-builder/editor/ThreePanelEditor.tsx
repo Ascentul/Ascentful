@@ -10,23 +10,18 @@ import type {
   ResumeData,
 } from '@/components/resume/ResumeDocument';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
-import {
-  createReorderSectionAction,
-  createTextEditAction,
-  useResumeUndo,
-} from '@/hooks/useResumeUndo';
+import { createReorderSectionAction, useResumeUndo } from '@/hooks/useResumeUndo';
 import { useSuggestions } from '@/hooks/useSuggestions';
 import { scrollToSpan } from '@/lib/resume-editor/span-utils';
 import { calculateEnhancedScore } from '@/lib/resume-score';
+import { cn } from '@/lib/utils';
 import type { EditorTab, TopFix, ZoomLevel } from '@/types/resume-editor';
-import { SECTION_CONFIGS } from '@/types/resume-editor';
 
 import type { StyleConfig, TemplateId } from '../templates/types';
 import { CanvasPanel } from './canvas/CanvasPanel';
 import { CoachPanel } from './coach/CoachPanel';
 import { EditorTopBar } from './EditorTopBar';
 import { OutlinePanel } from './outline/OutlinePanel';
-import { ReviewTab } from './review/ReviewTab';
 import { StyleTab } from './style/StyleTab';
 
 interface ThreePanelEditorProps {
@@ -44,7 +39,7 @@ interface ThreePanelEditorProps {
   onUpdateEducation: (education: Education[]) => void;
   onUpdateSkills: (skills: string[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
-  onReorderSection: (fromIndex: number, toIndex: number) => void;
+  onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
   onTemplateChange: (templateId: TemplateId) => void;
   onStyleChange: (config: Partial<StyleConfig>) => void;
@@ -71,21 +66,23 @@ export function ThreePanelEditor({
   onUpdateEducation,
   onUpdateSkills,
   onUpdateProjects,
-  onReorderSection,
+  onSetSectionOrder,
   onToggleSection,
   onTemplateChange,
   onStyleChange,
   onTitleChange,
   onClose,
   onExportPDF,
-  onExportDOCX,
+  onExportDOCX: _onExportDOCX,
   onSave,
   isExporting,
 }: ThreePanelEditorProps) {
   // UI State
   const [activeTab, setActiveTab] = useState<EditorTab>('content');
-  const [coachEnabled, setCoachEnabled] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('fit');
+
+  // Coach is always enabled
+  const coachEnabled = true;
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [inlineEditingSpanId, setInlineEditingSpanId] = useState<string | null>(null);
 
@@ -105,17 +102,14 @@ export function ThreePanelEditor({
   const handleUndo = useCallback(() => {
     const action = undo();
     if (action) {
-      // Apply the undo - restore previous state
-      // This would need to be connected to the appropriate update function
-      console.log('Undo:', action);
+      // TODO: Apply the undo - restore previous state.
     }
   }, [undo]);
 
   const handleRedo = useCallback(() => {
     const action = redo();
     if (action) {
-      // Apply the redo - apply the action's 'after' state
-      console.log('Redo:', action);
+      // TODO: Apply the redo - apply the action's 'after' state.
     }
   }, [redo]);
 
@@ -144,16 +138,9 @@ export function ThreePanelEditor({
     (newOrder: string[]) => {
       const oldOrder = sectionOrder;
       pushAction(createReorderSectionAction(oldOrder, newOrder, 'Reorder sections'));
-      // Find the indices and call the original handler
-      // For simplicity, we'll update the order directly
-      newOrder.forEach((sectionId, newIndex) => {
-        const oldIndex = sectionOrder.indexOf(sectionId);
-        if (oldIndex !== newIndex) {
-          onReorderSection(oldIndex, newIndex);
-        }
-      });
+      onSetSectionOrder(newOrder);
     },
-    [sectionOrder, onReorderSection, pushAction],
+    [sectionOrder, onSetSectionOrder, pushAction],
   );
 
   // Add section
@@ -193,8 +180,14 @@ export function ThreePanelEditor({
     scrollToSpan(spanId);
   }, []);
 
-  // Render left panel based on active tab
-  const renderLeftPanel = () => {
+  // Tab configuration - Content and Style only (Review is handled by Coach panel)
+  const tabs: { id: EditorTab; label: string }[] = [
+    { id: 'content', label: 'Content' },
+    { id: 'style', label: 'Style' },
+  ];
+
+  // Render left panel content based on active tab
+  const renderLeftPanelContent = () => {
     switch (activeTab) {
       case 'content':
         return (
@@ -211,29 +204,44 @@ export function ThreePanelEditor({
         );
       case 'style':
         return (
-          <div className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
-            <StyleTab
-              templateId={templateId}
-              styleConfig={styleConfig}
-              onTemplateChange={onTemplateChange}
-              onStyleChange={onStyleChange}
-            />
-          </div>
-        );
-      case 'review':
-        return (
-          <div className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
-            <ReviewTab
-              resumeData={resumeData}
-              onExportPDF={onExportPDF}
-              onExportDOCX={onExportDOCX}
-              isExporting={isExporting}
-            />
-          </div>
+          <StyleTab
+            templateId={templateId}
+            styleConfig={styleConfig}
+            onTemplateChange={onTemplateChange}
+            onStyleChange={onStyleChange}
+          />
         );
       default:
         return null;
     }
+  };
+
+  // Render left panel with tabs
+  const renderLeftPanel = () => {
+    return (
+      <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 p-3 border-b border-slate-100">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors',
+                activeTab === tab.id
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-slate-100',
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">{renderLeftPanelContent()}</div>
+      </div>
+    );
   };
 
   return (
@@ -244,14 +252,10 @@ export function ThreePanelEditor({
         onTitleChange={onTitleChange}
         saveStatus={saveStatus}
         lastSavedAt={lastSavedAt}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        coachEnabled={coachEnabled}
-        onCoachToggle={() => setCoachEnabled(!coachEnabled)}
         onExport={onExportPDF}
         onClose={onClose}
         isExporting={isExporting}
@@ -283,18 +287,16 @@ export function ThreePanelEditor({
           onUpdateProjects={onUpdateProjects}
         />
 
-        {/* Right Panel - Coach (toggleable) */}
-        {coachEnabled && (
-          <CoachPanel
-            score={score}
-            groupedSuggestions={groupedSuggestions}
-            topFixes={score.topFixes}
-            onApplySuggestion={handleApplySuggestion}
-            onDismissSuggestion={dismissSuggestion}
-            onApplyFix={handleApplyFix}
-            onScrollToSpan={handleScrollToSpan}
-          />
-        )}
+        {/* Right Panel - Coach (always visible) */}
+        <CoachPanel
+          score={score}
+          groupedSuggestions={groupedSuggestions}
+          topFixes={score.topFixes}
+          onApplySuggestion={handleApplySuggestion}
+          onDismissSuggestion={dismissSuggestion}
+          onApplyFix={handleApplyFix}
+          onScrollToSpan={handleScrollToSpan}
+        />
       </div>
     </div>
   );

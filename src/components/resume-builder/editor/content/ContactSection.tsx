@@ -15,8 +15,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-slate-700">Full Name</label>
+          <label htmlFor="contact-name" className="text-sm font-medium text-slate-700">
+            Full Name
+          </label>
           <Input
+            id="contact-name"
             value={contactInfo.name}
             onChange={(e) => onChange('name', e.target.value)}
             placeholder="John Doe"
@@ -24,8 +27,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-700">Email</label>
+          <label htmlFor="contact-email" className="text-sm font-medium text-slate-700">
+            Email
+          </label>
           <Input
+            id="contact-email"
             type="email"
             value={contactInfo.email}
             onChange={(e) => onChange('email', e.target.value)}
@@ -37,8 +43,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-slate-700">Phone</label>
+          <label htmlFor="contact-phone" className="text-sm font-medium text-slate-700">
+            Phone
+          </label>
           <Input
+            id="contact-phone"
             value={contactInfo.phone}
             onChange={(e) => onChange('phone', e.target.value)}
             placeholder="(555) 123-4567"
@@ -46,8 +55,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-700">Location</label>
+          <label htmlFor="contact-location" className="text-sm font-medium text-slate-700">
+            Location
+          </label>
           <Input
+            id="contact-location"
             value={contactInfo.location}
             onChange={(e) => onChange('location', e.target.value)}
             placeholder="San Francisco, CA"
@@ -58,8 +70,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-slate-700">LinkedIn (optional)</label>
+          <label htmlFor="contact-linkedin" className="text-sm font-medium text-slate-700">
+            LinkedIn (optional)
+          </label>
           <Input
+            id="contact-linkedin"
             value={contactInfo.linkedin || ''}
             onChange={(e) => onChange('linkedin', e.target.value)}
             placeholder="linkedin.com/in/johndoe"
@@ -67,8 +82,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-700">GitHub (optional)</label>
+          <label htmlFor="contact-github" className="text-sm font-medium text-slate-700">
+            GitHub (optional)
+          </label>
           <Input
+            id="contact-github"
             value={contactInfo.github || ''}
             onChange={(e) => onChange('github', e.target.value)}
             placeholder="github.com/johndoe"
@@ -78,8 +96,11 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium text-slate-700">Website (optional)</label>
+        <label htmlFor="contact-website" className="text-sm font-medium text-slate-700">
+          Website (optional)
+        </label>
         <Input
+          id="contact-website"
           value={contactInfo.website || ''}
           onChange={(e) => onChange('website', e.target.value)}
           placeholder="johndoe.com"

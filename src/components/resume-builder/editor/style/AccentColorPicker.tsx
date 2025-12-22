@@ -32,16 +32,7 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
               )}
               style={{ backgroundColor: color.value }}
             >
-              {isSelected && (
-                <Check
-                  className={cn(
-                    'h-4 w-4',
-                    color.value === '#000000' || color.value === '#374151'
-                      ? 'text-white'
-                      : 'text-white',
-                  )}
-                />
-              )}
+              {isSelected && <Check className="h-4 w-4 text-white" />}
             </button>
           );
         })}

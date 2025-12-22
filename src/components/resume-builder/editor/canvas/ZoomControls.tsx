@@ -21,6 +21,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
       {ZOOM_OPTIONS.map((option) => (
         <button
           key={option.value}
+          type="button"
           onClick={() => onChange(option.value)}
           className={cn(
             'px-3 py-1 text-xs font-medium rounded-full transition-colors',

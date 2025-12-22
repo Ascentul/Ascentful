@@ -1,28 +1,22 @@
 'use client';
 
-import { Check, Download, Loader2, Redo2, Share2, Sparkles, Undo2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Download, Loader2, Redo2, Share2, Undo2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getShortcutText } from '@/hooks/useEditorKeyboard';
-import { cn } from '@/lib/utils';
-import type { EditorTab } from '@/types/resume-editor';
 
 interface EditorTopBarProps {
   title: string;
   onTitleChange: (title: string) => void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt?: number | null;
-  activeTab: EditorTab;
-  onTabChange: (tab: EditorTab) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  coachEnabled: boolean;
-  onCoachToggle: () => void;
   onExport: () => void;
   onShare?: () => void;
   onClose: () => void;
@@ -34,14 +28,10 @@ export function EditorTopBar({
   onTitleChange,
   saveStatus,
   lastSavedAt,
-  activeTab,
-  onTabChange,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
-  coachEnabled,
-  onCoachToggle,
   onExport,
   onShare,
   onClose,
@@ -49,6 +39,12 @@ export function EditorTopBar({
 }: EditorTopBarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(title);
+
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleValue(title);
+    }
+  }, [title, isEditingTitle]);
 
   const handleTitleSubmit = () => {
     if (titleValue.trim()) {
@@ -58,12 +54,6 @@ export function EditorTopBar({
     }
     setIsEditingTitle(false);
   };
-
-  const tabs: { id: EditorTab; label: string }[] = [
-    { id: 'content', label: 'Content' },
-    { id: 'style', label: 'Style' },
-    { id: 'review', label: 'Review' },
-  ];
 
   return (
     <TooltipProvider>
@@ -93,7 +83,6 @@ export function EditorTopBar({
                 }
               }}
               className="h-8 w-[180px] text-sm font-medium"
-              autoFocus
             />
           ) : (
             <button
@@ -106,24 +95,6 @@ export function EditorTopBar({
 
           {/* Save status */}
           <SaveStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
-        </div>
-
-        {/* Tab bar */}
-        <div className="flex items-center gap-1 ml-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'px-4 py-1.5 text-sm font-medium rounded-full transition-colors',
-                activeTab === tab.id
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {/* Spacer */}
@@ -165,32 +136,6 @@ export function EditorTopBar({
             </TooltipContent>
           </Tooltip>
         </div>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-slate-200" />
-
-        {/* Coach toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={coachEnabled ? 'default' : 'ghost'}
-              size="sm"
-              onClick={onCoachToggle}
-              className={cn(
-                'gap-2',
-                coachEnabled
-                  ? 'bg-primary-500 hover:bg-primary-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>Coach</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{coachEnabled ? 'Hide AI Coach' : 'Show AI Coach'}</p>
-          </TooltipContent>
-        </Tooltip>
 
         {/* Divider */}
         <div className="w-px h-6 bg-slate-200" />

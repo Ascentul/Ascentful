@@ -24,8 +24,10 @@ export function StepNavigation({
 }: StepNavigationProps) {
   const isLastStep = currentStep === STEPS.length - 1;
   const isFirstStep = currentStep === 0;
-  const currentStepData = STEPS[currentStep];
+  const currentStepData = STEPS.at(currentStep) ?? STEPS[0];
   const nextLabel = isLastStep ? 'Finish' : `Next: ${currentStepData.nextLabel}`;
+  const isFinishDisabled = isLastStep && !onFinish;
+  const handleNextClick = isLastStep ? onFinish : onNext;
 
   return (
     <div className="flex items-center justify-between py-4 px-6 border-t border-slate-200 bg-white">
@@ -56,7 +58,8 @@ export function StepNavigation({
           </Button>
         )}
         <Button
-          onClick={isLastStep ? onFinish : onNext}
+          onClick={handleNextClick}
+          disabled={isFinishDisabled}
           className="bg-primary-500 hover:bg-primary-600 text-white px-6"
         >
           {nextLabel}

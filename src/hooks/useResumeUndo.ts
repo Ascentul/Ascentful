@@ -36,7 +36,7 @@ export function useResumeUndo(options: UseResumeUndoOptions = {}): UseResumeUndo
     (action: Omit<EditorAction, 'id' | 'timestamp'>) => {
       const fullAction: EditorAction = {
         ...action,
-        id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `action-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         timestamp: Date.now(),
       };
 
@@ -192,6 +192,7 @@ export function createApplySuggestionAction(
   return {
     type: 'apply_suggestion',
     spanId,
+    suggestionId,
     before,
     after,
     description: description || 'Apply suggestion',
