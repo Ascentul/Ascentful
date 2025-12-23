@@ -31,7 +31,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { bullet, mode, context } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { bullet, mode, context } = body;
 
     if (!bullet || typeof bullet !== 'string') {
       return NextResponse.json({ error: 'Bullet point text is required' }, { status: 400 });

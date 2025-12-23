@@ -101,6 +101,11 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
       setShowFunnel(true);
     } catch (error) {
       console.error('Error parsing upload:', error);
+      toast({
+        title: 'Upload processing failed',
+        description: 'Starting with a blank draft instead.',
+        variant: 'destructive',
+      });
       // Still proceed with funnel
       setStartSource('upload');
       setShowFunnel(true);

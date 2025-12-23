@@ -47,8 +47,8 @@ interface CanvasPanelProps {
   onUpdateProjects: (projects: Project[]) => void;
   onUpdateSkills: (skills: string[]) => void;
   // Page toolbar actions (optional)
-  onDuplicatePage?: () => void;
-  onDeletePage?: () => void;
+  onDuplicatePage?: (pageIndex: number) => void;
+  onDeletePage?: (pageIndex: number) => void;
   totalPages?: number;
 }
 
@@ -283,7 +283,7 @@ export function CanvasPanel({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
-                          onClick={onDuplicatePage}
+                          onClick={() => onDuplicatePage?.(pageIndex)}
                         >
                           <Files className="h-4 w-4" />
                         </Button>
@@ -299,7 +299,7 @@ export function CanvasPanel({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-slate-200/50"
-                            onClick={onDeletePage}
+                            onClick={() => onDeletePage?.(pageIndex)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

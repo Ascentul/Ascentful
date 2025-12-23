@@ -16,7 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { resumeData, intent, jobTarget } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { resumeData, intent, jobTarget } = body;
 
     if (!resumeData) {
       return NextResponse.json({ error: 'Resume data is required' }, { status: 400 });
