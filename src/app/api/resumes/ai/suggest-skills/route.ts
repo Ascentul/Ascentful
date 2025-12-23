@@ -59,7 +59,7 @@ Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "techn
     try {
       parsed = JSON.parse(content);
     } catch {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse AI response');
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 

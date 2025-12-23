@@ -76,7 +76,7 @@ export function CanvasPanel({
   const contentMeasureRef = useRef<HTMLDivElement>(null);
   const prevZoomRef = useRef<number>(zoomLevel);
   const scale = getZoomScale(zoomLevel);
-  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [hiddenPages, setHiddenPages] = useState<Set<number>>(new Set());
 
   // Multi-page state - detect content overflow
   const [calculatedPageCount, setCalculatedPageCount] = useState(1);
@@ -250,9 +250,19 @@ export function CanvasPanel({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
-                          onClick={() => setIsPageVisible(!isPageVisible)}
+                          onClick={() => {
+                            setHiddenPages((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(pageIndex)) {
+                                next.delete(pageIndex);
+                              } else {
+                                next.add(pageIndex);
+                              }
+                              return next;
+                            });
+                          }}
                         >
-                          {isPageVisible ? (
+                          {!hiddenPages.has(pageIndex) ? (
                             <Eye className="h-4 w-4" />
                           ) : (
                             <EyeOff className="h-4 w-4" />
@@ -260,7 +270,9 @@ export function CanvasPanel({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isPageVisible ? 'Hide page from export' : 'Show page in export'}
+                        {!hiddenPages.has(pageIndex)
+                          ? 'Hide page from export'
+                          : 'Show page in export'}
                       </TooltipContent>
                     </Tooltip>
 
@@ -311,7 +323,7 @@ export function CanvasPanel({
                   {/* Page container - the full 11in page with white background */}
                   <div
                     className={`bg-white shadow-2xl rounded-sm origin-top ${
-                      !isPageVisible ? 'opacity-50' : ''
+                      hiddenPages.has(pageIndex) ? 'opacity-50' : ''
                     }`}
                     style={{
                       width: '8.5in',

@@ -107,7 +107,11 @@ function buildContext(
   const education = resumeData.education ?? [];
   if (education.length > 0) {
     const edu = education[0];
-    parts.push(`Education: ${edu.degree} in ${edu.field} from ${edu.school}`);
+    if (edu.degree && edu.field && edu.school) {
+      parts.push(`Education: ${edu.degree} in ${edu.field} from ${edu.school}`);
+    } else if (edu.school) {
+      parts.push(`Education: ${edu.school}`);
+    }
   }
 
   return parts.join('\n');
