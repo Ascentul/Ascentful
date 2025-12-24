@@ -263,7 +263,11 @@ export default function ResumeBuilderPage() {
 
   const handleToggleSection = (sectionId: string, enabled: boolean) => {
     setEnabledSections((prev) =>
-      enabled ? [...prev, sectionId] : prev.filter((id) => id !== sectionId),
+      enabled
+        ? prev.includes(sectionId)
+          ? prev
+          : [...prev, sectionId]
+        : prev.filter((id) => id !== sectionId),
     );
     // When enabling a section, also add it to sectionOrder if not present
     if (enabled) {

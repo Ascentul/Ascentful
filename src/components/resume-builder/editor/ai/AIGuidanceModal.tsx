@@ -116,6 +116,8 @@ export function AIGuidanceModal({
           timestamp: new Date(),
         },
       ]);
+      // Prevent infinite re-init loop on persistent failures
+      setInitialized(true);
     } finally {
       setIsLoading(false);
     }

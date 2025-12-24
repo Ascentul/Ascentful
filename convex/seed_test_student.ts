@@ -246,7 +246,7 @@ export const createTestStudent = internalMutation({
         }),
         visibility: 'private',
         source: 'manual',
-        version_counter: 0,
+        version_counter: 1,
         created_at: now,
         updated_at: now,
       });

@@ -41,6 +41,17 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file size (10MB limit)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload a resume under 10MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsParsingUpload(true);
 
     try {

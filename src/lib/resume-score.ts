@@ -468,7 +468,6 @@ function calculateClarityScore(data: ResumeData): number {
  * Note: Would be enhanced with job description matching in future
  */
 function calculateRelevanceScore(data: ResumeData): number {
-  let score = 0;
   const maxPoints = 100;
   let earnedPoints = 0;
 
@@ -514,7 +513,7 @@ function calculateRelevanceScore(data: ResumeData): number {
     earnedPoints += skillScore;
   }
 
-  score = Math.round((earnedPoints / maxPoints) * 100);
+  const score = Math.round((earnedPoints / maxPoints) * 100);
   return Math.min(100, score);
 }
 
@@ -770,12 +769,15 @@ function generateFixForArea(
       break;
 
     case 'consistency':
-      return {
-        fixId: 'fix-consistency',
-        suggestionIds: relatedSuggestions,
-        message: 'Ensure consistent formatting across all sections',
-        impact: 'low',
-      };
+      if (score < 70) {
+        return {
+          fixId: 'fix-consistency',
+          suggestionIds: relatedSuggestions,
+          message: 'Ensure consistent formatting across all sections',
+          impact: 'low',
+        };
+      }
+      break;
   }
 
   return null;

@@ -172,6 +172,11 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                         </span>
                       </li>
                     ))}
+                    {requirements.required.length > 5 && (
+                      <li className="text-xs text-slate-400 italic">
+                        +{requirements.required.length - 5} more
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
@@ -190,6 +195,11 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                         {req.item}
                       </li>
                     ))}
+                    {requirements.preferred.length > 3 && (
+                      <li className="text-xs text-slate-400 italic">
+                        +{requirements.preferred.length - 3} more
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
@@ -219,6 +229,11 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                         )}
                       </span>
                     ))}
+                    {keywords.technical.length > 8 && (
+                      <span className="text-xs text-slate-400 italic">
+                        +{keywords.technical.length - 8} more
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -236,6 +251,11 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                         {kw.keyword}
                       </span>
                     ))}
+                    {keywords.soft.length > 5 && (
+                      <span className="text-xs text-slate-400 italic">
+                        +{keywords.soft.length - 5} more
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -253,6 +273,11 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                         {kw.keyword}
                       </span>
                     ))}
+                    {keywords.domain.length > 4 && (
+                      <span className="text-xs text-slate-400 italic">
+                        +{keywords.domain.length - 4} more
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

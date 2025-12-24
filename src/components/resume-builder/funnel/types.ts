@@ -65,7 +65,7 @@ export const TEMPLATE_OPTIONS: { id: TemplateId; name: string; description: stri
 export const SECTION_OPTIONS: { id: SectionId; label: string; description: string }[] = [
   { id: 'summary', label: 'Summary', description: 'Professional overview' },
   { id: 'experience', label: 'Experience', description: 'Work history and internships' },
-  { id: 'education', label: 'Education', description: 'Degrees and certifications' },
+  { id: 'education', label: 'Education', description: 'Degrees and academic credentials' },
   { id: 'projects', label: 'Projects', description: 'Personal and academic projects' },
   { id: 'skills', label: 'Skills', description: 'Technical and soft skills' },
   { id: 'certifications', label: 'Certifications', description: 'Professional certifications' },

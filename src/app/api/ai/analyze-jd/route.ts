@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai/client';
 import { buildJDAnalysisUserPrompt, JD_ANALYSIS_SYSTEM_PROMPT } from '@/lib/ai/prompts';
 import { JDAnalysisResponseSchema } from '@/lib/ai/schemas';
+import { evaluate } from '@/lib/ai-evaluation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -39,6 +40,21 @@ export async function POST(request: Request) {
       const errorMessage = result.error instanceof Error ? result.error.message : 'Unknown error';
       console.error('AI JD analysis failed:', errorMessage);
       return NextResponse.json({ error: 'Failed to analyze job description' }, { status: 500 });
+    }
+
+    // Evaluate AI-generated content for safety
+    const evaluation = await evaluate({
+      tool_id: 'jd-analysis',
+      input: { jobDescription, url },
+      output: result.data as Record<string, unknown>,
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 422 },
+      );
     }
 
     return NextResponse.json({

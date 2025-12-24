@@ -251,6 +251,7 @@ function generateExperienceSuggestions(experience: Experience): Suggestion[] {
     }
 
     // Check for passive voice
+    const lowerBullet = bullet.toLowerCase();
     for (const passive of PASSIVE_INDICATORS) {
       if (lowerBullet.includes(passive)) {
         suggestions.push({

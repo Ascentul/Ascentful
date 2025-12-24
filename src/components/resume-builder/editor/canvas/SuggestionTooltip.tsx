@@ -118,6 +118,7 @@ export function SuggestionTooltip({
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close suggestion"
           className="p-0.5 rounded hover:bg-white/50 text-slate-400 hover:text-slate-600"
         >
           <X className="h-3.5 w-3.5" />

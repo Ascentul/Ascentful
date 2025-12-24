@@ -463,6 +463,10 @@ function ThreePanelEditorInner({
       switch (parsed.sectionType) {
         case 'summary':
           return parsed.field === 'text' ? resumeData.summary || '' : null;
+        case 'skills': {
+          const skills = resumeData.skills || [];
+          return skills.join(', ');
+        }
         case 'contact': {
           const { contactInfo } = resumeData;
           switch (parsed.field) {
@@ -573,6 +577,14 @@ function ThreePanelEditorInner({
             return true;
           }
           return false;
+        case 'skills': {
+          const skills = text
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          onUpdateSkills(skills);
+          return true;
+        }
         case 'contact': {
           switch (parsed.field) {
             case 'name':
@@ -716,6 +728,7 @@ function ThreePanelEditorInner({
     [
       resumeData,
       onUpdateSummary,
+      onUpdateSkills,
       onUpdateContactInfo,
       onUpdateExperience,
       onUpdateEducation,

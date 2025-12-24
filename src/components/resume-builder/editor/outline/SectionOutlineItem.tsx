@@ -193,7 +193,7 @@ export function SectionOutlineItem({
                     onDeleteItem(item.id);
                   }}
                   className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                  aria-label={`Delete ${item.label}`}
+                  aria-label={`Delete ${item.label || 'item'}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

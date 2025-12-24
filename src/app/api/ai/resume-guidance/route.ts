@@ -3,6 +3,7 @@ import { api } from 'convex/_generated/api';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import { evaluate } from '@/lib/ai-evaluation';
 import { convexServer } from '@/lib/convex-server';
 
 const openai = process.env.OPENAI_API_KEY
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
         token,
       );
     } catch (error) {
-      console.warn('Failed to fetch user profile for resume guidance');
+      console.warn('Failed to fetch user profile for resume guidance:', error);
     }
 
     // For initial request, return the opening question
@@ -257,6 +258,21 @@ This allows the user to easily apply your suggestions to their resume.`;
     const cleanResponse = response
       .replace(/\[RESUME_CONTENT\][\s\S]*?\[\/RESUME_CONTENT\]/g, '')
       .trim();
+
+    // Evaluate AI-generated content for safety
+    const evaluation = await evaluate({
+      tool_id: 'resume-guidance',
+      input: { section, message, conversationHistory },
+      output: { response: cleanResponse, resumeContent },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 422 },
+      );
+    }
 
     return NextResponse.json({
       response: cleanResponse,

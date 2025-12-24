@@ -74,11 +74,13 @@ const initialState: ResumeBuilderState = {
 };
 
 export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
-  const emptyResumeData = createEmptyResumeData();
-  const [state, setState] = useState<ResumeBuilderState>({
-    ...initialState,
-    ...existingData,
-    resumeData: mergeResumeData(emptyResumeData, existingData?.resumeData),
+  const [state, setState] = useState<ResumeBuilderState>(() => {
+    const emptyResumeData = createEmptyResumeData();
+    return {
+      ...initialState,
+      ...existingData,
+      resumeData: mergeResumeData(emptyResumeData, existingData?.resumeData),
+    };
   });
 
   // Mode toggle

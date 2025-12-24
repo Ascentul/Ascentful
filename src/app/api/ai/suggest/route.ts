@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai/client';
 import { buildSuggestionsUserPrompt, SUGGESTIONS_SYSTEM_PROMPT } from '@/lib/ai/prompts';
 import { SuggestionsResponseSchema } from '@/lib/ai/schemas';
+import { evaluate } from '@/lib/ai-evaluation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
@@ -48,6 +49,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Failed to generate suggestions', details: result.error },
         { status: 500 },
+      );
+    }
+
+    // Evaluate AI-generated content for safety
+    const evaluation = await evaluate({
+      tool_id: 'resume-suggestions',
+      input: { resume, jobDescription, focusAreas },
+      output: result.data as Record<string, unknown>,
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 422 },
       );
     }
 

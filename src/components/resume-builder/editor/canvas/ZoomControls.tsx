@@ -68,7 +68,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
         size="icon"
         className="h-6 w-6 text-slate-500 hover:text-slate-700 hover:bg-slate-200"
         onClick={handleZoomOut}
-        disabled={value <= MIN_ZOOM}
+        disabled={clampedValue <= MIN_ZOOM}
         aria-label="Zoom out"
       >
         <Minus className="h-3.5 w-3.5" />
@@ -80,7 +80,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
           min={MIN_ZOOM}
           max={MAX_ZOOM}
           step={ZOOM_STEP}
-          value={value}
+          value={clampedValue}
           onChange={handleSliderChange}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-slate-700 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-slate-700 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-0"
           style={{
@@ -95,7 +95,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
         size="icon"
         className="h-6 w-6 text-slate-500 hover:text-slate-700 hover:bg-slate-200"
         onClick={handleZoomIn}
-        disabled={value >= MAX_ZOOM}
+        disabled={clampedValue >= MAX_ZOOM}
         aria-label="Zoom in"
       >
         <Plus className="h-3.5 w-3.5" />
@@ -114,12 +114,12 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
       ) : (
         <button
           onClick={() => {
-            setInputValue(String(value));
+            setInputValue(String(clampedValue));
             setIsEditing(true);
           }}
           className="text-xs font-medium text-slate-600 w-14 h-6 text-center hover:bg-slate-200 rounded transition-colors"
         >
-          {value}%
+          {clampedValue}%
         </button>
       )}
     </div>
