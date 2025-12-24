@@ -16,6 +16,9 @@ export function PageCounter({
   onPageChange,
   className = '',
 }: PageCounterProps) {
+  if (totalPages <= 0) {
+    return null;
+  }
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
 

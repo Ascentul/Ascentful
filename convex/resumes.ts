@@ -1,8 +1,25 @@
 import { v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { mutation, MutationCtx, query, QueryCtx } from './_generated/server';
+import type { Id } from './_generated/dataModel';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireMembership } from './lib/roles';
+
+async function getBaseVersionNumber(
+  ctx: QueryCtx | MutationCtx,
+  resumeId: Id<'resumes'>,
+  versionCounter: number | null | undefined,
+): Promise<number> {
+  if (versionCounter !== null && versionCounter !== undefined) {
+    return versionCounter;
+  }
+  const latestVersion = await ctx.db
+    .query('resume_versions')
+    .withIndex('by_resume', (q) => q.eq('resume_id', resumeId))
+    .order('desc')
+    .first();
+  return latestVersion?.version_number ?? 0;
+}
 
 // Get resumes for a user
 export const getUserResumes = query({
@@ -482,15 +499,7 @@ export const createResumeVersion = mutation({
       throw new Error('Unauthorized: Resume belongs to another university');
     }
 
-    let baseVersion = resume.version_counter ?? null;
-    if (baseVersion === null) {
-      const latestVersion = await ctx.db
-        .query('resume_versions')
-        .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
-        .order('desc')
-        .first();
-      baseVersion = latestVersion?.version_number ?? 0;
-    }
+    const baseVersion = await getBaseVersionNumber(ctx, args.resumeId, resume.version_counter);
 
     const newVersionNumber = baseVersion + 1;
 
@@ -499,6 +508,7 @@ export const createResumeVersion = mutation({
     const versionId = await ctx.db.insert('resume_versions', {
       resume_id: args.resumeId,
       user_id: user._id,
+      university_id: resume.university_id ?? user.university_id ?? undefined,
       version_number: newVersionNumber,
       version_label: args.versionLabel,
       content_snapshot: args.contentSnapshot,
@@ -554,15 +564,7 @@ export const restoreResumeVersion = mutation({
       updated_at: Date.now(),
     });
 
-    let baseVersion = resume.version_counter ?? null;
-    if (baseVersion === null) {
-      const latestVersion = await ctx.db
-        .query('resume_versions')
-        .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
-        .order('desc')
-        .first();
-      baseVersion = latestVersion?.version_number ?? 0;
-    }
+    const baseVersion = await getBaseVersionNumber(ctx, args.resumeId, resume.version_counter);
 
     const newVersionNumber = baseVersion + 1;
 
@@ -571,10 +573,11 @@ export const restoreResumeVersion = mutation({
     await ctx.db.insert('resume_versions', {
       resume_id: args.resumeId,
       user_id: user._id,
+      university_id: resume.university_id ?? user.university_id ?? undefined,
       version_number: newVersionNumber,
       version_label: `Restored from version ${args.versionNumber}`,
       content_snapshot: versionToRestore.content_snapshot,
-      trigger: 'manual_save',
+      trigger: 'restoration',
       created_at: Date.now(),
     });
 

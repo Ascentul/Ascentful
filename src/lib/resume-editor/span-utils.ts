@@ -80,7 +80,7 @@ export function parseSpanId(spanId: string): {
     };
   }
 
-  // Check if last part is a number (line index)
+  // Check if last part is a number (line index). Assumes field names are non-numeric.
   const lastPart = parts[parts.length - 1];
   const hasLineIndex = /^\d+$/.test(lastPart);
 
@@ -141,9 +141,13 @@ export function scrollToSpan(spanId: string, options?: ScrollIntoViewOptions): v
     });
 
     // Add temporary highlight
+    element.dataset.highlightTime = String(Date.now());
+    const addedTime = element.dataset.highlightTime;
     element.classList.add('span-highlight-flash');
     setTimeout(() => {
-      element.classList.remove('span-highlight-flash');
+      if (element.isConnected && element.dataset.highlightTime === addedTime) {
+        element.classList.remove('span-highlight-flash');
+      }
     }, 2000);
   }
 }

@@ -82,6 +82,15 @@ type CoverLetterAnalysis = {
   optimizedLetter?: string;
 };
 
+const isCoverLetterDoc = (doc: unknown): doc is { _id: Id<'cover_letters'> } => {
+  return (
+    typeof doc === 'object' &&
+    doc !== null &&
+    '_id' in doc &&
+    typeof (doc as { _id?: unknown })._id === 'string'
+  );
+};
+
 type GeneratedResumeExperience = {
   company?: string;
   title?: string;
@@ -270,7 +279,8 @@ export default function ResumeStudioPage() {
       });
 
       router.push(`/resumes/builder/${id}`);
-    } catch {
+    } catch (error) {
+      console.error('Failed to copy resume:', error);
       toast({
         title: 'Error',
         description: 'Failed to copy resume',
@@ -290,7 +300,8 @@ export default function ResumeStudioPage() {
         description: 'Your resume has been deleted successfully',
         variant: 'success',
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to delete resume:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete resume',
@@ -332,7 +343,8 @@ export default function ResumeStudioPage() {
           'Review your AI-generated resume below. You can save it or optimize your profile.',
         variant: 'success',
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to generate resume:', error);
       toast({
         title: 'Error',
         description: 'Failed to generate resume',
@@ -365,7 +377,8 @@ export default function ResumeStudioPage() {
       setGeneratedResume(null);
       setResumeJobDescription('');
       setResumeSubTab('my-resumes');
-    } catch {
+    } catch (error) {
+      console.error('Failed to save resume:', error);
       toast({
         title: 'Error',
         description: 'Failed to save resume',
@@ -604,7 +617,8 @@ export default function ResumeStudioPage() {
       setAnalyzeJobDescription('');
       setUploadedFile(null);
       setResumeSubTab('my-resumes');
-    } catch {
+    } catch (error) {
+      console.error('Failed to optimize resume:', error);
       toast({
         title: 'Error',
         description: 'Failed to optimize resume',
@@ -671,7 +685,7 @@ export default function ResumeStudioPage() {
     if (!clerkId) return;
     setCreatingCoverLetter(true);
     try {
-      const doc = (await createCoverLetterMutation({
+      const doc = await createCoverLetterMutation({
         clerkId,
         name: 'Untitled Cover Letter',
         job_title: 'Position',
@@ -680,11 +694,12 @@ export default function ResumeStudioPage() {
         content: '',
         closing: 'Sincerely,',
         source: 'manual',
-      })) as { _id?: Id<'cover_letters'> } | null;
-      if (doc?._id) {
+      });
+      if (isCoverLetterDoc(doc)) {
         router.push(`/cover-letters/${doc._id}`);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to create cover letter:', error);
       toast({
         title: 'Error',
         description: 'Failed to create cover letter',
@@ -701,7 +716,7 @@ export default function ResumeStudioPage() {
       const original = coverLetters?.find((c) => c._id === letterId);
       if (!original) return;
 
-      const doc = (await createCoverLetterMutation({
+      const doc = await createCoverLetterMutation({
         clerkId,
         name: `${name} (Copy)`,
         job_title: original.job_title,
@@ -710,7 +725,7 @@ export default function ResumeStudioPage() {
         content: original.content || '',
         closing: original.closing,
         source: original.source || 'manual',
-      })) as { _id?: Id<'cover_letters'> } | null;
+      });
 
       toast({
         title: 'Cover Letter Copied',
@@ -718,10 +733,11 @@ export default function ResumeStudioPage() {
         variant: 'success',
       });
 
-      if (doc?._id) {
+      if (isCoverLetterDoc(doc)) {
         router.push(`/cover-letters/${doc._id}`);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to copy cover letter:', error);
       toast({
         title: 'Error',
         description: 'Failed to copy cover letter',
@@ -741,7 +757,8 @@ export default function ResumeStudioPage() {
         description: 'Your cover letter has been deleted successfully',
         variant: 'success',
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to delete cover letter:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete cover letter',
@@ -791,7 +808,7 @@ export default function ResumeStudioPage() {
       if (created && created._id) {
         router.push(`/cover-letters/${created._id}`);
       } else {
-        const doc = (await createCoverLetterMutation({
+        const doc = await createCoverLetterMutation({
           clerkId,
           name: `AI Cover Letter - ${clJobCompany}`,
           job_title: clJobRole,
@@ -802,10 +819,11 @@ export default function ResumeStudioPage() {
             `Generated from job description: ${clJobDescription.substring(0, 100)}...`,
           closing: 'Sincerely,',
           source: 'ai_generated',
-        })) as { _id?: Id<'cover_letters'> } | null;
-        if (doc?._id) router.push(`/cover-letters/${doc._id}`);
+        });
+        if (isCoverLetterDoc(doc)) router.push(`/cover-letters/${doc._id}`);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to generate cover letter:', error);
       toast({
         title: 'Error',
         description: 'Failed to generate cover letter',
@@ -873,7 +891,7 @@ export default function ResumeStudioPage() {
     if (!clerkId || !clAnalysisResult?.optimizedLetter) return;
     setSavingOptimized(true);
     try {
-      const doc = (await createCoverLetterMutation({
+      const doc = await createCoverLetterMutation({
         clerkId,
         name: `Optimized Cover Letter - ${clAnalyzeCompany || 'Saved'}`,
         job_title: clAnalyzeRole || 'Target Role',
@@ -882,16 +900,17 @@ export default function ResumeStudioPage() {
         content: clAnalysisResult.optimizedLetter,
         closing: 'Sincerely,',
         source: 'ai_optimized',
-      })) as { _id?: Id<'cover_letters'> } | null;
+      });
       toast({
         title: 'Optimized letter saved',
         description: 'Your improved cover letter is now in My Cover Letters.',
         variant: 'success',
       });
-      if (doc?._id) {
+      if (isCoverLetterDoc(doc)) {
         router.push(`/cover-letters/${doc._id}`);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to save optimized letter:', error);
       toast({
         title: 'Error',
         description: 'Failed to save optimized letter',
@@ -921,7 +940,8 @@ export default function ResumeStudioPage() {
         description: 'PDF downloaded successfully.',
         variant: 'success',
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to export cover letter:', error);
       toast({
         title: 'Export failed',
         description: 'Unable to export this cover letter.',

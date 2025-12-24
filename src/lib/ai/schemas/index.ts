@@ -200,6 +200,16 @@ export const MatchScoreResponseSchema = z.object({
   recommendations: z.array(JDRecommendationSchema),
 });
 
+// ========== SKILL SUGGESTIONS SCHEMAS ==========
+export const SkillSuggestionsResponseSchema = z.object({
+  skills: z.array(z.string()),
+  categories: z.object({
+    technical: z.array(z.string()),
+    soft: z.array(z.string()),
+    tools: z.array(z.string()),
+  }),
+});
+
 // ========== AI CHAT SCHEMAS ==========
 export const ChatActionSchema = z.object({
   type: z.string(),
@@ -221,3 +231,4 @@ export type MatchScoreResponse = z.infer<typeof MatchScoreResponseSchema>;
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
 export type Suggestion = z.infer<typeof SuggestionSchema>;
 export type ScoreDimension = z.infer<typeof ScoreDimensionSchema>;
+export type SkillSuggestionsResponse = z.infer<typeof SkillSuggestionsResponseSchema>;

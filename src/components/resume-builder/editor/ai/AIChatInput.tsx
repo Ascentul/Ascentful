@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowUp, Loader2, Sparkles } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -27,6 +27,18 @@ export function AIChatInput({
 }: AIChatInputProps) {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to measure scrollHeight correctly
+      textarea.style.height = '42px';
+      // Set to scrollHeight, capped by max-height in CSS
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  }, [message]);
 
   const handleSubmit = useCallback(async () => {
     if (!message.trim() || isSubmitting || disabled) return;
@@ -57,6 +69,7 @@ export function AIChatInput({
           <Sparkles className="h-4 w-4 text-primary-400" />
         </div>
         <textarea
+          ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -68,9 +81,8 @@ export function AIChatInput({
             'bg-white border border-slate-200',
             'placeholder:text-slate-400 focus:border-primary-400 focus:ring-1 focus:ring-primary-400',
             'disabled:opacity-50 disabled:cursor-not-allowed resize-none',
-            'min-h-[42px] max-h-[120px]',
+            'min-h-[42px] max-h-[120px] overflow-y-auto',
           )}
-          style={{ height: message.includes('\n') ? 'auto' : '42px' }}
         />
         <button
           type="button"

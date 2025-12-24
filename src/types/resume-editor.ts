@@ -227,6 +227,7 @@ export function groupSuggestionsBySeverity(suggestions: Suggestion[]): GroupedSu
 export function getSuggestionCountsBySection(suggestions: Suggestion[]): SuggestionCounts {
   const counts = new Map<string, number>();
   for (const suggestion of suggestions) {
+    // spanId format: "{sectionType}-{itemId}-{field}-{lineIndex}"
     const sectionType = suggestion.spanId.split('-')[0];
     counts.set(sectionType, (counts.get(sectionType) ?? 0) + 1);
   }

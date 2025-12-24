@@ -1,7 +1,7 @@
 'use client';
 
 import type { DensityOption, HeadingStyle, StyleConfig, TemplateId } from '../../templates/types';
-import { TEMPLATE_LAYOUTS } from '../../templates/types';
+import { DEFAULT_SIDEBAR_BG_COLOR, TEMPLATE_LAYOUTS } from '../../templates/types';
 import { AccentColorPicker } from './AccentColorPicker';
 import { DensityToggle } from './DensityToggle';
 import { HeadingStyleToggle } from './HeadingStyleToggle';
@@ -44,7 +44,7 @@ export function StyleTab({ templateId, styleConfig, onStyleChange }: StyleTabPro
         <>
           <div className="border-t border-slate-100" />
           <SidebarColorPicker
-            value={styleConfig.sidebar_bg_color || '#f8fafc'}
+            value={styleConfig.sidebar_bg_color || DEFAULT_SIDEBAR_BG_COLOR}
             onChange={handleSidebarColorChange}
           />
         </>

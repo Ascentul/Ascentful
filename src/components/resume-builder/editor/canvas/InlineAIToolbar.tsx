@@ -23,6 +23,7 @@ interface InlineAIToolbarProps {
 export function InlineAIToolbar({ position, onAction, onClose, isLoading }: InlineAIToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
+  const [isPositioned, setIsPositioned] = useState(false);
 
   // Adjust position to keep toolbar in viewport
   useEffect(() => {
@@ -48,6 +49,7 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
     }
 
     setAdjustedPosition({ x, y });
+    setIsPositioned(true);
   }, [position]);
 
   // Close on click outside
@@ -92,6 +94,8 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
       className={cn(
         'flex items-center gap-0.5 p-1 rounded-lg shadow-lg',
         'bg-white border border-slate-200',
+        'transition-opacity duration-75',
+        !isPositioned && 'opacity-0',
         isLoading && 'opacity-75 pointer-events-none',
       )}
     >

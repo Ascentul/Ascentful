@@ -55,7 +55,14 @@ Respond with ONLY the summary text, no quotes or additional formatting.`,
       ],
     });
 
-    const summary = response.choices[0]?.message?.content?.trim() || '';
+    const summary = response.choices[0]?.message?.content?.trim();
+
+    if (!summary) {
+      return NextResponse.json(
+        { error: 'Failed to generate summary - no content returned' },
+        { status: 500 },
+      );
+    }
 
     const evaluation = await evaluate({
       tool_id: 'resume-suggestions',
@@ -117,8 +124,9 @@ function buildContext(
   const education = resumeData.education ?? [];
   if (education.length > 0) {
     const edu = education[0];
-    if (edu.degree && edu.field && edu.school) {
-      parts.push(`Education: ${edu.degree} in ${edu.field} from ${edu.school}`);
+    if (edu.degree && edu.school) {
+      const field = edu.field ? ` in ${edu.field}` : '';
+      parts.push(`Education: ${edu.degree}${field} from ${edu.school}`);
     } else if (edu.school) {
       parts.push(`Education: ${edu.school}`);
     }

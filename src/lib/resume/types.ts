@@ -140,7 +140,7 @@ export interface Score {
   breakdown: ScoreBreakdown;
   topIssues: ScoreIssue[];
   quickWins: string[];
-  calculatedAt: Date;
+  calculatedAt: number; // Unix timestamp
 }
 
 export interface ScoreBreakdown {

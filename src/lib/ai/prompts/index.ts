@@ -90,7 +90,7 @@ export function formatResumeForPrompt(resumeData: ResumeData): string {
           .filter((b) => b.trim())
           .map(
             (b, i) =>
-              `    [spanId: experience-${exp.id}-description-${i}] ${b.replace(/^[•\\-]\\s*/, '')}`,
+              `    [spanId: experience-${exp.id}-description-${i}] ${b.replace(/^[•\-]\s*/, '')}`,
           );
         parts.push(bullets.join('\n'));
       }

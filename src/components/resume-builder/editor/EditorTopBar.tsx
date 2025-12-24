@@ -138,7 +138,7 @@ export function EditorTopBar({
             </button>
           )}
           {/* Save status */}
-          <SaveStatusIndicator status={saveStatus} />
+          <SaveStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
         </div>
 
         {/* Right section: Share + Export */}
@@ -174,7 +174,29 @@ export function EditorTopBar({
 // Save Status Indicator
 // ============================================================================
 
-function SaveStatusIndicator({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }) {
+function SaveStatusIndicator({
+  status,
+  lastSavedAt,
+}: {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt?: number | null;
+}) {
+  const formatLastSaved = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+
+    if (minutes < 1) return 'Saved just now';
+    if (minutes === 1) return 'Saved 1 min ago';
+    if (minutes < 60) return `Saved ${minutes} mins ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return 'Saved 1 hour ago';
+    if (hours < 24) return `Saved ${hours} hours ago`;
+
+    return 'Saved';
+  };
+
   return (
     <div className="flex items-center gap-1.5 text-xs text-slate-500">
       {status === 'saving' && (
@@ -186,7 +208,7 @@ function SaveStatusIndicator({ status }: { status: 'idle' | 'saving' | 'saved' |
       {status === 'saved' && (
         <>
           <Check className="h-3 w-3 text-green-500" />
-          <span>Saved</span>
+          <span>{lastSavedAt ? formatLastSaved(lastSavedAt) : 'Saved'}</span>
         </>
       )}
       {status === 'error' && <span className="text-red-500">Failed to save</span>}

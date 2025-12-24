@@ -16,6 +16,7 @@ export function EditCustomizeToggle({ mode, onModeChange }: EditCustomizeToggleP
         <button
           type="button"
           onClick={() => onModeChange('edit')}
+          aria-pressed={mode === 'edit'}
           className={cn(
             'px-6 py-2 text-sm font-medium rounded-full transition-all',
             mode === 'edit' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900',
@@ -26,6 +27,7 @@ export function EditCustomizeToggle({ mode, onModeChange }: EditCustomizeToggleP
         <button
           type="button"
           onClick={() => onModeChange('customize')}
+          aria-pressed={mode === 'customize'}
           className={cn(
             'px-6 py-2 text-sm font-medium rounded-full transition-all',
             mode === 'customize'

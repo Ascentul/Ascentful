@@ -23,7 +23,7 @@ export function ExperienceSection({
 }: ExperienceSectionProps) {
   const handleAdd = () => {
     const newExperience: Experience = {
-      id: `exp-${Date.now()}`,
+      id: `exp-${crypto.randomUUID()}`,
       title: '',
       company: '',
       location: '',
@@ -152,7 +152,7 @@ export function ExperienceSection({
               onCheckedChange={(checked) =>
                 handleUpdate(index, {
                   current: checked === true,
-                  endDate: checked ? 'Present' : '',
+                  endDate: checked ? 'Present' : exp.endDate === 'Present' ? '' : exp.endDate,
                 })
               }
             />

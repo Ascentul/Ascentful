@@ -9,15 +9,18 @@ import type { TemplateTheme } from '../templates/types';
 
 interface LivePreviewProps {
   data: ResumeData;
-  // TODO: Use templateId to switch between different resume templates
   templateId: string;
   theme: TemplateTheme;
   className?: string;
 }
 
-export function LivePreview({ data, theme, className = '' }: LivePreviewProps) {
-  // For now, use the existing ResumeDocument component
-  // Later we'll switch based on templateId to use different templates
+export function LivePreview({
+  data,
+  templateId: _templateId,
+  theme,
+  className = '',
+}: LivePreviewProps) {
+  // TODO: Switch based on _templateId to use different templates
   return (
     <div className={`relative h-full flex flex-col ${className}`}>
       {/* Preview container with dark background */}
@@ -39,6 +42,7 @@ export function LivePreview({ data, theme, className = '' }: LivePreviewProps) {
       </div>
 
       {/* Page counter - fixed at bottom right */}
+      {/* TODO: Calculate actual page count based on rendered content height */}
       <div className="absolute bottom-6 right-6">
         <PageCounter currentPage={1} totalPages={1} />
       </div>

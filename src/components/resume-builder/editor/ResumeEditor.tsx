@@ -1,5 +1,6 @@
 'use client';
 
+import { Eye, PenLine } from 'lucide-react';
 import { useState } from 'react';
 
 import type {
@@ -9,6 +10,7 @@ import type {
   Project,
   ResumeData,
 } from '@/components/resume/ResumeDocument';
+import { cn } from '@/lib/utils';
 
 import { LivePreview } from '../preview/LivePreview';
 import type { StyleConfig, TemplateId } from '../templates/types';
@@ -79,6 +81,7 @@ export function ResumeEditor({
   isExporting,
 }: ResumeEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>('content');
+  const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
 
   const theme = styleConfigToTheme(styleConfig);
 
@@ -129,7 +132,14 @@ export function ResumeEditor({
   return (
     <div className="flex h-screen bg-neutral-100">
       {/* Left Panel - Editor */}
-      <div className="w-1/2 flex flex-col bg-white border-r border-slate-200">
+      <div
+        className={cn(
+          'flex flex-col bg-white border-r border-slate-200',
+          // On small screens: full width, hidden when preview is active
+          'w-full lg:w-1/2',
+          mobileView === 'preview' && 'hidden lg:flex',
+        )}
+      >
         {/* Header */}
         <EditorHeader
           title={title}
@@ -147,8 +157,37 @@ export function ResumeEditor({
       </div>
 
       {/* Right Panel - Live Preview */}
-      <div className="w-1/2">
+      <div
+        className={cn(
+          'lg:w-1/2',
+          // On small screens: full width, hidden when editor is active
+          'w-full',
+          mobileView === 'editor' && 'hidden lg:block',
+        )}
+      >
         <LivePreview data={resumeData} templateId={templateId} theme={theme} />
+      </div>
+
+      {/* Mobile view toggle - only visible on small screens */}
+      <div className="fixed bottom-6 right-6 lg:hidden z-50">
+        <button
+          type="button"
+          onClick={() => setMobileView(mobileView === 'editor' ? 'preview' : 'editor')}
+          className="flex items-center gap-2 px-4 py-3 bg-primary-500 text-white rounded-full shadow-lg hover:bg-primary-600 transition-colors"
+          aria-label={mobileView === 'editor' ? 'Show preview' : 'Show editor'}
+        >
+          {mobileView === 'editor' ? (
+            <>
+              <Eye className="h-5 w-5" />
+              <span className="font-medium">Preview</span>
+            </>
+          ) : (
+            <>
+              <PenLine className="h-5 w-5" />
+              <span className="font-medium">Edit</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

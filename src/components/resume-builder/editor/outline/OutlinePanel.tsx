@@ -104,6 +104,10 @@ function sectionHasItems(sectionId: string): boolean {
   );
 }
 
+const SECTION_CONFIG_MAP = Object.fromEntries(
+  Object.values(SECTION_CONFIGS).map((config) => [config.id, config]),
+);
+
 export function OutlinePanel({
   sectionOrder,
   enabledSections,
@@ -150,9 +154,18 @@ export function OutlinePanel({
       const newIndex = visibleSections.indexOf(over.id as string);
       if (oldIndex === -1 || newIndex === -1) return;
       const newVisibleOrder = arrayMove(visibleSections, oldIndex, newIndex);
-      // Rebuild full section order: keep disabled sections at their positions, reorder visible ones
-      const disabledSections = sectionOrder.filter((id) => !enabledSections.includes(id));
-      onReorderSections([...newVisibleOrder, ...disabledSections]);
+      // Rebuild full section order while preserving disabled section positions.
+      const result: string[] = [];
+      let visibleIdx = 0;
+      for (const id of sectionOrder) {
+        if (enabledSections.includes(id)) {
+          result.push(newVisibleOrder[visibleIdx]);
+          visibleIdx += 1;
+        } else {
+          result.push(id);
+        }
+      }
+      onReorderSections(result);
     }
   };
 
@@ -206,7 +219,7 @@ export function OutlinePanel({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleSections} strategy={verticalListSortingStrategy}>
             {visibleSections.map((sectionId) => {
-              const config = Object.values(SECTION_CONFIGS).find((value) => value.id === sectionId);
+              const config = SECTION_CONFIG_MAP[sectionId];
               if (!config) return null;
 
               const items = getSectionItems(sectionId, resumeData);

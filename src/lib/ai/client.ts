@@ -36,6 +36,7 @@ export interface AICallOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  timeoutMs?: number;
 }
 
 export interface AICallResult<T> {
@@ -55,22 +56,51 @@ export interface AICallResult<T> {
  * Handles markdown code blocks and raw JSON
  */
 function extractJSON(content: string): string {
-  // Try to extract from code block first
+  // Try to extract from code block first (non-greedy, so takes first complete block)
   const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     return codeBlockMatch[1].trim();
   }
 
-  // Try to find JSON object
-  const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonObjectMatch) {
-    return jsonObjectMatch[0];
-  }
+  // Find balanced JSON by tracking bracket depth
+  const startChars = ['{', '['] as const;
 
-  // Try to find JSON array
-  const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
-  if (jsonArrayMatch) {
-    return jsonArrayMatch[0];
+  for (const startChar of startChars) {
+    const startIndex = content.indexOf(startChar);
+    if (startIndex === -1) continue;
+
+    const endChar = startChar === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+
+    for (let i = startIndex; i < content.length; i++) {
+      const char = content[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\' && inString) {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === startChar) depth++;
+        if (char === endChar) depth--;
+
+        if (depth === 0) {
+          return content.slice(startIndex, i + 1);
+        }
+      }
+    }
   }
 
   return content;
@@ -92,6 +122,7 @@ export async function callAI<T>(
     temperature = TEMPERATURE_DEFAULTS[tier],
     maxTokens = MAX_TOKENS_DEFAULTS[tier],
     jsonMode = true,
+    timeoutMs = 60000,
   } = options;
 
   const model = MODEL_MAP[tier];
@@ -99,16 +130,21 @@ export async function callAI<T>(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await openai.chat.completions.create({
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        ...(jsonMode && { response_format: { type: 'json_object' as const } }),
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      });
+      const response = await openai.chat.completions.create(
+        {
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          ...(jsonMode && { response_format: { type: 'json_object' as const } }),
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        },
+        {
+          timeout: timeoutMs,
+        },
+      );
 
       const textContent = response.choices[0]?.message?.content;
       if (!textContent) {
@@ -144,7 +180,7 @@ export async function callAI<T>(
 
   // If pro tier fails, try standard as fallback
   if (tier === 'pro' && maxRetries > 0) {
-    console.warn('Pro tier failed, falling back to standard tier');
+    console.warn(`Pro tier failed (${lastError}), falling back to standard tier`);
     return callAI(systemPrompt, userPrompt, schema, {
       ...options,
       tier: 'standard',
@@ -167,22 +203,32 @@ export async function callAIText(
   userPrompt: string,
   options: Omit<AICallOptions, 'jsonMode'> = {},
 ): Promise<AICallResult<string>> {
-  const { tier = 'standard', maxRetries = 3, temperature = TEMPERATURE_DEFAULTS[tier] } = options;
+  const {
+    tier = 'standard',
+    maxRetries = 3,
+    temperature = TEMPERATURE_DEFAULTS[tier],
+    timeoutMs = 60000,
+  } = options;
 
   const model = MODEL_MAP[tier];
   let lastError: string | undefined;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await openai.chat.completions.create({
-        model,
-        max_tokens: MAX_TOKENS_DEFAULTS[tier],
-        temperature,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      });
+      const response = await openai.chat.completions.create(
+        {
+          model,
+          max_tokens: MAX_TOKENS_DEFAULTS[tier],
+          temperature,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        },
+        {
+          timeout: timeoutMs,
+        },
+      );
 
       const content = response.choices[0]?.message?.content?.trim();
       if (!content) {

@@ -31,14 +31,19 @@ export async function POST(request: NextRequest) {
 
     const prompt = buildPrompt(experience, intent, jobTarget);
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-      messages: [
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    let response;
+    try {
+      response = await openai.chat.completions.create(
         {
-          role: 'system',
-          content: `You are an expert resume writer. Generate 3-5 impactful bullet points for a work experience entry.
+          model: 'gpt-4o',
+          temperature: 0.7,
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert resume writer. Generate 3-5 impactful bullet points for a work experience entry.
 
 Each bullet point should:
 - Start with a strong action verb (past tense)
@@ -48,13 +53,18 @@ Each bullet point should:
 - Be relevant to the job target if provided
 
 Respond with JSON: { "bullets": ["bullet1", "bullet2", ...] }`,
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
         },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+        { signal: controller.signal },
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const content = response.choices[0]?.message?.content || '{}';
     let bullets: string[] = [];
@@ -82,7 +92,13 @@ Respond with JSON: { "bullets": ["bullet1", "bullet2", ...] }`,
 
     return NextResponse.json({ bullets });
   } catch (error) {
-    console.error('Error generating bullets:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json({ error: 'AI request timed out' }, { status: 504 });
+    }
+    console.error(
+      'Error generating bullets:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return NextResponse.json({ error: 'Failed to generate bullets' }, { status: 500 });
   }
 }

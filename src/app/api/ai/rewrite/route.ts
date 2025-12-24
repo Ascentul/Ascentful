@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai/client';
 import { buildRewriteUserPrompt, REWRITE_SYSTEM_PROMPT } from '@/lib/ai/prompts';
 import { BulletRewriteResponseSchema } from '@/lib/ai/schemas';
+import { evaluate } from '@/lib/ai-evaluation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { bullet, roleContext, targetKeywords, emphasis } = body;
 
-    if (!bullet) {
+    if (!bullet || typeof bullet !== 'string' || bullet.trim().length === 0) {
       return NextResponse.json({ error: 'Bullet text is required' }, { status: 400 });
     }
 
@@ -36,11 +37,22 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      console.error('AI rewrite failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to rewrite bullet', details: result.error },
-        { status: 500 },
-      );
+      // Log generic error - avoid logging full error which may contain PII from bullet text
+      console.error('AI rewrite failed');
+      return NextResponse.json({ error: 'Failed to rewrite bullet' }, { status: 500 });
+    }
+
+    // Evaluate AI-generated content for safety (PII, hallucinations, etc.)
+    const evaluation = await evaluate({
+      tool_id: 'resume-optimization',
+      input: { bullet, roleContext, targetKeywords, emphasis },
+      output: result.data as Record<string, unknown>,
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      console.error('AI content failed safety evaluation');
+      return NextResponse.json({ error: 'Content failed safety evaluation' }, { status: 422 });
     }
 
     return NextResponse.json({
@@ -50,13 +62,8 @@ export async function POST(request: Request) {
       model: result.model,
     });
   } catch (error) {
-    console.error('Rewrite API error:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 },
-    );
+    // Log error type only - avoid logging full error which may contain PII
+    console.error('Rewrite API error:', error instanceof Error ? error.name : 'Unknown error');
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

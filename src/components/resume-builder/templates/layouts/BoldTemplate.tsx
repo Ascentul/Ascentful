@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { cn } from '@/lib/utils';
 
 import { TEMPLATE_LAYOUTS } from '../types';
 import {
@@ -33,7 +32,7 @@ export function BoldTemplate({ data, className = '' }: BoldTemplateProps) {
 
   return (
     <div
-      className={`bold-template bg-white ${className}`}
+      className={cn('bold-template bg-white', className)}
       style={{
         width: '8.5in',
         minHeight: '11in',

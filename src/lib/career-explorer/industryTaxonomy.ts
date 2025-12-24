@@ -1444,8 +1444,7 @@ export function detectIndustryFromRole(role: string): Industry {
   if (
     /nurse|rn|md|physician|doctor|patient|medical|healthcare|hospital|pharma|dental|therapist|radiolog|patholog/i.test(
       roleLower,
-    ) &&
-    !techRoleRegex.test(roleLower)
+    )
   ) {
     return 'healthcare';
   }

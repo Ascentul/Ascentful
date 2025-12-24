@@ -1,11 +1,10 @@
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import type { TemplateId } from '@/components/resume-builder/templates/types';
 
 // Resume Builder 2.0 Funnel Types
 export type ResumeIntent = 'internship' | 'fulltime' | 'parttime' | 'grad_school' | 'unsure';
 
 export type ResumeStartSource = 'profile' | 'upload' | 'blank';
-
-export type TemplateId = 'clean' | 'modern' | 'bold' | 'minimal' | 'classic' | 'ats';
 
 export type SectionId =
   | 'summary'
@@ -60,7 +59,7 @@ export const TEMPLATE_OPTIONS: { id: TemplateId; name: string; description: stri
   { id: 'bold', name: 'Bold', description: 'Strong typography' },
   { id: 'minimal', name: 'Minimal', description: 'Whitespace-focused' },
   { id: 'classic', name: 'Classic', description: 'Traditional format' },
-  { id: 'ats', name: 'Executive', description: 'Two-column professional' },
+  { id: 'ats', name: 'ATS Executive', description: 'ATS-friendly two-column' },
 ];
 
 export const SECTION_OPTIONS: { id: SectionId; label: string; description: string }[] = [

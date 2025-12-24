@@ -53,15 +53,11 @@ const AI_DIMENSION_CONFIG: Record<
 };
 
 // Legacy subscores (shown when only legacy score is available)
-const VISIBLE_SUBSCORES: (keyof ResumeScore['subscores'])[] = [
-  'impact',
-  'clarity',
-  'relevance',
-  'consistency',
-];
+const VISIBLE_SUBSCORES = ['impact', 'clarity', 'relevance', 'consistency'] as const;
 
+// Labels only for the visible legacy subscores
 const SUBSCORE_LABELS: Record<
-  keyof ResumeScore['subscores'],
+  (typeof VISIBLE_SUBSCORES)[number],
   { label: string; description: string; textColor: string; bgColor: string }
 > = {
   impact: {
@@ -81,12 +77,6 @@ const SUBSCORE_LABELS: Record<
     description: 'Job fit & keyword matching',
     textColor: 'text-amber-500',
     bgColor: 'bg-amber-500',
-  },
-  ats: {
-    label: 'ATS',
-    description: 'Format compliance for applicant tracking',
-    textColor: 'text-blue-500',
-    bgColor: 'bg-blue-500',
   },
   consistency: {
     label: 'Consistency',

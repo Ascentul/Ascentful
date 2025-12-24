@@ -5,6 +5,7 @@ import React from 'react';
 import { getTemplateComponent } from './registry';
 import { SAMPLE_RESUME_DATA_SHORT } from './sample-data';
 import type { StyleConfig, TemplateId } from './types';
+import { DEFAULT_SIDEBAR_BG_COLOR } from './types';
 
 // ============================================================================
 // Template Thumbnail
@@ -42,7 +43,7 @@ export function TemplateThumbnail({
         height: '100%',
         overflow: 'hidden',
         position: 'relative',
-        backgroundColor: '#f8fafc',
+        backgroundColor: DEFAULT_SIDEBAR_BG_COLOR,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -109,9 +110,11 @@ export function TemplateThumbnailCard({
     <button
       type="button"
       onClick={onClick}
+      disabled={!onClick}
       className={`
         relative flex flex-col rounded-xl border-2 transition-all overflow-hidden
         hover:border-primary-300 hover:shadow-md
+        disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:shadow-none
         ${selected ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-slate-200'}
       `}
     >
@@ -125,6 +128,7 @@ export function TemplateThumbnailCard({
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"

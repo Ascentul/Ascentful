@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Cloud, Loader2, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +41,7 @@ export function EditorHeader({
       case 'error':
         return (
           <span className="flex items-center gap-1.5 text-sm text-red-500">
-            <Cloud className="h-3.5 w-3.5" />
+            <AlertCircle className="h-3.5 w-3.5" />
             Error saving
           </span>
         );

@@ -13,7 +13,7 @@ interface TemplateSwitcherProps {
   onChange: (templateId: TemplateId) => void;
 }
 
-const TEMPLATES: TemplateId[] = ['clean', 'modern', 'bold', 'minimal', 'classic', 'ats'];
+const TEMPLATES = Object.keys(TEMPLATE_METADATA) as TemplateId[];
 
 export function TemplateSwitcher({ value, onChange }: TemplateSwitcherProps) {
   return (

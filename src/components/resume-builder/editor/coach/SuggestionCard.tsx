@@ -22,8 +22,10 @@ interface AISuggestionCardProps {
   onScrollTo?: (targetPath: string) => void;
 }
 
+type SuggestionCategory = 'impact' | 'clarity' | 'relevance' | 'consistency' | 'ats' | 'brevity';
+
 // Category colors matching the ScoreCard subscores
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+const CATEGORY_COLORS: Record<SuggestionCategory, { bg: string; text: string }> = {
   impact: { bg: 'bg-orange-500', text: 'text-orange-500' },
   clarity: { bg: 'bg-green-500', text: 'text-green-500' },
   relevance: { bg: 'bg-amber-500', text: 'text-amber-500' },
@@ -33,7 +35,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 // Map suggestion types to their parent category (matching ScoreCard subscores)
-function getTypeCategory(type: SuggestionType): string {
+function getTypeCategory(type: SuggestionType): SuggestionCategory {
   switch (type) {
     case 'impact':
     case 'metric':
@@ -160,13 +162,22 @@ export function SuggestionCard({
         >
           Dismiss
         </button>
-        <button
-          type="button"
-          onClick={handleScrollTo}
-          className="text-xs text-primary-600 hover:text-primary-700 ml-auto transition-colors"
-        >
-          Show in resume
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleScrollTo}
+            className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            Show in resume
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(false)}
+            className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            Collapse
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -243,6 +254,10 @@ function getAICategoryColor(category: AISuggestion['category']): { bg: string; t
       return { bg: 'bg-blue-500', text: 'text-blue-500' };
     case 'brevity':
       return { bg: 'bg-cyan-500', text: 'text-cyan-500' };
+    default: {
+      const _exhaustiveCheck: never = category;
+      return { bg: 'bg-slate-400', text: 'text-slate-500' };
+    }
   }
 }
 

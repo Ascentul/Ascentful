@@ -433,7 +433,7 @@ function getSectionFields(sectionId: string, data: ResumeData): SectionField[] {
         fields.push({ label: 'Add education', spanId: '', isComplete: false });
       }
       break;
-    case 'skills':
+    case 'skills': {
       const skillCount = data.skills?.length || 0;
       fields.push({
         label: `Skills (${skillCount}/5 minimum)`,
@@ -441,6 +441,7 @@ function getSectionFields(sectionId: string, data: ResumeData): SectionField[] {
         isComplete: skillCount >= 3,
       });
       break;
+    }
     case 'projects':
       if (data.projects && data.projects.length > 0) {
         for (const proj of data.projects) {

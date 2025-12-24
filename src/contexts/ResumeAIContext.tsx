@@ -85,6 +85,7 @@ type ResumeAIAction =
   | { type: 'DISMISS_SUGGESTION'; payload: string }
   | { type: 'APPLY_SUGGESTION'; payload: string }
   | { type: 'RESET_DISMISSED_SUGGESTIONS' }
+  | { type: 'SET_DISMISSED_SUGGESTIONS'; payload: Set<string> }
   | { type: 'SET_JD'; payload: string }
   | { type: 'SET_JD_ANALYSIS'; payload: JDAnalysisResponse | null }
   | { type: 'SET_JD_LOADING'; payload: boolean }
@@ -97,7 +98,7 @@ type ResumeAIAction =
   | { type: 'HIDE_INLINE_TOOLBAR' }
   | { type: 'SET_USING_FALLBACK'; payload: boolean };
 
-interface ResumeAIContextValue extends ResumeAIState {
+interface ResumeAIStateValue extends ResumeAIState {
   // Resume data reference
   resumeData: ResumeData | null;
 
@@ -113,7 +114,11 @@ interface ResumeAIContextValue extends ResumeAIState {
   legacyScore: ResumeScore;
   legacyGroupedSuggestions: GroupedSuggestions;
 
-  // Actions
+  // Loading states
+  isAnyLoading: boolean;
+}
+
+interface ResumeAIActionsValue {
   refreshScore: () => Promise<void>;
   refreshSuggestions: () => Promise<void>;
   setJobDescription: (jd: string) => void;
@@ -131,9 +136,6 @@ interface ResumeAIContextValue extends ResumeAIState {
       targetKeywords?: string[];
     },
   ) => Promise<{ rewrittenBullet: string } | null>;
-
-  // Loading states
-  isAnyLoading: boolean;
 }
 
 // ============================================================================
@@ -191,6 +193,8 @@ function resumeAIReducer(state: ResumeAIState, action: ResumeAIAction): ResumeAI
       };
     case 'RESET_DISMISSED_SUGGESTIONS':
       return { ...state, dismissedSuggestionIds: new Set() };
+    case 'SET_DISMISSED_SUGGESTIONS':
+      return { ...state, dismissedSuggestionIds: new Set(action.payload) };
     case 'SET_JD':
       return { ...state, jobDescription: action.payload };
     case 'SET_JD_ANALYSIS':
@@ -222,7 +226,8 @@ function resumeAIReducer(state: ResumeAIState, action: ResumeAIAction): ResumeAI
 // CONTEXT
 // ============================================================================
 
-const ResumeAIContext = createContext<ResumeAIContextValue | undefined>(undefined);
+const ResumeAIStateContext = createContext<ResumeAIStateValue | undefined>(undefined);
+const ResumeAIActionsContext = createContext<ResumeAIActionsValue | undefined>(undefined);
 
 // ============================================================================
 // PROVIDER
@@ -248,11 +253,42 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
   const scoreDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumeDataRef = useRef<ResumeData>(resumeData);
+  const dismissedByContentRef = useRef<Record<string, Set<string>>>({});
+  const contentSignatureRef = useRef<string>('');
 
   // Keep resumeData ref up to date
   useEffect(() => {
     resumeDataRef.current = resumeData;
   }, [resumeData]);
+
+  const resumeDataSignature = useMemo(() => {
+    try {
+      return JSON.stringify(resumeData);
+    } catch {
+      return '';
+    }
+  }, [resumeData]);
+
+  // Preserve dismissed suggestions by content signature
+  useEffect(() => {
+    const nextSignature = resumeDataSignature;
+    const prevSignature = contentSignatureRef.current;
+
+    if (prevSignature && prevSignature !== nextSignature) {
+      dismissedByContentRef.current[prevSignature] = new Set(state.dismissedSuggestionIds);
+    }
+
+    if (prevSignature !== nextSignature) {
+      const nextDismissed = dismissedByContentRef.current[nextSignature] ?? new Set();
+      dispatch({ type: 'SET_DISMISSED_SUGGESTIONS', payload: nextDismissed });
+      contentSignatureRef.current = nextSignature;
+    }
+  }, [resumeDataSignature, state.dismissedSuggestionIds]);
+
+  useEffect(() => {
+    if (!resumeDataSignature) return;
+    dismissedByContentRef.current[resumeDataSignature] = new Set(state.dismissedSuggestionIds);
+  }, [resumeDataSignature, state.dismissedSuggestionIds]);
 
   // Determine assist mode based on resume state
   useEffect(() => {
@@ -392,6 +428,35 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     dispatch({ type: 'SET_JD', payload: jd });
   }, []);
 
+  // Internal match score refresh (used after JD analysis)
+  const refreshMatchScoreInternal = useCallback(
+    async (jdAnalysis: JDAnalysisResponse) => {
+      dispatch({ type: 'SET_MATCH_LOADING', payload: true });
+      dispatch({ type: 'SET_MATCH_ERROR', payload: null });
+
+      try {
+        const result = await matchHook.calculateMatch(resumeDataRef.current, jdAnalysis);
+
+        if (result.success && result.data) {
+          dispatch({ type: 'SET_MATCH_SCORE', payload: result.data });
+        } else {
+          dispatch({
+            type: 'SET_MATCH_ERROR',
+            payload: result.error || 'Failed to calculate match score',
+          });
+        }
+      } catch (error) {
+        dispatch({
+          type: 'SET_MATCH_ERROR',
+          payload: error instanceof Error ? error.message : 'Match calculation failed',
+        });
+      } finally {
+        dispatch({ type: 'SET_MATCH_LOADING', payload: false });
+      }
+    },
+    [matchHook],
+  );
+
   // Analyze Job Description
   const analyzeJobDescription = useCallback(
     async (jd: string) => {
@@ -420,36 +485,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
         dispatch({ type: 'SET_JD_LOADING', payload: false });
       }
     },
-    [enabled, jdHook],
-  );
-
-  // Internal match score refresh (used after JD analysis)
-  const refreshMatchScoreInternal = useCallback(
-    async (jdAnalysis: JDAnalysisResponse) => {
-      dispatch({ type: 'SET_MATCH_LOADING', payload: true });
-      dispatch({ type: 'SET_MATCH_ERROR', payload: null });
-
-      try {
-        const result = await matchHook.calculateMatch(resumeDataRef.current, jdAnalysis);
-
-        if (result.success && result.data) {
-          dispatch({ type: 'SET_MATCH_SCORE', payload: result.data });
-        } else {
-          dispatch({
-            type: 'SET_MATCH_ERROR',
-            payload: result.error || 'Failed to calculate match score',
-          });
-        }
-      } catch (error) {
-        dispatch({
-          type: 'SET_MATCH_ERROR',
-          payload: error instanceof Error ? error.message : 'Match calculation failed',
-        });
-      } finally {
-        dispatch({ type: 'SET_MATCH_LOADING', payload: false });
-      }
-    },
-    [matchHook],
+    [enabled, jdHook, refreshMatchScoreInternal],
   );
 
   // Public match score refresh
@@ -639,8 +675,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     state.matchLoading ||
     rewriteHook.loading;
 
-  // Context value
-  const value = useMemo<ResumeAIContextValue>(
+  const stateValue = useMemo<ResumeAIStateValue>(
     () => ({
       ...state,
       aiSuggestions: activeSuggestions,
@@ -648,17 +683,6 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       effectiveScore,
       legacyScore,
       legacyGroupedSuggestions,
-      refreshScore,
-      refreshSuggestions,
-      setJobDescription,
-      analyzeJobDescription,
-      refreshMatchScore,
-      dismissSuggestion,
-      applySuggestion,
-      setAssistMode,
-      showInlineToolbar,
-      hideInlineToolbar,
-      rewriteBullet,
       isAnyLoading,
     }),
     [
@@ -668,6 +692,12 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       effectiveScore,
       legacyScore,
       legacyGroupedSuggestions,
+      isAnyLoading,
+    ],
+  );
+
+  const actionsValue = useMemo<ResumeAIActionsValue>(
+    () => ({
       refreshScore,
       refreshSuggestions,
       setJobDescription,
@@ -679,23 +709,55 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       showInlineToolbar,
       hideInlineToolbar,
       rewriteBullet,
-      isAnyLoading,
+    }),
+    [
+      refreshScore,
+      refreshSuggestions,
+      setJobDescription,
+      analyzeJobDescription,
+      refreshMatchScore,
+      dismissSuggestion,
+      applySuggestion,
+      setAssistMode,
+      showInlineToolbar,
+      hideInlineToolbar,
+      rewriteBullet,
     ],
   );
 
-  return <ResumeAIContext.Provider value={value}>{children}</ResumeAIContext.Provider>;
+  return (
+    <ResumeAIStateContext.Provider value={stateValue}>
+      <ResumeAIActionsContext.Provider value={actionsValue}>
+        {children}
+      </ResumeAIActionsContext.Provider>
+    </ResumeAIStateContext.Provider>
+  );
 }
 
 // ============================================================================
 // HOOK
 // ============================================================================
 
-export function useResumeAI() {
-  const context = useContext(ResumeAIContext);
+export function useResumeAIState() {
+  const context = useContext(ResumeAIStateContext);
   if (context === undefined) {
-    throw new Error('useResumeAI must be used within a ResumeAIProvider');
+    throw new Error('useResumeAIState must be used within a ResumeAIProvider');
   }
   return context;
 }
 
-export default ResumeAIContext;
+export function useResumeAIActions() {
+  const context = useContext(ResumeAIActionsContext);
+  if (context === undefined) {
+    throw new Error('useResumeAIActions must be used within a ResumeAIProvider');
+  }
+  return context;
+}
+
+export function useResumeAI() {
+  const stateContext = useResumeAIState();
+  const actionsContext = useResumeAIActions();
+  return useMemo(() => ({ ...stateContext, ...actionsContext }), [stateContext, actionsContext]);
+}
+
+export default ResumeAIStateContext;

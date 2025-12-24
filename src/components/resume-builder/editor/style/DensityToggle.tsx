@@ -13,10 +13,16 @@ export function DensityToggle({ value, onChange }: DensityToggleProps) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-slate-700">Density</h3>
-      <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+      <div
+        role="radiogroup"
+        aria-label="Density"
+        className="flex rounded-lg border border-slate-200 overflow-hidden"
+      >
         <button
           type="button"
           onClick={() => onChange('comfortable')}
+          role="radio"
+          aria-checked={value === 'comfortable'}
           className={cn(
             'flex-1 px-4 py-2 text-sm font-medium transition-colors',
             value === 'comfortable'
@@ -29,6 +35,8 @@ export function DensityToggle({ value, onChange }: DensityToggleProps) {
         <button
           type="button"
           onClick={() => onChange('compact')}
+          role="radio"
+          aria-checked={value === 'compact'}
           className={cn(
             'flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-slate-200',
             value === 'compact'

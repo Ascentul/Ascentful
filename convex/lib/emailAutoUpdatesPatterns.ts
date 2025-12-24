@@ -146,7 +146,8 @@ const APPLICATION_PATTERNS: ClassificationPattern[] = [
     id: 'withdraw_1',
     category: 'application',
     eventType: 'withdrawal_confirmation',
-    pattern: /\bwithdr(ew|awal).*(application|candidacy)\b/i,
+    pattern:
+      /\b(withdr(ew|awal).{0,50}(application|candidacy)|(application|candidacy).{0,50}withdra(w|wal|wn))\b/i,
     baseConfidence: 0.9,
     description: 'Application withdrawal confirmation',
   },
@@ -322,9 +323,10 @@ const INTERVIEW_PATTERNS: ClassificationPattern[] = [
     id: 'int_feedback_1',
     category: 'interview',
     eventType: 'interview_feedback',
-    pattern: /\binterview feedback\b/i,
+    pattern:
+      /\b(interview\s+(feedback|results?|outcome)|feedback\s+(from|on|about)\s+.{0,20}interview)\b/i,
     baseConfidence: 0.88,
-    description: 'Interview feedback received',
+    description: 'Interview feedback or results',
   },
 
   // Scheduling tools (Calendly, etc.)

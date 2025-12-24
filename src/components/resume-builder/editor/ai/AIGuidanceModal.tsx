@@ -3,6 +3,7 @@
 import { CheckCircle, Loader2, Send, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ interface AIGuidanceModalProps {
   onClose: () => void;
   section: string;
   sectionLabel: string;
-  currentResumeData: any;
+  currentResumeData: Partial<ResumeData>;
   onApplyContent: (field: string, value: string, action: 'set' | 'append') => void;
 }
 
@@ -51,6 +52,7 @@ export function AIGuidanceModal({
   const [initialized, setInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -59,12 +61,22 @@ export function AIGuidanceModal({
 
   // Reset when section changes
   useEffect(() => {
+    // Cancel any pending request
+    abortControllerRef.current?.abort();
     setMessages([]);
     setSuggestions([]);
     setInitialized(false);
   }, [section]);
 
+  // Cancel any pending request on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const initializeConversation = useCallback(async () => {
+    abortControllerRef.current = new AbortController();
     setIsLoading(true);
     try {
       const response = await fetch('/api/ai/resume-guidance', {
@@ -75,6 +87,7 @@ export function AIGuidanceModal({
           isInitial: true,
           currentResumeData,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) throw new Error('Failed to initialize');
@@ -92,6 +105,8 @@ export function AIGuidanceModal({
       setSuggestions(data.suggestions || []);
       setInitialized(true);
     } catch (error) {
+      // Ignore abort errors - they're expected when section changes
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Failed to initialize conversation:', error);
       setMessages([
         {
@@ -130,6 +145,7 @@ export function AIGuidanceModal({
       setIsLoading(true);
 
       try {
+        abortControllerRef.current = new AbortController();
         const conversationHistory = messages.map((m) => ({
           isUser: m.isUser,
           message: m.message,
@@ -144,6 +160,7 @@ export function AIGuidanceModal({
             conversationHistory,
             currentResumeData,
           }),
+          signal: abortControllerRef.current.signal,
         });
 
         if (!response.ok) throw new Error('Failed to send message');
@@ -161,6 +178,8 @@ export function AIGuidanceModal({
         setMessages((prev) => [...prev, aiMessage]);
         setSuggestions(data.suggestions || []);
       } catch (error) {
+        // Ignore abort errors - they're expected when section changes
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Failed to send message:', error);
         setMessages((prev) => [
           ...prev,

@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
 import { TEMPLATE_LAYOUTS } from '../types';

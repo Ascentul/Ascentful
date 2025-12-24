@@ -19,14 +19,14 @@ import type {
   ResumeData,
 } from '@/components/resume/ResumeDocument';
 import { ThreePanelEditor } from '@/components/resume-builder/editor/ThreePanelEditor';
+import {
+  DEFAULT_ENABLED_SECTIONS,
+  DEFAULT_SECTION_ORDER,
+} from '@/components/resume-builder/funnel/types';
 import type { StyleConfig, TemplateId } from '@/components/resume-builder/templates/types';
 import { DEFAULT_STYLE_CONFIG } from '@/components/resume-builder/templates/types';
 import { useToast } from '@/hooks/use-toast';
 import { generateResumePDF } from '@/lib/resume-pdf-generator';
-
-// Default section order
-const DEFAULT_SECTION_ORDER = ['summary', 'experience', 'education', 'projects', 'skills'];
-const DEFAULT_ENABLED_SECTIONS = ['summary', 'experience', 'education', 'skills'];
 
 type ResumeResponse = FunctionReturnType<typeof api.resumes.getResumeById>;
 
@@ -65,6 +65,15 @@ export default function ResumeBuilderPage() {
 
   // Autosave timer ref
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Convex
   const clerkId = clerkUser?.id;
@@ -154,7 +163,10 @@ export default function ResumeBuilderPage() {
       setIsDirty(false);
 
       // Reset to idle after 3 seconds
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+      statusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
       console.error('Autosave error:', error);
       setSaveStatus('error');
@@ -298,6 +310,11 @@ export default function ResumeBuilderPage() {
           visibility: 'private',
           source: 'manual',
         });
+        toast({
+          title: 'Resume saved',
+          description: 'Your resume was saved before exiting.',
+          variant: 'success',
+        });
       } catch (error) {
         console.error('Error saving resume:', error);
         toast({
@@ -305,7 +322,8 @@ export default function ResumeBuilderPage() {
           description: 'Could not save your resume. Please try again.',
           variant: 'destructive',
         });
-        return;
+        const leaveAnyway = window.confirm('Save failed. Do you want to leave without saving?');
+        if (!leaveAnyway) return;
       }
     }
 

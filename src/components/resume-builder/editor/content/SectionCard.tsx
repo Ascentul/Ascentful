@@ -46,7 +46,10 @@ export function SectionCard({
           type="button"
           aria-label={`Drag to reorder ${title}`}
           {...dragHandleProps}
-          className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+          className={cn(
+            'cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded',
+            dragHandleProps?.className,
+          )}
         >
           <GripVertical className="h-4 w-4" />
         </button>
@@ -55,7 +58,9 @@ export function SectionCard({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 flex-1 text-left"
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${title} section`}
+          className="flex items-center gap-2 flex-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
           <span className="font-medium text-slate-900">{title}</span>
           {isExpanded ? (

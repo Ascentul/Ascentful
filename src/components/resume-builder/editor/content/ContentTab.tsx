@@ -189,6 +189,9 @@ export function ContentTab({
         );
 
       default:
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`Unknown section ID: ${sectionId}`);
+        }
         return null;
     }
   };

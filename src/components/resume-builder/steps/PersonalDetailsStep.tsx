@@ -67,6 +67,13 @@ export function PersonalDetailsStep({
         onContactInfoChange('photoUrl', reader.result);
       }
     };
+    reader.onerror = () => {
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to read the image file.',
+        variant: 'destructive',
+      });
+    };
     reader.readAsDataURL(file);
     event.target.value = '';
   };
@@ -108,7 +115,7 @@ export function PersonalDetailsStep({
               alt="Profile"
               width={64}
               height={64}
-              className="w-full h-full object-cover rounded-lg"
+              className="object-cover rounded-lg"
               unoptimized
             />
           ) : (

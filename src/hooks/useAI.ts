@@ -47,12 +47,16 @@ interface UseRewriteOptions {
 async function callAPI<T>(
   endpoint: string,
   body: Record<string, unknown>,
+  timeoutMs: number = 30000,
 ): Promise<{ success: boolean; data?: T; error?: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
 
     // Handle non-JSON responses (e.g., HTML error pages, 502 Gateway errors)
@@ -75,10 +79,15 @@ async function callAPI<T>(
 
     return { success: true, data: result.data };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: 'Request timed out' };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -40,9 +40,10 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      console.error('AI match scoring failed:', result.error);
+      const errorMessage = result.error instanceof Error ? result.error.message : 'Unknown error';
+      console.error('AI match scoring failed:', errorMessage);
       return NextResponse.json(
-        { error: 'Failed to calculate match score', details: result.error },
+        { error: 'Failed to calculate match score', details: errorMessage },
         { status: 500 },
       );
     }

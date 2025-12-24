@@ -28,9 +28,9 @@ export function ResumeBuilderLayout({
   const score = useMemo(() => calculateResumeScore(state.resumeData), [state.resumeData]);
 
   return (
-    <div className="flex h-screen bg-neutral-100">
+    <div className="flex flex-col lg:flex-row h-screen bg-neutral-100">
       {/* Left Panel - Form/Customization */}
-      <div className="w-1/2 flex flex-col bg-white border-r border-slate-200">
+      <div className="w-full lg:w-1/2 flex flex-col bg-white border-r border-slate-200">
         {/* Top bar with toggle */}
         <div className="px-6 py-4 border-b border-slate-200">
           <EditCustomizeToggle mode={state.mode} onModeChange={actions.setMode} />
@@ -61,7 +61,7 @@ export function ResumeBuilderLayout({
       </div>
 
       {/* Right Panel - Live Preview */}
-      <div className="w-1/2">
+      <div className="w-full lg:w-1/2">
         <LivePreview data={state.resumeData} templateId={state.templateId} theme={state.theme} />
       </div>
     </div>

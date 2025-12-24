@@ -22,12 +22,19 @@ export function StepNavigation({
   onPrev,
   onFinish,
 }: StepNavigationProps) {
-  const isLastStep = currentStep === STEPS.length - 1;
-  const isFirstStep = currentStep === 0;
-  const currentStepData = STEPS.at(currentStep) ?? STEPS[0];
+  const safeCurrentStep = Math.max(0, Math.min(currentStep, STEPS.length - 1));
+  const isLastStep = safeCurrentStep === STEPS.length - 1;
+  const isFirstStep = safeCurrentStep === 0;
+  const currentStepData = STEPS[safeCurrentStep];
   const nextLabel = isLastStep ? 'Finish' : `Next: ${currentStepData.nextLabel}`;
   const isFinishDisabled = isLastStep && !onFinish;
-  const handleNextClick = isLastStep ? onFinish : onNext;
+  const handleNextClick = () => {
+    if (isLastStep && onFinish) {
+      onFinish();
+    } else if (!isLastStep) {
+      onNext();
+    }
+  };
 
   return (
     <div className="flex items-center justify-between py-4 px-6 border-t border-slate-200 bg-white">
@@ -39,9 +46,9 @@ export function StepNavigation({
             type="button"
             onClick={() => onStepChange(index)}
             className={`w-2.5 h-2.5 rounded-full transition-all ${
-              index === currentStep
+              index === safeCurrentStep
                 ? 'bg-primary-500 w-6'
-                : index < currentStep
+                : index < safeCurrentStep
                   ? 'bg-primary-300'
                   : 'bg-slate-200'
             }`}

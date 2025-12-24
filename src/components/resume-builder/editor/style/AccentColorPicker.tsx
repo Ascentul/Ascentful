@@ -6,6 +6,16 @@ import { cn } from '@/lib/utils';
 
 import { ACCENT_COLORS } from '../../templates/types';
 
+// Helper to determine if a color is dark (for contrast)
+function isColorDark(hexColor: string): boolean {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}
+
 interface AccentColorPickerProps {
   value: string;
   onChange: (color: string) => void;
@@ -18,6 +28,7 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
       <div className="flex flex-wrap gap-2">
         {ACCENT_COLORS.map((color) => {
           const isSelected = value === color.value;
+          const isDark = isColorDark(color.value);
 
           return (
             <button
@@ -33,7 +44,7 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
               style={{ backgroundColor: color.value }}
             >
               {isSelected && (
-                <Check className="h-4 w-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" />
+                <Check className={cn('h-4 w-4', isDark ? 'text-white' : 'text-slate-700')} />
               )}
             </button>
           );

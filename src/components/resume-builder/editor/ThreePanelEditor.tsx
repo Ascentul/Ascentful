@@ -34,7 +34,7 @@ import type {
 } from '@/components/resume/ResumeDocument';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ResumeAIProvider, useResumeAI } from '@/contexts/ResumeAIContext';
+import { ResumeAIProvider, useResumeAIActions, useResumeAIState } from '@/contexts/ResumeAIContext';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import {
   createApplySuggestionAction,
@@ -181,12 +181,15 @@ function ThreePanelEditorInner({
     jdAnalysis,
     jdLoading,
     matchScore,
+    assistMode,
+  } = useResumeAIState();
+
+  const {
     setJobDescription,
     analyzeJobDescription,
     dismissSuggestion: dismissAISuggestion,
     applySuggestion: applyAISuggestion,
-    assistMode,
-  } = useResumeAI();
+  } = useResumeAIActions();
 
   // Use legacy-compatible formats for existing components
   const score = legacyScore;
@@ -389,9 +392,9 @@ function ThreePanelEditorInner({
               };
               onUpdateExperience([...currentExperience, newExp]);
             }
-          } catch {
+          } catch (e) {
             // If not JSON, it might be a bullet point to add
-            console.warn('Experience value is not JSON:', value);
+            console.warn('Experience value is not JSON:', value, e);
           }
           break;
 
@@ -809,7 +812,7 @@ function ThreePanelEditorInner({
   // Add/Delete Experience
   const handleAddExperience = useCallback(() => {
     const newExperience: Experience = {
-      id: `exp-${Date.now()}`,
+      id: `exp-${crypto.randomUUID()}`,
       title: '',
       company: '',
       location: '',
@@ -836,7 +839,7 @@ function ThreePanelEditorInner({
   // Add/Delete Education
   const handleAddEducation = useCallback(() => {
     const newEducation: Education = {
-      id: `edu-${Date.now()}`,
+      id: `edu-${crypto.randomUUID()}`,
       school: '',
       degree: '',
       field: '',
@@ -862,7 +865,7 @@ function ThreePanelEditorInner({
   // Add/Delete Project
   const handleAddProject = useCallback(() => {
     const newProject: Project = {
-      id: `proj-${Date.now()}`,
+      id: `proj-${crypto.randomUUID()}`,
       name: '',
       role: '',
       description: '',
@@ -886,7 +889,7 @@ function ThreePanelEditorInner({
   // Add/Delete Achievement
   const handleAddAchievement = useCallback(() => {
     const newAchievement: Achievement = {
-      id: `ach-${Date.now()}`,
+      id: `ach-${crypto.randomUUID()}`,
       title: '',
       description: '',
       date: '',
@@ -909,7 +912,7 @@ function ThreePanelEditorInner({
   // Add/Delete Certification
   const handleAddCertification = useCallback(() => {
     const newCertification: Certification = {
-      id: `cert-${Date.now()}`,
+      id: `cert-${crypto.randomUUID()}`,
       name: '',
       issuer: '',
       date: '',

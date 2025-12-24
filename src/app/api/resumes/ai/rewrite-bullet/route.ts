@@ -88,10 +88,13 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
     try {
       parsed = JSON.parse(content);
     } catch {
-      return NextResponse.json({ rewritten: bullet });
+      console.warn('Failed to parse OpenAI rewrite response, returning original bullet');
+      // Return original with fallback flag so client knows AI parsing failed
+      return NextResponse.json({ rewritten: bullet, fallback: true });
     }
 
     const rewritten = parsed.rewritten || bullet;
+    const usedFallback = !parsed.rewritten;
     const evaluation = await evaluate({
       tool_id: 'resume-suggestions',
       input: { bullet, mode, context },
@@ -106,7 +109,7 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
       );
     }
 
-    return NextResponse.json({ rewritten });
+    return NextResponse.json({ rewritten, ...(usedFallback && { fallback: true }) });
   } catch (error) {
     console.error(
       'Error rewriting bullet:',

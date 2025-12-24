@@ -69,8 +69,26 @@ Ask about their expertise areas and suggest organizing skills by category if the
 Recommend including skills that match their target job descriptions.`,
 };
 
+interface UserProfile {
+  name?: string;
+  email?: string;
+  current_position?: string;
+  current_company?: string;
+  work_history?: Array<{ title?: string; company?: string }>;
+  education_history?: Array<{ field?: string; school?: string }>;
+  skills?: string;
+}
+
+interface CurrentResume {
+  [key: string]: unknown;
+}
+
 // Generate initial question based on section and resume state
-function getInitialQuestion(section: string, userProfile: any, currentResume: any): string {
+function getInitialQuestion(
+  section: string,
+  userProfile: UserProfile | null,
+  currentResume: CurrentResume | null,
+): string {
   const hasProfileData = userProfile && Object.keys(userProfile).length > 0;
 
   switch (section) {
@@ -145,7 +163,7 @@ export async function POST(request: NextRequest) {
         token,
       );
     } catch (error) {
-      console.warn('Failed to fetch user profile:', error);
+      console.warn('Failed to fetch user profile for resume guidance');
     }
 
     // For initial request, return the opening question
@@ -248,11 +266,17 @@ This allows the user to easily apply your suggestions to their resume.`;
   }
 }
 
-function parseResumeContent(response: string): any | null {
+interface ParsedResumeContent {
+  field: string;
+  value: string;
+  action: 'set' | 'append';
+}
+
+function parseResumeContent(response: string): ParsedResumeContent | null {
   const match = response.match(/\[RESUME_CONTENT\]([\s\S]*?)\[\/RESUME_CONTENT\]/);
   if (match) {
     try {
-      return JSON.parse(match[1].trim());
+      return JSON.parse(match[1].trim()) as ParsedResumeContent;
     } catch {
       console.warn('Failed to parse resume content from AI response');
       return null;

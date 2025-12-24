@@ -94,6 +94,7 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
             achievements: parsedData.achievements || [],
           });
         } else {
+          setUploadedContent(null);
           toast({
             title: 'Unable to parse resume',
             description: 'We could not parse your resume. Continue with a blank draft.',

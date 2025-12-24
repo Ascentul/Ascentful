@@ -872,7 +872,22 @@ export default defineSchema({
     ), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
     style_config: v.optional(
       v.object({
-        font_pairing: v.optional(v.string()), // 'classic', 'modern', 'elegant', 'minimal'
+        font_pairing: v.optional(
+          v.union(
+            v.literal('classic'),
+            v.literal('modern'),
+            v.literal('elegant'),
+            v.literal('minimal'),
+            v.literal('executive'),
+            v.literal('creative'),
+            v.literal('technical'),
+            v.literal('swiss'),
+            v.literal('editorial'),
+            v.literal('geometric'),
+            v.literal('humanist'),
+            v.literal('traditional'),
+          ),
+        ),
         accent_color: v.optional(v.string()), // hex color
         density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
         heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
@@ -908,6 +923,7 @@ export default defineSchema({
   resume_versions: defineTable({
     resume_id: v.id('resumes'),
     user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // Denormalized for tenant isolation
     version_number: v.number(),
     version_label: v.optional(v.string()), // "Initial draft", "Before AI edit"
     content_snapshot: v.any(), // Full resume content at this point
@@ -916,11 +932,13 @@ export default defineSchema({
       v.literal('ai_edit'),
       v.literal('manual_save'),
       v.literal('section_change'),
+      v.literal('restoration'),
     ),
     created_at: v.number(),
   })
     .index('by_resume', ['resume_id'])
-    .index('by_resume_version', ['resume_id', 'version_number']),
+    .index('by_resume_version', ['resume_id', 'version_number'])
+    .index('by_university', ['university_id']),
 
   // Applications table
   applications: defineTable({

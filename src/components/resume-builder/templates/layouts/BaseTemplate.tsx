@@ -367,6 +367,8 @@ interface BulletListProps extends BaseProps {
 export function BulletList({ items, config }: BulletListProps) {
   const fonts = getFontStyles(config.fontPairing);
 
+  if (items.length === 0) return null;
+
   return (
     <ul
       style={{

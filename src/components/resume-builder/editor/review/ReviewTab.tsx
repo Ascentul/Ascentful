@@ -78,7 +78,7 @@ function getATSChecks(data: ResumeData): CheckItem[] {
       id: 'summary',
       label: 'Professional summary',
       status: 'warning',
-      message: 'Add a summary of 2-3 sentences',
+      message: 'Add a summary of at least 50 characters',
     });
   } else {
     checks.push({

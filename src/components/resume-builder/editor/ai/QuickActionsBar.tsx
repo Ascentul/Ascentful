@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart2, FileText, Scissors, Sparkles, Target, Zap } from 'lucide-react';
+import { BarChart2, Scissors, Sparkles, Target, Zap } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 

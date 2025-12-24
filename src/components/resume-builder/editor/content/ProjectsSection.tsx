@@ -15,7 +15,7 @@ interface ProjectsSectionProps {
 export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
   const handleAdd = () => {
     const newProject: Project = {
-      id: `proj-${Date.now()}`,
+      id: `proj-${crypto.randomUUID()}`,
       name: '',
       role: '',
       description: '',

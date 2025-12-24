@@ -25,6 +25,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Resume data is required' }, { status: 400 });
     }
 
+    if (jobDescription !== undefined && typeof jobDescription !== 'string') {
+      return NextResponse.json({ error: 'jobDescription must be a string' }, { status: 400 });
+    }
+
+    if (focusAreas !== undefined && !Array.isArray(focusAreas)) {
+      return NextResponse.json({ error: 'focusAreas must be an array' }, { status: 400 });
+    }
+
     // Build the user prompt
     const userPrompt = buildSuggestionsUserPrompt(resume, jobDescription, focusAreas);
 

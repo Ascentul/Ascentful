@@ -13,7 +13,11 @@ import type {
   ResumeData,
 } from '@/components/resume/ResumeDocument';
 import type { StyleConfig, TemplateId } from '@/components/resume-builder/templates/types';
-import { FONT_PAIRINGS, TEMPLATE_LAYOUTS } from '@/components/resume-builder/templates/types';
+import {
+  DEFAULT_SIDEBAR_BG_COLOR,
+  FONT_PAIRINGS,
+  TEMPLATE_LAYOUTS,
+} from '@/components/resume-builder/templates/types';
 import { bulletPointsToDescription, parseBulletPoints } from '@/lib/resume-editor/span-utils';
 import { cn } from '@/lib/utils';
 import type { Suggestion } from '@/types/resume-editor';
@@ -146,7 +150,7 @@ export function ResumeCanvas({
   const layoutType = templateConfig.layoutType;
   const sectionDivider = templateConfig.sectionDivider;
   const isLightFont = templateConfig.fontWeight === 'light';
-  const sidebarBgColor = styleConfig.sidebar_bg_color || '#f8fafc'; // Default to slate-50
+  const sidebarBgColor = styleConfig.sidebar_bg_color || DEFAULT_SIDEBAR_BG_COLOR;
 
   // Helper to determine if sidebar background is dark (for text contrast)
   const isSidebarDark = (() => {
@@ -285,7 +289,7 @@ export function ResumeCanvas({
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'exp-empty') {
-                      const newExp = { ...updated, id: `exp-${Date.now()}` };
+                      const newExp = { ...updated, id: `exp-${crypto.randomUUID()}` };
                       onUpdateExperience([newExp]);
                     } else {
                       const newExperiences = (data.experience || []).map((e, i) =>
@@ -297,7 +301,7 @@ export function ResumeCanvas({
                   onAdd={() => {
                     const currentExps = isPlaceholder ? [] : data.experience || [];
                     const newExp: Experience = {
-                      id: `exp-${Date.now()}`,
+                      id: `exp-${crypto.randomUUID()}`,
                       title: '',
                       company: '',
                       location: '',
@@ -318,7 +322,7 @@ export function ResumeCanvas({
                     if (isPlaceholder) return;
                     const duplicated: Experience = {
                       ...item,
-                      id: `exp-${Date.now()}`,
+                      id: `exp-${crypto.randomUUID()}`,
                     };
                     const currentExps = data.experience || [];
                     const newExperiences = [
@@ -385,7 +389,7 @@ export function ResumeCanvas({
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'edu-empty') {
-                      const newEdu = { ...updated, id: `edu-${Date.now()}` };
+                      const newEdu = { ...updated, id: `edu-${crypto.randomUUID()}` };
                       onUpdateEducation([newEdu]);
                     } else {
                       const newEducation = (data.education || []).map((e, i) =>
@@ -397,7 +401,7 @@ export function ResumeCanvas({
                   onAdd={() => {
                     const currentEdus = isEduPlaceholder ? [] : data.education || [];
                     const newEdu: Education = {
-                      id: `edu-${Date.now()}`,
+                      id: `edu-${crypto.randomUUID()}`,
                       school: '',
                       degree: '',
                       field: '',
@@ -416,7 +420,7 @@ export function ResumeCanvas({
                     if (isEduPlaceholder) return;
                     const duplicated: Education = {
                       ...item,
-                      id: `edu-${Date.now()}`,
+                      id: `edu-${crypto.randomUUID()}`,
                     };
                     const currentEdus = data.education || [];
                     const newEducation = [
@@ -492,7 +496,7 @@ export function ResumeCanvas({
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'proj-empty') {
-                      const newProj = { ...updated, id: `proj-${Date.now()}` };
+                      const newProj = { ...updated, id: `proj-${crypto.randomUUID()}` };
                       onUpdateProjects([newProj]);
                     } else {
                       const newProjects = (data.projects || []).map((p, i) =>
@@ -504,7 +508,7 @@ export function ResumeCanvas({
                   onAdd={() => {
                     const currentProjs = isProjPlaceholder ? [] : data.projects || [];
                     const newProj: Project = {
-                      id: `proj-${Date.now()}`,
+                      id: `proj-${crypto.randomUUID()}`,
                       name: '',
                       role: '',
                       description: '',
@@ -521,7 +525,7 @@ export function ResumeCanvas({
                     if (isProjPlaceholder) return;
                     const duplicated: Project = {
                       ...item,
-                      id: `proj-${Date.now()}`,
+                      id: `proj-${crypto.randomUUID()}`,
                     };
                     const currentProjs = data.projects || [];
                     const newProjects = [
@@ -578,7 +582,7 @@ export function ResumeCanvas({
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'ach-empty') {
-                      const newAch = { ...updated, id: `ach-${Date.now()}` };
+                      const newAch = { ...updated, id: `ach-${crypto.randomUUID()}` };
                       onUpdateAchievements?.([newAch]);
                     } else {
                       const newAchievements = (data.achievements || []).map((a, i) =>
@@ -591,7 +595,7 @@ export function ResumeCanvas({
                     if (!onUpdateAchievements) return;
                     const currentAchs = isAchPlaceholder ? [] : data.achievements || [];
                     const newAch: Achievement = {
-                      id: `ach-${Date.now()}`,
+                      id: `ach-${crypto.randomUUID()}`,
                       title: '',
                       description: '',
                       date: '',
@@ -607,7 +611,7 @@ export function ResumeCanvas({
                     if (!onUpdateAchievements || isAchPlaceholder) return;
                     const duplicated: Achievement = {
                       ...item,
-                      id: `ach-${Date.now()}`,
+                      id: `ach-${crypto.randomUUID()}`,
                     };
                     const currentAchs = data.achievements || [];
                     const newAchievements = [
@@ -666,7 +670,7 @@ export function ResumeCanvas({
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'cert-empty') {
-                      const newCert = { ...updated, id: `cert-${Date.now()}` };
+                      const newCert = { ...updated, id: `cert-${crypto.randomUUID()}` };
                       onUpdateCertifications?.([newCert]);
                     } else {
                       const newCertifications = (data.certifications || []).map((c, i) =>
@@ -679,7 +683,7 @@ export function ResumeCanvas({
                     if (!onUpdateCertifications) return;
                     const currentCerts = isCertPlaceholder ? [] : data.certifications || [];
                     const newCert: Certification = {
-                      id: `cert-${Date.now()}`,
+                      id: `cert-${crypto.randomUUID()}`,
                       name: '',
                       issuer: '',
                       date: '',
@@ -695,7 +699,7 @@ export function ResumeCanvas({
                     if (!onUpdateCertifications || isCertPlaceholder) return;
                     const duplicated: Certification = {
                       ...item,
-                      id: `cert-${Date.now()}`,
+                      id: `cert-${crypto.randomUUID()}`,
                     };
                     const currentCerts = data.certifications || [];
                     const newCertifications = [
@@ -1332,7 +1336,7 @@ function SkillsEditor({
             <div key={idx} className="group flex items-center gap-1">
               <span
                 className="w-1 h-1 rounded-full flex-shrink-0"
-                style={{ backgroundColor: darkMode ? '#94a3b8' : '#94a3b8' }}
+                style={{ backgroundColor: '#94a3b8' }}
               />
               {editingIndex === idx ? (
                 <input
@@ -1380,7 +1384,7 @@ function SkillsEditor({
           <div className="flex items-center gap-1">
             <span
               className="w-1 h-1 rounded-full flex-shrink-0"
-              style={{ backgroundColor: darkMode ? '#94a3b8' : '#94a3b8' }}
+              style={{ backgroundColor: '#94a3b8' }}
             />
             <input
               ref={newInputRef}

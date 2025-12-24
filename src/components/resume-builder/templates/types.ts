@@ -66,6 +66,7 @@ export interface TemplateTheme extends StyleConfig {
 
 export interface TemplateProps {
   data: ResumeData;
+  // Prefer theme for template rendering; styleConfig is legacy/migration support.
   theme: TemplateTheme;
   className?: string;
   styleConfig?: StyleConfig;
@@ -286,6 +287,8 @@ export const SIDEBAR_BG_COLORS: SidebarBgColor[] = [
   { value: '#fef3c7', label: 'Light Amber' }, // amber-100
 ];
 
+export const DEFAULT_SIDEBAR_BG_COLOR = SIDEBAR_BG_COLORS[0]?.value ?? '#f8fafc';
+
 // Template metadata (derived from TEMPLATE_LAYOUTS for consistency)
 export const TEMPLATE_METADATA: Record<TemplateId, { name: string; description: string }> = {
   clean: { name: 'Clean', description: 'Simple and elegant' },
@@ -293,7 +296,7 @@ export const TEMPLATE_METADATA: Record<TemplateId, { name: string; description: 
   bold: { name: 'Bold', description: 'Strong typography' },
   minimal: { name: 'Minimal', description: 'Whitespace-focused' },
   classic: { name: 'Classic', description: 'Traditional format' },
-  ats: { name: 'Executive', description: 'Two-column professional' },
+  ats: { name: 'ATS Executive', description: 'ATS-friendly two-column' },
 };
 
 // Template layout configurations
@@ -356,8 +359,8 @@ export const TEMPLATE_LAYOUTS: Record<TemplateId, TemplateLayoutConfig> = {
   },
   ats: {
     id: 'ats',
-    name: 'Executive',
-    description: 'Two-column professional',
+    name: 'ATS Executive',
+    description: 'ATS-friendly two-column',
     layoutType: 'two-column-sidebar',
     headerStyle: 'left',
     sidebarPosition: 'left',
@@ -405,6 +408,7 @@ export function getStyleVariables(config: StyleConfig): Record<string, string> {
     '--font-heading': fontPairing.heading,
     '--font-body': fontPairing.body,
     '--color-accent': config.accent_color,
+    // Density scale: 1 = comfortable, 0.85 = compact (~15% tighter spacing).
     '--density': config.density === 'comfortable' ? '1' : '0.85',
     '--heading-transform': config.heading_style === 'caps' ? 'uppercase' : 'none',
     '--heading-letter-spacing': config.heading_style === 'caps' ? '0.05em' : 'normal',

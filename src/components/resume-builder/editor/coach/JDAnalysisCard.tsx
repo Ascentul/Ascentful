@@ -37,19 +37,21 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
 
   const { basics, requirements, keywords } = analysis;
 
-  const locationTypeLabel = {
-    onsite: 'On-site',
-    hybrid: 'Hybrid',
-    remote: 'Remote',
-  }[basics.locationType];
+  const locationTypeLabel =
+    {
+      onsite: 'On-site',
+      hybrid: 'Hybrid',
+      remote: 'Remote',
+    }[basics.locationType] ?? basics.locationType;
 
-  const seniorityLabel = {
-    entry: 'Entry Level',
-    mid: 'Mid Level',
-    senior: 'Senior',
-    lead: 'Lead',
-    executive: 'Executive',
-  }[basics.seniorityLevel];
+  const seniorityLabel =
+    {
+      entry: 'Entry Level',
+      mid: 'Mid Level',
+      senior: 'Senior',
+      lead: 'Lead',
+      executive: 'Executive',
+    }[basics.seniorityLevel] ?? basics.seniorityLevel;
 
   return (
     <div className="border-b border-slate-200">

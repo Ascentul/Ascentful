@@ -36,11 +36,9 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      console.error('AI JD analysis failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to analyze job description', details: result.error },
-        { status: 500 },
-      );
+      const errorMessage = result.error instanceof Error ? result.error.message : 'Unknown error';
+      console.error('AI JD analysis failed:', errorMessage);
+      return NextResponse.json({ error: 'Failed to analyze job description' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -50,13 +48,10 @@ export async function POST(request: Request) {
       model: result.model,
     });
   } catch (error) {
-    console.error('Analyze JD API error:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 },
+    console.error(
+      'Analyze JD API error:',
+      error instanceof Error ? error.message : 'Unknown error',
     );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

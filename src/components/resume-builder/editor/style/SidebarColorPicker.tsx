@@ -13,6 +13,9 @@ interface SidebarColorPickerProps {
 
 // Helper to determine if a color is dark (for contrast)
 function isColorDark(hexColor: string): boolean {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
+    return false;
+  }
   const hex = hexColor.replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);

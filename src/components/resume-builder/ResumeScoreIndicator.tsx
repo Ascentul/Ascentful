@@ -1,20 +1,19 @@
 'use client';
 
-import React from 'react';
-
 import { getScoreColor } from '@/lib/resume-score';
+import { cn } from '@/lib/utils';
 
 interface ResumeScoreIndicatorProps {
   score: number;
   className?: string;
 }
 
-export function ResumeScoreIndicator({ score, className = '' }: ResumeScoreIndicatorProps) {
+export function ResumeScoreIndicator({ score, className }: ResumeScoreIndicatorProps) {
   const clampedScore = Math.max(0, Math.min(100, score));
   const color = getScoreColor(clampedScore);
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={cn('flex items-center gap-2', className)}>
       <div
         className="flex items-center justify-center text-xs font-bold text-white rounded px-2 py-1"
         style={{ backgroundColor: color }}

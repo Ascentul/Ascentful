@@ -4,7 +4,6 @@ import { AlertCircle, CheckCircle, Loader2, Sparkles, TrendingUp, Zap } from 'lu
 import { useEffect, useState } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // Shorter delay in development for faster iteration
@@ -16,7 +15,6 @@ export interface QuickWinItem {
   severity: 'high' | 'medium' | 'low';
   count: number;
   message: string;
-  icon: 'metric' | 'verb' | 'length';
 }
 
 export interface QuickWinsAnalysis {
@@ -74,7 +72,6 @@ function analyzeResumeContent(
       severity: 'high',
       count: bulletsWithoutMetrics.length,
       message: `Add metrics to ${bulletsWithoutMetrics.length} bullet${bulletsWithoutMetrics.length > 1 ? 's' : ''}`,
-      icon: 'metric',
     });
     currentScore += bulletsWithoutMetrics.length > 3 ? 0 : 5;
   }
@@ -92,7 +89,6 @@ function analyzeResumeContent(
       severity: 'medium',
       count: bulletsWithWeakVerbs.length,
       message: `Strengthen ${bulletsWithWeakVerbs.length} weak verb${bulletsWithWeakVerbs.length > 1 ? 's' : ''}`,
-      icon: 'verb',
     });
     currentScore += bulletsWithWeakVerbs.length > 4 ? 0 : 3;
   }
@@ -107,8 +103,8 @@ function analyzeResumeContent(
       severity: 'low',
       count: longBullets.length,
       message: `Shorten ${longBullets.length} long bullet${longBullets.length > 1 ? 's' : ''}`,
-      icon: 'length',
     });
+  } else {
     currentScore += 2;
   }
 
@@ -120,7 +116,6 @@ function analyzeResumeContent(
       severity: 'high',
       count: 1,
       message: 'Add a professional summary',
-      icon: 'metric',
     });
   } else {
     currentScore += 10;
@@ -134,10 +129,20 @@ function analyzeResumeContent(
       severity: 'medium',
       count: 1,
       message: 'Add more relevant skills',
-      icon: 'metric',
     });
   } else {
     currentScore += 8;
+  }
+
+  // If JD is provided, add keyword suggestions (before score calculation so it contributes)
+  if (jd && jd.trim().length > 50) {
+    quickWins.push({
+      id: 'match-keywords',
+      type: 'keyword',
+      severity: 'high',
+      count: 1,
+      message: 'Align with job keywords',
+    });
   }
 
   // Calculate potential score
@@ -148,18 +153,6 @@ function analyzeResumeContent(
   }, 0);
 
   const potentialScore = Math.min(100, currentScore + potentialGain);
-
-  // If JD is provided, add keyword suggestions
-  if (jd && jd.trim().length > 50) {
-    quickWins.push({
-      id: 'match-keywords',
-      type: 'keyword',
-      severity: 'high',
-      count: 1,
-      message: 'Align with job keywords',
-      icon: 'metric',
-    });
-  }
 
   return {
     currentScore: Math.min(100, Math.max(0, currentScore)),

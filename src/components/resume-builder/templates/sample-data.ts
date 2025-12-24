@@ -11,7 +11,7 @@ export const SAMPLE_RESUME_DATA: ResumeData = {
     email: 'alex@email.com',
     phone: '(555) 123-4567',
     location: 'San Francisco, CA',
-    linkedin: 'linkedin.com/in/alexj',
+    linkedin: 'https://linkedin.com/in/alexj',
   },
   summary:
     'Senior software engineer with 8+ years of experience building scalable web applications. Led teams of 5-10 engineers and delivered products used by millions.',
@@ -60,7 +60,7 @@ export const SAMPLE_RESUME_DATA: ResumeData = {
       description:
         '• Built a CLI tool with 5K+ GitHub stars\n• Used by developers at 100+ companies',
       technologies: 'Go, Docker',
-      url: 'github.com/alexj/cli-tool',
+      url: 'https://github.com/alexj/cli-tool',
     },
   ],
   achievements: [],

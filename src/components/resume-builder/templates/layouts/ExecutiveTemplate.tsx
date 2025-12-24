@@ -162,9 +162,9 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
           <div style={{ marginBottom: '28px' }}>
             <SidebarHeader fontFamily={fonts.heading}>Skills</SidebarHeader>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {skills.map((skill, idx) => (
+              {skills.map((skill) => (
                 <li
-                  key={idx}
+                  key={skill}
                   style={{
                     fontSize: '9pt',
                     lineHeight: '1.5',

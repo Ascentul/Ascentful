@@ -17,6 +17,7 @@ interface UseEditorKeyboardOptions {
  * Shortcuts:
  * - Cmd/Ctrl + Z: Undo
  * - Cmd/Ctrl + Shift + Z: Redo
+ * - Ctrl + Y: Redo (Windows only)
  * - Cmd/Ctrl + S: Save
  * - Escape: Exit inline editing
  */

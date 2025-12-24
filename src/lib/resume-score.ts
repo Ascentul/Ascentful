@@ -261,8 +261,8 @@ const METRIC_PATTERNS = [
   /\$[\d,]+/, // Dollar amounts: $1,000
   /\d+\+?\s*(users|clients|customers|projects|team|members)/i, // User counts
   /\d+x/, // Multipliers: 3x
-  /\d+k/i, // Thousands: 10k
-  /\d+m/i, // Millions: 5M
+  /\d+K\b/, // Thousands: 10K
+  /\d+M\b/, // Millions: 5M
   /increased.*by\s+\d+/i, // "increased by X"
   /reduced.*by\s+\d+/i, // "reduced by X"
   /saved.*\d+/i, // "saved X"
@@ -342,7 +342,8 @@ function calculateImpactScore(data: ResumeData): number {
         const lowerBullet = bullet.toLowerCase();
 
         // Check for strong action verbs
-        if (STRONG_ACTION_VERBS.some((verb) => lowerBullet.startsWith(verb))) {
+        const firstWord = lowerBullet.split(/\s+/)[0];
+        if (STRONG_ACTION_VERBS.includes(firstWord)) {
           strongVerbCount++;
         }
 
@@ -378,7 +379,7 @@ function calculateImpactScore(data: ResumeData): number {
     }
 
     // Check for metrics in summary
-    if (METRIC_PATTERNS.some((pattern) => pattern.test(data.summary || ''))) {
+    if (METRIC_PATTERNS.some((pattern) => pattern.test(data.summary))) {
       summaryImpact += 60;
     }
 

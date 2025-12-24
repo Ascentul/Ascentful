@@ -353,16 +353,15 @@ export function BulletEditable({
         // Remove empty bullet
         const newBullets = bullets.filter((_, i) => i !== index);
         onChange(newBullets);
-        // Focus previous bullet
-        if (index > 0) {
-          requestAnimationFrame(() => {
-            const prevSpanId = `${spanId}-${index - 1}`;
-            const element = document.querySelector(`[data-span-id="${prevSpanId}"]`);
-            if (element instanceof HTMLElement) {
-              element.focus();
-            }
-          });
-        }
+        // Focus previous bullet, or next if deleting the first
+        const focusIndex = index > 0 ? index - 1 : 0;
+        requestAnimationFrame(() => {
+          const targetSpanId = `${spanId}-${focusIndex}`;
+          const element = document.querySelector(`[data-span-id="${targetSpanId}"]`);
+          if (element instanceof HTMLElement) {
+            element.focus();
+          }
+        });
       }
     },
     [bullets, onChange, spanId],
@@ -385,8 +384,8 @@ export function BulletEditable({
       }
 
       // Delay before showing toolbar to avoid flicker
+      const rect = e.currentTarget.getBoundingClientRect();
       hoverTimeoutRef.current = setTimeout(() => {
-        const rect = e.currentTarget.getBoundingClientRect();
         setToolbarPosition({
           x: rect.left,
           y: rect.top,

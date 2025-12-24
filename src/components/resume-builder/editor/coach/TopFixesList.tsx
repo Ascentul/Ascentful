@@ -1,7 +1,5 @@
 'use client';
 
-import { CheckCircle } from 'lucide-react';
-
 import type { ScoreResponse } from '@/lib/ai/schemas';
 import type { TopFix } from '@/types/resume-editor';
 
@@ -21,6 +19,7 @@ export function TopFixesList({ fixes, aiIssues }: TopFixesListProps) {
   if (!hasAIIssues && !hasLegacyFixes) return null;
 
   // If we have AI issues, show category counts with text labels
+  // Note: hasAIIssues is only true when aiIssues.length > 0, so no need to check for empty
   if (hasAIIssues) {
     // Count issues by priority level (map categories to priority)
     const criticalCount = aiIssues.filter(
@@ -28,18 +27,6 @@ export function TopFixesList({ fixes, aiIssues }: TopFixesListProps) {
     ).length;
     const importantCount = aiIssues.filter((i) => i.category === 'clarity').length;
     const polishCount = aiIssues.filter((i) => i.category === 'brevity').length;
-    const totalIssues = aiIssues.length;
-
-    if (totalIssues === 0) {
-      return (
-        <div className="px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-700">All clear</span>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className="px-4 py-3 border-b border-slate-200">
@@ -67,20 +54,10 @@ export function TopFixesList({ fixes, aiIssues }: TopFixesListProps) {
   }
 
   // Fall back to legacy fixes - show with text labels and card outlines
+  // Note: fixes.length > 0 is guaranteed here due to the guard at line 21
   const highCount = fixes.filter((f) => f.impact === 'high').length;
   const mediumCount = fixes.filter((f) => f.impact === 'medium').length;
   const lowCount = fixes.filter((f) => f.impact === 'low').length;
-
-  if (fixes.length === 0) {
-    return (
-      <div className="px-4 py-3 border-b border-slate-200">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium text-green-700">All clear</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="px-4 py-3 border-b border-slate-200">

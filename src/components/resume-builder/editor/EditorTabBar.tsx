@@ -19,11 +19,13 @@ const TABS: { id: EditorTab; label: string; Icon: React.FC<{ className?: string 
 
 export function EditorTabBar({ activeTab, onChange }: EditorTabBarProps) {
   return (
-    <div className="flex items-center border-b border-slate-200 bg-white px-4">
+    <div role="tablist" className="flex items-center border-b border-slate-200 bg-white px-4">
       {TABS.map((tab) => (
         <button
           key={tab.id}
           type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
             'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px',
