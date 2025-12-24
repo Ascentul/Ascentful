@@ -1,0 +1,62 @@
+// AI-powered resume scoring API route
+// Uses PRO tier for complex multi-dimensional analysis
+
+import { auth } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+
+import { callAI } from '@/lib/ai/client';
+import { buildScoreUserPrompt, SCORE_SYSTEM_PROMPT } from '@/lib/ai/prompts';
+import { ScoreResponseSchema } from '@/lib/ai/schemas';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+export async function POST(request: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { resume, jobDescription } = body;
+
+    if (!resume) {
+      return NextResponse.json({ error: 'Resume data is required' }, { status: 400 });
+    }
+
+    // Build the user prompt with resume data
+    const userPrompt = buildScoreUserPrompt(resume, jobDescription);
+
+    // Call AI with PRO tier for complex analysis
+    const result = await callAI(SCORE_SYSTEM_PROMPT, userPrompt, ScoreResponseSchema, {
+      tier: 'pro',
+      maxRetries: 2,
+      temperature: 0.2,
+    });
+
+    if (!result.success) {
+      console.error('AI scoring failed:', result.error);
+      return NextResponse.json(
+        { error: 'Failed to score resume', details: result.error },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      usage: result.usage,
+      model: result.model,
+    });
+  } catch (error) {
+    console.error('Score API error:', error);
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 },
+    );
+  }
+}

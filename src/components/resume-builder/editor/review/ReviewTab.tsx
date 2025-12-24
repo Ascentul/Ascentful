@@ -165,8 +165,9 @@ export function ReviewTab({ resumeData, onExportPDF, onExportDOCX, isExporting }
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-900">Resume Score</h3>
+            {/* Note: Score includes content quality factors beyond the listed ATS checks */}
             <p className="text-sm text-slate-600 mt-1">
-              {passCount} of {totalCount} checks passed
+              Based on content quality and {passCount} of {totalCount} checks
             </p>
           </div>
           <div className="text-4xl font-bold text-primary-600">{score}%</div>

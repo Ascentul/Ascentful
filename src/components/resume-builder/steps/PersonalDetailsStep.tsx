@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Lock, User } from 'lucide-react';
+import { ChevronDown, User } from 'lucide-react';
 import Image from 'next/image';
 import React, { useRef, useState } from 'react';
 
@@ -109,6 +109,7 @@ export function PersonalDetailsStep({
               width={64}
               height={64}
               className="w-full h-full object-cover rounded-lg"
+              unoptimized
             />
           ) : (
             <User className="w-8 h-8 text-slate-400" />
@@ -183,10 +184,7 @@ export function PersonalDetailsStep({
       {/* LinkedIn and Postal Code */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="linkedin">LinkedIn URL</Label>
-            <Lock className="w-3 h-3 text-slate-400" />
-          </div>
+          <Label htmlFor="linkedin">LinkedIn URL</Label>
           <Input
             id="linkedin"
             placeholder="linkedin.com/in/yourprofile"
@@ -228,7 +226,7 @@ export function PersonalDetailsStep({
             onChange={(e) => onContactInfoChange('country', e.target.value)}
             className="bg-slate-50"
           />
-          <p className="text-xs text-slate-400">For users outside the US</p>
+          <p className="text-xs text-slate-400">Enter your country of residence</p>
         </div>
       </div>
 

@@ -16,8 +16,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
+import { useState } from 'react';
 
 import type {
+  Achievement,
+  Certification,
   Education,
   Experience,
   Project,
@@ -50,6 +53,10 @@ interface OutlinePanelProps {
   onDeleteEducation: (id: string) => void;
   onAddProject: () => void;
   onDeleteProject: (id: string) => void;
+  onAddAchievement?: () => void;
+  onDeleteAchievement?: (id: string) => void;
+  onAddCertification?: () => void;
+  onDeleteCertification?: (id: string) => void;
 }
 
 // Helper to get section items
@@ -73,6 +80,18 @@ function getSectionItems(sectionId: string, resumeData: ResumeData): SectionItem
         label: proj.name || 'Untitled Project',
         sublabel: proj.role || undefined,
       }));
+    case 'achievements':
+      return resumeData.achievements?.map((ach: Achievement) => ({
+        id: ach.id,
+        label: ach.title || 'Untitled Achievement',
+        sublabel: ach.date || undefined,
+      }));
+    case 'certifications':
+      return resumeData.certifications?.map((cert: Certification) => ({
+        id: cert.id,
+        label: cert.name || 'Untitled Certification',
+        sublabel: cert.issuer || undefined,
+      }));
     default:
       return undefined;
   }
@@ -80,7 +99,9 @@ function getSectionItems(sectionId: string, resumeData: ResumeData): SectionItem
 
 // Check if section supports multiple items
 function sectionHasItems(sectionId: string): boolean {
-  return ['experience', 'education', 'projects'].includes(sectionId);
+  return ['experience', 'education', 'projects', 'achievements', 'certifications'].includes(
+    sectionId,
+  );
 }
 
 export function OutlinePanel({
@@ -99,7 +120,14 @@ export function OutlinePanel({
   onDeleteEducation,
   onAddProject,
   onDeleteProject,
+  onAddAchievement,
+  onDeleteAchievement,
+  onAddCertification,
+  onDeleteCertification,
 }: OutlinePanelProps) {
+  // Track which section is expanded (accordion behavior - only one at a time)
+  const [expandedSectionId, setExpandedSectionId] = useState<string | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -151,6 +179,16 @@ export function OutlinePanel({
           onAddItem: onAddProject,
           onDeleteItem: onDeleteProject,
         };
+      case 'achievements':
+        return {
+          onAddItem: onAddAchievement,
+          onDeleteItem: onDeleteAchievement,
+        };
+      case 'certifications':
+        return {
+          onAddItem: onAddCertification,
+          onDeleteItem: onDeleteCertification,
+        };
       default:
         return {};
     }
@@ -174,6 +212,8 @@ export function OutlinePanel({
               const items = getSectionItems(sectionId, resumeData);
               const handlers = sectionHasItems(sectionId) ? getItemHandlers(sectionId) : {};
 
+              const canExpand = sectionHasItems(sectionId);
+
               return (
                 <SectionOutlineItem
                   key={sectionId}
@@ -184,6 +224,13 @@ export function OutlinePanel({
                   items={items}
                   selectedItemId={selectedSectionId === sectionId ? selectedItemId : null}
                   onSelectItem={(itemId) => onSelectItem(sectionId, itemId)}
+                  isExpanded={canExpand ? expandedSectionId === sectionId : undefined}
+                  onToggleExpand={
+                    canExpand
+                      ? () =>
+                          setExpandedSectionId(expandedSectionId === sectionId ? null : sectionId)
+                      : undefined
+                  }
                   {...handlers}
                 />
               );

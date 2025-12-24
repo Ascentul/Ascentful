@@ -83,7 +83,7 @@ Respond with JSON: { "skills": ["skill1", "skill2", ...], "categories": { "techn
     if (!evaluation.passed) {
       return NextResponse.json(
         { error: 'Generated content failed safety checks' },
-        { status: 500 },
+        { status: 422 },
       );
     }
 

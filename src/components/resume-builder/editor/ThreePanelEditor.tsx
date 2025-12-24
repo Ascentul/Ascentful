@@ -1,34 +1,69 @@
 'use client';
 
-import { FileText, ImageIcon, LayoutList, Palette, Type } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Briefcase,
+  CheckCircle2,
+  ChevronRight,
+  FileText,
+  GraduationCap,
+  ImageIcon,
+  LayoutList,
+  Lightbulb,
+  Mail,
+  Palette,
+  Plus,
+  Sparkles,
+  Target,
+  Type,
+  User,
+  Wrench,
+  Zap,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type {
+  Achievement,
+  Certification,
   ContactInfo,
   Education,
   Experience,
   Project,
   ResumeData,
 } from '@/components/resume/ResumeDocument';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ResumeAIProvider, useResumeAI } from '@/contexts/ResumeAIContext';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import {
   createApplySuggestionAction,
   createReorderSectionAction,
   useResumeUndo,
 } from '@/hooks/useResumeUndo';
-import { useSuggestions } from '@/hooks/useSuggestions';
+import type { ScoreResponse } from '@/lib/ai/schemas';
 import {
   bulletPointsToDescription,
+  focusSpan,
   parseBulletPoints,
   parseSpanId,
   scrollToSpan,
 } from '@/lib/resume-editor/span-utils';
-import { calculateEnhancedScore } from '@/lib/resume-score';
 import { cn } from '@/lib/utils';
 import type { EditorAction, TopFix, ZoomLevel } from '@/types/resume-editor';
+import { SECTION_CONFIGS } from '@/types/resume-editor';
 
 import type { FontPairingId, StyleConfig, TemplateId } from '../templates/types';
+import {
+  ACCENT_COLORS,
+  FONT_CATEGORIES,
+  FONT_PAIRINGS,
+  getFontPairingsByCategory,
+  getGoogleFontsUrl,
+  TEMPLATE_METADATA,
+} from '../templates/types';
+import { AIAssistPanel, getCurrentStepMissingSpanIds } from './ai/AIAssistPanel';
+import { AIGuidanceModal } from './ai/AIGuidanceModal';
 import { CanvasPanel } from './canvas/CanvasPanel';
 import { ZoomControls } from './canvas/ZoomControls';
 import { CoachPanel } from './coach/CoachPanel';
@@ -39,7 +74,7 @@ import { StyleTab } from './style/StyleTab';
 import { TemplateSwitcher } from './style/TemplateSwitcher';
 
 // Side rail panel types
-type SideRailPanel = 'sections' | 'templates' | 'theme' | 'fonts' | 'uploads' | null;
+type SideRailPanel = 'ai-assist' | 'sections' | 'templates' | 'theme' | 'fonts' | 'uploads' | null;
 
 interface ThreePanelEditorProps {
   resumeData: ResumeData;
@@ -56,6 +91,8 @@ interface ThreePanelEditorProps {
   onUpdateEducation: (education: Education[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   onUpdateSkills: (skills: string[]) => void;
+  onUpdateAchievements?: (achievements: Achievement[]) => void;
+  onUpdateCertifications?: (certifications: Certification[]) => void;
   onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
   onTemplateChange: (templateId: TemplateId) => void;
@@ -68,7 +105,8 @@ interface ThreePanelEditorProps {
   isExporting?: boolean;
 }
 
-export function ThreePanelEditor({
+// Inner component that uses the AI context
+function ThreePanelEditorInner({
   resumeData,
   templateId,
   styleConfig,
@@ -83,6 +121,8 @@ export function ThreePanelEditor({
   onUpdateEducation,
   onUpdateProjects,
   onUpdateSkills,
+  onUpdateAchievements,
+  onUpdateCertifications,
   onSetSectionOrder,
   onToggleSection,
   onTemplateChange,
@@ -100,21 +140,316 @@ export function ThreePanelEditor({
 
   // Coach is always enabled
   const coachEnabled = true;
+
+  // Load Google Fonts for the currently selected font pairing
+  useEffect(() => {
+    const url = getGoogleFontsUrl(styleConfig.font_pairing);
+    if (!url) return;
+
+    // Check if already loaded
+    const existingLink = document.querySelector(`link[href="${url}"]`);
+    if (existingLink) return;
+
+    // Create and append link element
+    const link = document.createElement('link');
+    link.href = url;
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, [styleConfig.font_pairing]);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [inlineEditingSpanId, setInlineEditingSpanId] = useState<string | null>(null);
 
+  // AI Guidance Modal State
+  const [aiGuidanceOpen, setAIGuidanceOpen] = useState(false);
+  const [aiGuidanceSection, setAIGuidanceSection] = useState<string>('');
+  const [aiGuidanceSectionLabel, setAIGuidanceSectionLabel] = useState<string>('');
+
   // Undo/Redo
   const { pushAction, undo, redo, canUndo, canRedo } = useResumeUndo();
 
-  // Suggestions
-  const { suggestions, groupedSuggestions, suggestionCounts, dismissSuggestion, applySuggestion } =
-    useSuggestions(resumeData, { enabled: coachEnabled });
+  // AI Context - provides score, suggestions, JD analysis, and match scoring
+  const {
+    effectiveScore,
+    legacyScore,
+    legacyGroupedSuggestions,
+    aiScore,
+    aiSuggestions,
+    scoreLoading,
+    suggestionsLoading,
+    jobDescription,
+    jdAnalysis,
+    jdLoading,
+    matchScore,
+    setJobDescription,
+    analyzeJobDescription,
+    dismissSuggestion: dismissAISuggestion,
+    applySuggestion: applyAISuggestion,
+    assistMode,
+  } = useResumeAI();
 
-  // Calculate enhanced score using the full scoring system
-  const score = useMemo(() => {
-    return calculateEnhancedScore(resumeData, suggestions);
-  }, [resumeData, suggestions]);
+  // Use legacy-compatible formats for existing components
+  const score = legacyScore;
+  const groupedSuggestions = legacyGroupedSuggestions;
+
+  // =============================================================================
+  // Resume Completeness Analysis
+  // =============================================================================
+  type GuidanceItem = {
+    id: string;
+    icon: typeof User;
+    label: string;
+    description: string;
+    status: 'complete' | 'incomplete' | 'needs-improvement';
+    priority: 'high' | 'medium' | 'low';
+    action: () => void;
+    spanId?: string;
+  };
+
+  // Analyze resume completeness for guidance
+  const getGuidanceItems = useCallback((): GuidanceItem[] => {
+    const items: GuidanceItem[] = [];
+    const { contactInfo, experience, education, skills, summary } = resumeData;
+
+    // Contact Info
+    const hasBasicContact = contactInfo.name && contactInfo.email;
+    const hasFullContact = hasBasicContact && contactInfo.phone && contactInfo.location;
+    items.push({
+      id: 'contact',
+      icon: User,
+      label: 'Contact Information',
+      description: !hasBasicContact
+        ? 'Add your name and email'
+        : !hasFullContact
+          ? 'Add phone and location'
+          : 'Contact info complete',
+      status: !hasBasicContact ? 'incomplete' : !hasFullContact ? 'needs-improvement' : 'complete',
+      priority: !hasBasicContact ? 'high' : 'low',
+      action: () => {
+        setSelectedSectionId('contact');
+        scrollToSpan('contact-name');
+      },
+      spanId: 'contact-name',
+    });
+
+    // Summary
+    const hasSummary = summary && summary.trim().length > 20;
+    const summaryLength = summary?.trim().length || 0;
+    items.push({
+      id: 'summary',
+      icon: FileText,
+      label: 'Professional Summary',
+      description: !hasSummary
+        ? 'Write a compelling summary'
+        : summaryLength < 100
+          ? 'Consider expanding your summary'
+          : 'Summary looks good',
+      status: !hasSummary ? 'incomplete' : summaryLength < 100 ? 'needs-improvement' : 'complete',
+      priority: !hasSummary ? 'high' : 'medium',
+      action: () => {
+        setSelectedSectionId('summary');
+        scrollToSpan('summary-text');
+      },
+      spanId: 'summary-text',
+    });
+
+    // Experience
+    const hasExperience = experience && experience.length > 0;
+    const experienceWithBullets = experience?.filter(
+      (exp) => exp.description && exp.description.trim().length > 50,
+    );
+    const hasDetailedExperience = experienceWithBullets && experienceWithBullets.length > 0;
+    items.push({
+      id: 'experience',
+      icon: Briefcase,
+      label: 'Work Experience',
+      description: !hasExperience
+        ? 'Add your work experience'
+        : !hasDetailedExperience
+          ? 'Add bullet points to your roles'
+          : `${experience.length} position${experience.length > 1 ? 's' : ''} added`,
+      status: !hasExperience
+        ? 'incomplete'
+        : !hasDetailedExperience
+          ? 'needs-improvement'
+          : 'complete',
+      priority: !hasExperience ? 'high' : !hasDetailedExperience ? 'high' : 'low',
+      action: () => {
+        setSelectedSectionId('experience');
+        if (experience && experience.length > 0) {
+          scrollToSpan(`experience-${experience[0].id}-title`);
+        }
+      },
+      spanId: experience?.[0] ? `experience-${experience[0].id}-title` : undefined,
+    });
+
+    // Education
+    const hasEducation = education && education.length > 0;
+    items.push({
+      id: 'education',
+      icon: GraduationCap,
+      label: 'Education',
+      description: !hasEducation
+        ? 'Add your education'
+        : `${education.length} degree${education.length > 1 ? 's' : ''} added`,
+      status: !hasEducation ? 'incomplete' : 'complete',
+      priority: !hasEducation ? 'medium' : 'low',
+      action: () => {
+        setSelectedSectionId('education');
+        if (education && education.length > 0) {
+          scrollToSpan(`education-${education[0].id}-school`);
+        }
+      },
+      spanId: education?.[0] ? `education-${education[0].id}-school` : undefined,
+    });
+
+    // Skills
+    const hasSkills = skills && skills.length > 0;
+    const hasEnoughSkills = skills && skills.length >= 5;
+    items.push({
+      id: 'skills',
+      icon: Wrench,
+      label: 'Skills',
+      description: !hasSkills
+        ? 'Add your key skills'
+        : !hasEnoughSkills
+          ? `Add more skills (${skills.length}/5 minimum)`
+          : `${skills.length} skills listed`,
+      status: !hasSkills ? 'incomplete' : !hasEnoughSkills ? 'needs-improvement' : 'complete',
+      priority: !hasSkills ? 'medium' : !hasEnoughSkills ? 'low' : 'low',
+      action: () => {
+        setSelectedSectionId('skills');
+        scrollToSpan('skills-list');
+      },
+      spanId: 'skills-list',
+    });
+
+    return items;
+  }, [resumeData, setSelectedSectionId]);
+
+  const guidanceItems = getGuidanceItems();
+  const completedCount = guidanceItems.filter((item) => item.status === 'complete').length;
+  const completionPercentage = Math.round((completedCount / guidanceItems.length) * 100);
+
+  // Compute missing spanIds for current step when AI Assist panel is open
+  const missingSpanIds = useMemo(() => {
+    if (activeSidePanel !== 'ai-assist') return new Set<string>();
+    return getCurrentStepMissingSpanIds(resumeData);
+  }, [activeSidePanel, resumeData]);
+
+  // =============================================================================
+  // AI Guidance Modal Handlers
+  // =============================================================================
+  const openAIGuidance = useCallback((sectionId: string, sectionLabel: string) => {
+    setAIGuidanceSection(sectionId);
+    setAIGuidanceSectionLabel(sectionLabel);
+    setAIGuidanceOpen(true);
+    // Also switch to AI assist panel
+    setActiveSidePanel('ai-assist');
+  }, []);
+
+  const handleAIApplyContent = useCallback(
+    (field: string, value: string, action: 'set' | 'append') => {
+      // Route the content to the appropriate update handler based on field
+      const [section, subfield] = field.split('.');
+
+      switch (section) {
+        case 'contact':
+          if (subfield && subfield in resumeData.contactInfo) {
+            onUpdateContactInfo(subfield as keyof ContactInfo, value);
+          }
+          break;
+
+        case 'summary':
+          if (action === 'append' && resumeData.summary) {
+            onUpdateSummary(resumeData.summary + '\n' + value);
+          } else {
+            onUpdateSummary(value);
+          }
+          break;
+
+        case 'experience':
+          // For experience, we might receive structured data
+          try {
+            const expData = typeof value === 'string' ? JSON.parse(value) : value;
+            const currentExperience = resumeData.experience || [];
+            if (Array.isArray(expData)) {
+              onUpdateExperience([...currentExperience, ...expData]);
+            } else if (expData.id) {
+              // Update existing experience
+              const updated = currentExperience.map((exp) =>
+                exp.id === expData.id ? { ...exp, ...expData } : exp,
+              );
+              onUpdateExperience(updated);
+            } else {
+              // Add new experience with generated ID
+              const newExp = {
+                ...expData,
+                id: `exp-${Date.now()}`,
+              };
+              onUpdateExperience([...currentExperience, newExp]);
+            }
+          } catch {
+            // If not JSON, it might be a bullet point to add
+            console.warn('Experience value is not JSON:', value);
+          }
+          break;
+
+        case 'education':
+          try {
+            const eduData = typeof value === 'string' ? JSON.parse(value) : value;
+            const currentEducation = resumeData.education || [];
+            if (Array.isArray(eduData)) {
+              onUpdateEducation([...currentEducation, ...eduData]);
+            } else {
+              const newEdu = {
+                ...eduData,
+                id: `edu-${Date.now()}`,
+              };
+              onUpdateEducation([...currentEducation, newEdu]);
+            }
+          } catch {
+            console.warn('Education value is not JSON:', value);
+          }
+          break;
+
+        case 'skills':
+          try {
+            // Skills can be a comma-separated string or array
+            let newSkills: string[] = [];
+            if (typeof value === 'string') {
+              newSkills = value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            } else if (Array.isArray(value)) {
+              newSkills = value;
+            }
+            if (action === 'append') {
+              const existingSkills = resumeData.skills || [];
+              const combined = [...new Set([...existingSkills, ...newSkills])];
+              onUpdateSkills(combined);
+            } else {
+              onUpdateSkills(newSkills);
+            }
+          } catch {
+            console.warn('Skills value parsing error:', value);
+          }
+          break;
+
+        default:
+          console.warn('Unknown field for AI content:', field);
+      }
+    },
+    [
+      resumeData,
+      onUpdateContactInfo,
+      onUpdateSummary,
+      onUpdateExperience,
+      onUpdateEducation,
+      onUpdateSkills,
+    ],
+  );
 
   // Keyboard shortcuts
   const getSpanValue = useCallback(
@@ -548,33 +883,137 @@ export function ThreePanelEditor({
     [resumeData.projects, onUpdateProjects, selectedItemId],
   );
 
-  // Apply suggestion
-  const handleApplySuggestion = useCallback(
-    (suggestionId: string) => {
-      const suggestion = suggestions.find((s) => s.suggestionId === suggestionId);
-      if (!suggestion || !suggestion.proposedText) return;
+  // Add/Delete Achievement
+  const handleAddAchievement = useCallback(() => {
+    const newAchievement: Achievement = {
+      id: `ach-${Date.now()}`,
+      title: '',
+      description: '',
+      date: '',
+    };
+    onUpdateAchievements?.([...(resumeData.achievements || []), newAchievement]);
+    setSelectedSectionId('achievements');
+    setSelectedItemId(newAchievement.id);
+  }, [resumeData.achievements, onUpdateAchievements]);
 
-      const before = getSpanValue(suggestion.spanId);
-      if (before === null || before === suggestion.proposedText) {
-        applySuggestion(suggestionId);
+  const handleDeleteAchievement = useCallback(
+    (id: string) => {
+      onUpdateAchievements?.((resumeData.achievements || []).filter((ach) => ach.id !== id));
+      if (selectedItemId === id) {
+        setSelectedItemId(null);
+      }
+    },
+    [resumeData.achievements, onUpdateAchievements, selectedItemId],
+  );
+
+  // Add/Delete Certification
+  const handleAddCertification = useCallback(() => {
+    const newCertification: Certification = {
+      id: `cert-${Date.now()}`,
+      name: '',
+      issuer: '',
+      date: '',
+    };
+    onUpdateCertifications?.([...(resumeData.certifications || []), newCertification]);
+    setSelectedSectionId('certifications');
+    setSelectedItemId(newCertification.id);
+  }, [resumeData.certifications, onUpdateCertifications]);
+
+  const handleDeleteCertification = useCallback(
+    (id: string) => {
+      onUpdateCertifications?.((resumeData.certifications || []).filter((cert) => cert.id !== id));
+      if (selectedItemId === id) {
+        setSelectedItemId(null);
+      }
+    },
+    [resumeData.certifications, onUpdateCertifications, selectedItemId],
+  );
+
+  // Apply AI suggestion (new format)
+  const handleApplyAISuggestion = useCallback(
+    (suggestionId: string, afterText: string) => {
+      const suggestion = aiSuggestions.find((s) => s.id === suggestionId);
+      if (!suggestion) return;
+
+      const before = getSpanValue(suggestion.targetPath);
+      if (before === null || before === afterText) {
+        applyAISuggestion(suggestionId);
         return;
       }
 
-      const applied = applySpanText(suggestion.spanId, suggestion.proposedText);
+      const applied = applySpanText(suggestion.targetPath, afterText);
       if (applied) {
         pushAction(
           createApplySuggestionAction(
-            suggestion.spanId,
-            suggestion.suggestionId,
+            suggestion.targetPath,
+            suggestion.id,
             before,
-            suggestion.proposedText,
+            afterText,
             'Apply suggestion',
           ),
         );
-        applySuggestion(suggestionId);
+        applyAISuggestion(suggestionId);
       }
     },
-    [suggestions, applySuggestion, getSpanValue, applySpanText, pushAction],
+    [aiSuggestions, applyAISuggestion, getSpanValue, applySpanText, pushAction],
+  );
+
+  // Dismiss AI suggestion
+  const handleDismissAISuggestion = useCallback(
+    (suggestionId: string) => {
+      dismissAISuggestion(suggestionId);
+    },
+    [dismissAISuggestion],
+  );
+
+  // Apply AI fix (from top issues)
+  const handleApplyAIFix = useCallback((issue: ScoreResponse['topIssues'][number]) => {
+    // AI fixes are guidance, not direct replacements
+    // Try to parse the location as a spanId first
+    const parsed = parseSpanId(issue.location);
+
+    if (parsed) {
+      // It's a valid spanId - scroll to it and select the section
+      scrollToSpan(issue.location);
+      setSelectedSectionId(parsed.sectionType);
+      if (parsed.itemId) {
+        setSelectedItemId(parsed.itemId);
+      }
+    } else {
+      // It's a section name - try to map it and open AI guidance
+      const sectionMap: Record<string, string> = {
+        experience: 'experience',
+        summary: 'summary',
+        education: 'education',
+        skills: 'skills',
+        projects: 'projects',
+      };
+
+      const locationLower = issue.location.toLowerCase();
+      const sectionId = Object.keys(sectionMap).find((key) => locationLower.includes(key));
+
+      if (sectionId) {
+        setSelectedSectionId(sectionId);
+        // Open AI guidance modal for this section with the fix as context
+        setAIGuidanceSection(sectionId);
+        setAIGuidanceSectionLabel(
+          SECTION_CONFIGS[sectionId as keyof typeof SECTION_CONFIGS]?.label || sectionId,
+        );
+        setAIGuidanceOpen(true);
+      }
+    }
+  }, []);
+
+  // Legacy apply suggestion (for backward compatibility)
+  const handleApplySuggestion = useCallback(
+    (suggestionId: string) => {
+      // Map to AI suggestion if it exists
+      const aiSuggestion = aiSuggestions.find((s) => s.id === suggestionId);
+      if (aiSuggestion) {
+        handleApplyAISuggestion(suggestionId, aiSuggestion.afterText);
+      }
+    },
+    [aiSuggestions, handleApplyAISuggestion],
   );
 
   // Apply fix
@@ -595,6 +1034,7 @@ export function ThreePanelEditor({
 
   // Side rail button configuration
   const sideRailButtons: { id: SideRailPanel; label: string; icon: typeof FileText }[] = [
+    { id: 'ai-assist', label: 'AI Assist', icon: Sparkles },
     { id: 'sections', label: 'Sections', icon: LayoutList },
     { id: 'theme', label: 'Theme', icon: Palette },
     { id: 'fonts', label: 'Fonts', icon: Type },
@@ -610,6 +1050,38 @@ export function ThreePanelEditor({
   // Render expanded panel content based on active side panel
   const renderSidePanelContent = () => {
     switch (activeSidePanel) {
+      case 'ai-assist':
+        return (
+          <AIAssistPanel
+            mode={matchScore ? 'strategy' : 'active'}
+            isLoading={suggestionsLoading || scoreLoading}
+            resumeData={resumeData}
+            currentSection={selectedSectionId}
+            onSelectSection={(sectionId, focusSpanId) => {
+              setSelectedSectionId(sectionId);
+              setSelectedItemId(null);
+
+              // If we have a specific field to focus on, scroll to and highlight it
+              if (focusSpanId) {
+                // Small delay to ensure DOM is ready after state updates
+                setTimeout(() => {
+                  scrollToSpan(focusSpanId);
+                  // Focus the element so user can start typing
+                  setTimeout(() => {
+                    focusSpan(focusSpanId);
+                  }, 300);
+                }, 100);
+              } else {
+                // Just scroll to the section header
+                scrollToSpan(`${sectionId}-header`);
+              }
+            }}
+            onGetAIHelp={(sectionId) => {
+              const config = SECTION_CONFIGS[sectionId as keyof typeof SECTION_CONFIGS];
+              openAIGuidance(sectionId, config?.label || sectionId);
+            }}
+          />
+        );
       case 'sections':
         return (
           <OutlinePanel
@@ -631,6 +1103,10 @@ export function ThreePanelEditor({
             onDeleteEducation={handleDeleteEducation}
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
+            onAddAchievement={handleAddAchievement}
+            onDeleteAchievement={handleDeleteAchievement}
+            onAddCertification={handleAddCertification}
+            onDeleteCertification={handleDeleteCertification}
           />
         );
       case 'templates':
@@ -644,7 +1120,6 @@ export function ThreePanelEditor({
           <StyleTab
             templateId={templateId}
             styleConfig={styleConfig}
-            onTemplateChange={onTemplateChange}
             onStyleChange={onStyleChange}
           />
         );
@@ -678,6 +1153,8 @@ export function ThreePanelEditor({
   // Get panel title
   const getPanelTitle = () => {
     switch (activeSidePanel) {
+      case 'ai-assist':
+        return 'AI Assist';
       case 'sections':
         return 'Sections';
       case 'templates':
@@ -729,7 +1206,12 @@ export function ThreePanelEditor({
 
           {/* Expandable Panel - shows when a button is active */}
           {activeSidePanel && (
-            <div className="w-64 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+            <div
+              className={cn(
+                'bg-white border-r border-slate-200 flex flex-col overflow-hidden transition-all duration-200',
+                activeSidePanel === 'templates' ? 'w-[45vw] max-w-[600px]' : 'w-72',
+              )}
+            >
               {/* Panel header */}
               <div className="px-4 py-3 border-b border-slate-100">
                 <h2 className="font-semibold text-slate-900 text-sm">{getPanelTitle()}</h2>
@@ -776,7 +1258,7 @@ export function ThreePanelEditor({
           onZoomChange={setZoomLevel}
           sectionOrder={sectionOrder}
           enabledSections={enabledSections}
-          suggestions={coachEnabled ? suggestions : []}
+          suggestions={[]}
           coachEnabled={coachEnabled}
           onUpdateContactInfo={(field, value) =>
             onUpdateContactInfo(field as keyof ContactInfo, value)
@@ -786,35 +1268,241 @@ export function ThreePanelEditor({
           onUpdateEducation={onUpdateEducation}
           onUpdateProjects={onUpdateProjects}
           onUpdateSkills={onUpdateSkills}
+          onUpdateAchievements={onUpdateAchievements}
+          onUpdateCertifications={onUpdateCertifications}
+          selectedSectionId={selectedSectionId}
+          selectedItemId={selectedItemId}
+          missingSpanIds={missingSpanIds}
         />
 
-        {/* Right Panel - Coach (always visible) */}
-        <CoachPanel
-          score={score}
-          groupedSuggestions={groupedSuggestions}
-          topFixes={score.topFixes}
-          onApplySuggestion={handleApplySuggestion}
-          onDismissSuggestion={dismissSuggestion}
-          onApplyFix={handleApplyFix}
-          onScrollToSpan={handleScrollToSpan}
-        />
+        {/* Right Panel - Coach (hidden when templates panel is open) */}
+        {activeSidePanel !== 'templates' && (
+          <CoachPanel
+            score={score}
+            scoreLoading={scoreLoading}
+            groupedSuggestions={groupedSuggestions}
+            topFixes={score.topFixes}
+            onApplySuggestion={handleApplySuggestion}
+            onDismissSuggestion={handleDismissAISuggestion}
+            onApplyFix={handleApplyFix}
+            onScrollToSpan={handleScrollToSpan}
+            // AI props
+            aiScore={aiScore}
+            aiSuggestions={aiSuggestions}
+            matchScore={matchScore?.matchScore}
+            onApplyAISuggestion={handleApplyAISuggestion}
+            onDismissAISuggestion={handleDismissAISuggestion}
+            onApplyAIFix={handleApplyAIFix}
+            onScrollToTarget={(targetPath) => scrollToSpan(targetPath)}
+            // JD props
+            jobDescription={jobDescription}
+            onJobDescriptionChange={setJobDescription}
+            onAnalyzeJD={() => analyzeJobDescription(jobDescription)}
+            jdLoading={jdLoading}
+          />
+        )}
       </div>
 
       {/* Bottom Rail */}
-      <div className="h-10 bg-slate-50 border-t border-slate-200 flex items-center justify-between px-4 text-xs text-slate-500">
+      <div className="h-12 bg-slate-50 border-t border-slate-200 flex items-center justify-between px-4 text-xs text-slate-500">
         {/* Left side: Zoom controls */}
         <ZoomControls value={zoomLevel} onChange={setZoomLevel} />
 
-        {/* Right side: Score and status */}
-        <div className="flex items-center gap-4">
-          <span>
-            Score: <strong className="text-slate-700">{score.overallScore}</strong>/100
-          </span>
-          <span>
-            {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
-          </span>
+        {/* Center: Quick design controls */}
+        <div className="flex items-center gap-2">
+          {/* Template Quick Switcher */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs',
+                  'bg-white border border-slate-200 hover:border-slate-300',
+                  'text-slate-600 hover:text-slate-900 transition-colors',
+                )}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>{TEMPLATE_METADATA[templateId]?.name || 'Template'}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="center">
+              <div className="text-xs font-medium text-slate-700 mb-2 px-1">Template</div>
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.keys(TEMPLATE_METADATA) as (keyof typeof TEMPLATE_METADATA)[]).map(
+                  (id) => (
+                    <button
+                      key={id}
+                      onClick={() => onTemplateChange(id)}
+                      className={cn(
+                        'px-2 py-1.5 rounded text-xs text-center transition-colors',
+                        templateId === id
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100',
+                      )}
+                    >
+                      {TEMPLATE_METADATA[id].name}
+                    </button>
+                  ),
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Color Quick Switcher */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs',
+                  'bg-white border border-slate-200 hover:border-slate-300',
+                  'text-slate-600 hover:text-slate-900 transition-colors',
+                )}
+              >
+                <div
+                  className="h-3.5 w-3.5 rounded-full border border-slate-200"
+                  style={{ backgroundColor: styleConfig.accent_color }}
+                />
+                <span>Color</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="center">
+              <div className="text-xs font-medium text-slate-700 mb-2 px-1">Accent Color</div>
+              <div className="flex flex-wrap gap-1.5">
+                {ACCENT_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    onClick={() => onStyleChange({ accent_color: color.value })}
+                    className={cn(
+                      'h-7 w-7 rounded-full border-2 transition-transform hover:scale-110',
+                      styleConfig.accent_color === color.value
+                        ? 'border-slate-900 ring-2 ring-primary-200'
+                        : 'border-transparent',
+                    )}
+                    style={{ backgroundColor: color.value }}
+                    title={color.label}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Font Quick Switcher */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs',
+                  'bg-white border border-slate-200 hover:border-slate-300',
+                  'text-slate-600 hover:text-slate-900 transition-colors',
+                )}
+              >
+                <Type className="h-3.5 w-3.5" />
+                <span>{FONT_PAIRINGS[styleConfig.font_pairing]?.label || 'Font'}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2 max-h-80 overflow-y-auto" align="center">
+              <div className="text-xs font-medium text-slate-700 mb-2 px-1">Font Style</div>
+              <div className="space-y-3">
+                {(['professional', 'modern', 'creative', 'classic'] as const).map((category) => {
+                  const fonts = getFontPairingsByCategory()[category];
+                  return (
+                    <div key={category}>
+                      <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider px-1 mb-1">
+                        {FONT_CATEGORIES[category].label}
+                      </div>
+                      <div className="space-y-0.5">
+                        {fonts.map(({ id, pairing }) => (
+                          <button
+                            key={id}
+                            onClick={() => onStyleChange({ font_pairing: id })}
+                            className={cn(
+                              'w-full px-2 py-1.5 rounded text-xs text-left transition-colors',
+                              styleConfig.font_pairing === id
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'text-slate-600 hover:bg-slate-100',
+                            )}
+                          >
+                            <div className="font-medium" style={{ fontFamily: pairing.heading }}>
+                              {pairing.label}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Right side: Score and suggestions */}
+        <div className="flex items-center gap-3">
+          {scoreLoading ? (
+            <span className="animate-pulse flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary-400" />
+              Analyzing...
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  'font-semibold',
+                  effectiveScore.overallScore >= 80
+                    ? 'text-green-600'
+                    : effectiveScore.overallScore >= 60
+                      ? 'text-amber-600'
+                      : 'text-red-500',
+                )}
+              >
+                {effectiveScore.overallScore}
+              </span>
+              <span className="text-slate-400">/100</span>
+            </span>
+          )}
+
+          {aiSuggestions.length > 0 && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <Lightbulb className="h-3.5 w-3.5" />
+              {aiSuggestions.length}
+            </span>
+          )}
+
+          {matchScore && (
+            <span
+              className={cn(
+                'flex items-center gap-1',
+                matchScore.matchScore >= 80
+                  ? 'text-green-600'
+                  : matchScore.matchScore >= 60
+                    ? 'text-amber-600'
+                    : 'text-red-500',
+              )}
+            >
+              <span className="font-medium">{matchScore.matchScore}%</span>
+              <span className="text-slate-400">match</span>
+            </span>
+          )}
         </div>
       </div>
+
+      {/* AI Guidance Modal */}
+      <AIGuidanceModal
+        open={aiGuidanceOpen}
+        onClose={() => setAIGuidanceOpen(false)}
+        section={aiGuidanceSection}
+        sectionLabel={aiGuidanceSectionLabel}
+        currentResumeData={resumeData}
+        onApplyContent={handleAIApplyContent}
+      />
     </div>
+  );
+}
+
+// Main export - wraps inner component with AI provider
+export function ThreePanelEditor(props: ThreePanelEditorProps) {
+  return (
+    <ResumeAIProvider resumeData={props.resumeData} enabled={true}>
+      <ThreePanelEditorInner {...props} />
+    </ResumeAIProvider>
   );
 }

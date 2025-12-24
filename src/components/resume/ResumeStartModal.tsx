@@ -74,12 +74,17 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
           const { data: parsedData } = await parseResponse.json();
 
           // Convert parsed data to resume format
+          // Ensure all contactInfo fields are present per ResumeData type
           setUploadedContent({
-            contactInfo: parsedData.personalInfo || {
+            contactInfo: {
               name: '',
               email: '',
               phone: '',
               location: '',
+              linkedin: '',
+              github: '',
+              website: '',
+              ...parsedData.personalInfo,
             },
             summary: parsedData.summary || '',
             skills: parsedData.skills || [],

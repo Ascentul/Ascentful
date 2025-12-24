@@ -25,10 +25,11 @@ const VALID_SECTION_TYPES = new Set<SectionType>([
  * Format: "{sectionType}-{itemId}-{field}-{lineIndex}"
  *
  * Examples:
- * - "summary-text" (summary section, main text)
- * - "experience-exp-1-description-0" (first bullet of experience with id "exp-1")
- * - "contact-name" (contact section, name field)
- * - "skills-0" (first skill chip)
+ * - "summary-text" (summary section, main text - 2 parts: section-field)
+ * - "contact-name" (contact section, name field - 2 parts: section-field)
+ * - "skills-list-0" (first skill chip - 3 parts: section-field-lineIndex)
+ * - "experience-exp-1-title" (experience title - 3 parts: section-itemId-field)
+ * - "experience-exp-1-description-0" (first bullet - 4 parts: section-itemId-field-lineIndex)
  */
 export function generateSpanId(params: {
   sectionType: SectionType;
@@ -85,7 +86,7 @@ export function parseSpanId(spanId: string): {
 
   if (hasLineIndex) {
     if (parts.length === 3) {
-      // section-field-lineIndex (e.g., "skills-0")
+      // section-field-lineIndex (e.g., "skills-list-0")
       return {
         sectionType,
         field: parts[1],

@@ -9,6 +9,7 @@ import type { TemplateTheme } from '../templates/types';
 
 interface LivePreviewProps {
   data: ResumeData;
+  // TODO: Use templateId to switch between different resume templates
   templateId: string;
   theme: TemplateTheme;
   className?: string;

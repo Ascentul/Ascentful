@@ -68,6 +68,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
         className="h-6 w-6 text-slate-500 hover:text-slate-700 hover:bg-slate-200"
         onClick={handleZoomOut}
         disabled={value <= MIN_ZOOM}
+        aria-label="Zoom out"
       >
         <Minus className="h-3.5 w-3.5" />
       </Button>
@@ -94,6 +95,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
         className="h-6 w-6 text-slate-500 hover:text-slate-700 hover:bg-slate-200"
         onClick={handleZoomIn}
         disabled={value >= MAX_ZOOM}
+        aria-label="Zoom in"
       >
         <Plus className="h-3.5 w-3.5" />
       </Button>

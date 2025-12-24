@@ -10,6 +10,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
+  Achievement,
+  Certification,
   ContactInfo,
   Education,
   Experience,
@@ -46,6 +48,7 @@ export default function ResumeBuilderPage() {
     education: [],
     projects: [],
     achievements: [],
+    certifications: [],
   });
   const [templateId, setTemplateId] = useState<TemplateId>('modern');
   const [styleConfig, setStyleConfig] = useState<StyleConfig>(DEFAULT_STYLE_CONFIG);
@@ -107,6 +110,7 @@ export default function ResumeBuilderPage() {
         education: content.education || [],
         projects: content.projects || [],
         achievements: content.achievements || [],
+        certifications: content.certifications || [],
       });
       setTitle(resume.title || 'My Resume');
       setTemplateId(resume.template_id || 'modern');
@@ -136,6 +140,7 @@ export default function ResumeBuilderPage() {
           education: resumeData.education,
           projects: resumeData.projects,
           achievements: resumeData.achievements,
+          certifications: resumeData.certifications,
         },
         styleConfig,
         sectionsConfig: {
@@ -226,6 +231,16 @@ export default function ResumeBuilderPage() {
     markDirty();
   };
 
+  const handleUpdateAchievements = (achievements: Achievement[]) => {
+    setResumeData((prev) => ({ ...prev, achievements }));
+    markDirty();
+  };
+
+  const handleUpdateCertifications = (certifications: Certification[]) => {
+    setResumeData((prev) => ({ ...prev, certifications }));
+    markDirty();
+  };
+
   const handleSetSectionOrder = (newOrder: string[]) => {
     setSectionOrder(newOrder);
     markDirty();
@@ -278,6 +293,7 @@ export default function ResumeBuilderPage() {
             education: resumeData.education,
             projects: resumeData.projects,
             achievements: resumeData.achievements,
+            certifications: resumeData.certifications,
           },
           visibility: 'private',
           source: 'manual',
@@ -343,6 +359,8 @@ export default function ResumeBuilderPage() {
       onUpdateEducation={handleUpdateEducation}
       onUpdateProjects={handleUpdateProjects}
       onUpdateSkills={handleUpdateSkills}
+      onUpdateAchievements={handleUpdateAchievements}
+      onUpdateCertifications={handleUpdateCertifications}
       onSetSectionOrder={handleSetSectionOrder}
       onToggleSection={handleToggleSection}
       onTemplateChange={handleTemplateChange}

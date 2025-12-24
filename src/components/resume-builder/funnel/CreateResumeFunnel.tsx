@@ -13,11 +13,13 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { useToast } from '@/hooks/use-toast';
 
 import { FunnelProgress } from './FunnelProgress';
-import { IntentStep } from './IntentStep';
+import { QuickWinsPreviewStep } from './QuickWinsPreviewStep';
+import type { RoleTargetingData } from './RoleTargetingStep';
+import { RoleTargetingStep } from './RoleTargetingStep';
 import { SectionsStep } from './SectionsStep';
 import { TemplateStep } from './TemplateStep';
-import type { FunnelData, ResumeIntent, SectionId, TemplateId } from './types';
-import { DEFAULT_ENABLED_SECTIONS, DEFAULT_SECTION_ORDER } from './types';
+import type { FunnelData, SectionId, TemplateId } from './types';
+import { DEFAULT_ENABLED_SECTIONS, DEFAULT_ROLE_TARGETING, DEFAULT_SECTION_ORDER } from './types';
 
 interface CreateResumeFunnelProps {
   open: boolean;
@@ -26,7 +28,8 @@ interface CreateResumeFunnelProps {
   uploadedContent?: ResumeData | null;
 }
 
-const TOTAL_STEPS = 3;
+// Step indices: 0=RoleTargeting, 1=QuickWins (profile/upload only), 2=Template, 3=Sections
+// For blank resumes, QuickWins is skipped, so it becomes: 0=RoleTargeting, 1=Template, 2=Sections
 
 export function CreateResumeFunnel({
   open,
@@ -42,10 +45,15 @@ export function CreateResumeFunnel({
   const [currentStep, setCurrentStep] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Determine total steps based on source (blank skips QuickWins)
+  const hasQuickWinsStep = startSource !== 'blank';
+  const TOTAL_STEPS = hasQuickWinsStep ? 4 : 3;
+
   // Funnel state
   const [funnelData, setFunnelData] = useState<FunnelData>({
     startSource,
     intent: null,
+    roleTargeting: DEFAULT_ROLE_TARGETING,
     templateId: null,
     enabledSections: DEFAULT_ENABLED_SECTIONS,
     sectionOrder: DEFAULT_SECTION_ORDER,
@@ -70,6 +78,85 @@ export function CreateResumeFunnel({
       hasAchievements: (profileData.achievements_history?.length ?? 0) > 0,
     };
   }, [profileData]);
+
+  // Shared helper to map profile data to resume format
+  const mapProfileToResumeData = useCallback(
+    (profile: typeof profileData): ResumeData => {
+      if (!profile) {
+        // Blank resume with Clerk user info
+        return {
+          contactInfo: {
+            name: clerkUser?.fullName || '',
+            email: clerkUser?.primaryEmailAddress?.emailAddress || '',
+            phone: '',
+            location: '',
+            linkedin: '',
+            github: '',
+            website: '',
+          },
+          summary: '',
+          skills: [],
+          experience: [],
+          education: [],
+          projects: [],
+          achievements: [],
+        };
+      }
+
+      return {
+        contactInfo: {
+          name: profile.name || '',
+          email: profile.email || '',
+          phone: profile.phone || '',
+          location: profile.location || '',
+          linkedin: profile.linkedin || '',
+          github: profile.github || '',
+          website: profile.website || '',
+        },
+        summary: profile.bio || '',
+        skills: profile.skills
+          ? profile.skills
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [],
+        experience: (profile.work_history || []).map((job, index: number) => ({
+          id: `exp-${index}`,
+          title: job.role || '',
+          company: job.company || '',
+          location: job.location || '',
+          startDate: job.start_date || '',
+          endDate: job.is_current ? 'Present' : job.end_date || '',
+          current: job.is_current || false,
+          description: job.summary || '',
+        })),
+        education: (profile.education_history || []).map((edu, index: number) => ({
+          id: `edu-${index}`,
+          school: edu.school || '',
+          degree: edu.degree || '',
+          field: edu.field_of_study || '',
+          location: '',
+          startYear: edu.start_year || '',
+          endYear: edu.is_current ? 'Present' : edu.end_year || '',
+        })),
+        projects: (profile.projects || []).map((proj, index: number) => ({
+          id: `proj-${index}`,
+          name: proj.title || '',
+          role: proj.role || '',
+          description: proj.description || '',
+          technologies: (proj.technologies || []).join(', '),
+          url: proj.url || '',
+        })),
+        achievements: (profile.achievements_history || []).map((ach, index: number) => ({
+          id: `ach-${index}`,
+          title: ach.title || '',
+          description: ach.description || '',
+          date: ach.date || '',
+        })),
+      };
+    },
+    [clerkUser],
+  );
 
   // Auto-enable sections that have data when source is profile
   const getInitialEnabledSections = useCallback((): SectionId[] => {
@@ -96,8 +183,8 @@ export function CreateResumeFunnel({
     }
   }, [startSource, profileSectionData, getInitialEnabledSections]);
 
-  const handleIntentChange = (intent: ResumeIntent) => {
-    setFunnelData((prev) => ({ ...prev, intent }));
+  const handleRoleTargetingChange = (roleTargeting: RoleTargetingData) => {
+    setFunnelData((prev) => ({ ...prev, roleTargeting }));
   };
 
   const handleTemplateChange = (templateId: TemplateId) => {
@@ -113,13 +200,49 @@ export function CreateResumeFunnel({
     }));
   };
 
+  // Map logical step to actual step based on whether QuickWins is shown
+  const getStepType = (step: number): 'roleTargeting' | 'quickWins' | 'template' | 'sections' => {
+    if (hasQuickWinsStep) {
+      // Flow: RoleTargeting(0) → QuickWins(1) → Template(2) → Sections(3)
+      switch (step) {
+        case 0:
+          return 'roleTargeting';
+        case 1:
+          return 'quickWins';
+        case 2:
+          return 'template';
+        case 3:
+          return 'sections';
+        default:
+          return 'roleTargeting';
+      }
+    } else {
+      // Blank flow: RoleTargeting(0) → Template(1) → Sections(2)
+      switch (step) {
+        case 0:
+          return 'roleTargeting';
+        case 1:
+          return 'template';
+        case 2:
+          return 'sections';
+        default:
+          return 'roleTargeting';
+      }
+    }
+  };
+
   const canProceed = (): boolean => {
-    switch (currentStep) {
-      case 0:
-        return funnelData.intent !== null;
-      case 1:
+    const stepType = getStepType(currentStep);
+    switch (stepType) {
+      case 'roleTargeting':
+        // Role targeting is always optional - user can proceed without filling anything
+        return true;
+      case 'quickWins':
+        // Always can proceed from quick wins preview
+        return true;
+      case 'template':
         return funnelData.templateId !== null;
-      case 2:
+      case 'sections':
         return funnelData.enabledSections.length > 0;
       default:
         return false;
@@ -143,84 +266,15 @@ export function CreateResumeFunnel({
     if (startSource === 'upload' && uploadedContent) {
       return uploadedContent;
     }
-
     if (startSource === 'profile' && profileData) {
-      // Map profile data to resume format
-      return {
-        contactInfo: {
-          name: profileData.name || '',
-          email: profileData.email || '',
-          phone: profileData.phone || '',
-          location: profileData.location || '',
-          linkedin: profileData.linkedin || '',
-          github: profileData.github || '',
-          website: profileData.website || '',
-        },
-        summary: profileData.bio || '',
-        skills: profileData.skills
-          ? profileData.skills
-              .split(',')
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-          : [],
-        experience: (profileData.work_history || []).map((job, index: number) => ({
-          id: `exp-${index}`,
-          title: job.role || '',
-          company: job.company || '',
-          location: job.location || '',
-          startDate: job.start_date || '',
-          endDate: job.is_current ? 'Present' : job.end_date || '',
-          current: job.is_current || false,
-          description: job.summary || '',
-        })),
-        education: (profileData.education_history || []).map((edu, index: number) => ({
-          id: `edu-${index}`,
-          school: edu.school || '',
-          degree: edu.degree || '',
-          field: edu.field_of_study || '',
-          location: '',
-          startYear: edu.start_year || '',
-          endYear: edu.is_current ? 'Present' : edu.end_year || '',
-        })),
-        projects: (profileData.projects || []).map((proj, index: number) => ({
-          id: `proj-${index}`,
-          name: proj.title || '',
-          role: proj.role || '',
-          description: proj.description || '',
-          technologies: (proj.technologies || []).join(', '),
-          url: proj.url || '',
-        })),
-        achievements: (profileData.achievements_history || []).map((ach, index: number) => ({
-          id: `ach-${index}`,
-          title: ach.title || '',
-          description: ach.description || '',
-          date: ach.date || '',
-        })),
-      };
+      return mapProfileToResumeData(profileData);
     }
-
     // Blank resume
-    return {
-      contactInfo: {
-        name: clerkUser?.fullName || '',
-        email: clerkUser?.primaryEmailAddress?.emailAddress || '',
-        phone: '',
-        location: '',
-        linkedin: '',
-        github: '',
-        website: '',
-      },
-      summary: '',
-      skills: [],
-      experience: [],
-      education: [],
-      projects: [],
-      achievements: [],
-    };
+    return mapProfileToResumeData(null);
   };
 
   const handleCreate = async () => {
-    if (!clerkId || !funnelData.intent || !funnelData.templateId) return;
+    if (!clerkId || !funnelData.templateId) return;
 
     setIsCreating(true);
 
@@ -230,7 +284,7 @@ export function CreateResumeFunnel({
       const resumeId = await createResumeMutation({
         clerkId,
         title: 'My Resume',
-        intent: funnelData.intent,
+        intent: funnelData.intent || 'fulltime', // Default to fulltime if not set
         startSource: funnelData.startSource,
         templateId: funnelData.templateId,
         enabledSections: funnelData.enabledSections,
@@ -264,13 +318,38 @@ export function CreateResumeFunnel({
     }
   };
 
+  // Build resume content for preview (uses shared helper to ensure parity with buildResumeContent)
+  const previewContent = useMemo(() => {
+    if (startSource === 'upload' && uploadedContent) {
+      return uploadedContent;
+    }
+    if (startSource === 'profile' && profileData) {
+      return mapProfileToResumeData(profileData);
+    }
+    return null;
+  }, [startSource, uploadedContent, profileData, mapProfileToResumeData]);
+
   const renderStep = () => {
-    switch (currentStep) {
-      case 0:
-        return <IntentStep value={funnelData.intent} onChange={handleIntentChange} />;
-      case 1:
+    const stepType = getStepType(currentStep);
+    switch (stepType) {
+      case 'roleTargeting':
+        return (
+          <RoleTargetingStep
+            value={funnelData.roleTargeting}
+            onChange={handleRoleTargetingChange}
+          />
+        );
+      case 'quickWins':
+        return (
+          <QuickWinsPreviewStep
+            resumeContent={previewContent}
+            startSource={startSource}
+            jobDescription={funnelData.roleTargeting.jobDescription}
+          />
+        );
+      case 'template':
         return <TemplateStep value={funnelData.templateId} onChange={handleTemplateChange} />;
-      case 2:
+      case 'sections':
         return (
           <SectionsStep
             enabledSections={funnelData.enabledSections}
@@ -289,6 +368,7 @@ export function CreateResumeFunnel({
     setFunnelData({
       startSource,
       intent: null,
+      roleTargeting: DEFAULT_ROLE_TARGETING,
       templateId: null,
       enabledSections: DEFAULT_ENABLED_SECTIONS,
       sectionOrder: DEFAULT_SECTION_ORDER,

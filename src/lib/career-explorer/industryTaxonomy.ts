@@ -1420,8 +1420,20 @@ export const INDUSTRIES: Record<Industry, IndustryConfig> = {
  */
 export function detectIndustryFromRole(role: string): Industry {
   const roleLower = role.toLowerCase();
-  const techRoleRegex =
-    /software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack|product manager|ux|ui|web developer|mobile developer|cloud|infrastructure|platform|api|data engineer|data scientist|data analyst|machine learning|ml engineer|ai engineer|security engineer|qa engineer|test engineer|site reliability/i;
+
+  // Technology role keywords organized by category for maintainability
+  const engineeringKeywords =
+    'software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack';
+  const dataKeywords =
+    'data engineer|data scientist|data analyst|machine learning|ml engineer|ai engineer';
+  const productDesignKeywords = 'product manager|ux|ui|web developer|mobile developer';
+  const infrastructureKeywords =
+    'cloud|infrastructure|platform|api|site reliability|security engineer|qa engineer|test engineer';
+
+  const techRoleRegex = new RegExp(
+    `${engineeringKeywords}|${dataKeywords}|${productDesignKeywords}|${infrastructureKeywords}`,
+    'i',
+  );
 
   // Technology keywords - CHECK FIRST as these are most common and specific
   if (techRoleRegex.test(roleLower)) {

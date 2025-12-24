@@ -73,7 +73,10 @@ Respond with ONLY the summary text, no quotes or additional formatting.`,
 
     return NextResponse.json({ summary });
   } catch (error) {
-    console.error('Error generating summary:', error);
+    console.error(
+      'Error generating summary:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return NextResponse.json({ error: 'Failed to generate summary' }, { status: 500 });
   }
 }

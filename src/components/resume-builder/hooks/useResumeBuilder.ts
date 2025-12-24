@@ -50,6 +50,18 @@ const createEmptyResumeData = (): ResumeData => ({
   achievements: [],
 });
 
+// Helper for deep merging resumeData with proper contactInfo handling
+function mergeResumeData(base: ResumeData, partial?: Partial<ResumeData>): ResumeData {
+  return {
+    ...base,
+    ...partial,
+    contactInfo: {
+      ...base.contactInfo,
+      ...partial?.contactInfo,
+    },
+  };
+}
+
 const initialState: ResumeBuilderState = {
   mode: 'edit',
   currentStep: 0,
@@ -66,14 +78,7 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
   const [state, setState] = useState<ResumeBuilderState>({
     ...initialState,
     ...existingData,
-    resumeData: {
-      ...emptyResumeData,
-      ...existingData?.resumeData,
-      contactInfo: {
-        ...emptyResumeData.contactInfo,
-        ...existingData?.resumeData?.contactInfo,
-      },
-    },
+    resumeData: mergeResumeData(emptyResumeData, existingData?.resumeData),
   });
 
   // Mode toggle
@@ -342,18 +347,11 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
 
   // Load existing resume data
   const loadResumeData = useCallback((data: Partial<ResumeBuilderState>) => {
-    const emptyResumeData = createEmptyResumeData();
+    const emptyData = createEmptyResumeData();
     setState((prev) => ({
       ...prev,
       ...data,
-      resumeData: {
-        ...emptyResumeData,
-        ...data.resumeData,
-        contactInfo: {
-          ...emptyResumeData.contactInfo,
-          ...data.resumeData?.contactInfo,
-        },
-      },
+      resumeData: mergeResumeData(emptyData, data.resumeData),
       isDirty: false,
     }));
   }, []);

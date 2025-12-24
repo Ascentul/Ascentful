@@ -16,9 +16,23 @@ export type SectionId =
   | 'skills'
   | 'achievements';
 
+export interface RoleTargetingData {
+  targetRole: string;
+  alternateRoles?: string;
+  jobDescription?: string;
+}
+
+export const DEFAULT_ROLE_TARGETING: RoleTargetingData = {
+  targetRole: '',
+  alternateRoles: undefined,
+  jobDescription: undefined,
+};
+
 export interface FunnelData {
   startSource: ResumeStartSource;
   intent: ResumeIntent | null;
+  // Role targeting info (step after intent)
+  roleTargeting: RoleTargetingData;
   templateId: TemplateId | null;
   enabledSections: SectionId[];
   sectionOrder: SectionId[];

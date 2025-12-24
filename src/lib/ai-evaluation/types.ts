@@ -409,9 +409,12 @@ export interface EvaluationConfig {
 
 /**
  * Default evaluation configuration
+ *
+ * Note: evaluator_model uses gpt-4o-mini as placeholder.
+ * Will upgrade to gpt-5.2-mini when available for faster, cheaper evaluation.
  */
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
-  evaluator_model: 'gpt-4o-mini',
+  evaluator_model: 'gpt-4o-mini', // TODO: Upgrade to 'gpt-5.2-mini' when available
   temperature: 0.1, // Deterministic
   enabled: true,
   log_all: true,

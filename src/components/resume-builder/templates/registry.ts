@@ -43,22 +43,7 @@ export const TEMPLATE_COMPONENTS: Record<
 export function getTemplateComponent(
   templateId: TemplateId,
 ): React.ComponentType<TemplateComponentProps> {
-  switch (templateId) {
-    case 'clean':
-      return CleanTemplate;
-    case 'modern':
-      return ModernTemplate;
-    case 'bold':
-      return BoldTemplate;
-    case 'minimal':
-      return MinimalTemplate;
-    case 'classic':
-      return ClassicTemplate;
-    case 'ats':
-      return ExecutiveTemplate;
-    default:
-      return CleanTemplate;
-  }
+  return TEMPLATE_COMPONENTS[templateId] ?? CleanTemplate;
 }
 
 /**

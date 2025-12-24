@@ -8,6 +8,21 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+// Map section labels to their singular forms for the "Add" button
+const SINGULAR_LABELS: Record<string, string> = {
+  Experience: 'experience',
+  Education: 'education',
+  Projects: 'project',
+  Skills: 'skill',
+  Achievements: 'achievement',
+  Certifications: 'certification',
+  Summary: 'summary',
+};
+
+function getSingularLabel(label: string): string {
+  return SINGULAR_LABELS[label] ?? label.replace(/s$/, '').toLowerCase();
+}
+
 export interface SectionItem {
   id: string;
   label: string;
@@ -25,6 +40,9 @@ interface SectionOutlineItemProps {
   onSelectItem?: (itemId: string) => void;
   onAddItem?: () => void;
   onDeleteItem?: (itemId: string) => void;
+  // Controlled expand state (lifted to parent for accordion behavior)
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export function SectionOutlineItem({
@@ -37,12 +55,17 @@ export function SectionOutlineItem({
   onSelectItem,
   onAddItem,
   onDeleteItem,
+  isExpanded: controlledIsExpanded,
+  onToggleExpand,
 }: SectionOutlineItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: sectionId,
   });
 
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Use controlled state if provided, otherwise fall back to local state
+  const [localIsExpanded, setLocalIsExpanded] = useState(false);
+  const isExpanded = controlledIsExpanded !== undefined ? controlledIsExpanded : localIsExpanded;
+
   const hasItems = items && items.length > 0;
   const canExpand = hasItems || onAddItem;
 
@@ -54,7 +77,11 @@ export function SectionOutlineItem({
   const handleToggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (canExpand) {
-      setIsExpanded(!isExpanded);
+      if (onToggleExpand) {
+        onToggleExpand();
+      } else {
+        setLocalIsExpanded(!localIsExpanded);
+      }
     }
   };
 
@@ -128,7 +155,7 @@ export function SectionOutlineItem({
 
       {/* Nested items */}
       {canExpand && isExpanded && (
-        <div className="ml-6 mt-1 space-y-0.5">
+        <div className="ml-6 mt-1 mb-2 space-y-1">
           {/* Existing items */}
           {items?.map((item) => (
             <div
@@ -179,14 +206,14 @@ export function SectionOutlineItem({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start gap-1.5 h-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              className="w-full justify-start gap-1.5 h-8 text-primary-600 hover:text-primary-700 hover:bg-primary-50"
               onClick={(e) => {
                 e.stopPropagation();
                 onAddItem();
               }}
             >
               <Plus className="h-3.5 w-3.5" />
-              <span className="text-xs">Add {label.replace(/s$/, '').toLowerCase()}</span>
+              <span className="text-xs font-medium">Add {getSingularLabel(label)}</span>
             </Button>
           )}
         </div>

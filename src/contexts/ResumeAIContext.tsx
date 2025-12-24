@@ -1,0 +1,701 @@
+'use client';
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
+
+import type { ResumeData } from '@/components/resume/ResumeDocument';
+import {
+  useAISuggestions,
+  useJDAnalysis,
+  useMatchScore,
+  useRewrite,
+  useScore,
+} from '@/hooks/useAI';
+import type {
+  JDAnalysisResponse,
+  MatchScoreResponse,
+  ScoreResponse,
+  Suggestion,
+} from '@/lib/ai/schemas';
+import { calculateEnhancedScore } from '@/lib/resume-score';
+import type {
+  GroupedSuggestions,
+  ResumeScore,
+  Suggestion as LegacySuggestion,
+  TopFix,
+} from '@/types/resume-editor';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export type AIAssistMode = 'onboarding' | 'active' | 'strategy';
+
+interface ResumeAIState {
+  // AI Score
+  aiScore: ScoreResponse | null;
+  scoreLoading: boolean;
+  scoreError: string | null;
+
+  // AI Suggestions
+  aiSuggestions: Suggestion[];
+  suggestionsLoading: boolean;
+  suggestionsError: string | null;
+  dismissedSuggestionIds: Set<string>;
+
+  // JD Analysis
+  jobDescription: string;
+  jdAnalysis: JDAnalysisResponse | null;
+  jdLoading: boolean;
+  jdError: string | null;
+
+  // Match Score
+  matchScore: MatchScoreResponse | null;
+  matchLoading: boolean;
+  matchError: string | null;
+
+  // AI Assist Panel Mode
+  assistMode: AIAssistMode;
+
+  // Inline toolbar state
+  inlineToolbarTarget: {
+    spanId: string;
+    bulletText: string;
+    position: { x: number; y: number };
+  } | null;
+
+  // Fallback mode (when AI fails)
+  usingFallback: boolean;
+}
+
+type ResumeAIAction =
+  | { type: 'SET_SCORE'; payload: ScoreResponse | null }
+  | { type: 'SET_SCORE_LOADING'; payload: boolean }
+  | { type: 'SET_SCORE_ERROR'; payload: string | null }
+  | { type: 'SET_SUGGESTIONS'; payload: Suggestion[] }
+  | { type: 'SET_SUGGESTIONS_LOADING'; payload: boolean }
+  | { type: 'SET_SUGGESTIONS_ERROR'; payload: string | null }
+  | { type: 'DISMISS_SUGGESTION'; payload: string }
+  | { type: 'APPLY_SUGGESTION'; payload: string }
+  | { type: 'RESET_DISMISSED_SUGGESTIONS' }
+  | { type: 'SET_JD'; payload: string }
+  | { type: 'SET_JD_ANALYSIS'; payload: JDAnalysisResponse | null }
+  | { type: 'SET_JD_LOADING'; payload: boolean }
+  | { type: 'SET_JD_ERROR'; payload: string | null }
+  | { type: 'SET_MATCH_SCORE'; payload: MatchScoreResponse | null }
+  | { type: 'SET_MATCH_LOADING'; payload: boolean }
+  | { type: 'SET_MATCH_ERROR'; payload: string | null }
+  | { type: 'SET_ASSIST_MODE'; payload: AIAssistMode }
+  | { type: 'SHOW_INLINE_TOOLBAR'; payload: ResumeAIState['inlineToolbarTarget'] }
+  | { type: 'HIDE_INLINE_TOOLBAR' }
+  | { type: 'SET_USING_FALLBACK'; payload: boolean };
+
+interface ResumeAIContextValue extends ResumeAIState {
+  // Resume data reference
+  resumeData: ResumeData | null;
+
+  // Computed score (AI or fallback) - UI-friendly format
+  effectiveScore: {
+    overallScore: number;
+    subscores: Array<{ label: string; score: number; color: string }>;
+    topFixes: Array<{ id: string; label: string; suggestionIds: string[] }>;
+    quickWins: string[];
+  };
+
+  // Legacy-compatible score and suggestions (for existing components)
+  legacyScore: ResumeScore;
+  legacyGroupedSuggestions: GroupedSuggestions;
+
+  // Actions
+  refreshScore: () => Promise<void>;
+  refreshSuggestions: () => Promise<void>;
+  setJobDescription: (jd: string) => void;
+  analyzeJobDescription: (jd: string) => Promise<void>;
+  refreshMatchScore: () => Promise<void>;
+  dismissSuggestion: (id: string) => void;
+  applySuggestion: (id: string) => void;
+  setAssistMode: (mode: AIAssistMode) => void;
+  showInlineToolbar: (target: ResumeAIState['inlineToolbarTarget']) => void;
+  hideInlineToolbar: () => void;
+  rewriteBullet: (
+    bullet: string,
+    options?: {
+      emphasis?: 'impact' | 'leadership' | 'technical' | 'efficiency';
+      targetKeywords?: string[];
+    },
+  ) => Promise<{ rewrittenBullet: string } | null>;
+
+  // Loading states
+  isAnyLoading: boolean;
+}
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
+
+const initialState: ResumeAIState = {
+  aiScore: null,
+  scoreLoading: false,
+  scoreError: null,
+  aiSuggestions: [],
+  suggestionsLoading: false,
+  suggestionsError: null,
+  dismissedSuggestionIds: new Set(),
+  jobDescription: '',
+  jdAnalysis: null,
+  jdLoading: false,
+  jdError: null,
+  matchScore: null,
+  matchLoading: false,
+  matchError: null,
+  assistMode: 'active',
+  inlineToolbarTarget: null,
+  usingFallback: false,
+};
+
+// ============================================================================
+// REDUCER
+// ============================================================================
+
+function resumeAIReducer(state: ResumeAIState, action: ResumeAIAction): ResumeAIState {
+  switch (action.type) {
+    case 'SET_SCORE':
+      return { ...state, aiScore: action.payload };
+    case 'SET_SCORE_LOADING':
+      return { ...state, scoreLoading: action.payload };
+    case 'SET_SCORE_ERROR':
+      return { ...state, scoreError: action.payload };
+    case 'SET_SUGGESTIONS':
+      return { ...state, aiSuggestions: action.payload };
+    case 'SET_SUGGESTIONS_LOADING':
+      return { ...state, suggestionsLoading: action.payload };
+    case 'SET_SUGGESTIONS_ERROR':
+      return { ...state, suggestionsError: action.payload };
+    case 'DISMISS_SUGGESTION':
+      return {
+        ...state,
+        dismissedSuggestionIds: new Set([...state.dismissedSuggestionIds, action.payload]),
+      };
+    case 'APPLY_SUGGESTION':
+      return {
+        ...state,
+        dismissedSuggestionIds: new Set([...state.dismissedSuggestionIds, action.payload]),
+        aiSuggestions: state.aiSuggestions.filter((s) => s.id !== action.payload),
+      };
+    case 'RESET_DISMISSED_SUGGESTIONS':
+      return { ...state, dismissedSuggestionIds: new Set() };
+    case 'SET_JD':
+      return { ...state, jobDescription: action.payload };
+    case 'SET_JD_ANALYSIS':
+      return { ...state, jdAnalysis: action.payload };
+    case 'SET_JD_LOADING':
+      return { ...state, jdLoading: action.payload };
+    case 'SET_JD_ERROR':
+      return { ...state, jdError: action.payload };
+    case 'SET_MATCH_SCORE':
+      return { ...state, matchScore: action.payload };
+    case 'SET_MATCH_LOADING':
+      return { ...state, matchLoading: action.payload };
+    case 'SET_MATCH_ERROR':
+      return { ...state, matchError: action.payload };
+    case 'SET_ASSIST_MODE':
+      return { ...state, assistMode: action.payload };
+    case 'SHOW_INLINE_TOOLBAR':
+      return { ...state, inlineToolbarTarget: action.payload };
+    case 'HIDE_INLINE_TOOLBAR':
+      return { ...state, inlineToolbarTarget: null };
+    case 'SET_USING_FALLBACK':
+      return { ...state, usingFallback: action.payload };
+    default:
+      return state;
+  }
+}
+
+// ============================================================================
+// CONTEXT
+// ============================================================================
+
+const ResumeAIContext = createContext<ResumeAIContextValue | undefined>(undefined);
+
+// ============================================================================
+// PROVIDER
+// ============================================================================
+
+interface ResumeAIProviderProps {
+  children: React.ReactNode;
+  resumeData: ResumeData;
+  enabled?: boolean;
+}
+
+export function ResumeAIProvider({ children, resumeData, enabled = true }: ResumeAIProviderProps) {
+  const [state, dispatch] = useReducer(resumeAIReducer, initialState);
+
+  // AI Hooks
+  const scoreHook = useScore();
+  const suggestionsHook = useAISuggestions();
+  const rewriteHook = useRewrite();
+  const jdHook = useJDAnalysis();
+  const matchHook = useMatchScore();
+
+  // Refs for debouncing (using ReturnType for browser/Node compatibility)
+  const scoreDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resumeDataRef = useRef<ResumeData>(resumeData);
+
+  // Keep resumeData ref up to date
+  useEffect(() => {
+    resumeDataRef.current = resumeData;
+  }, [resumeData]);
+
+  // Determine assist mode based on resume state
+  useEffect(() => {
+    if (!enabled) return;
+
+    const isEmpty =
+      !resumeData.summary &&
+      (!resumeData.experience || resumeData.experience.length === 0) &&
+      (!resumeData.education || resumeData.education.length === 0);
+
+    const hasJD = !!state.jobDescription && state.jobDescription.trim().length > 0;
+
+    if (isEmpty) {
+      dispatch({ type: 'SET_ASSIST_MODE', payload: 'onboarding' });
+    } else if (hasJD) {
+      dispatch({ type: 'SET_ASSIST_MODE', payload: 'strategy' });
+    } else {
+      dispatch({ type: 'SET_ASSIST_MODE', payload: 'active' });
+    }
+  }, [resumeData, state.jobDescription, enabled]);
+
+  // Refresh Score
+  const refreshScore = useCallback(async () => {
+    if (!enabled) return;
+
+    dispatch({ type: 'SET_SCORE_LOADING', payload: true });
+    dispatch({ type: 'SET_SCORE_ERROR', payload: null });
+
+    try {
+      const result = await scoreHook.calculateScore(resumeDataRef.current, {
+        jobDescription: state.jobDescription || undefined,
+      });
+
+      if (result.success && result.data) {
+        dispatch({ type: 'SET_SCORE', payload: result.data });
+        dispatch({ type: 'SET_USING_FALLBACK', payload: false });
+      } else {
+        // Fallback to heuristic scoring
+        dispatch({ type: 'SET_USING_FALLBACK', payload: true });
+        dispatch({ type: 'SET_SCORE_ERROR', payload: result.error || 'Failed to calculate score' });
+      }
+    } catch (error) {
+      dispatch({ type: 'SET_USING_FALLBACK', payload: true });
+      dispatch({
+        type: 'SET_SCORE_ERROR',
+        payload: error instanceof Error ? error.message : 'Score calculation failed',
+      });
+    } finally {
+      dispatch({ type: 'SET_SCORE_LOADING', payload: false });
+    }
+  }, [enabled, scoreHook, state.jobDescription]);
+
+  // Refresh Suggestions
+  const refreshSuggestions = useCallback(async () => {
+    if (!enabled) return;
+
+    dispatch({ type: 'SET_SUGGESTIONS_LOADING', payload: true });
+    dispatch({ type: 'SET_SUGGESTIONS_ERROR', payload: null });
+
+    try {
+      const result = await suggestionsHook.generateSuggestions(resumeDataRef.current, {
+        jobDescription: state.jobDescription || undefined,
+      });
+
+      if (result.success && result.data) {
+        dispatch({ type: 'SET_SUGGESTIONS', payload: result.data.suggestions });
+      } else {
+        dispatch({
+          type: 'SET_SUGGESTIONS_ERROR',
+          payload: result.error || 'Failed to generate suggestions',
+        });
+      }
+    } catch (error) {
+      dispatch({
+        type: 'SET_SUGGESTIONS_ERROR',
+        payload: error instanceof Error ? error.message : 'Suggestions generation failed',
+      });
+    } finally {
+      dispatch({ type: 'SET_SUGGESTIONS_LOADING', payload: false });
+    }
+  }, [enabled, suggestionsHook, state.jobDescription]);
+
+  // Stable refs for the refresh functions to avoid dependency issues
+  const refreshScoreRef = useRef(refreshScore);
+  const refreshSuggestionsRef = useRef(refreshSuggestions);
+
+  useEffect(() => {
+    refreshScoreRef.current = refreshScore;
+  }, [refreshScore]);
+
+  useEffect(() => {
+    refreshSuggestionsRef.current = refreshSuggestions;
+  }, [refreshSuggestions]);
+
+  // Track if initial load has happened
+  const initialLoadDone = useRef(false);
+
+  // Debounced auto-refresh on resume changes
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Clear existing timeouts
+    if (scoreDebounceRef.current) {
+      clearTimeout(scoreDebounceRef.current);
+    }
+    if (suggestionsDebounceRef.current) {
+      clearTimeout(suggestionsDebounceRef.current);
+    }
+
+    // Use shorter delay for initial load, longer for subsequent changes
+    const scoreDelay = initialLoadDone.current ? 2000 : 500;
+    const suggestionsDelay = initialLoadDone.current ? 3000 : 1000;
+
+    // Debounce score refresh
+    scoreDebounceRef.current = setTimeout(() => {
+      refreshScoreRef.current();
+      initialLoadDone.current = true;
+    }, scoreDelay);
+
+    // Debounce suggestions refresh
+    suggestionsDebounceRef.current = setTimeout(() => {
+      refreshSuggestionsRef.current();
+    }, suggestionsDelay);
+
+    return () => {
+      if (scoreDebounceRef.current) {
+        clearTimeout(scoreDebounceRef.current);
+      }
+      if (suggestionsDebounceRef.current) {
+        clearTimeout(suggestionsDebounceRef.current);
+      }
+    };
+  }, [resumeData, enabled]); // Only depend on resumeData and enabled, not the functions
+
+  // Set Job Description
+  const setJobDescription = useCallback((jd: string) => {
+    dispatch({ type: 'SET_JD', payload: jd });
+  }, []);
+
+  // Analyze Job Description
+  const analyzeJobDescription = useCallback(
+    async (jd: string) => {
+      if (!enabled || !jd.trim()) return;
+
+      dispatch({ type: 'SET_JD', payload: jd });
+      dispatch({ type: 'SET_JD_LOADING', payload: true });
+      dispatch({ type: 'SET_JD_ERROR', payload: null });
+
+      try {
+        const result = await jdHook.analyzeJD(jd);
+
+        if (result.success && result.data) {
+          dispatch({ type: 'SET_JD_ANALYSIS', payload: result.data });
+          // Automatically calculate match score after JD analysis
+          await refreshMatchScoreInternal(result.data);
+        } else {
+          dispatch({ type: 'SET_JD_ERROR', payload: result.error || 'Failed to analyze JD' });
+        }
+      } catch (error) {
+        dispatch({
+          type: 'SET_JD_ERROR',
+          payload: error instanceof Error ? error.message : 'JD analysis failed',
+        });
+      } finally {
+        dispatch({ type: 'SET_JD_LOADING', payload: false });
+      }
+    },
+    [enabled, jdHook],
+  );
+
+  // Internal match score refresh (used after JD analysis)
+  const refreshMatchScoreInternal = useCallback(
+    async (jdAnalysis: JDAnalysisResponse) => {
+      dispatch({ type: 'SET_MATCH_LOADING', payload: true });
+      dispatch({ type: 'SET_MATCH_ERROR', payload: null });
+
+      try {
+        const result = await matchHook.calculateMatch(resumeDataRef.current, jdAnalysis);
+
+        if (result.success && result.data) {
+          dispatch({ type: 'SET_MATCH_SCORE', payload: result.data });
+        } else {
+          dispatch({
+            type: 'SET_MATCH_ERROR',
+            payload: result.error || 'Failed to calculate match score',
+          });
+        }
+      } catch (error) {
+        dispatch({
+          type: 'SET_MATCH_ERROR',
+          payload: error instanceof Error ? error.message : 'Match calculation failed',
+        });
+      } finally {
+        dispatch({ type: 'SET_MATCH_LOADING', payload: false });
+      }
+    },
+    [matchHook],
+  );
+
+  // Public match score refresh
+  const refreshMatchScore = useCallback(async () => {
+    if (!enabled || !state.jdAnalysis) return;
+    await refreshMatchScoreInternal(state.jdAnalysis);
+  }, [enabled, state.jdAnalysis, refreshMatchScoreInternal]);
+
+  // Dismiss Suggestion
+  const dismissSuggestion = useCallback((id: string) => {
+    dispatch({ type: 'DISMISS_SUGGESTION', payload: id });
+  }, []);
+
+  // Apply Suggestion
+  const applySuggestion = useCallback((id: string) => {
+    dispatch({ type: 'APPLY_SUGGESTION', payload: id });
+  }, []);
+
+  // Set Assist Mode
+  const setAssistMode = useCallback((mode: AIAssistMode) => {
+    dispatch({ type: 'SET_ASSIST_MODE', payload: mode });
+  }, []);
+
+  // Show Inline Toolbar
+  const showInlineToolbar = useCallback((target: ResumeAIState['inlineToolbarTarget']) => {
+    dispatch({ type: 'SHOW_INLINE_TOOLBAR', payload: target });
+  }, []);
+
+  // Hide Inline Toolbar
+  const hideInlineToolbar = useCallback(() => {
+    dispatch({ type: 'HIDE_INLINE_TOOLBAR' });
+  }, []);
+
+  // Rewrite Bullet
+  const rewriteBullet = useCallback(
+    async (
+      bullet: string,
+      options?: {
+        emphasis?: 'impact' | 'leadership' | 'technical' | 'efficiency';
+        targetKeywords?: string[];
+      },
+    ) => {
+      const result = await rewriteHook.rewriteBullet(bullet, {
+        emphasis: options?.emphasis,
+        targetKeywords:
+          options?.targetKeywords ||
+          state.jdAnalysis?.keywords?.technical?.map((k) => k.keyword) ||
+          [],
+        roleContext: state.jdAnalysis?.basics
+          ? {
+              company: state.jdAnalysis.basics.company,
+              title: state.jdAnalysis.basics.title,
+            }
+          : undefined,
+      });
+
+      if (result.success && result.data) {
+        return { rewrittenBullet: result.data.rewrittenBullet };
+      }
+      return null;
+    },
+    [rewriteHook, state.jdAnalysis],
+  );
+
+  // Compute effective score (AI or fallback) - returns UI-friendly format
+  const effectiveScore = useMemo(() => {
+    if (state.aiScore && !state.usingFallback) {
+      // Map AI score to UI format
+      return {
+        overallScore: state.aiScore.overall,
+        subscores: [
+          { label: 'Impact', score: state.aiScore.breakdown.impact.score, color: 'orange' },
+          { label: 'Clarity', score: state.aiScore.breakdown.clarity.score, color: 'green' },
+          { label: 'ATS', score: state.aiScore.breakdown.ats.score, color: 'blue' },
+          { label: 'Brevity', score: state.aiScore.breakdown.brevity.score, color: 'cyan' },
+        ],
+        topFixes: state.aiScore.topIssues.map((issue, idx) => ({
+          id: `ai-fix-${idx}`,
+          label: issue.fix,
+          suggestionIds: [] as string[],
+        })),
+        quickWins: state.aiScore.quickWins,
+      };
+    }
+
+    // Fallback to heuristic scoring
+    const heuristicScore = calculateEnhancedScore(resumeData, []);
+    return {
+      overallScore: heuristicScore.overallScore,
+      subscores: [
+        { label: 'Impact', score: heuristicScore.subscores.impact, color: 'orange' },
+        { label: 'Clarity', score: heuristicScore.subscores.clarity, color: 'green' },
+        { label: 'ATS', score: heuristicScore.subscores.ats, color: 'blue' },
+        { label: 'Relevance', score: heuristicScore.subscores.relevance, color: 'purple' },
+      ],
+      topFixes: heuristicScore.topFixes.map((fix) => ({
+        id: fix.fixId,
+        label: fix.message,
+        suggestionIds: fix.suggestionIds,
+      })),
+      quickWins: [] as string[],
+    };
+  }, [state.aiScore, state.usingFallback, resumeData]);
+
+  // Legacy-compatible score (for components that expect ResumeScore type)
+  const legacyScore = useMemo((): ResumeScore => {
+    if (state.aiScore && !state.usingFallback) {
+      return {
+        overallScore: state.aiScore.overall,
+        subscores: {
+          impact: state.aiScore.breakdown.impact.score,
+          clarity: state.aiScore.breakdown.clarity.score,
+          relevance: Math.round(
+            (state.aiScore.breakdown.ats.score + state.aiScore.breakdown.brevity.score) / 2,
+          ),
+          ats: state.aiScore.breakdown.ats.score,
+          consistency: state.aiScore.breakdown.clarity.score, // Map clarity to consistency
+        },
+        topFixes: state.aiScore.topIssues.map(
+          (issue, idx): TopFix => ({
+            fixId: `ai-fix-${idx}`,
+            suggestionIds: [],
+            message: issue.fix,
+            impact:
+              issue.category === 'impact'
+                ? 'high'
+                : issue.category === 'clarity'
+                  ? 'medium'
+                  : 'low',
+          }),
+        ),
+      };
+    }
+
+    // Fallback to heuristic scoring
+    return calculateEnhancedScore(resumeData, []);
+  }, [state.aiScore, state.usingFallback, resumeData]);
+
+  // Filter out dismissed suggestions
+  const activeSuggestions = useMemo(() => {
+    return state.aiSuggestions.filter((s) => !state.dismissedSuggestionIds.has(s.id));
+  }, [state.aiSuggestions, state.dismissedSuggestionIds]);
+
+  // Legacy-compatible grouped suggestions (uses activeSuggestions to respect dismissals)
+  const legacyGroupedSuggestions = useMemo((): GroupedSuggestions => {
+    const mapToLegacy = (s: Suggestion): LegacySuggestion => ({
+      suggestionId: s.id,
+      spanId: s.targetPath,
+      severity:
+        s.severity === 'critical'
+          ? 'critical'
+          : s.severity === 'important'
+            ? 'improve'
+            : 'optional',
+      type:
+        s.type === 'missing-metrics'
+          ? 'metric'
+          : s.type === 'weak-verb'
+            ? 'verb'
+            : s.type === 'too-long'
+              ? 'length'
+              : s.type === 'passive-voice'
+                ? 'clarity'
+                : s.type === 'missing-keyword'
+                  ? 'keyword'
+                  : s.type === 'vague-achievement'
+                    ? 'impact'
+                    : 'clarity',
+      category: s.category.charAt(0).toUpperCase() + s.category.slice(1),
+      message: s.explanation,
+      proposedText: s.afterText,
+      dismissed: state.dismissedSuggestionIds.has(s.id),
+    });
+
+    return {
+      critical: activeSuggestions.filter((s) => s.severity === 'critical').map(mapToLegacy),
+      improve: activeSuggestions.filter((s) => s.severity === 'important').map(mapToLegacy),
+      optional: activeSuggestions.filter((s) => s.severity === 'polish').map(mapToLegacy),
+    };
+  }, [activeSuggestions, state.dismissedSuggestionIds]);
+
+  // Loading state
+  const isAnyLoading =
+    state.scoreLoading ||
+    state.suggestionsLoading ||
+    state.jdLoading ||
+    state.matchLoading ||
+    rewriteHook.loading;
+
+  // Context value
+  const value = useMemo<ResumeAIContextValue>(
+    () => ({
+      ...state,
+      aiSuggestions: activeSuggestions,
+      resumeData,
+      effectiveScore,
+      legacyScore,
+      legacyGroupedSuggestions,
+      refreshScore,
+      refreshSuggestions,
+      setJobDescription,
+      analyzeJobDescription,
+      refreshMatchScore,
+      dismissSuggestion,
+      applySuggestion,
+      setAssistMode,
+      showInlineToolbar,
+      hideInlineToolbar,
+      rewriteBullet,
+      isAnyLoading,
+    }),
+    [
+      state,
+      activeSuggestions,
+      resumeData,
+      effectiveScore,
+      legacyScore,
+      legacyGroupedSuggestions,
+      refreshScore,
+      refreshSuggestions,
+      setJobDescription,
+      analyzeJobDescription,
+      refreshMatchScore,
+      dismissSuggestion,
+      applySuggestion,
+      setAssistMode,
+      showInlineToolbar,
+      hideInlineToolbar,
+      rewriteBullet,
+      isAnyLoading,
+    ],
+  );
+
+  return <ResumeAIContext.Provider value={value}>{children}</ResumeAIContext.Provider>;
+}
+
+// ============================================================================
+// HOOK
+// ============================================================================
+
+export function useResumeAI() {
+  const context = useContext(ResumeAIContext);
+  if (context === undefined) {
+    throw new Error('useResumeAI must be used within a ResumeAIProvider');
+  }
+  return context;
+}
+
+export default ResumeAIContext;

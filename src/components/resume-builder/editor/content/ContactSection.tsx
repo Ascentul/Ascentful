@@ -48,6 +48,7 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           </label>
           <Input
             id="contact-phone"
+            type="tel"
             value={contactInfo.phone}
             onChange={(e) => onChange('phone', e.target.value)}
             placeholder="(555) 123-4567"

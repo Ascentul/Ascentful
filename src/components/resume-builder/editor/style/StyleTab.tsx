@@ -10,34 +10,12 @@ import { SidebarColorPicker } from './SidebarColorPicker';
 interface StyleTabProps {
   templateId: TemplateId;
   styleConfig: StyleConfig;
-  onTemplateChange: (templateId: TemplateId) => void;
   onStyleChange: (config: Partial<StyleConfig>) => void;
 }
 
-export function StyleTab({
-  templateId,
-  styleConfig,
-  onTemplateChange: _onTemplateChange,
-  onStyleChange,
-}: StyleTabProps) {
+export function StyleTab({ templateId, styleConfig, onStyleChange }: StyleTabProps) {
   // Check if current template is a two-column layout
-  const templateConfig = (() => {
-    switch (templateId) {
-      case 'clean':
-        return TEMPLATE_LAYOUTS.clean;
-      case 'bold':
-        return TEMPLATE_LAYOUTS.bold;
-      case 'minimal':
-        return TEMPLATE_LAYOUTS.minimal;
-      case 'classic':
-        return TEMPLATE_LAYOUTS.classic;
-      case 'ats':
-        return TEMPLATE_LAYOUTS.ats;
-      case 'modern':
-      default:
-        return TEMPLATE_LAYOUTS.modern;
-    }
-  })();
+  const templateConfig = TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_LAYOUTS.modern;
   const isTwoColumnLayout = templateConfig?.layoutType === 'two-column-sidebar';
 
   const handleColorChange = (accent_color: string) => {

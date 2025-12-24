@@ -176,4 +176,33 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Span highlight flash animation for AI assistant field guidance */
+  @keyframes span-highlight-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(83, 113, 255, 0.7);
+      background-color: rgba(83, 113, 255, 0.1);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(83, 113, 255, 0);
+      background-color: rgba(83, 113, 255, 0.2);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(83, 113, 255, 0);
+      background-color: transparent;
+    }
+  }
+
+  .span-highlight-flash {
+    animation: span-highlight-pulse 2s ease-out;
+    border-radius: 4px;
+    outline: 2px solid #5371ff;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .span-highlight-flash {
+      animation: none;
+    }
+  }
 }

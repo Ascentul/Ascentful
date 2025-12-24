@@ -53,6 +53,8 @@ export function useSuggestions(
     resumeDataRef.current = resumeData;
   }, [resumeData]);
 
+  // Deep comparison needed to detect any content changes for re-fetching suggestions
+  // ResumeData lacks a version/timestamp field, so we serialize to compare
   const resumeDataKey = useMemo(() => {
     return JSON.stringify(resumeData);
   }, [resumeData]);
@@ -106,6 +108,7 @@ export function useSuggestions(
       // });
 
       // For now, use mock suggestions
+      // Use ref to get latest data (avoids stale closure issues)
       const mockSuggestions = generateMockSuggestions(resumeDataRef.current);
       setAllSuggestions(mockSuggestions);
     } catch (err) {
@@ -114,6 +117,7 @@ export function useSuggestions(
     } finally {
       setLoading(false);
     }
+    // resumeDataKey triggers re-fetch on content changes, but we use ref for latest value
   }, [enabled, resumeDataKey]);
 
   // Auto-fetch on mount and when resume data changes (debounced)

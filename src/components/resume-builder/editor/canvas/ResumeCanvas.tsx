@@ -1,8 +1,12 @@
 'use client';
 
+import { Copy, Plus, Trash2 } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
+  Achievement,
+  Certification,
   Education,
   Experience,
   Project,
@@ -11,9 +15,76 @@ import type {
 import type { StyleConfig, TemplateId } from '@/components/resume-builder/templates/types';
 import { FONT_PAIRINGS, TEMPLATE_LAYOUTS } from '@/components/resume-builder/templates/types';
 import { bulletPointsToDescription, parseBulletPoints } from '@/lib/resume-editor/span-utils';
+import { cn } from '@/lib/utils';
 import type { Suggestion } from '@/types/resume-editor';
 
 import { BulletEditable, InlineEditableText } from './InlineEditableText';
+
+// ============================================================================
+// Entry Toolbar - Add/Duplicate/Delete buttons for entries
+// ============================================================================
+
+interface EntryToolbarProps {
+  onAdd: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  canDelete?: boolean;
+  className?: string;
+}
+
+function EntryToolbar({
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete = true,
+  className,
+}: EntryToolbarProps) {
+  return (
+    <div
+      className={cn(
+        'absolute -right-2 top-0 flex flex-col gap-0.5 opacity-0 group-hover/entry:opacity-100 transition-opacity',
+        'bg-white rounded-lg shadow-lg border border-slate-200 p-0.5',
+        className,
+      )}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+        className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-primary-600 transition-colors"
+        title="Add new entry"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDuplicate();
+        }}
+        className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-primary-600 transition-colors"
+        title="Duplicate entry"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-1.5 rounded hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors"
+          title="Delete entry"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface ResumeCanvasProps {
   data: ResumeData;
@@ -29,6 +100,13 @@ interface ResumeCanvasProps {
   onUpdateEducation: (education: Education[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   onUpdateSkills: (skills: string[]) => void;
+  onUpdateAchievements?: (achievements: Achievement[]) => void;
+  onUpdateCertifications?: (certifications: Certification[]) => void;
+  // Selection state from outline panel
+  selectedSectionId?: string | null;
+  selectedItemId?: string | null;
+  // Missing field spanIds for form validation-style highlighting
+  missingSpanIds?: Set<string>;
 }
 
 /* Intentionally keeping types as Experience[] since the handlers
@@ -48,6 +126,11 @@ export function ResumeCanvas({
   onUpdateEducation,
   onUpdateProjects,
   onUpdateSkills,
+  onUpdateAchievements,
+  onUpdateCertifications,
+  selectedSectionId,
+  selectedItemId,
+  missingSpanIds,
 }: ResumeCanvasProps) {
   // Get template-specific layout configuration
   const templateConfig = TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_LAYOUTS.modern;
@@ -88,7 +171,7 @@ export function ResumeCanvas({
     '--font-heading': fontPairing.heading,
     '--font-body': fontPairing.body,
     '--color-accent': accentColor,
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   const sectionHeadingClass = `text-[13pt] font-semibold mb-2 ${
     isCaps ? 'uppercase tracking-wider' : ''
@@ -125,10 +208,18 @@ export function ResumeCanvas({
   const renderSection = (sectionId: string) => {
     if (!enabledSections.includes(sectionId)) return null;
 
+    const isSectionSelected = selectedSectionId === sectionId && !selectedItemId;
+
     switch (sectionId) {
       case 'summary':
         return (
-          <section key={sectionId} className={isCompact ? 'mb-4' : 'mb-6'}>
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Professional Summary
             </h2>
@@ -139,66 +230,225 @@ export function ResumeCanvas({
               multiline
               suggestions={suggestions}
               coachEnabled={coachEnabled}
-              placeholder="Write a compelling summary of your professional background..."
+              placeholder={
+                missingSpanIds?.has('summary-text')
+                  ? 'Write 2-3 sentences about your experience and career goals...'
+                  : 'Write a compelling summary of your professional background...'
+              }
               className="text-[11pt] leading-relaxed"
+              isMissing={missingSpanIds?.has('summary-text')}
             />
           </section>
         );
 
-      case 'experience':
+      case 'experience': {
+        // Pre-populate with empty entry if none exist
+        const experiences =
+          data.experience && data.experience.length > 0
+            ? data.experience
+            : [
+                {
+                  id: 'exp-empty',
+                  title: '',
+                  company: '',
+                  location: '',
+                  startDate: '',
+                  endDate: '',
+                  current: false,
+                  description: '',
+                },
+              ];
+
+        const isPlaceholder = experiences.length === 1 && experiences[0].id === 'exp-empty';
+
         return (
-          <section key={sectionId} className={isCompact ? 'mb-4' : 'mb-6'}>
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Work Experience
             </h2>
             <div className="space-y-4">
-              {(data.experience || []).map((item, index) => (
+              {experiences.map((item, index) => (
                 <ExperienceEntry
                   key={item.id}
                   experience={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
                   accentColor={accentColor}
+                  isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
+                  missingSpanIds={missingSpanIds}
                   onChange={(updated) => {
-                    const newExperiences = (data.experience || []).map((e, i) =>
-                      i === index ? updated : e,
-                    );
+                    // If editing the placeholder entry, add it to real data
+                    if (item.id === 'exp-empty') {
+                      const newExp = { ...updated, id: `exp-${Date.now()}` };
+                      onUpdateExperience([newExp]);
+                    } else {
+                      const newExperiences = (data.experience || []).map((e, i) =>
+                        i === index ? updated : e,
+                      );
+                      onUpdateExperience(newExperiences);
+                    }
+                  }}
+                  onAdd={() => {
+                    const currentExps = isPlaceholder ? [] : data.experience || [];
+                    const newExp: Experience = {
+                      id: `exp-${Date.now()}`,
+                      title: '',
+                      company: '',
+                      location: '',
+                      startDate: '',
+                      endDate: '',
+                      current: false,
+                      description: '',
+                    };
+                    // Insert after current item
+                    const newExperiences = [
+                      ...currentExps.slice(0, index + 1),
+                      newExp,
+                      ...currentExps.slice(index + 1),
+                    ];
                     onUpdateExperience(newExperiences);
                   }}
+                  onDuplicate={() => {
+                    if (isPlaceholder) return;
+                    const duplicated: Experience = {
+                      ...item,
+                      id: `exp-${Date.now()}`,
+                    };
+                    const currentExps = data.experience || [];
+                    const newExperiences = [
+                      ...currentExps.slice(0, index + 1),
+                      duplicated,
+                      ...currentExps.slice(index + 1),
+                    ];
+                    onUpdateExperience(newExperiences);
+                  }}
+                  onDelete={() => {
+                    if (isPlaceholder) return;
+                    const currentExps = data.experience || [];
+                    const newExperiences = currentExps.filter((_, i) => i !== index);
+                    onUpdateExperience(newExperiences);
+                  }}
+                  canDelete={!isPlaceholder && experiences.length > 1}
                 />
               ))}
             </div>
           </section>
         );
+      }
 
-      case 'education':
+      case 'education': {
+        // Pre-populate with empty entry if none exist
+        const educationItems =
+          data.education && data.education.length > 0
+            ? data.education
+            : [
+                {
+                  id: 'edu-empty',
+                  school: '',
+                  degree: '',
+                  field: '',
+                  location: '',
+                  startYear: '',
+                  endYear: '',
+                },
+              ];
+
+        const isEduPlaceholder =
+          educationItems.length === 1 && educationItems[0].id === 'edu-empty';
+
         return (
-          <section key={sectionId} className={isCompact ? 'mb-4' : 'mb-6'}>
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Education
             </h2>
             <div className="space-y-3">
-              {(data.education || []).map((item, index) => (
+              {educationItems.map((item, index) => (
                 <EducationEntry
                   key={item.id}
                   education={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
+                  isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
+                  missingSpanIds={missingSpanIds}
                   onChange={(updated) => {
-                    const newEducation = (data.education || []).map((e, i) =>
-                      i === index ? updated : e,
-                    );
+                    // If editing the placeholder entry, add it to real data
+                    if (item.id === 'edu-empty') {
+                      const newEdu = { ...updated, id: `edu-${Date.now()}` };
+                      onUpdateEducation([newEdu]);
+                    } else {
+                      const newEducation = (data.education || []).map((e, i) =>
+                        i === index ? updated : e,
+                      );
+                      onUpdateEducation(newEducation);
+                    }
+                  }}
+                  onAdd={() => {
+                    const currentEdus = isEduPlaceholder ? [] : data.education || [];
+                    const newEdu: Education = {
+                      id: `edu-${Date.now()}`,
+                      school: '',
+                      degree: '',
+                      field: '',
+                      location: '',
+                      startYear: '',
+                      endYear: '',
+                    };
+                    const newEducation = [
+                      ...currentEdus.slice(0, index + 1),
+                      newEdu,
+                      ...currentEdus.slice(index + 1),
+                    ];
                     onUpdateEducation(newEducation);
                   }}
+                  onDuplicate={() => {
+                    if (isEduPlaceholder) return;
+                    const duplicated: Education = {
+                      ...item,
+                      id: `edu-${Date.now()}`,
+                    };
+                    const currentEdus = data.education || [];
+                    const newEducation = [
+                      ...currentEdus.slice(0, index + 1),
+                      duplicated,
+                      ...currentEdus.slice(index + 1),
+                    ];
+                    onUpdateEducation(newEducation);
+                  }}
+                  onDelete={() => {
+                    if (isEduPlaceholder) return;
+                    const currentEdus = data.education || [];
+                    const newEducation = currentEdus.filter((_, i) => i !== index);
+                    onUpdateEducation(newEducation);
+                  }}
+                  canDelete={!isEduPlaceholder && educationItems.length > 1}
                 />
               ))}
             </div>
           </section>
         );
+      }
 
       case 'skills':
         return (
-          <section key={sectionId} className={isCompact ? 'mb-4' : 'mb-6'}>
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Skills
             </h2>
@@ -211,30 +461,263 @@ export function ResumeCanvas({
           </section>
         );
 
-      case 'projects':
+      case 'projects': {
+        // Pre-populate with empty entry if none exist
+        const projects =
+          data.projects && data.projects.length > 0
+            ? data.projects
+            : [{ id: 'proj-empty', name: '', role: '', description: '', technologies: '' }];
+
+        const isProjPlaceholder = projects.length === 1 && projects[0].id === 'proj-empty';
+
         return (
-          <section key={sectionId} className={isCompact ? 'mb-4' : 'mb-6'}>
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Projects
             </h2>
             <div className="space-y-3">
-              {(data.projects || []).map((item, index) => (
+              {projects.map((item, index) => (
                 <ProjectEntry
                   key={item.id}
                   project={item}
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
+                  isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
                   onChange={(updated) => {
-                    const newProjects = (data.projects || []).map((p, i) =>
-                      i === index ? updated : p,
-                    );
+                    // If editing the placeholder entry, add it to real data
+                    if (item.id === 'proj-empty') {
+                      const newProj = { ...updated, id: `proj-${Date.now()}` };
+                      onUpdateProjects([newProj]);
+                    } else {
+                      const newProjects = (data.projects || []).map((p, i) =>
+                        i === index ? updated : p,
+                      );
+                      onUpdateProjects(newProjects);
+                    }
+                  }}
+                  onAdd={() => {
+                    const currentProjs = isProjPlaceholder ? [] : data.projects || [];
+                    const newProj: Project = {
+                      id: `proj-${Date.now()}`,
+                      name: '',
+                      role: '',
+                      description: '',
+                      technologies: '',
+                    };
+                    const newProjects = [
+                      ...currentProjs.slice(0, index + 1),
+                      newProj,
+                      ...currentProjs.slice(index + 1),
+                    ];
                     onUpdateProjects(newProjects);
                   }}
+                  onDuplicate={() => {
+                    if (isProjPlaceholder) return;
+                    const duplicated: Project = {
+                      ...item,
+                      id: `proj-${Date.now()}`,
+                    };
+                    const currentProjs = data.projects || [];
+                    const newProjects = [
+                      ...currentProjs.slice(0, index + 1),
+                      duplicated,
+                      ...currentProjs.slice(index + 1),
+                    ];
+                    onUpdateProjects(newProjects);
+                  }}
+                  onDelete={() => {
+                    if (isProjPlaceholder) return;
+                    const currentProjs = data.projects || [];
+                    const newProjects = currentProjs.filter((_, i) => i !== index);
+                    onUpdateProjects(newProjects);
+                  }}
+                  canDelete={!isProjPlaceholder && projects.length > 1}
                 />
               ))}
             </div>
           </section>
         );
+      }
+
+      case 'achievements': {
+        if (!onUpdateAchievements) return null;
+        // Pre-populate with empty entry if none exist
+        const achievements =
+          data.achievements && data.achievements.length > 0
+            ? data.achievements
+            : [{ id: 'ach-empty', title: '', description: '', date: '' }];
+
+        const isAchPlaceholder = achievements.length === 1 && achievements[0].id === 'ach-empty';
+
+        return (
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
+            <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
+              Achievements
+            </h2>
+            <div className="space-y-3">
+              {achievements.map((item, index) => (
+                <AchievementEntry
+                  key={item.id}
+                  achievement={item}
+                  suggestions={suggestions}
+                  coachEnabled={coachEnabled}
+                  isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
+                  missingSpanIds={missingSpanIds}
+                  onChange={(updated) => {
+                    // If editing the placeholder entry, add it to real data
+                    if (item.id === 'ach-empty') {
+                      const newAch = { ...updated, id: `ach-${Date.now()}` };
+                      onUpdateAchievements?.([newAch]);
+                    } else {
+                      const newAchievements = (data.achievements || []).map((a, i) =>
+                        i === index ? updated : a,
+                      );
+                      onUpdateAchievements?.(newAchievements);
+                    }
+                  }}
+                  onAdd={() => {
+                    if (!onUpdateAchievements) return;
+                    const currentAchs = isAchPlaceholder ? [] : data.achievements || [];
+                    const newAch: Achievement = {
+                      id: `ach-${Date.now()}`,
+                      title: '',
+                      description: '',
+                      date: '',
+                    };
+                    const newAchievements = [
+                      ...currentAchs.slice(0, index + 1),
+                      newAch,
+                      ...currentAchs.slice(index + 1),
+                    ];
+                    onUpdateAchievements(newAchievements);
+                  }}
+                  onDuplicate={() => {
+                    if (!onUpdateAchievements || isAchPlaceholder) return;
+                    const duplicated: Achievement = {
+                      ...item,
+                      id: `ach-${Date.now()}`,
+                    };
+                    const currentAchs = data.achievements || [];
+                    const newAchievements = [
+                      ...currentAchs.slice(0, index + 1),
+                      duplicated,
+                      ...currentAchs.slice(index + 1),
+                    ];
+                    onUpdateAchievements(newAchievements);
+                  }}
+                  onDelete={() => {
+                    if (!onUpdateAchievements || isAchPlaceholder) return;
+                    const currentAchs = data.achievements || [];
+                    const newAchievements = currentAchs.filter((_, i) => i !== index);
+                    onUpdateAchievements(newAchievements);
+                  }}
+                  canDelete={!isAchPlaceholder && achievements.length > 1}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      }
+
+      case 'certifications': {
+        if (!onUpdateCertifications) return null;
+        // Pre-populate with empty entry if none exist
+        const certifications =
+          data.certifications && data.certifications.length > 0
+            ? data.certifications
+            : [{ id: 'cert-empty', name: '', issuer: '', date: '' }];
+
+        const isCertPlaceholder =
+          certifications.length === 1 && certifications[0].id === 'cert-empty';
+
+        return (
+          <section
+            key={sectionId}
+            className={cn(
+              isCompact ? 'mb-4' : 'mb-6',
+              isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+            )}
+          >
+            <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
+              Awards & Certifications
+            </h2>
+            <div className="space-y-3">
+              {certifications.map((item, index) => (
+                <CertificationEntry
+                  key={item.id}
+                  certification={item}
+                  suggestions={suggestions}
+                  coachEnabled={coachEnabled}
+                  accentColor={accentColor}
+                  isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
+                  missingSpanIds={missingSpanIds}
+                  onChange={(updated) => {
+                    // If editing the placeholder entry, add it to real data
+                    if (item.id === 'cert-empty') {
+                      const newCert = { ...updated, id: `cert-${Date.now()}` };
+                      onUpdateCertifications?.([newCert]);
+                    } else {
+                      const newCertifications = (data.certifications || []).map((c, i) =>
+                        i === index ? updated : c,
+                      );
+                      onUpdateCertifications?.(newCertifications);
+                    }
+                  }}
+                  onAdd={() => {
+                    if (!onUpdateCertifications) return;
+                    const currentCerts = isCertPlaceholder ? [] : data.certifications || [];
+                    const newCert: Certification = {
+                      id: `cert-${Date.now()}`,
+                      name: '',
+                      issuer: '',
+                      date: '',
+                    };
+                    const newCertifications = [
+                      ...currentCerts.slice(0, index + 1),
+                      newCert,
+                      ...currentCerts.slice(index + 1),
+                    ];
+                    onUpdateCertifications(newCertifications);
+                  }}
+                  onDuplicate={() => {
+                    if (!onUpdateCertifications || isCertPlaceholder) return;
+                    const duplicated: Certification = {
+                      ...item,
+                      id: `cert-${Date.now()}`,
+                    };
+                    const currentCerts = data.certifications || [];
+                    const newCertifications = [
+                      ...currentCerts.slice(0, index + 1),
+                      duplicated,
+                      ...currentCerts.slice(index + 1),
+                    ];
+                    onUpdateCertifications(newCertifications);
+                  }}
+                  onDelete={() => {
+                    if (!onUpdateCertifications || isCertPlaceholder) return;
+                    const currentCerts = data.certifications || [];
+                    const newCertifications = currentCerts.filter((_, i) => i !== index);
+                    onUpdateCertifications(newCertifications);
+                  }}
+                  canDelete={!isCertPlaceholder && certifications.length > 1}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      }
 
       default:
         return null;
@@ -243,49 +726,56 @@ export function ResumeCanvas({
 
   // Render header based on template headerStyle
   const renderHeader = () => {
+    // Always show contact fields so users can add missing info
     const contactItems = (
       <>
-        {data.contactInfo.email && (
-          <InlineEditableText
-            spanId="contact-email"
-            value={data.contactInfo.email}
-            onChange={(value) => onUpdateContactInfo('email', value)}
-            placeholder="email@example.com"
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-          />
-        )}
-        {data.contactInfo.phone && (
-          <InlineEditableText
-            spanId="contact-phone"
-            value={data.contactInfo.phone}
-            onChange={(value) => onUpdateContactInfo('phone', value)}
-            placeholder="(555) 123-4567"
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-          />
-        )}
-        {data.contactInfo.location && (
-          <InlineEditableText
-            spanId="contact-location"
-            value={data.contactInfo.location}
-            onChange={(value) => onUpdateContactInfo('location', value)}
-            placeholder="City, State"
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-          />
-        )}
-        {data.contactInfo.linkedin && (
-          <InlineEditableText
-            spanId="contact-linkedin"
-            value={data.contactInfo.linkedin}
-            onChange={(value) => onUpdateContactInfo('linkedin', value)}
-            placeholder="linkedin.com/in/yourprofile"
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            className="text-blue-600"
-          />
-        )}
+        <InlineEditableText
+          spanId="contact-email"
+          value={data.contactInfo.email || ''}
+          onChange={(value) => onUpdateContactInfo('email', value)}
+          placeholder={
+            missingSpanIds?.has('contact-email') ? 'Enter your email address' : 'email@example.com'
+          }
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          isMissing={missingSpanIds?.has('contact-email')}
+        />
+        <InlineEditableText
+          spanId="contact-phone"
+          value={data.contactInfo.phone || ''}
+          onChange={(value) => onUpdateContactInfo('phone', value)}
+          placeholder={
+            missingSpanIds?.has('contact-phone') ? 'Enter your phone number' : '(555) 123-4567'
+          }
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          isMissing={missingSpanIds?.has('contact-phone')}
+        />
+        <InlineEditableText
+          spanId="contact-location"
+          value={data.contactInfo.location || ''}
+          onChange={(value) => onUpdateContactInfo('location', value)}
+          placeholder={
+            missingSpanIds?.has('contact-location') ? 'Enter your location' : 'City, State'
+          }
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          isMissing={missingSpanIds?.has('contact-location')}
+        />
+        <InlineEditableText
+          spanId="contact-linkedin"
+          value={data.contactInfo.linkedin || ''}
+          onChange={(value) => onUpdateContactInfo('linkedin', value)}
+          placeholder={
+            missingSpanIds?.has('contact-linkedin')
+              ? 'Enter your LinkedIn URL'
+              : 'linkedin.com/in/yourprofile'
+          }
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          className="text-blue-600"
+          isMissing={missingSpanIds?.has('contact-linkedin')}
+        />
       </>
     );
 
@@ -298,11 +788,14 @@ export function ResumeCanvas({
               spanId="contact-name"
               value={data.contactInfo.name}
               onChange={(value) => onUpdateContactInfo('name', value)}
-              placeholder="Your Name"
+              placeholder={
+                missingSpanIds?.has('contact-name') ? 'Enter your full name' : 'Your Name'
+              }
               suggestions={suggestions}
               coachEnabled={coachEnabled}
               className="text-[24pt] font-bold"
-              style={{ fontFamily: 'var(--font-heading)', color: 'white' } as React.CSSProperties}
+              style={{ fontFamily: 'var(--font-heading)', color: 'white' } as CSSProperties}
+              isMissing={missingSpanIds?.has('contact-name')}
             />
           </div>
           <div className="text-[10pt] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
@@ -320,11 +813,12 @@ export function ResumeCanvas({
             spanId="contact-name"
             value={data.contactInfo.name}
             onChange={(value) => onUpdateContactInfo('name', value)}
-            placeholder="Your Name"
+            placeholder={missingSpanIds?.has('contact-name') ? 'Enter your full name' : 'Your Name'}
             suggestions={suggestions}
             coachEnabled={coachEnabled}
             className="text-center text-[20pt] font-bold"
-            style={{ fontFamily: 'var(--font-heading)' } as React.CSSProperties}
+            style={{ fontFamily: 'var(--font-heading)' } as CSSProperties}
+            isMissing={missingSpanIds?.has('contact-name')}
           />
           <div className="text-center text-[10pt] text-slate-600 mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
             {contactItems}
@@ -348,11 +842,12 @@ export function ResumeCanvas({
           spanId="contact-name"
           value={data.contactInfo.name}
           onChange={(value) => onUpdateContactInfo('name', value)}
-          placeholder="Your Name"
+          placeholder={missingSpanIds?.has('contact-name') ? 'Enter your full name' : 'Your Name'}
           suggestions={suggestions}
           coachEnabled={coachEnabled}
           className={`text-[20pt] font-bold ${isLightFont ? 'font-light' : ''}`}
-          style={{ fontFamily: 'var(--font-heading)' } as React.CSSProperties}
+          style={{ fontFamily: 'var(--font-heading)' } as CSSProperties}
+          isMissing={missingSpanIds?.has('contact-name')}
         />
         <div className="text-[10pt] text-slate-600 mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {contactItems}
@@ -370,21 +865,23 @@ export function ResumeCanvas({
 
     return (
       <div
-        className="font-sans text-[11pt] leading-[1.3] text-slate-900 flex"
+        className="font-sans text-[11pt] leading-[1.3] text-slate-900 flex min-h-[11in]"
         style={{
           ...cssVars,
           fontFamily: 'var(--font-body)',
         }}
       >
-        {/* Left Sidebar */}
-        <aside className="w-[30%] p-6 min-h-full" style={{ backgroundColor: sidebarBgColor }}>
+        {/* Left Sidebar - stretches to full page height */}
+        <aside className="w-[30%] p-6 flex-shrink-0" style={{ backgroundColor: sidebarBgColor }}>
           {/* Name in sidebar */}
           <div className="mb-6">
             <InlineEditableText
               spanId="contact-name"
               value={data.contactInfo.name}
               onChange={(value) => onUpdateContactInfo('name', value)}
-              placeholder="Your Name"
+              placeholder={
+                missingSpanIds?.has('contact-name') ? 'Enter your full name' : 'Your Name'
+              }
               suggestions={suggestions}
               coachEnabled={coachEnabled}
               className="text-[16pt] font-bold leading-tight"
@@ -392,12 +889,13 @@ export function ResumeCanvas({
                 {
                   fontFamily: 'var(--font-heading)',
                   color: sidebarTextColor,
-                } as React.CSSProperties
+                } as CSSProperties
               }
+              isMissing={missingSpanIds?.has('contact-name')}
             />
           </div>
 
-          {/* Contact Section */}
+          {/* Contact Section - Always show all fields */}
           <div className="mb-6">
             <h3
               className="text-[11pt] font-semibold mb-2 uppercase tracking-wider border-b pb-1"
@@ -409,47 +907,57 @@ export function ResumeCanvas({
               Contact
             </h3>
             <div className="space-y-1 text-[9pt]" style={{ color: sidebarMutedColor }}>
-              {data.contactInfo.email && (
-                <InlineEditableText
-                  spanId="contact-email"
-                  value={data.contactInfo.email}
-                  onChange={(value) => onUpdateContactInfo('email', value)}
-                  placeholder="email@example.com"
-                  suggestions={suggestions}
-                  coachEnabled={coachEnabled}
-                />
-              )}
-              {data.contactInfo.phone && (
-                <InlineEditableText
-                  spanId="contact-phone"
-                  value={data.contactInfo.phone}
-                  onChange={(value) => onUpdateContactInfo('phone', value)}
-                  placeholder="(555) 123-4567"
-                  suggestions={suggestions}
-                  coachEnabled={coachEnabled}
-                />
-              )}
-              {data.contactInfo.location && (
-                <InlineEditableText
-                  spanId="contact-location"
-                  value={data.contactInfo.location}
-                  onChange={(value) => onUpdateContactInfo('location', value)}
-                  placeholder="City, State"
-                  suggestions={suggestions}
-                  coachEnabled={coachEnabled}
-                />
-              )}
-              {data.contactInfo.linkedin && (
-                <InlineEditableText
-                  spanId="contact-linkedin"
-                  value={data.contactInfo.linkedin}
-                  onChange={(value) => onUpdateContactInfo('linkedin', value)}
-                  placeholder="linkedin.com/in/yourprofile"
-                  suggestions={suggestions}
-                  coachEnabled={coachEnabled}
-                  style={{ color: sidebarLinkColor }}
-                />
-              )}
+              <InlineEditableText
+                spanId="contact-email"
+                value={data.contactInfo.email || ''}
+                onChange={(value) => onUpdateContactInfo('email', value)}
+                placeholder={
+                  missingSpanIds?.has('contact-email')
+                    ? 'Enter your email address'
+                    : 'email@example.com'
+                }
+                suggestions={suggestions}
+                coachEnabled={coachEnabled}
+                isMissing={missingSpanIds?.has('contact-email')}
+              />
+              <InlineEditableText
+                spanId="contact-phone"
+                value={data.contactInfo.phone || ''}
+                onChange={(value) => onUpdateContactInfo('phone', value)}
+                placeholder={
+                  missingSpanIds?.has('contact-phone')
+                    ? 'Enter your phone number'
+                    : '(555) 123-4567'
+                }
+                suggestions={suggestions}
+                coachEnabled={coachEnabled}
+                isMissing={missingSpanIds?.has('contact-phone')}
+              />
+              <InlineEditableText
+                spanId="contact-location"
+                value={data.contactInfo.location || ''}
+                onChange={(value) => onUpdateContactInfo('location', value)}
+                placeholder={
+                  missingSpanIds?.has('contact-location') ? 'Enter your location' : 'City, State'
+                }
+                suggestions={suggestions}
+                coachEnabled={coachEnabled}
+                isMissing={missingSpanIds?.has('contact-location')}
+              />
+              <InlineEditableText
+                spanId="contact-linkedin"
+                value={data.contactInfo.linkedin || ''}
+                onChange={(value) => onUpdateContactInfo('linkedin', value)}
+                placeholder={
+                  missingSpanIds?.has('contact-linkedin')
+                    ? 'Enter your LinkedIn URL'
+                    : 'linkedin.com/in/yourprofile'
+                }
+                suggestions={suggestions}
+                coachEnabled={coachEnabled}
+                style={{ color: sidebarLinkColor }}
+                isMissing={missingSpanIds?.has('contact-linkedin')}
+              />
             </div>
           </div>
 
@@ -514,13 +1022,25 @@ function ExperienceEntry({
   suggestions,
   coachEnabled,
   accentColor,
+  isSelected,
+  missingSpanIds,
   onChange,
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete,
 }: {
   experience: Experience;
   suggestions: Suggestion[];
   coachEnabled: boolean;
   accentColor: string;
+  isSelected?: boolean;
+  missingSpanIds?: Set<string>;
   onChange: (updated: Experience) => void;
+  onAdd?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
 }) {
   const bullets = parseBulletPoints(experience.description || '');
 
@@ -531,29 +1051,53 @@ function ExperienceEntry({
     });
   };
 
+  // Check if any bullet in this experience is missing (needs description)
+  const bulletSpanId = `experience-${experience.id}-description-0`;
+
+  const titleIsMissing = missingSpanIds?.has(`experience-${experience.id}-title`);
+  const companyIsMissing = missingSpanIds?.has(`experience-${experience.id}-company`);
+  const bulletIsMissing = missingSpanIds?.has(bulletSpanId);
+
+  const showToolbar = onAdd && onDuplicate && onDelete;
+
   return (
-    <div>
+    <div
+      className={cn(
+        'relative group/entry pr-6',
+        isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+      )}
+    >
+      {showToolbar && (
+        <EntryToolbar
+          onAdd={onAdd}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
       <div className="flex justify-between items-baseline">
         <div>
           <InlineEditableText
             spanId={`experience-${experience.id}-title`}
             value={experience.title}
             onChange={(value) => onChange({ ...experience, title: value })}
-            placeholder="Job Title"
+            placeholder={titleIsMissing ? 'Enter job title (e.g. Software Engineer)' : 'Job Title'}
             suggestions={suggestions}
             coachEnabled={coachEnabled}
             className="font-semibold text-[12pt]"
+            isMissing={titleIsMissing}
           />
           <span className="mx-2 text-slate-400">|</span>
           <InlineEditableText
             spanId={`experience-${experience.id}-company`}
             value={experience.company}
             onChange={(value) => onChange({ ...experience, company: value })}
-            placeholder="Company Name"
+            placeholder={companyIsMissing ? 'Enter company name' : 'Company Name'}
             suggestions={suggestions}
             coachEnabled={coachEnabled}
             className="text-[12pt]"
-            style={{ color: accentColor } as React.CSSProperties}
+            style={{ color: accentColor } as CSSProperties}
+            isMissing={companyIsMissing}
           />
         </div>
         <div className="text-[10pt] text-slate-500">
@@ -570,6 +1114,10 @@ function ExperienceEntry({
           onChange={handleBulletsChange}
           suggestions={suggestions}
           coachEnabled={coachEnabled}
+          isMissing={bulletIsMissing}
+          placeholder={
+            bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
+          }
         />
       </div>
     </div>
@@ -584,25 +1132,57 @@ function EducationEntry({
   education,
   suggestions,
   coachEnabled,
+  isSelected,
+  missingSpanIds,
   onChange,
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete,
 }: {
   education: Education;
   suggestions: Suggestion[];
   coachEnabled: boolean;
+  isSelected?: boolean;
+  missingSpanIds?: Set<string>;
   onChange: (updated: Education) => void;
+  onAdd?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
 }) {
+  const schoolIsMissing = missingSpanIds?.has(`education-${education.id}-school`);
+  const degreeIsMissing = missingSpanIds?.has(`education-${education.id}-degree`);
+  const fieldIsMissing = missingSpanIds?.has(`education-${education.id}-field`);
+
+  const showToolbar = onAdd && onDuplicate && onDelete;
+
   return (
-    <div>
+    <div
+      className={cn(
+        'relative group/entry pr-6',
+        isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+      )}
+    >
+      {showToolbar && (
+        <EntryToolbar
+          onAdd={onAdd}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
       <div className="flex justify-between items-baseline">
         <div>
           <InlineEditableText
             spanId={`education-${education.id}-school`}
             value={education.school}
             onChange={(value) => onChange({ ...education, school: value })}
-            placeholder="University Name"
+            placeholder={schoolIsMissing ? 'Enter school/university name' : 'University Name'}
             suggestions={suggestions}
             coachEnabled={coachEnabled}
             className="font-semibold text-[12pt]"
+            isMissing={schoolIsMissing}
           />
         </div>
         <div className="text-[10pt] text-slate-500">
@@ -614,18 +1194,20 @@ function EducationEntry({
           spanId={`education-${education.id}-degree`}
           value={education.degree}
           onChange={(value) => onChange({ ...education, degree: value })}
-          placeholder="Degree"
+          placeholder={degreeIsMissing ? 'Enter degree (e.g. Bachelor of Science)' : 'Degree'}
           suggestions={suggestions}
           coachEnabled={coachEnabled}
+          isMissing={degreeIsMissing}
         />
         <span className="text-slate-500"> in </span>
         <InlineEditableText
           spanId={`education-${education.id}-field`}
           value={education.field}
           onChange={(value) => onChange({ ...education, field: value })}
-          placeholder="Field of Study"
+          placeholder={fieldIsMissing ? 'Enter field of study' : 'Field of Study'}
           suggestions={suggestions}
           coachEnabled={coachEnabled}
+          isMissing={fieldIsMissing}
         />
       </div>
       {education.gpa && <div className="text-[10pt] text-slate-600">GPA: {education.gpa}</div>}
@@ -917,15 +1499,40 @@ function ProjectEntry({
   project,
   suggestions,
   coachEnabled,
+  isSelected,
   onChange,
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete,
 }: {
   project: Project;
   suggestions: Suggestion[];
   coachEnabled: boolean;
+  isSelected?: boolean;
   onChange: (updated: Project) => void;
+  onAdd?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
 }) {
+  const showToolbar = onAdd && onDuplicate && onDelete;
+
   return (
-    <div>
+    <div
+      className={cn(
+        'relative group/entry pr-6',
+        isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+      )}
+    >
+      {showToolbar && (
+        <EntryToolbar
+          onAdd={onAdd}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
       <div className="flex justify-between items-baseline">
         <InlineEditableText
           spanId={`projects-${project.id}-name`}
@@ -961,6 +1568,177 @@ function ProjectEntry({
         <div className="text-[10pt] text-slate-500 mt-1">
           <span className="font-medium">Tech:</span> {project.technologies}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Achievement Entry
+// ============================================================================
+
+function AchievementEntry({
+  achievement,
+  suggestions,
+  coachEnabled,
+  isSelected,
+  missingSpanIds,
+  onChange,
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete,
+}: {
+  achievement: Achievement;
+  suggestions: Suggestion[];
+  coachEnabled: boolean;
+  isSelected?: boolean;
+  missingSpanIds?: Set<string>;
+  onChange: (updated: Achievement) => void;
+  onAdd?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
+}) {
+  const titleIsMissing = missingSpanIds?.has(`achievement-${achievement.id}-title`);
+
+  const showToolbar = onAdd && onDuplicate && onDelete;
+
+  return (
+    <div
+      className={cn(
+        'relative group/entry pr-6',
+        isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+      )}
+    >
+      {showToolbar && (
+        <EntryToolbar
+          onAdd={onAdd}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
+      <div className="flex justify-between items-baseline">
+        <InlineEditableText
+          spanId={`achievement-${achievement.id}-title`}
+          value={achievement.title}
+          onChange={(value) => onChange({ ...achievement, title: value })}
+          placeholder={titleIsMissing ? 'Enter achievement title' : 'Achievement Title'}
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          className="font-semibold text-[12pt]"
+          isMissing={titleIsMissing}
+        />
+        {achievement.date && <span className="text-[10pt] text-slate-500">{achievement.date}</span>}
+      </div>
+      <InlineEditableText
+        spanId={`achievement-${achievement.id}-description`}
+        value={achievement.description}
+        onChange={(value) => onChange({ ...achievement, description: value })}
+        placeholder="Describe this achievement..."
+        multiline
+        suggestions={suggestions}
+        coachEnabled={coachEnabled}
+        className="text-[11pt] mt-1"
+      />
+    </div>
+  );
+}
+
+// ============================================================================
+// Certification Entry
+// ============================================================================
+
+function CertificationEntry({
+  certification,
+  suggestions,
+  coachEnabled,
+  accentColor,
+  isSelected,
+  missingSpanIds,
+  onChange,
+  onAdd,
+  onDuplicate,
+  onDelete,
+  canDelete,
+}: {
+  certification: Certification;
+  suggestions: Suggestion[];
+  coachEnabled: boolean;
+  accentColor: string;
+  isSelected?: boolean;
+  missingSpanIds?: Set<string>;
+  onChange: (updated: Certification) => void;
+  onAdd?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
+}) {
+  const nameIsMissing = missingSpanIds?.has(`certification-${certification.id}-name`);
+  const issuerIsMissing = missingSpanIds?.has(`certification-${certification.id}-issuer`);
+
+  const showToolbar = onAdd && onDuplicate && onDelete;
+
+  return (
+    <div
+      className={cn(
+        'relative group/entry pr-6',
+        isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
+      )}
+    >
+      {showToolbar && (
+        <EntryToolbar
+          onAdd={onAdd}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
+      <div className="flex justify-between items-baseline">
+        <div>
+          <InlineEditableText
+            spanId={`certification-${certification.id}-name`}
+            value={certification.name}
+            onChange={(value) => onChange({ ...certification, name: value })}
+            placeholder={nameIsMissing ? 'Enter certification name' : 'Certification Name'}
+            suggestions={suggestions}
+            coachEnabled={coachEnabled}
+            className="font-semibold text-[12pt]"
+            isMissing={nameIsMissing}
+          />
+          <span className="mx-2 text-slate-400">|</span>
+          <InlineEditableText
+            spanId={`certification-${certification.id}-issuer`}
+            value={certification.issuer}
+            onChange={(value) => onChange({ ...certification, issuer: value })}
+            placeholder={issuerIsMissing ? 'Enter issuing organization' : 'Issuing Organization'}
+            suggestions={suggestions}
+            coachEnabled={coachEnabled}
+            className="text-[12pt]"
+            style={{ color: accentColor } as CSSProperties}
+            isMissing={issuerIsMissing}
+          />
+        </div>
+        <div className="text-[10pt] text-slate-500">
+          {certification.date}
+          {certification.expirationDate && ` – ${certification.expirationDate}`}
+        </div>
+      </div>
+      {certification.credentialId && (
+        <div className="text-[10pt] text-slate-500 mt-1">
+          Credential ID: {certification.credentialId}
+        </div>
+      )}
+      {certification.url && (
+        <a
+          href={certification.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10pt] text-blue-600 hover:underline mt-1 inline-block"
+        >
+          View Credential
+        </a>
       )}
     </div>
   );

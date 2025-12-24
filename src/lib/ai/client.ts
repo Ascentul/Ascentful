@@ -1,0 +1,222 @@
+// AI client wrapper for GPT-5.2 tiered model calls
+
+import OpenAI from 'openai';
+import { z } from 'zod';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Model tiers for cost/performance optimization
+export type ModelTier = 'pro' | 'standard' | 'mini';
+
+const MODEL_MAP = {
+  pro: 'gpt-4o', // Will upgrade to gpt-5.2-pro when available
+  standard: 'gpt-4o', // Will upgrade to gpt-5.2 when available
+  mini: 'gpt-4o-mini', // Will upgrade to gpt-5.2-mini when available
+} as const;
+
+// Temperature defaults by tier
+const TEMPERATURE_DEFAULTS: Record<ModelTier, number> = {
+  pro: 0.2, // More deterministic for complex analysis
+  standard: 0.4, // Balanced for creative rewriting
+  mini: 0.1, // Very deterministic for evaluation
+};
+
+// Max tokens by tier
+const MAX_TOKENS_DEFAULTS: Record<ModelTier, number> = {
+  pro: 6000,
+  standard: 4096,
+  mini: 2048,
+};
+
+export interface AICallOptions {
+  tier?: ModelTier;
+  maxRetries?: number;
+  temperature?: number;
+  maxTokens?: number;
+  jsonMode?: boolean;
+}
+
+export interface AICallResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+  model?: string;
+  tier?: ModelTier;
+}
+
+/**
+ * Extract JSON from AI response content
+ * Handles markdown code blocks and raw JSON
+ */
+function extractJSON(content: string): string {
+  // Try to extract from code block first
+  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+
+  // Try to find JSON object
+  const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+  if (jsonObjectMatch) {
+    return jsonObjectMatch[0];
+  }
+
+  // Try to find JSON array
+  const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+  if (jsonArrayMatch) {
+    return jsonArrayMatch[0];
+  }
+
+  return content;
+}
+
+/**
+ * Main AI call function with tiered model support
+ * Uses GPT-5.2 models (currently using GPT-4o as placeholder)
+ */
+export async function callAI<T>(
+  systemPrompt: string,
+  userPrompt: string,
+  schema: z.ZodSchema<T>,
+  options: AICallOptions = {},
+): Promise<AICallResult<T>> {
+  const {
+    tier = 'standard',
+    maxRetries = 3,
+    temperature = TEMPERATURE_DEFAULTS[tier],
+    maxTokens = MAX_TOKENS_DEFAULTS[tier],
+    jsonMode = true,
+  } = options;
+
+  const model = MODEL_MAP[tier];
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await openai.chat.completions.create({
+        model,
+        max_tokens: maxTokens,
+        temperature,
+        ...(jsonMode && { response_format: { type: 'json_object' as const } }),
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+
+      const textContent = response.choices[0]?.message?.content;
+      if (!textContent) {
+        throw new Error('No text content in response');
+      }
+
+      const jsonString = extractJSON(textContent);
+      const parsed = JSON.parse(jsonString);
+      const validated = schema.parse(parsed);
+
+      return {
+        success: true,
+        data: validated,
+        usage: {
+          inputTokens: response.usage?.prompt_tokens || 0,
+          outputTokens: response.usage?.completion_tokens || 0,
+        },
+        model,
+        tier,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Unknown error';
+
+      // Log for debugging
+      console.error(`AI call attempt ${attempt}/${maxRetries} failed:`, lastError);
+
+      // Exponential backoff before retry
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+      }
+    }
+  }
+
+  // If pro tier fails, try standard as fallback
+  if (tier === 'pro' && maxRetries > 0) {
+    console.warn('Pro tier failed, falling back to standard tier');
+    return callAI(systemPrompt, userPrompt, schema, {
+      ...options,
+      tier: 'standard',
+      maxRetries: 1,
+    });
+  }
+
+  return {
+    success: false,
+    error: `AI call failed after ${maxRetries} attempts: ${lastError}`,
+    tier,
+  };
+}
+
+/**
+ * Call AI without schema validation (for text-only responses)
+ */
+export async function callAIText(
+  systemPrompt: string,
+  userPrompt: string,
+  options: Omit<AICallOptions, 'jsonMode'> = {},
+): Promise<AICallResult<string>> {
+  const { tier = 'standard', maxRetries = 3, temperature = TEMPERATURE_DEFAULTS[tier] } = options;
+
+  const model = MODEL_MAP[tier];
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await openai.chat.completions.create({
+        model,
+        max_tokens: MAX_TOKENS_DEFAULTS[tier],
+        temperature,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      if (!content) {
+        throw new Error('No content in response');
+      }
+
+      return {
+        success: true,
+        data: content,
+        usage: {
+          inputTokens: response.usage?.prompt_tokens || 0,
+          outputTokens: response.usage?.completion_tokens || 0,
+        },
+        model,
+        tier,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Unknown error';
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+      }
+    }
+  }
+
+  return {
+    success: false,
+    error: `AI text call failed: ${lastError}`,
+    tier,
+  };
+}
+
+/**
+ * Get the current model for a tier (for logging/debugging)
+ */
+export function getModelForTier(tier: ModelTier): string {
+  return MODEL_MAP[tier];
+}

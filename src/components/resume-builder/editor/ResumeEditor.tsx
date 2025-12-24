@@ -109,7 +109,6 @@ export function ResumeEditor({
           <StyleTab
             templateId={templateId}
             styleConfig={styleConfig}
-            onTemplateChange={onTemplateChange}
             onStyleChange={onStyleChange}
           />
         );

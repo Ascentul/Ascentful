@@ -4,6 +4,8 @@ import { Eye, EyeOff, Files, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
+  Achievement,
+  Certification,
   Education,
   Experience,
   Project,
@@ -46,10 +48,17 @@ interface CanvasPanelProps {
   onUpdateEducation: (education: Education[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   onUpdateSkills: (skills: string[]) => void;
+  onUpdateAchievements?: (achievements: Achievement[]) => void;
+  onUpdateCertifications?: (certifications: Certification[]) => void;
   // Page toolbar actions (optional)
   onDuplicatePage?: (pageIndex: number) => void;
   onDeletePage?: (pageIndex: number) => void;
   totalPages?: number;
+  // Selection state from outline panel
+  selectedSectionId?: string | null;
+  selectedItemId?: string | null;
+  // Missing field spanIds for form validation-style highlighting
+  missingSpanIds?: Set<string>;
 }
 
 export function CanvasPanel({
@@ -68,9 +77,14 @@ export function CanvasPanel({
   onUpdateEducation,
   onUpdateProjects,
   onUpdateSkills,
+  onUpdateAchievements,
+  onUpdateCertifications,
   onDuplicatePage,
   onDeletePage,
   totalPages: externalTotalPages,
+  selectedSectionId,
+  selectedItemId,
+  missingSpanIds,
 }: CanvasPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentMeasureRef = useRef<HTMLDivElement>(null);
@@ -164,10 +178,9 @@ export function CanvasPanel({
       remainingHeight -= PAGE_CONTENT_HEIGHT_PX;
     }
 
-    if (pages !== calculatedPageCount) {
-      setCalculatedPageCount(pages);
-    }
-  }, [calculatedPageCount]);
+    // Use functional updater to avoid including calculatedPageCount in dependencies
+    setCalculatedPageCount((prev) => (prev !== pages ? pages : prev));
+  }, []);
 
   // Measure on mount and when data changes
   useEffect(() => {
@@ -220,6 +233,8 @@ export function CanvasPanel({
               onUpdateEducation={() => {}}
               onUpdateProjects={() => {}}
               onUpdateSkills={() => {}}
+              onUpdateAchievements={() => {}}
+              onUpdateCertifications={() => {}}
             />
           </div>
 
@@ -378,6 +393,11 @@ export function CanvasPanel({
                           onUpdateEducation={onUpdateEducation}
                           onUpdateProjects={onUpdateProjects}
                           onUpdateSkills={onUpdateSkills}
+                          onUpdateAchievements={onUpdateAchievements}
+                          onUpdateCertifications={onUpdateCertifications}
+                          selectedSectionId={selectedSectionId}
+                          selectedItemId={selectedItemId}
+                          missingSpanIds={missingSpanIds}
                         />
                       </div>
                     </div>
