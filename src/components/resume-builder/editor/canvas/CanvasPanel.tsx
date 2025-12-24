@@ -191,8 +191,16 @@ export function CanvasPanel({
 
   // Also measure on window resize
   useEffect(() => {
-    window.addEventListener('resize', measureContent);
-    return () => window.removeEventListener('resize', measureContent);
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const debouncedMeasure = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(measureContent, 150);
+    };
+    window.addEventListener('resize', debouncedMeasure);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedMeasure);
+    };
   }, [measureContent]);
 
   return (
@@ -265,6 +273,11 @@ export function CanvasPanel({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
+                          aria-label={
+                            !hiddenPages.has(pageIndex)
+                              ? 'Hide page from export'
+                              : 'Show page in export'
+                          }
                           onClick={() => {
                             setHiddenPages((prev) => {
                               const next = new Set(prev);
@@ -298,6 +311,7 @@ export function CanvasPanel({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
+                          aria-label="Duplicate page"
                           onClick={() => onDuplicatePage?.(pageIndex)}
                         >
                           <Files className="h-4 w-4" />
@@ -314,6 +328,7 @@ export function CanvasPanel({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-slate-200/50"
+                            aria-label="Delete page"
                             onClick={() => onDeletePage?.(pageIndex)}
                           >
                             <Trash2 className="h-4 w-4" />

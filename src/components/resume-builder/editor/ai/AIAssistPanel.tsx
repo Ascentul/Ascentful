@@ -809,6 +809,7 @@ export function AIAssistPanel({
                         'text-xs px-2 py-1 rounded-full bg-red-100 text-red-700',
                         'hover:bg-red-200 transition-colors cursor-pointer',
                       )}
+                      aria-label={`Go to ${field.label} field`}
                     >
                       {field.label}
                     </button>

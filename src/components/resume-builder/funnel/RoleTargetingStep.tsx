@@ -106,7 +106,7 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
 
       {/* Other Roles - Tag Bubbles */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">
+        <label htmlFor="newAlternateRole" className="block text-sm font-medium text-slate-700">
           Other roles <span className="text-slate-400 font-normal">(optional)</span>
         </label>
 

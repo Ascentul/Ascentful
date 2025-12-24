@@ -50,7 +50,7 @@ import {
   scrollToSpan,
 } from '@/lib/resume-editor/span-utils';
 import { cn } from '@/lib/utils';
-import type { EditorAction, TopFix, ZoomLevel } from '@/types/resume-editor';
+import type { EditorAction, ZoomLevel } from '@/types/resume-editor';
 import { SECTION_CONFIGS } from '@/types/resume-editor';
 
 import type { FontPairingId, StyleConfig, TemplateId } from '../templates/types';
@@ -1019,17 +1019,6 @@ function ThreePanelEditorInner({
     [aiSuggestions, handleApplyAISuggestion],
   );
 
-  // Apply fix
-  const handleApplyFix = useCallback(
-    (fix: TopFix) => {
-      // Apply all suggestions in the fix
-      fix.suggestionIds.forEach((id) => {
-        handleApplySuggestion(id);
-      });
-    },
-    [handleApplySuggestion],
-  );
-
   // Scroll to span
   const handleScrollToSpan = useCallback((spanId: string) => {
     scrollToSpan(spanId);
@@ -1287,7 +1276,6 @@ function ThreePanelEditorInner({
             topFixes={score.topFixes}
             onApplySuggestion={handleApplySuggestion}
             onDismissSuggestion={handleDismissAISuggestion}
-            onApplyFix={handleApplyFix}
             onScrollToSpan={handleScrollToSpan}
             // AI props
             aiScore={aiScore}

@@ -106,7 +106,7 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
       setStartSource('upload');
       setShowFunnel(true);
     } catch (error) {
-      console.error('Error parsing upload:', error);
+      console.error('Error parsing upload:', error instanceof Error ? error.name : 'Unknown');
       toast({
         title: 'Upload processing failed',
         description: 'Starting with a blank draft instead.',

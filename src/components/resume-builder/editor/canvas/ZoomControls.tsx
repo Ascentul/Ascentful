@@ -16,22 +16,23 @@ const MAX_ZOOM = 120;
 const ZOOM_STEP = 5;
 
 export function ZoomControls({ value, onChange }: ZoomControlsProps) {
+  const clampedValue = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
   const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState(String(value));
+  const [inputValue, setInputValue] = useState(String(clampedValue));
 
   // Sync input value when external value changes
   useEffect(() => {
     if (!isEditing) {
-      setInputValue(String(value));
+      setInputValue(String(clampedValue));
     }
-  }, [value, isEditing]);
+  }, [clampedValue, isEditing]);
 
   const handleZoomIn = () => {
-    onChange(Math.min(MAX_ZOOM, value + ZOOM_STEP));
+    onChange(Math.min(MAX_ZOOM, clampedValue + ZOOM_STEP));
   };
 
   const handleZoomOut = () => {
-    onChange(Math.max(MIN_ZOOM, value - ZOOM_STEP));
+    onChange(Math.max(MIN_ZOOM, clampedValue - ZOOM_STEP));
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +44,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
     if (!isNaN(parsed)) {
       onChange(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, parsed)));
     } else {
-      setInputValue(String(value));
+      setInputValue(String(clampedValue));
     }
     setIsEditing(false);
   };
@@ -52,13 +53,13 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
     if (e.key === 'Enter') {
       handleInputSubmit();
     } else if (e.key === 'Escape') {
-      setInputValue(String(value));
+      setInputValue(String(clampedValue));
       setIsEditing(false);
     }
   };
 
   // Calculate fill percentage for styled track
-  const fillPercent = ((value - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100;
+  const fillPercent = ((clampedValue - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100;
 
   return (
     <div className="flex items-center gap-2">

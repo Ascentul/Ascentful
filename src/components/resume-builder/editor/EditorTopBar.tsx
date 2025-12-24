@@ -133,6 +133,7 @@ export function EditorTopBar({
             <button
               onClick={() => setIsEditingTitle(true)}
               className="text-sm font-medium text-slate-900 hover:text-primary-600 transition-colors truncate max-w-[250px]"
+              aria-label={`Edit title: ${title}`}
             >
               {title}
             </button>

@@ -72,6 +72,9 @@ export default function ResumeBuilderPage() {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
       }
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
     };
   }, []);
 

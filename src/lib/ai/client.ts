@@ -3,9 +3,11 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  : null;
 
 // Model tiers for cost/performance optimization
 export type ModelTier = 'pro' | 'standard' | 'mini';
@@ -125,6 +127,14 @@ export async function callAI<T>(
     timeoutMs = 60000,
   } = options;
 
+  if (!openai) {
+    return {
+      success: false,
+      error: 'OpenAI API key not configured',
+      tier,
+    };
+  }
+
   const model = MODEL_MAP[tier];
   let lastError: string | undefined;
 
@@ -209,6 +219,14 @@ export async function callAIText(
     temperature = TEMPERATURE_DEFAULTS[tier],
     timeoutMs = 60000,
   } = options;
+
+  if (!openai) {
+    return {
+      success: false,
+      error: 'OpenAI API key not configured',
+      tier,
+    };
+  }
 
   const model = MODEL_MAP[tier];
   let lastError: string | undefined;

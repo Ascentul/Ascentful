@@ -1,12 +1,12 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { z } from 'zod';
 
+import { callAI } from '@/lib/ai/client';
 import { evaluate } from '@/lib/ai-evaluation';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 type RewriteMode = 'stronger' | 'shorter' | 'add_metric';
 
@@ -23,6 +23,10 @@ Remove filler words and redundancies.`,
 Only use metrics explicitly stated in the original bullet or provided context.
 If no metric is available, return the original bullet unchanged.`,
 };
+
+const RewriteBulletResponseSchema = z.object({
+  rewritten: z.string().optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,14 +61,7 @@ export async function POST(request: NextRequest) {
       ? `\n\nContext:\nJob Title: ${context.jobTitle || 'Not specified'}\nCompany: ${context.company || 'Not specified'}\nTarget Role: ${context.targetRole || 'Not specified'}`
       : '';
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert resume writer specializing in crafting impactful bullet points.
+    const systemPrompt = `You are an expert resume writer specializing in crafting impactful bullet points.
 
 ${modePrompt}
 
@@ -74,27 +71,22 @@ Rules:
 - Focus on results and impact
 - Be specific and professional
 
-Respond with JSON: { "rewritten": "the rewritten bullet point" }`,
-        },
-        {
-          role: 'user',
-          content: `Original bullet point: "${bullet}"${contextInfo}`,
-        },
-      ],
+Respond with JSON: { "rewritten": "the rewritten bullet point" }`;
+    const userPrompt = `Original bullet point: "${bullet}"${contextInfo}`;
+
+    const result = await callAI(systemPrompt, userPrompt, RewriteBulletResponseSchema, {
+      tier: 'standard',
+      maxRetries: 2,
+      temperature: 0.7,
     });
 
-    const content = response.choices[0]?.message?.content || '{}';
-    let parsed: { rewritten?: string };
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      console.warn('Failed to parse OpenAI rewrite response, returning original bullet');
-      // Return original with fallback flag so client knows AI parsing failed
-      return NextResponse.json({ rewritten: bullet, fallback: true });
+    if (!result.success || !result.data) {
+      console.error('AI rewrite failed');
+      return NextResponse.json({ error: 'Failed to rewrite bullet' }, { status: 500 });
     }
 
-    const rewritten = parsed.rewritten || bullet;
-    const usedFallback = !parsed.rewritten;
+    const rewritten = result.data.rewritten || bullet;
+    const usedFallback = !result.data.rewritten;
     const evaluation = await evaluate({
       tool_id: 'resume-suggestions',
       input: { bullet, mode, context },

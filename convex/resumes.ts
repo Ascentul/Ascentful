@@ -558,17 +558,15 @@ export const restoreResumeVersion = mutation({
       throw new Error('Version not found');
     }
 
-    // Update the resume with the snapshot
-    await ctx.db.patch(args.resumeId, {
-      content: versionToRestore.content_snapshot,
-      updated_at: Date.now(),
-    });
-
     const baseVersion = await getBaseVersionNumber(ctx, args.resumeId, resume.version_counter);
-
     const newVersionNumber = baseVersion + 1;
 
-    await ctx.db.patch(args.resumeId, { version_counter: newVersionNumber });
+    // Update the resume with the snapshot and new version counter
+    await ctx.db.patch(args.resumeId, {
+      content: versionToRestore.content_snapshot,
+      version_counter: newVersionNumber,
+      updated_at: Date.now(),
+    });
 
     await ctx.db.insert('resume_versions', {
       resume_id: args.resumeId,

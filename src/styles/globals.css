@@ -18,6 +18,7 @@
     --popover-foreground: 222.2 84% 4.9%;
     /* Brand primary: #5371FF (HSL: 231 100% 66%) - 4.51:1 contrast (WCAG AA compliant) */
     --primary: 231 100% 66%;
+    --primary-rgb: 83, 113, 255;
     --primary-foreground: 0 0% 100%;
     /* Primary scale */
     --primary-50: 231 100% 97%;
@@ -82,6 +83,7 @@
     --popover-foreground: 210 40% 98%;
     /* Brand primary: #5371FF (HSL: 231 100% 66%) - 4.51:1 contrast (WCAG AA compliant) */
     --primary: 231 100% 66%;
+    --primary-rgb: 83, 113, 255;
     --primary-foreground: 0 0% 100%;
     /* Primary scale */
     --primary-50: 231 100% 97%;
@@ -180,15 +182,15 @@
   /* Span highlight flash animation for AI assistant field guidance */
   @keyframes span-highlight-pulse {
     0% {
-      box-shadow: 0 0 0 0 rgba(83, 113, 255, 0.7);
-      background-color: rgba(83, 113, 255, 0.1);
+      box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7);
+      background-color: rgba(var(--primary-rgb), 0.1);
     }
     50% {
-      box-shadow: 0 0 0 6px rgba(83, 113, 255, 0);
-      background-color: rgba(83, 113, 255, 0.2);
+      box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0);
+      background-color: rgba(var(--primary-rgb), 0.2);
     }
     100% {
-      box-shadow: 0 0 0 0 rgba(83, 113, 255, 0);
+      box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
       background-color: transparent;
     }
   }
@@ -196,7 +198,7 @@
   .span-highlight-flash {
     animation: span-highlight-pulse 2s ease-out;
     border-radius: 4px;
-    outline: 2px solid #5371ff;
+    outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
   }
 

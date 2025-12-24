@@ -200,9 +200,9 @@ function generateExperienceSuggestions(experience: Experience): Suggestion[] {
     });
 
     // Check for weak verbs
-    const lowerBullet = bullet.toLowerCase();
     for (const weakVerb of WEAK_VERBS) {
-      if (lowerBullet.startsWith(weakVerb) || lowerBullet.includes(` ${weakVerb} `)) {
+      const weakVerbRegex = new RegExp(`\\b${weakVerb}\\b`, 'i');
+      if (weakVerbRegex.test(bullet)) {
         const strongVerb = suggestStrongerVerb(bullet);
         suggestions.push({
           suggestionId: `exp-${experience.id}-${bulletIndex}-weak-verb`,

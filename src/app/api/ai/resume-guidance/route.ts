@@ -228,10 +228,13 @@ This allows the user to easily apply your suggestions to their resume.`;
     ];
 
     // Add conversation history
-    conversationHistory.forEach((msg: { isUser: boolean; message: string }) => {
+    conversationHistory.forEach((msg: unknown) => {
+      if (typeof msg !== 'object' || msg === null) return;
+      const typedMsg = msg as { isUser?: unknown; message?: unknown };
+      if (typeof typedMsg.isUser !== 'boolean' || typeof typedMsg.message !== 'string') return;
       messages.push({
-        role: msg.isUser ? 'user' : 'assistant',
-        content: msg.message,
+        role: typedMsg.isUser ? 'user' : 'assistant',
+        content: typedMsg.message,
       });
     });
 
@@ -287,7 +290,7 @@ function parseResumeContent(response: string): ParsedResumeContent | null {
 
 function getSuggestedResponses(
   section: string,
-  userProfile: any,
+  userProfile: UserProfile | null,
   historyLength: number = 0,
 ): string[] {
   // Early conversation suggestions

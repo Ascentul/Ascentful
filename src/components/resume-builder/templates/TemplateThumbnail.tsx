@@ -111,6 +111,7 @@ export function TemplateThumbnailCard({
       type="button"
       onClick={onClick}
       disabled={!onClick}
+      aria-pressed={selected}
       className={`
         relative flex flex-col rounded-xl border-2 transition-all overflow-hidden
         hover:border-primary-300 hover:shadow-md

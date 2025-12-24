@@ -25,7 +25,6 @@ interface CoachPanelProps {
   topFixes: TopFix[];
   onApplySuggestion: (suggestionId: string) => void;
   onDismissSuggestion: (suggestionId: string) => void;
-  onApplyFix: (fix: TopFix) => void;
   onScrollToSpan: (spanId: string) => void;
 
   // New AI props (optional - when provided, uses AI features)
@@ -51,7 +50,6 @@ export function CoachPanel({
   topFixes,
   onApplySuggestion,
   onDismissSuggestion,
-  onApplyFix: _onApplyFix,
   onScrollToSpan,
   // AI props
   aiScore,

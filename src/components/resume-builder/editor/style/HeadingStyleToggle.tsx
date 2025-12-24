@@ -13,10 +13,16 @@ export function HeadingStyleToggle({ value, onChange }: HeadingStyleToggleProps)
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-slate-700">Heading Style</h3>
-      <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+      <div
+        role="radiogroup"
+        aria-label="Heading Style"
+        className="flex rounded-lg border border-slate-200 overflow-hidden"
+      >
         <button
           type="button"
           onClick={() => onChange('title_case')}
+          role="radio"
+          aria-checked={value === 'title_case'}
           className={cn(
             'flex-1 px-4 py-2 text-sm font-medium transition-colors',
             value === 'title_case'
@@ -29,6 +35,8 @@ export function HeadingStyleToggle({ value, onChange }: HeadingStyleToggleProps)
         <button
           type="button"
           onClick={() => onChange('caps')}
+          role="radio"
+          aria-checked={value === 'caps'}
           className={cn(
             'flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-slate-200 uppercase tracking-wider',
             value === 'caps'

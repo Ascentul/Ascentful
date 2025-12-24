@@ -1,7 +1,7 @@
 // All AI prompts for Resume Studio
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
-import type { Bullet, JobDescription, Resume, Role, Section } from '@/lib/resume/types';
+import type { JobDescription } from '@/lib/resume/types';
 
 // ========== MASTER SYSTEM PROMPT ==========
 export const MASTER_SYSTEM_PROMPT = `You are an expert resume writer and career coach integrated into Resume Studio. You combine the expertise of:

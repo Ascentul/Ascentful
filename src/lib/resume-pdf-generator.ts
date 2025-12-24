@@ -536,7 +536,11 @@ export async function generateResumePDF(
       doc.text(cert.name, MARGIN.LEFT, yPos);
 
       // Date and expiration (right-aligned, small, light gray)
-      const dateText = cert.expirationDate ? `${cert.date} - ${cert.expirationDate}` : cert.date;
+      const dateText = cert.date
+        ? cert.expirationDate
+          ? `${cert.date} - ${cert.expirationDate}`
+          : cert.date
+        : '';
       if (dateText) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(FONT_SIZE.SMALL);
