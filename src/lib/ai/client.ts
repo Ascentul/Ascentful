@@ -217,6 +217,7 @@ export async function callAIText(
     tier = 'standard',
     maxRetries = 3,
     temperature = TEMPERATURE_DEFAULTS[tier],
+    maxTokens = MAX_TOKENS_DEFAULTS[tier],
     timeoutMs = 60000,
   } = options;
 
@@ -236,7 +237,7 @@ export async function callAIText(
       const response = await openai.chat.completions.create(
         {
           model,
-          max_tokens: MAX_TOKENS_DEFAULTS[tier],
+          max_tokens: maxTokens,
           temperature,
           messages: [
             { role: 'system', content: systemPrompt },

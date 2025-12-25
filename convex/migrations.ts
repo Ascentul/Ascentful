@@ -306,6 +306,7 @@ export const backfillResumeVersionCounter = internalMutation({
     let updatedCount = 0;
     let alreadySetCount = 0;
     let skippedCount = 0;
+    let wouldUpdateCount = 0;
 
     console.log(`🚀 Starting resume version_counter backfill (dryRun: ${dryRun})...`);
 
@@ -328,6 +329,7 @@ export const backfillResumeVersionCounter = internalMutation({
         const versionCounter = latestVersion?.version_number ?? 0;
 
         if (dryRun) {
+          wouldUpdateCount++;
           console.log(
             `📝 DRY RUN: Would set version_counter=${versionCounter} for resume ${maskId(resume._id)}`,
           );
@@ -352,14 +354,14 @@ export const backfillResumeVersionCounter = internalMutation({
     const summary = {
       success: skippedCount === 0,
       totalProcessed,
-      updatedCount: dryRun ? 0 : updatedCount,
+      updatedCount: dryRun ? wouldUpdateCount : updatedCount,
       alreadySetCount,
       skippedCount,
       dryRun,
     };
 
     console.log(
-      `✅ Resume version_counter backfill complete: ${totalProcessed} checked, ${alreadySetCount} already set, ${summary.updatedCount} updated${dryRun ? ' (dry run)' : ''}`,
+      `✅ Resume version_counter backfill complete: ${totalProcessed} checked, ${alreadySetCount} already set, ${summary.updatedCount} ${dryRun ? 'would be updated (dry run)' : 'updated'}`,
     );
 
     return summary;

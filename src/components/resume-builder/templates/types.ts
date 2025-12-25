@@ -400,9 +400,7 @@ export function styleConfigToTheme(config: StyleConfig): TemplateTheme {
 
 // Helper to get CSS variables for a style config
 export function getStyleVariables(config: StyleConfig): Record<string, string> {
-  const fontPairing = Object.prototype.hasOwnProperty.call(FONT_PAIRINGS, config.font_pairing)
-    ? FONT_PAIRINGS[config.font_pairing]
-    : FONT_PAIRINGS.classic;
+  const fontPairing = FONT_PAIRINGS[config.font_pairing] ?? FONT_PAIRINGS.classic;
 
   return {
     '--font-heading': fontPairing.heading,

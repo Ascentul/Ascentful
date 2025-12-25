@@ -147,6 +147,8 @@ export function AIGuidanceModal({
       setIsLoading(true);
 
       try {
+        // Abort any existing request before starting a new one
+        abortControllerRef.current?.abort();
         abortControllerRef.current = new AbortController();
         const conversationHistory = messages.map((m) => ({
           isUser: m.isUser,

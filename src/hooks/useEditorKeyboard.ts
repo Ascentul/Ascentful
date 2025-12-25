@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 interface UseEditorKeyboardOptions {
   onUndo: () => void;
@@ -29,11 +29,12 @@ export function useEditorKeyboard({
   inlineEditing,
   enabled = true,
 }: UseEditorKeyboardOptions): void {
+  const isMac = useMemo(() => isMacPlatform(), []);
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
-      const isMac = isMacPlatform();
       const cmdKey = isMac ? event.metaKey : event.ctrlKey;
 
       // Cmd/Ctrl + Z (with or without Shift)
@@ -71,7 +72,7 @@ export function useEditorKeyboard({
         return;
       }
     },
-    [enabled, onUndo, onRedo, onSave, onExitInlineEdit, inlineEditing],
+    [enabled, isMac, onUndo, onRedo, onSave, onExitInlineEdit, inlineEditing],
   );
 
   useEffect(() => {

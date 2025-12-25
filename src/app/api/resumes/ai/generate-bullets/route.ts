@@ -8,9 +8,11 @@ import { evaluate } from '@/lib/ai-evaluation';
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +32,10 @@ export async function POST(request: NextRequest) {
 
     if (!experience || !experience.title) {
       return NextResponse.json({ error: 'Experience with job title is required' }, { status: 400 });
+    }
+
+    if (!openai) {
+      return NextResponse.json({ error: 'AI service is not configured' }, { status: 503 });
     }
 
     const prompt = buildPrompt(experience, intent, jobTarget);

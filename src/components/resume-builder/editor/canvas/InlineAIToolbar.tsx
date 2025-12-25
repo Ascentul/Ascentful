@@ -125,6 +125,7 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
           'transition-colors',
         )}
         title="Add Metrics"
+        aria-label="Add Metrics"
       >
         <BarChart2 className="h-3.5 w-3.5" />
       </button>
@@ -137,6 +138,7 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
           'transition-colors',
         )}
         title="Strengthen Verbs"
+        aria-label="Strengthen Verbs"
       >
         <Zap className="h-3.5 w-3.5" />
       </button>
@@ -149,6 +151,7 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
           'transition-colors',
         )}
         title="Shorten"
+        aria-label="Shorten"
       >
         <Scissors className="h-3.5 w-3.5" />
       </button>

@@ -73,7 +73,9 @@ function analyzeResumeContent(
       count: bulletsWithoutMetrics.length,
       message: `Add metrics to ${bulletsWithoutMetrics.length} bullet${bulletsWithoutMetrics.length > 1 ? 's' : ''}`,
     });
-    currentScore += bulletsWithoutMetrics.length > 3 ? 0 : 5;
+  } else if (allBullets.length > 0) {
+    // All bullets have metrics - reward this
+    currentScore += 5;
   }
 
   // Check for weak action verbs
@@ -90,7 +92,9 @@ function analyzeResumeContent(
       count: bulletsWithWeakVerbs.length,
       message: `Strengthen ${bulletsWithWeakVerbs.length} weak verb${bulletsWithWeakVerbs.length > 1 ? 's' : ''}`,
     });
-    currentScore += bulletsWithWeakVerbs.length > 4 ? 0 : 3;
+  } else if (allBullets.length > 0) {
+    // All bullets use strong verbs - reward this
+    currentScore += 3;
   }
 
   // Check for long bullets (over 150 chars)

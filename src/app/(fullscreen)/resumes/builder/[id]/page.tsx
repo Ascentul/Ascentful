@@ -298,8 +298,16 @@ export default function ResumeBuilderPage() {
       if (!confirmed) return;
     }
 
+    // Check if resume has meaningful content worth saving
+    const hasContent =
+      resumeData.contactInfo.name ||
+      resumeData.summary ||
+      (resumeData.experience?.length ?? 0) > 0 ||
+      (resumeData.education?.length ?? 0) > 0 ||
+      (resumeData.skills?.length ?? 0) > 0;
+
     // For new resumes, create before leaving if there's content
-    if (isNewResume && clerkId && resumeData.contactInfo.name) {
+    if (isNewResume && clerkId && hasContent) {
       try {
         await createResumeMutation({
           clerkId,
@@ -366,6 +374,12 @@ export default function ResumeBuilderPage() {
         <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
       </div>
     );
+  }
+
+  // Resume not found
+  if (!isNewResume && existingResume === null) {
+    router.push('/resume-studio');
+    return null;
   }
 
   return (
