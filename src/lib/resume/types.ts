@@ -173,19 +173,41 @@ export interface ScoreIssue {
 
 // SUGGESTION TYPES
 export type SuggestionType =
+  // Critical - Content Quality Issues
   | 'missing-metrics'
   | 'weak-verb'
   | 'vague-achievement'
   | 'no-outcome'
+  | 'generic-content'
+  // Critical - Missing Content
+  | 'missing-summary'
+  | 'missing-experience'
+  | 'missing-skills'
+  | 'empty-bullets'
+  // Important - Content Issues
   | 'too-long'
   | 'passive-voice'
   | 'missing-keyword'
   | 'redundant-content'
   | 'weak-scope'
+  | 'buried-impact'
+  // Important - Missing Content
+  | 'missing-education'
+  | 'missing-contact-field'
+  | 'incomplete-entry'
+  | 'short-content'
+  // Polish
   | 'filler-words'
   | 'formatting-consistency'
   | 'order-optimization'
-  | 'enhancement-opportunity';
+  | 'enhancement-opportunity'
+  | 'structure-issue'
+  // Strategic
+  | 'career-gap'
+  | 'missing-progression'
+  | 'outdated-skills'
+  // Legacy (backwards compatibility)
+  | 'missing-info';
 
 export type SuggestionSeverity = 'critical' | 'important' | 'polish';
 export type SuggestionCategory = 'impact' | 'clarity' | 'ats' | 'brevity';

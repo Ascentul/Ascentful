@@ -28,6 +28,7 @@ const DPI = 96;
 const PAGE_HEIGHT_PX = PAGE_HEIGHT_INCHES * DPI; // 1056px
 // Content area height excludes top and bottom margins
 const PAGE_CONTENT_HEIGHT_PX = (PAGE_HEIGHT_INCHES - PAGE_MARGIN_INCHES * 2) * DPI; // ~921px usable
+const TOP_MARGIN_PX = PAGE_MARGIN_INCHES * DPI; // ~67px
 
 // Zoom constraints (must match ZoomControls)
 const MIN_ZOOM = 40;
@@ -106,6 +107,8 @@ export function CanvasPanel({
 
   // Multi-page state - detect content overflow
   const [calculatedPageCount, setCalculatedPageCount] = useState(1);
+  // Store calculated page break positions (y-offsets where each page starts)
+  const [pageBreaks, setPageBreaks] = useState<number[]>([0]);
 
   // Focal-point zoom: keep the vertical position stable when zooming
   // Horizontal scroll is not adjusted since the page is always centered via flexbox
@@ -175,23 +178,71 @@ export function CanvasPanel({
   // Use external page count if provided, otherwise use calculated
   const totalPages = externalTotalPages ?? calculatedPageCount;
 
-  // Measure content and calculate page count
+  // Measure content and calculate intelligent page breaks that don't cut through sections
   const measureContent = useCallback(() => {
     if (!contentMeasureRef.current) return;
 
-    const contentHeight = contentMeasureRef.current.scrollHeight;
-    // Calculate pages: first page is full height, subsequent pages use content area only
-    // This accounts for the top margin on the first page and ensures bottom margins
-    let pages = 1;
-    let remainingHeight = contentHeight - PAGE_HEIGHT_PX;
+    const container = contentMeasureRef.current;
+    const contentHeight = container.scrollHeight;
 
-    while (remainingHeight > 0) {
-      pages++;
-      remainingHeight -= PAGE_CONTENT_HEIGHT_PX;
+    // Find all section and entry elements that should not be broken
+    const breakableElements = container.querySelectorAll('section, [class*="group/entry"]');
+
+    // Build array of element boundaries (top and bottom positions)
+    const elementBoundaries: Array<{ top: number; bottom: number }> = [];
+    breakableElements.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      // Get position relative to the container
+      const top = rect.top - containerRect.top;
+      const bottom = rect.bottom - containerRect.top;
+      elementBoundaries.push({ top, bottom });
+    });
+
+    // Sort by top position
+    elementBoundaries.sort((a, b) => a.top - b.top);
+
+    // Calculate page breaks intelligently
+    const breaks: number[] = [0]; // First page always starts at 0
+    let currentPageEnd = PAGE_HEIGHT_PX - TOP_MARGIN_PX; // First page ends here (accounting for bottom margin)
+
+    // If content fits on one page, no need for complex calculations
+    if (contentHeight <= PAGE_HEIGHT_PX) {
+      setPageBreaks([0]);
+      setCalculatedPageCount(1);
+      return;
     }
 
-    // Use functional updater to avoid including calculatedPageCount in dependencies
-    setCalculatedPageCount((prev) => (prev !== pages ? pages : prev));
+    // Find optimal break points
+    while (currentPageEnd < contentHeight) {
+      // Find the best break point - look for an element boundary near currentPageEnd
+      let bestBreakPoint = currentPageEnd;
+
+      // Look for elements that would be cut by currentPageEnd
+      for (const boundary of elementBoundaries) {
+        // If an element spans across the page break
+        if (boundary.top < currentPageEnd && boundary.bottom > currentPageEnd) {
+          // Move the break point up to before this element starts
+          // But only if it doesn't leave too much empty space (max 200px)
+          if (currentPageEnd - boundary.top < 200) {
+            bestBreakPoint = boundary.top;
+          }
+          break; // Found a conflicting element, use this break point
+        }
+      }
+
+      // Ensure we're making progress (avoid infinite loops)
+      if (bestBreakPoint <= breaks[breaks.length - 1]) {
+        bestBreakPoint = currentPageEnd;
+      }
+
+      breaks.push(bestBreakPoint);
+      // Next page ends PAGE_CONTENT_HEIGHT_PX after this break
+      currentPageEnd = bestBreakPoint + PAGE_CONTENT_HEIGHT_PX;
+    }
+
+    setPageBreaks(breaks);
+    setCalculatedPageCount(breaks.length);
   }, []);
 
   // Measure on mount and when data changes
@@ -378,32 +429,32 @@ export function CanvasPanel({
                     {/* Inner clip container - clips content to respect margins */}
                     <div
                       style={{
-                        // First page: clip from top, leaving space only for bottom margin
-                        // Subsequent pages: clip to content area only (with top & bottom margins)
-                        height:
-                          pageIndex === 0
-                            ? `${PAGE_HEIGHT_PX - PAGE_MARGIN_INCHES * DPI}px`
-                            : `${PAGE_CONTENT_HEIGHT_PX}px`,
+                        // Use intelligent page breaks to determine clip height
+                        // First page: from top to first break point (or full page minus margin)
+                        // Subsequent pages: from break point to next break point (or content height)
+                        height: (() => {
+                          const pageStart = pageBreaks[pageIndex] ?? 0;
+                          const pageEnd =
+                            pageBreaks[pageIndex + 1] ?? pageStart + PAGE_CONTENT_HEIGHT_PX;
+                          const clipHeight = pageEnd - pageStart;
+                          // Cap at content area height and account for margins
+                          return pageIndex === 0
+                            ? `${Math.min(clipHeight, PAGE_HEIGHT_PX - TOP_MARGIN_PX)}px`
+                            : `${Math.min(clipHeight, PAGE_CONTENT_HEIGHT_PX)}px`;
+                        })(),
                         overflow: 'hidden',
                         // Use absolute positioning to place clip area with top margin for subsequent pages
                         position: 'absolute',
-                        top: pageIndex === 0 ? 0 : `${PAGE_MARGIN_INCHES * DPI}px`,
+                        top: pageIndex === 0 ? 0 : `${TOP_MARGIN_PX}px`,
                         left: 0,
                         right: 0,
                       }}
                     >
-                      {/* Content wrapper that shifts up based on page number */}
+                      {/* Content wrapper that shifts up based on intelligent page breaks */}
                       <div
                         style={{
-                          // First page shows from top (already has top padding from ResumeCanvas)
-                          // Subsequent pages shift up to show next portion of content
-                          // We need to shift by: content shown on previous pages
-                          // Page 1 shows PAGE_HEIGHT_PX - margin worth of content
-                          // Each subsequent page shows PAGE_CONTENT_HEIGHT_PX worth
-                          marginTop:
-                            pageIndex === 0
-                              ? 0
-                              : `-${PAGE_HEIGHT_PX - PAGE_MARGIN_INCHES * DPI + PAGE_CONTENT_HEIGHT_PX * (pageIndex - 1)}px`,
+                          // Use the calculated page break position to shift content
+                          marginTop: pageIndex === 0 ? 0 : `-${pageBreaks[pageIndex] ?? 0}px`,
                         }}
                       >
                         <ResumeCanvas

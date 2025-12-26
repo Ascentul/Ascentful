@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Download, Loader2, Redo2, Share2, Undo2, X } from 'lucide-react';
+import { Check, Download, History, Loader2, Redo2, Share2, Undo2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ interface EditorTopBarProps {
   onRedo: () => void;
   onExport: () => void;
   onShare?: () => void;
+  onVersionHistory?: () => void;
   onClose: () => void;
   isExporting?: boolean;
   editorMode?: EditorMode;
@@ -39,6 +40,7 @@ export function EditorTopBar({
   onRedo,
   onExport,
   onShare,
+  onVersionHistory,
   onClose,
   isExporting,
   editorMode = 'editor',
@@ -151,15 +153,15 @@ export function EditorTopBar({
 
         {/* Center section: Editor/Review Toggle */}
         {onEditorModeChange && (
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+          <div className="flex items-center bg-slate-200 rounded-full p-0.5">
             <button
               type="button"
               onClick={() => onEditorModeChange('editor')}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                'px-5 py-1 text-sm font-semibold rounded-full transition-all min-w-[90px]',
                 editorMode === 'editor'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700',
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50',
               )}
             >
               Editor
@@ -168,10 +170,10 @@ export function EditorTopBar({
               type="button"
               onClick={() => onEditorModeChange('review')}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                'px-5 py-1 text-sm font-semibold rounded-full transition-all min-w-[90px]',
                 editorMode === 'review'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700',
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/50',
               )}
             >
               Review
@@ -182,7 +184,7 @@ export function EditorTopBar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right section: Share + Export */}
+        {/* Right section: Share + Version History + Export */}
         <div className="flex items-center gap-2 pr-4">
           {/* Share button */}
           {onShare && (
@@ -192,11 +194,35 @@ export function EditorTopBar({
             </Button>
           )}
 
-          {/* Export button */}
-          <Button
+          {/* Version History button */}
+          {onVersionHistory && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onVersionHistory}
+                  className="gap-2 text-slate-600"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Version history</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Export button - matches toggle button height, white style */}
+          <button
+            type="button"
             onClick={onExport}
             disabled={isExporting}
-            className="gap-2 bg-primary-500 hover:bg-primary-600"
+            className={cn(
+              'flex items-center gap-2 px-5 py-1 text-sm font-semibold rounded-full transition-all',
+              'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
+              isExporting && 'opacity-70 cursor-not-allowed',
+            )}
           >
             {isExporting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +230,7 @@ export function EditorTopBar({
               <Download className="h-4 w-4" />
             )}
             <span>Export</span>
-          </Button>
+          </button>
         </div>
       </div>
     </TooltipProvider>

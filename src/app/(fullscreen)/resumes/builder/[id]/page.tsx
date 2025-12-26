@@ -165,11 +165,11 @@ export default function ResumeBuilderPage() {
       setLastSavedAt(Date.now());
       setIsDirty(false);
 
-      // Reset to idle after 3 seconds
+      // Reset to idle after 2 seconds (shorter for snappier feel)
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
       }
-      statusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 3000);
+      statusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Autosave error:', error);
       setSaveStatus('error');
@@ -186,7 +186,8 @@ export default function ResumeBuilderPage() {
     autosaveMutation,
   ]);
 
-  // Debounced autosave
+  // Canva-like autosave - saves quickly after every change
+  // Short debounce (500ms) catches rapid typing while still feeling instant
   useEffect(() => {
     if (!isDirty || isNewResume) return;
 
@@ -194,9 +195,12 @@ export default function ResumeBuilderPage() {
       clearTimeout(autosaveTimerRef.current);
     }
 
+    // Show "Saving..." indicator immediately when dirty
+    setSaveStatus('saving');
+
     autosaveTimerRef.current = setTimeout(() => {
       triggerAutosave();
-    }, 2000);
+    }, 500); // Reduced from 2000ms to 500ms for faster saves
 
     return () => {
       if (autosaveTimerRef.current) {
@@ -205,10 +209,9 @@ export default function ResumeBuilderPage() {
     };
   }, [isDirty, isNewResume, triggerAutosave]);
 
-  // Mark as dirty when data changes
+  // Mark as dirty when data changes - triggers autosave
   const markDirty = () => {
     setIsDirty(true);
-    setSaveStatus('idle');
   };
 
   // Update handlers
@@ -392,6 +395,8 @@ export default function ResumeBuilderPage() {
       title={title}
       saveStatus={saveStatus}
       lastSavedAt={lastSavedAt}
+      resumeId={isNewResume ? undefined : resumeId}
+      currentVersionNumber={existingResume?.version_counter}
       onUpdateContactInfo={handleUpdateContactInfo}
       onUpdateSummary={handleUpdateSummary}
       onUpdateExperience={handleUpdateExperience}

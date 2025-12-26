@@ -1,5 +1,6 @@
 'use client';
 
+import type { Id } from 'convex/_generated/dataModel';
 import {
   AlertCircle,
   ArrowRight,
@@ -71,6 +72,7 @@ import { OutlinePanel } from './outline/OutlinePanel';
 import { SectionFormPanel } from './outline/SectionFormPanel';
 import { FontPairingPicker } from './style/FontPairingPicker';
 import { TemplateSwitcher } from './style/TemplateSwitcher';
+import { VersionHistoryPanel } from './VersionHistoryPanel';
 
 // Side rail panel types
 type SideRailPanel = 'ai-assist' | 'sections' | 'templates' | 'fonts' | 'uploads' | null;
@@ -84,6 +86,8 @@ interface ThreePanelEditorProps {
   title: string;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt?: number | null;
+  resumeId?: string;
+  currentVersionNumber?: number;
   onUpdateContactInfo: (field: keyof ContactInfo, value: string) => void;
   onUpdateSummary: (summary: string) => void;
   onUpdateExperience: (experiences: Experience[]) => void;
@@ -114,6 +118,8 @@ function ThreePanelEditorInner({
   title,
   saveStatus,
   lastSavedAt,
+  resumeId,
+  currentVersionNumber,
   onUpdateContactInfo,
   onUpdateSummary,
   onUpdateExperience,
@@ -139,6 +145,8 @@ function ThreePanelEditorInner({
   const [editorMode, setEditorMode] = useState<EditorMode>('editor');
   // Focused suggestion ID - for bidirectional linking between canvas and coach panel
   const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
+  // Version history panel state
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 
   // Coach is always enabled
   const coachEnabled = true;
@@ -397,7 +405,9 @@ function ThreePanelEditorInner({
             }
           } catch (e) {
             // If not JSON, it might be a bullet point to add
-            console.warn('Experience value is not JSON:', value, e);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Experience value is not JSON:', value, e);
+            }
           }
           break;
 
@@ -415,7 +425,9 @@ function ThreePanelEditorInner({
               onUpdateEducation([...currentEducation, newEdu]);
             }
           } catch {
-            console.warn('Education value is not JSON:', value);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Education value is not JSON:', value);
+            }
           }
           break;
 
@@ -439,12 +451,16 @@ function ThreePanelEditorInner({
               onUpdateSkills(newSkills);
             }
           } catch {
-            console.warn('Skills value parsing error:', value);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Skills value parsing error:', value);
+            }
           }
           break;
 
         default:
-          console.warn('Unknown field for AI content:', field);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Unknown field for AI content:', field);
+          }
       }
     },
     [
@@ -987,46 +1003,6 @@ function ThreePanelEditorInner({
     [dismissAISuggestion],
   );
 
-  // Apply AI fix (from top issues)
-  const handleApplyAIFix = useCallback((issue: ScoreResponse['topIssues'][number]) => {
-    // AI fixes are guidance, not direct replacements
-    // Try to parse the location as a spanId first
-    const parsed = parseSpanId(issue.location);
-
-    if (parsed) {
-      // It's a valid spanId - scroll to it, highlight it, and select the section
-      scrollToSpan(issue.location);
-      setSelectedSectionId(parsed.sectionType);
-      if (parsed.itemId) {
-        setSelectedItemId(parsed.itemId);
-      }
-      // Also open the left panel to the sections tab so user can edit
-      setActiveSidePanel('sections');
-    } else {
-      // It's a section name - try to map it and scroll/highlight
-      const sectionMap: Record<string, string> = {
-        experience: 'experience',
-        summary: 'summary',
-        education: 'education',
-        skills: 'skills',
-        projects: 'projects',
-        contact: 'contact',
-      };
-
-      const locationLower = issue.location.toLowerCase();
-      const sectionId = Object.keys(sectionMap).find((key) => locationLower.includes(key));
-
-      if (sectionId) {
-        setSelectedSectionId(sectionId);
-        // Try to scroll to the section in the canvas
-        const sectionSpanId = `${sectionId}-section`;
-        scrollToSpan(sectionSpanId);
-        // Open the sections panel so user can edit
-        setActiveSidePanel('sections');
-      }
-    }
-  }, []);
-
   // Legacy apply suggestion (for backward compatibility)
   const handleApplySuggestion = useCallback(
     (suggestionId: string) => {
@@ -1241,6 +1217,7 @@ function ThreePanelEditorInner({
         onUndo={handleUndo}
         onRedo={handleRedo}
         onExport={onExportPDF}
+        onVersionHistory={resumeId ? () => setIsVersionHistoryOpen(true) : undefined}
         onClose={onClose}
         isExporting={isExporting}
         editorMode={editorMode}
@@ -1288,7 +1265,7 @@ function ThreePanelEditorInner({
             score={score}
             scoreLoading={scoreLoading}
             groupedSuggestions={groupedSuggestions}
-            topFixes={score.topFixes}
+            topFixes={score?.topFixes || []}
             onApplySuggestion={handleApplySuggestion}
             onDismissSuggestion={handleDismissAISuggestion}
             onScrollToSpan={handleScrollToSpan}
@@ -1298,7 +1275,6 @@ function ThreePanelEditorInner({
             matchScore={matchScore?.matchScore}
             onApplyAISuggestion={handleApplyAISuggestion}
             onDismissAISuggestion={handleDismissAISuggestion}
-            onApplyAIFix={handleApplyAIFix}
             onScrollToTarget={(targetPath) => scrollToSpan(targetPath)}
             // JD props
             jobDescription={jobDescription}
@@ -1307,6 +1283,14 @@ function ThreePanelEditorInner({
             jdLoading={jdLoading}
             // Bidirectional linking
             focusedSuggestionId={focusedSuggestionId}
+            onSuggestionSelect={(suggestionId, targetPath) => {
+              // Switch to review mode to show track changes
+              setEditorMode('review');
+              // Set the focused suggestion for highlighting
+              setFocusedSuggestionId(suggestionId);
+              // Scroll to the target element on the canvas
+              scrollToSpan(targetPath);
+            }}
             // Rerun AI review
             onRerunAIReview={refreshSuggestions}
             aiReviewLoading={suggestionsLoading}
@@ -1505,6 +1489,16 @@ function ThreePanelEditorInner({
         currentResumeData={resumeData}
         onApplyContent={handleAIApplyContent}
       />
+
+      {/* Version History Panel */}
+      {resumeId && (
+        <VersionHistoryPanel
+          resumeId={resumeId as Id<'resumes'>}
+          isOpen={isVersionHistoryOpen}
+          onClose={() => setIsVersionHistoryOpen(false)}
+          currentVersionNumber={currentVersionNumber}
+        />
+      )}
     </div>
   );
 }

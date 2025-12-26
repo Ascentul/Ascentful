@@ -24,6 +24,11 @@ import type {
   ScoreResponse,
   Suggestion,
 } from '@/lib/ai/schemas';
+import {
+  applyRuleBasedChecks,
+  generateMissingContentSuggestions,
+  prioritizeAndDedupe,
+} from '@/lib/ai/suggestion-generator';
 import { calculateEnhancedScore } from '@/lib/resume-score';
 import type {
   GroupedSuggestions,
@@ -341,7 +346,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     }
   }, [enabled, scoreHook, state.jobDescription]);
 
-  // Refresh Suggestions
+  // Refresh Suggestions - Hybrid approach: local + AI
   const refreshSuggestions = useCallback(async () => {
     if (!enabled) return;
 
@@ -349,19 +354,89 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     dispatch({ type: 'SET_SUGGESTIONS_ERROR', payload: null });
 
     try {
-      const result = await suggestionsHook.generateSuggestions(resumeDataRef.current, {
+      const currentData = resumeDataRef.current;
+
+      // 1. Generate local suggestions instantly (missing content, rule-based checks)
+      const missingContentSuggestions = generateMissingContentSuggestions(currentData);
+      const ruleSuggestions = applyRuleBasedChecks(currentData);
+
+      // Convert local suggestions to AI schema format
+      const localSuggestions: Suggestion[] = [...missingContentSuggestions, ...ruleSuggestions].map(
+        (s) => ({
+          id: s.id,
+          type: s.type,
+          severity: s.severity,
+          category: s.category,
+          targetType: s.targetType,
+          targetId: s.targetId,
+          targetPath: s.targetPath,
+          title: s.title,
+          explanation: s.explanation,
+          beforeText: s.beforeText,
+          afterText: s.afterText,
+          estimatedScoreImpact: s.estimatedScoreImpact,
+        }),
+      );
+
+      // 2. Set local suggestions immediately for instant feedback
+      if (localSuggestions.length > 0) {
+        dispatch({ type: 'SET_SUGGESTIONS', payload: localSuggestions });
+      }
+
+      // 3. Fetch AI suggestions (deep analysis)
+      const result = await suggestionsHook.generateSuggestions(currentData, {
         jobDescription: state.jobDescription || undefined,
       });
 
       if (result.success && result.data) {
-        dispatch({ type: 'SET_SUGGESTIONS', payload: result.data.suggestions });
+        // 4. Merge and prioritize all suggestions
+        const allSuggestions = prioritizeAndDedupe([
+          ...localSuggestions,
+          ...result.data.suggestions,
+        ]);
+
+        dispatch({ type: 'SET_SUGGESTIONS', payload: allSuggestions });
       } else {
-        dispatch({
-          type: 'SET_SUGGESTIONS_ERROR',
-          payload: result.error || 'Failed to generate suggestions',
-        });
+        // AI failed but we still have local suggestions
+        if (localSuggestions.length === 0) {
+          dispatch({
+            type: 'SET_SUGGESTIONS_ERROR',
+            payload: result.error || 'Failed to generate suggestions',
+          });
+        }
+        // Keep local suggestions if AI fails
       }
     } catch (error) {
+      // On error, still try to provide local suggestions
+      try {
+        const currentData = resumeDataRef.current;
+        const missingContentSuggestions = generateMissingContentSuggestions(currentData);
+        const ruleSuggestions = applyRuleBasedChecks(currentData);
+        const localSuggestions: Suggestion[] = [
+          ...missingContentSuggestions,
+          ...ruleSuggestions,
+        ].map((s) => ({
+          id: s.id,
+          type: s.type,
+          severity: s.severity,
+          category: s.category,
+          targetType: s.targetType,
+          targetId: s.targetId,
+          targetPath: s.targetPath,
+          title: s.title,
+          explanation: s.explanation,
+          beforeText: s.beforeText,
+          afterText: s.afterText,
+          estimatedScoreImpact: s.estimatedScoreImpact,
+        }));
+
+        if (localSuggestions.length > 0) {
+          dispatch({ type: 'SET_SUGGESTIONS', payload: localSuggestions });
+        }
+      } catch {
+        // Fallback failed too
+      }
+
       dispatch({
         type: 'SET_SUGGESTIONS_ERROR',
         payload: error instanceof Error ? error.message : 'Suggestions generation failed',

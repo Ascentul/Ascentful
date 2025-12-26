@@ -41,22 +41,41 @@ export const ScoreResponseSchema = z.object({
 export const SuggestionSchema = z.object({
   id: z.string(),
   type: z.enum([
+    // Critical - Content Quality Issues
     'missing-metrics',
     'weak-verb',
     'vague-achievement',
     'no-outcome',
+    'generic-content',
+    // Critical - Missing Content
+    'missing-summary',
+    'missing-experience',
+    'missing-skills',
+    'empty-bullets',
+    // Important - Content Issues
     'too-long',
     'passive-voice',
     'missing-keyword',
     'redundant-content',
     'weak-scope',
+    'buried-impact',
+    // Important - Missing Content
+    'missing-education',
+    'missing-contact-field',
+    'incomplete-entry',
+    'short-content',
+    // Polish
     'filler-words',
     'formatting-consistency',
     'order-optimization',
     'enhancement-opportunity',
-    'missing-info', // For missing required information
-    'generic-content', // For overly generic descriptions
-    'structure-issue', // For structural/formatting issues
+    'structure-issue',
+    // Strategic
+    'career-gap',
+    'missing-progression',
+    'outdated-skills',
+    // Legacy (keeping for backwards compatibility)
+    'missing-info',
   ]),
   severity: z.enum(['critical', 'important', 'polish']),
   category: z.enum(['impact', 'clarity', 'ats', 'brevity']),

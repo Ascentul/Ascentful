@@ -314,7 +314,22 @@ export const createResumeFromFunnel = mutation({
     content: v.any(),
     styleConfig: v.optional(
       v.object({
-        font_pairing: v.optional(v.string()),
+        font_pairing: v.optional(
+          v.union(
+            v.literal('classic'),
+            v.literal('modern'),
+            v.literal('elegant'),
+            v.literal('minimal'),
+            v.literal('executive'),
+            v.literal('creative'),
+            v.literal('technical'),
+            v.literal('swiss'),
+            v.literal('editorial'),
+            v.literal('geometric'),
+            v.literal('humanist'),
+            v.literal('traditional'),
+          ),
+        ),
         accent_color: v.optional(v.string()),
         density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
         heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
@@ -406,7 +421,22 @@ export const autosaveResume = mutation({
     content: v.optional(v.any()),
     styleConfig: v.optional(
       v.object({
-        font_pairing: v.optional(v.string()),
+        font_pairing: v.optional(
+          v.union(
+            v.literal('classic'),
+            v.literal('modern'),
+            v.literal('elegant'),
+            v.literal('minimal'),
+            v.literal('executive'),
+            v.literal('creative'),
+            v.literal('technical'),
+            v.literal('swiss'),
+            v.literal('editorial'),
+            v.literal('geometric'),
+            v.literal('humanist'),
+            v.literal('traditional'),
+          ),
+        ),
         accent_color: v.optional(v.string()),
         density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
         heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
@@ -441,9 +471,13 @@ export const autosaveResume = mutation({
     }
 
     const now = Date.now();
+    const currentVersionCounter = resume.version_counter ?? 0;
+    const newVersionCounter = currentVersionCounter + 1;
+
     const updates: Record<string, unknown> = {
       updated_at: now,
       last_autosave_at: now,
+      version_counter: newVersionCounter,
     };
 
     if (args.content !== undefined) {
@@ -461,7 +495,34 @@ export const autosaveResume = mutation({
 
     await ctx.db.patch(args.resumeId, updates);
 
-    return { success: true, savedAt: now };
+    // Smart version creation for version history (Canva/Notion-like behavior)
+    // Create a version snapshot when:
+    // 1. It's been 5+ minutes since last autosave (user returned after break)
+    // 2. Every 20 autosaves as a fallback (roughly every 10 seconds of active editing)
+    // This provides meaningful restore points without overwhelming storage
+    const lastAutosave = resume.last_autosave_at ?? 0;
+    const timeSinceLastSave = now - lastAutosave;
+    const fiveMinutes = 5 * 60 * 1000;
+
+    const shouldCreateVersion =
+      (timeSinceLastSave >= fiveMinutes && args.content !== undefined) || // Gap in editing
+      (newVersionCounter % 20 === 0 && args.content !== undefined); // Periodic checkpoint
+
+    if (shouldCreateVersion) {
+      await ctx.db.insert('resume_versions', {
+        resume_id: args.resumeId,
+        user_id: user._id,
+        university_id: resume.university_id ?? user.university_id ?? undefined,
+        version_number: newVersionCounter,
+        content_snapshot: args.content,
+        // Use 'manual_save' for gap-based versions (user returned after break)
+        // Use 'auto_checkpoint' for periodic automatic checkpoints
+        trigger: timeSinceLastSave >= fiveMinutes ? 'manual_save' : 'auto_checkpoint',
+        created_at: now,
+      });
+    }
+
+    return { success: true, savedAt: now, versionCounter: newVersionCounter };
   },
 });
 
@@ -476,6 +537,7 @@ export const createResumeVersion = mutation({
       v.literal('ai_edit'),
       v.literal('manual_save'),
       v.literal('section_change'),
+      v.literal('auto_checkpoint'),
     ),
     contentSnapshot: v.any(),
   },

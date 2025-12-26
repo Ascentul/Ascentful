@@ -697,7 +697,7 @@ export function BulletEditable({
 
   return (
     <>
-      <ul className="list-none space-y-1">
+      <ul className="list-none space-y-1" data-span-id={spanId}>
         {bullets.map((bullet, index) => {
           const bulletSpanId = `${spanId}-${index}`;
           const bulletSuggestions = suggestions.filter((s) => s.spanId === bulletSpanId);

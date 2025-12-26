@@ -1,11 +1,23 @@
 'use client';
 
-import { Check, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { ScoreResponse, Suggestion as AISuggestion } from '@/lib/ai/schemas';
+import type { Suggestion as AISuggestion } from '@/lib/ai/schemas';
+import { getSpanElement, scrollToSpan } from '@/lib/resume-editor/span-utils';
 import { cn } from '@/lib/utils';
 import type { Suggestion, SuggestionType } from '@/types/resume-editor';
+
+// Types for missing content that require "Add" action instead of "Apply"
+const MISSING_CONTENT_TYPES = new Set([
+  'missing-summary',
+  'missing-experience',
+  'missing-skills',
+  'missing-education',
+  'missing-contact-field',
+  'empty-bullets',
+  'incomplete-entry',
+]);
 
 // Checkbox component for selection
 function SelectionCheckbox({
@@ -302,6 +314,8 @@ export function AISuggestionCard({
   onCheckChange,
 }: AISuggestionCardProps) {
   const categoryColor = getAICategoryColor(suggestion.category);
+  const isMissingContent = MISSING_CONTENT_TYPES.has(suggestion.type);
+  const [isEditPreviewOpen, setIsEditPreviewOpen] = useState(false);
 
   // Clicking checkbox toggles checked state for batch operations
   // Also deselects the card when checking
@@ -316,11 +330,29 @@ export function AISuggestionCard({
     }
   };
 
+  // Apply with scroll and highlight animation
+  const handleApplyWithAnimation = async () => {
+    // 1. Scroll to target with highlight animation
+    scrollToSpan(suggestion.targetPath);
+
+    // 2. Brief delay so user sees the highlight before change
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // 3. Apply the change
+    onApply(suggestion.id, suggestion.afterText);
+    setIsEditPreviewOpen(false);
+    onSelectionChange?.(false);
+  };
+
   // Get category label for the badge
-  const getCategoryLabel = (category: AISuggestion['category']) => {
+  const getCategoryLabel = (category: AISuggestion['category'], type: string) => {
+    // For missing content types, show a more descriptive label
+    if (MISSING_CONTENT_TYPES.has(type)) {
+      return 'Missing Content';
+    }
     switch (category) {
       case 'impact':
-        return 'Missing Info';
+        return 'Impact';
       case 'clarity':
         return 'Clarity';
       case 'ats':
@@ -329,6 +361,22 @@ export function AISuggestionCard({
         return 'Brevity';
       default:
         return category;
+    }
+  };
+
+  // Get badge styling based on severity and type
+  const getBadgeStyle = (severity: string, type: string) => {
+    if (MISSING_CONTENT_TYPES.has(type)) {
+      // Red/critical styling for missing content
+      return 'border-red-200 bg-red-50 text-red-700';
+    }
+    switch (severity) {
+      case 'critical':
+        return 'border-red-200 bg-red-50 text-red-700';
+      case 'important':
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+      default:
+        return 'border-slate-200 bg-slate-50 text-slate-600';
     }
   };
 
@@ -349,6 +397,7 @@ export function AISuggestionCard({
             className={cn(
               'text-sm flex-1 leading-relaxed',
               isSelected ? 'text-primary-600 font-medium' : 'text-slate-700',
+              isMissingContent && !isSelected && 'text-red-700 font-medium',
             )}
           >
             {suggestion.title}
@@ -370,11 +419,11 @@ export function AISuggestionCard({
           <span
             className={cn(
               'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border',
-              'border-amber-200 bg-amber-50 text-amber-700',
+              getBadgeStyle(suggestion.severity, suggestion.type),
             )}
           >
             <span className={cn('w-1.5 h-1.5 rounded-full', categoryColor.bg)} />
-            {getCategoryLabel(suggestion.category)}
+            {getCategoryLabel(suggestion.category, suggestion.type)}
           </span>
         </div>
       </button>
@@ -382,6 +431,34 @@ export function AISuggestionCard({
       {/* Action buttons - only show when selected */}
       {isSelected && (
         <div className="px-4 pb-4">
+          {/* Edit Preview - shown when Edit is clicked */}
+          {isEditPreviewOpen && (
+            <div className="mb-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              {/* Proposed text display */}
+              <div className="text-sm text-slate-800 leading-relaxed mb-3">
+                {suggestion.afterText}
+              </div>
+
+              {/* Cancel/Apply buttons */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsEditPreviewOpen(false)}
+                  className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyWithAnimation}
+                  className="px-4 py-1.5 rounded-lg bg-green-500 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 pt-3 border-t border-dashed border-slate-200">
             {/* Ignore button */}
             <button
@@ -399,27 +476,43 @@ export function AISuggestionCard({
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Edit button */}
+            {/* Edit button - toggles preview */}
             <button
               type="button"
-              onClick={() => onScrollTo?.(suggestion.targetPath)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
+              onClick={() => setIsEditPreviewOpen(!isEditPreviewOpen)}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 text-sm transition-colors',
+                isEditPreviewOpen
+                  ? 'border-primary-400 text-primary-600 bg-primary-50'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800',
+              )}
             >
               <span className="text-base">✎</span>
               <span>Edit</span>
             </button>
 
-            {/* Apply button */}
+            {/* Add/Apply button - different styling and label for missing content */}
             <button
               type="button"
-              onClick={() => {
-                onApply(suggestion.id, suggestion.afterText);
-                onSelectionChange?.(false);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-500 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+              onClick={handleApplyWithAnimation}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                isMissingContent
+                  ? 'bg-primary-500 text-white hover:bg-primary-600'
+                  : 'bg-green-500 text-white hover:bg-green-600',
+              )}
             >
-              <Check className="h-4 w-4" />
-              <span>Apply</span>
+              {isMissingContent ? (
+                <>
+                  <Plus className="h-4 w-4" />
+                  <span>Add</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>Apply</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -429,170 +522,94 @@ export function AISuggestionCard({
 }
 
 // ============================================================================
-// AI Top Issue Card (from AI scoring)
-// Same style as AISuggestionCard with checkbox and Ignore/Edit/Apply buttons
-// ============================================================================
-
-type AITopIssue = ScoreResponse['topIssues'][number];
-
-interface AITopIssueCardProps {
-  issue: AITopIssue;
-  onApply?: (issue: AITopIssue) => void;
-  onDismiss?: (issue: AITopIssue) => void;
-  onScrollTo?: (location: string) => void;
-  isSelected?: boolean;
-  onSelectionChange?: (selected: boolean) => void;
-  isChecked?: boolean;
-  onCheckChange?: (checked: boolean) => void;
-}
-
-function AITopIssueCard({
-  issue,
-  onApply,
-  onDismiss,
-  onScrollTo,
-  isSelected = false,
-  onSelectionChange,
-  isChecked = false,
-  onCheckChange,
-}: AITopIssueCardProps) {
-  const categoryColor = getAICategoryColor(issue.category);
-
-  // Clicking checkbox toggles checked state for batch operations
-  const handleCheckboxChange = (checked: boolean) => {
-    onCheckChange?.(checked);
-  };
-
-  // Clicking card selects it (shows purple outline and action buttons)
-  const handleCardClick = () => {
-    if (!isSelected) {
-      onSelectionChange?.(true);
-    }
-  };
-
-  // Get category label for the badge
-  const getCategoryLabel = (category: AITopIssue['category']) => {
-    switch (category) {
-      case 'impact':
-        return 'Impact';
-      case 'clarity':
-        return 'Clarity';
-      case 'ats':
-        return 'ATS';
-      case 'brevity':
-        return 'Brevity';
-      default:
-        return category;
-    }
-  };
-
-  return (
-    <div
-      className={cn(
-        'mb-2 rounded-xl border-2 bg-white transition-all',
-        isSelected ? 'border-primary-400 shadow-sm' : 'border-slate-200 hover:border-primary-300',
-      )}
-    >
-      {/* Card content - clickable to select */}
-      <button type="button" onClick={handleCardClick} className="w-full text-left p-4">
-        {/* Header row with title and checkbox */}
-        <div className="flex items-start gap-3">
-          {/* Issue title */}
-          <p
-            className={cn(
-              'text-sm flex-1 leading-relaxed',
-              isSelected ? 'text-primary-600 font-medium' : 'text-slate-700',
-            )}
-          >
-            {issue.issue}
-          </p>
-
-          {/* Checkbox - always visible, for batch selection */}
-          <SelectionCheckbox
-            checked={isChecked}
-            onChange={handleCheckboxChange}
-            className="mt-0.5"
-          />
-        </div>
-
-        {/* Suggested fix as explanation */}
-        <p className="text-sm text-slate-600 mt-2 leading-relaxed">{issue.fix}</p>
-
-        {/* Category badge */}
-        <div className="mt-3">
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border',
-              'border-amber-200 bg-amber-50 text-amber-700',
-            )}
-          >
-            <span className={cn('w-1.5 h-1.5 rounded-full', categoryColor.bg)} />
-            {getCategoryLabel(issue.category)}
-          </span>
-        </div>
-      </button>
-
-      {/* Action buttons - only show when selected */}
-      {isSelected && (
-        <div className="px-4 pb-4">
-          <div className="flex items-center gap-2 pt-3 border-t border-dashed border-slate-200">
-            {/* Ignore button */}
-            <button
-              type="button"
-              onClick={() => {
-                onDismiss?.(issue);
-                onSelectionChange?.(false);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
-            >
-              <span className="text-base">×</span>
-              <span>Ignore</span>
-            </button>
-
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* Edit button */}
-            <button
-              type="button"
-              onClick={() => onScrollTo?.(issue.location)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
-            >
-              <span className="text-base">✎</span>
-              <span>Edit</span>
-            </button>
-
-            {/* Apply button */}
-            <button
-              type="button"
-              onClick={() => {
-                onApply?.(issue);
-                onSelectionChange?.(false);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-500 text-sm font-medium text-white hover:bg-green-600 transition-colors"
-            >
-              <Check className="h-4 w-4" />
-              <span>Apply</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ============================================================================
 // AI Suggestion Groups (for new AI suggestions format)
 // ============================================================================
+
+type GroupByMode = 'section' | 'priority';
+
+// Map targetPath to human-readable section name
+function getSectionFromTargetPath(targetPath: string): string {
+  if (targetPath.startsWith('summary')) return 'Summary';
+  if (targetPath.startsWith('experience')) return 'Experience';
+  if (targetPath.startsWith('education')) return 'Education';
+  if (targetPath.startsWith('skills')) return 'Skills';
+  if (targetPath.startsWith('projects')) return 'Projects';
+  if (targetPath.startsWith('certifications')) return 'Certifications';
+  if (targetPath.startsWith('achievements')) return 'Achievements';
+  if (targetPath.startsWith('contact')) return 'Contact';
+  return 'Other';
+}
+
+// Section order for grouping
+const SECTION_ORDER: Record<string, number> = {
+  Contact: 0,
+  Summary: 1,
+  Experience: 2,
+  Education: 3,
+  Skills: 4,
+  Projects: 5,
+  Certifications: 6,
+  Achievements: 7,
+  Other: 8,
+};
+
+// Group by toggle component
+function GroupByToggle({
+  value,
+  onChange,
+}: {
+  value: GroupByMode;
+  onChange: (mode: GroupByMode) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <span className="text-sm text-slate-500">Group by</span>
+      <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => onChange('section')}
+          className={cn(
+            'px-3 py-1.5 text-sm font-medium transition-colors',
+            value === 'section'
+              ? 'bg-primary-500 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-50',
+          )}
+        >
+          Section
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange('priority')}
+          className={cn(
+            'px-3 py-1.5 text-sm font-medium transition-colors border-l border-slate-200',
+            value === 'priority'
+              ? 'bg-primary-500 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-50',
+          )}
+        >
+          Priority
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Section header component
+function SectionHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 mt-3 first:mt-0">
+      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</span>
+      <span className="text-xs text-slate-400">({count})</span>
+    </div>
+  );
+}
 
 interface AISuggestionGroupsProps {
   suggestions: AISuggestion[];
   onApply: (suggestionId: string, afterText: string) => void;
   onDismiss: (suggestionId: string) => void;
   onScrollTo?: (targetPath: string) => void;
-  aiIssues?: AITopIssue[];
-  onApplyAIIssue?: (issue: AITopIssue) => void;
-  onDismissAIIssue?: (issue: AITopIssue) => void;
   // Selection props - only one can be selected at a time (shows purple outline + buttons)
   selectedId?: string | null;
   onSelectionChange?: (id: string, selected: boolean) => void;
@@ -606,23 +623,110 @@ export function AISuggestionGroups({
   onApply,
   onDismiss,
   onScrollTo,
-  aiIssues,
-  onApplyAIIssue,
-  onDismissAIIssue,
   selectedId,
   onSelectionChange,
   checkedIds,
   onCheckChange,
 }: AISuggestionGroupsProps) {
-  // Sort by severity: critical first, then important, then polish
-  const sortedSuggestions = [...suggestions].sort((a, b) => {
-    const severityOrder = { critical: 0, important: 1, polish: 2 };
-    return severityOrder[a.severity] - severityOrder[b.severity];
-  });
+  // Track which suggestions have valid DOM elements (for highlighting)
+  const [validTargetPaths, setValidTargetPaths] = useState<Set<string>>(new Set());
+  // Group by mode - default to section
+  const [groupBy, setGroupBy] = useState<GroupByMode>('section');
 
-  const hasAIIssues = Boolean(aiIssues && aiIssues.length > 0);
+  // Check which suggestions have corresponding DOM elements
+  // This runs after render to ensure the canvas is mounted
+  useEffect(() => {
+    // Small delay to ensure canvas DOM is fully rendered
+    const checkTimer = setTimeout(() => {
+      const validPaths = new Set<string>();
+      for (const suggestion of suggestions) {
+        const element = getSpanElement(suggestion.targetPath);
+        if (element) {
+          validPaths.add(suggestion.targetPath);
+        }
+      }
+      setValidTargetPaths(validPaths);
+    }, 100);
 
-  if (sortedSuggestions.length === 0 && !hasAIIssues) {
+    return () => clearTimeout(checkTimer);
+  }, [suggestions]);
+
+  // Filter suggestions - only show those with valid DOM targets
+  const filteredSuggestions = useMemo(() => {
+    return suggestions.filter((s) => {
+      // If we haven't checked yet (validTargetPaths is empty), show all
+      // This prevents flash of empty content on initial render
+      if (validTargetPaths.size === 0 && suggestions.length > 0) {
+        return true;
+      }
+      return validTargetPaths.has(s.targetPath);
+    });
+  }, [suggestions, validTargetPaths]);
+
+  // Group and sort suggestions based on mode
+  const groupedSuggestions = useMemo(() => {
+    if (groupBy === 'priority') {
+      // Group by severity
+      const groups: Record<string, AISuggestion[]> = {
+        critical: [],
+        important: [],
+        polish: [],
+      };
+      for (const s of filteredSuggestions) {
+        groups[s.severity].push(s);
+      }
+      return groups;
+    } else {
+      // Group by section
+      const groups: Record<string, AISuggestion[]> = {};
+      for (const s of filteredSuggestions) {
+        const section = getSectionFromTargetPath(s.targetPath);
+        if (!groups[section]) {
+          groups[section] = [];
+        }
+        groups[section].push(s);
+      }
+      // Sort within each section by severity
+      for (const section of Object.keys(groups)) {
+        groups[section].sort((a, b) => {
+          const severityOrder = { critical: 0, important: 1, polish: 2 };
+          return severityOrder[a.severity] - severityOrder[b.severity];
+        });
+      }
+      return groups;
+    }
+  }, [filteredSuggestions, groupBy]);
+
+  // Get ordered group keys
+  const orderedGroupKeys = useMemo(() => {
+    const keys = Object.keys(groupedSuggestions).filter((k) => groupedSuggestions[k].length > 0);
+    if (groupBy === 'priority') {
+      return ['critical', 'important', 'polish'].filter((k) => keys.includes(k));
+    } else {
+      return keys.sort((a, b) => (SECTION_ORDER[a] ?? 99) - (SECTION_ORDER[b] ?? 99));
+    }
+  }, [groupedSuggestions, groupBy]);
+
+  // Get display label for group
+  const getGroupLabel = (key: string): string => {
+    if (groupBy === 'priority') {
+      switch (key) {
+        case 'critical':
+          return 'Critical';
+        case 'important':
+          return 'Important';
+        case 'polish':
+          return 'Polish';
+        default:
+          return key;
+      }
+    }
+    return key;
+  };
+
+  const hasSuggestions = filteredSuggestions.length > 0;
+
+  if (!hasSuggestions) {
     return (
       <div className="p-6 text-center">
         <div className="text-4xl mb-2">✨</div>
@@ -632,49 +736,37 @@ export function AISuggestionGroups({
     );
   }
 
+  // Render a single suggestion card
+  const renderSuggestionCard = (suggestion: AISuggestion) => (
+    <AISuggestionCard
+      key={suggestion.id}
+      suggestion={suggestion}
+      onApply={onApply}
+      onDismiss={onDismiss}
+      onScrollTo={onScrollTo}
+      isSelected={selectedId === suggestion.id}
+      onSelectionChange={
+        onSelectionChange ? (selected) => onSelectionChange(suggestion.id, selected) : undefined
+      }
+      isChecked={checkedIds?.has(suggestion.id) ?? false}
+      onCheckChange={onCheckChange ? (checked) => onCheckChange(suggestion.id, checked) : undefined}
+    />
+  );
+
   return (
     <div className="px-4 pt-3 pb-4">
-      {hasAIIssues && (
-        <div className="mb-2">
-          {aiIssues?.map((issue, index) => {
-            // Create a unique ID for the issue for selection tracking
-            const issueId = `issue-${issue.category}-${index}`;
-            return (
-              <AITopIssueCard
-                key={issueId}
-                issue={issue}
-                onApply={onApplyAIIssue}
-                onDismiss={onDismissAIIssue}
-                onScrollTo={onScrollTo}
-                isSelected={selectedId === issueId}
-                onSelectionChange={
-                  onSelectionChange ? (selected) => onSelectionChange(issueId, selected) : undefined
-                }
-                isChecked={checkedIds?.has(issueId) ?? false}
-                onCheckChange={
-                  onCheckChange ? (checked) => onCheckChange(issueId, checked) : undefined
-                }
-              />
-            );
-          })}
+      {/* Group by toggle */}
+      <GroupByToggle value={groupBy} onChange={setGroupBy} />
+
+      {/* Grouped suggestions */}
+      {orderedGroupKeys.map((groupKey) => (
+        <div key={groupKey}>
+          <SectionHeader
+            title={getGroupLabel(groupKey)}
+            count={groupedSuggestions[groupKey].length}
+          />
+          {groupedSuggestions[groupKey].map(renderSuggestionCard)}
         </div>
-      )}
-      {sortedSuggestions.map((suggestion) => (
-        <AISuggestionCard
-          key={suggestion.id}
-          suggestion={suggestion}
-          onApply={onApply}
-          onDismiss={onDismiss}
-          onScrollTo={onScrollTo}
-          isSelected={selectedId === suggestion.id}
-          onSelectionChange={
-            onSelectionChange ? (selected) => onSelectionChange(suggestion.id, selected) : undefined
-          }
-          isChecked={checkedIds?.has(suggestion.id) ?? false}
-          onCheckChange={
-            onCheckChange ? (checked) => onCheckChange(suggestion.id, checked) : undefined
-          }
-        />
       ))}
     </div>
   );

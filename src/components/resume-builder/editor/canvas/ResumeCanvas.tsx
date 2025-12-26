@@ -235,6 +235,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Professional Summary
@@ -288,6 +289,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Work Experience
@@ -393,6 +395,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Education
@@ -476,6 +479,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Skills
@@ -505,6 +509,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Projects
@@ -594,6 +599,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Achievements
@@ -685,6 +691,7 @@ export function ResumeCanvas({
               isCompact ? 'mb-4' : 'mb-6',
               isSectionSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
             )}
+            style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
           >
             <h2 className={sectionHeadingClass} style={getSectionHeadingStyle()}>
               Awards & Certifications
@@ -1114,6 +1121,7 @@ function ExperienceEntry({
         'relative group/entry pr-6',
         isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
       )}
+      style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
     >
       {showToolbar && (
         <EntryToolbar
@@ -1231,6 +1239,7 @@ function EducationEntry({
         'relative group/entry pr-6',
         isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
       )}
+      style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
     >
       {showToolbar && (
         <EntryToolbar
@@ -1612,6 +1621,7 @@ function ProjectEntry({
         'relative group/entry pr-6',
         isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
       )}
+      style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
     >
       {showToolbar && (
         <EntryToolbar
@@ -1714,6 +1724,7 @@ function AchievementEntry({
         'relative group/entry pr-6',
         isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
       )}
+      style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
     >
       {showToolbar && (
         <EntryToolbar
@@ -1806,6 +1817,7 @@ function CertificationEntry({
         'relative group/entry pr-6',
         isSelected && 'ring-2 ring-primary-400 ring-offset-4 rounded',
       )}
+      style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
     >
       {showToolbar && (
         <EntryToolbar

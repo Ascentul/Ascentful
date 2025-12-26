@@ -198,8 +198,8 @@
   .span-highlight-flash {
     animation: span-highlight-pulse 2s ease-out;
     border-radius: 4px;
-    outline: 2px solid hsl(var(--primary));
-    outline-offset: 2px;
+    /* Use box-shadow instead of outline to avoid per-line outlines on wrapped text */
+    box-shadow: 0 0 0 2px hsl(var(--primary));
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -37,8 +37,7 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      const errorMessage = result.error instanceof Error ? result.error.message : 'Unknown error';
-      console.error('AI JD analysis failed:', errorMessage);
+      console.error('AI JD analysis failed:', result.error || 'Unknown error');
       return NextResponse.json({ error: 'Failed to analyze job description' }, { status: 500 });
     }
 

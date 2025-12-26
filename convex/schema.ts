@@ -933,6 +933,7 @@ export default defineSchema({
       v.literal('manual_save'),
       v.literal('section_change'),
       v.literal('restoration'),
+      v.literal('auto_checkpoint'), // Periodic automatic version from autosave
     ),
     created_at: v.number(),
   })

@@ -1,6 +1,9 @@
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import type { TemplateId } from '@/components/resume-builder/templates/types';
 
+// Re-export TemplateId for convenience
+export type { TemplateId } from '@/components/resume-builder/templates/types';
+
 // Resume Builder 2.0 Funnel Types
 export type ResumeIntent = 'internship' | 'fulltime' | 'parttime' | 'grad_school' | 'unsure';
 

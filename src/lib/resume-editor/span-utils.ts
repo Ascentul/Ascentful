@@ -123,9 +123,23 @@ export function parseSpanId(spanId: string): {
 
 /**
  * Get DOM element by span ID
+ * Excludes elements in hidden measurement containers (aria-hidden, opacity-0)
  */
 export function getSpanElement(spanId: string): HTMLElement | null {
-  return document.querySelector(`[data-span-id="${spanId}"]`);
+  // Find all matching elements
+  const elements = document.querySelectorAll(`[data-span-id="${spanId}"]`);
+
+  // Find the first visible element (not inside a hidden container)
+  for (const element of elements) {
+    // Check if this element or any ancestor has aria-hidden="true" (measurement container)
+    const isHidden = element.closest('[aria-hidden="true"]') !== null;
+    if (!isHidden && element instanceof HTMLElement) {
+      return element;
+    }
+  }
+
+  // Fallback to first element if all are hidden (shouldn't happen in normal use)
+  return elements[0] instanceof HTMLElement ? elements[0] : null;
 }
 
 /**

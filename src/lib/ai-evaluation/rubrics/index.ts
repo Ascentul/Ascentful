@@ -33,6 +33,7 @@ import {
   RESUME_PARSE_RUBRIC,
   RESUME_SUGGESTIONS_RUBRIC,
 } from './resume';
+import { JD_ANALYSIS_RUBRIC, RESUME_GUIDANCE_RUBRIC, RESUME_MATCH_RUBRIC } from './resume-advanced';
 import {
   buildRubricPromptSection,
   getAllDimensions,
@@ -78,6 +79,11 @@ export const RUBRICS: Record<AIToolId, ToolRubric> = {
 
   // Other tools
   'career-certifications': CAREER_CERTIFICATIONS_RUBRIC,
+
+  // Resume advanced tools
+  'jd-analysis': JD_ANALYSIS_RUBRIC,
+  'resume-match': RESUME_MATCH_RUBRIC,
+  'resume-guidance': RESUME_GUIDANCE_RUBRIC,
 };
 
 /**
@@ -119,9 +125,13 @@ export {
   COVER_LETTER_ANALYSIS_RUBRIC,
   // Cover Letter
   COVER_LETTER_GENERATION_RUBRIC,
+  // Resume advanced
+  JD_ANALYSIS_RUBRIC,
   RESUME_ANALYSIS_RUBRIC,
   // Resume
   RESUME_GENERATION_RUBRIC,
+  RESUME_GUIDANCE_RUBRIC,
+  RESUME_MATCH_RUBRIC,
   RESUME_OPTIMIZATION_RUBRIC,
   RESUME_PARSE_RUBRIC,
   RESUME_SUGGESTIONS_RUBRIC,

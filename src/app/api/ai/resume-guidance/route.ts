@@ -106,14 +106,18 @@ function getInitialQuestion(
       return "Let's write a compelling professional summary. First, tell me about your current role and how many years of experience you have in your field.";
 
     case 'experience':
-      if (hasProfileData && userProfile.work_history?.length > 0) {
+      if (hasProfileData && userProfile.work_history && userProfile.work_history.length > 0) {
         const recentJob = userProfile.work_history[0];
         return `I found your work history! Your most recent role was ${recentJob.title || 'a position'} at ${recentJob.company || 'your previous company'}. Would you like me to help you write impactful bullet points for this role, or would you prefer to add a different position?`;
       }
       return "Let's add your work experience. Tell me about your most recent or most impactful role - what was your job title and company?";
 
     case 'education':
-      if (hasProfileData && userProfile.education_history?.length > 0) {
+      if (
+        hasProfileData &&
+        userProfile.education_history &&
+        userProfile.education_history.length > 0
+      ) {
         const education = userProfile.education_history[0];
         return `I see you studied ${education.field || 'at'} ${education.school || 'your university'}. Would you like me to add this to your resume? I can help format it professionally.`;
       }
@@ -417,7 +421,7 @@ function getSuggestedResponses(
         ];
 
       case 'experience':
-        if (userProfile?.work_history?.length > 0) {
+        if (userProfile?.work_history && userProfile.work_history.length > 0) {
           return [
             'Use my profile work history',
             'I want to add a different role',

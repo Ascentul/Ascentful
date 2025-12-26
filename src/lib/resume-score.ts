@@ -368,8 +368,9 @@ function calculateImpactScore(data: ResumeData): number {
   }
 
   // Check summary for impact language
-  if (data.summary) {
-    const summaryLower = data.summary.toLowerCase();
+  const summary = data.summary;
+  if (summary) {
+    const summaryLower = summary.toLowerCase();
     let summaryImpact = 0;
 
     // Check for achievement words
@@ -379,7 +380,7 @@ function calculateImpactScore(data: ResumeData): number {
     }
 
     // Check for metrics in summary
-    if (METRIC_PATTERNS.some((pattern) => pattern.test(data.summary))) {
+    if (METRIC_PATTERNS.some((pattern) => pattern.test(summary))) {
       summaryImpact += 60;
     }
 
