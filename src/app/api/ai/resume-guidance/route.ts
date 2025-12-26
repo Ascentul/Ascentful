@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
       conversationHistory = [],
       currentResumeData,
       isInitial = false,
+      quickGenerate = false,
     } = body;
 
     if (!section) {
@@ -165,6 +166,11 @@ export async function POST(request: NextRequest) {
       );
     } catch (error) {
       console.warn('Failed to fetch user profile for resume guidance:', error);
+    }
+
+    // Handle quick generate mode - directly generate content
+    if (quickGenerate) {
+      return handleQuickGenerate(section, currentResumeData, userProfile);
     }
 
     // For initial request, return the opening question
@@ -302,6 +308,87 @@ function parseResumeContent(response: string): ParsedResumeContent | null {
     }
   }
   return null;
+}
+
+// Quick generate handler - directly generates content without conversation
+async function handleQuickGenerate(
+  section: string,
+  currentResumeData: CurrentResume | null,
+  userProfile: UserProfile | null,
+) {
+  if (!openai) {
+    return NextResponse.json({
+      response: 'AI features are not currently available. Please configure the OpenAI API key.',
+      resumeContent: null,
+    });
+  }
+
+  // Build context about current resume state
+  const resumeContext = currentResumeData
+    ? `\n--- CURRENT RESUME DATA ---\n${JSON.stringify(currentResumeData, null, 2)}\n`
+    : '';
+
+  // Build user profile context
+  const profileContext = userProfile
+    ? `\n--- USER PROFILE DATA (from their career profile) ---\n${JSON.stringify(userProfile, null, 2)}\n`
+    : '';
+
+  const quickPrompts: Record<string, string> = {
+    summary: `Generate a compelling professional summary (2-4 sentences) based on the user's profile and resume data.
+Focus on:
+- Years of experience and key expertise
+- Most impressive achievements or skills
+- Relevant keywords for their target industry
+Return ONLY the summary text, nothing else. No quotes, no explanation, just the summary paragraph.`,
+
+    skills: `Generate a list of relevant professional skills based on the user's profile and resume data.
+Include:
+- Technical skills (programming languages, tools, software)
+- Soft skills (leadership, communication, problem-solving)
+- Industry-specific skills
+Return ONLY a comma-separated list of skills, nothing else. Example: JavaScript, React, Team Leadership, Project Management`,
+
+    experience: `Generate bullet points for work experience based on the user's profile.
+Each bullet should:
+- Start with a strong action verb
+- Include quantifiable results when possible
+- Focus on achievements, not just duties
+Return ONLY the bullet points, one per line, starting with a dash (-).`,
+  };
+
+  const systemPrompt = `You are an expert resume writing assistant. Generate professional resume content directly.
+${profileContext}
+${resumeContext}
+
+${quickPrompts[section] || 'Generate appropriate content for this resume section.'}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Generate the ${section} content now.` },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const generatedContent =
+      completion.choices[0]?.message?.content?.trim() ||
+      'Unable to generate content. Please try again.';
+
+    return NextResponse.json({
+      response: generatedContent,
+      resumeContent: {
+        field: section,
+        value: generatedContent,
+        action: 'set' as const,
+      },
+    });
+  } catch (error) {
+    console.error('Quick generate error:', error);
+    return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });
+  }
 }
 
 function getSuggestedResponses(

@@ -2,13 +2,174 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
 import type { Suggestion } from '@/types/resume-editor';
 
+import type { EditorMode } from '../EditorTopBar';
 import { type AIToolbarAction, InlineAIToolbar } from './InlineAIToolbar';
 
 // Re-export for consumers
 export type { AIToolbarAction };
+
+// Helper to parse text and identify placeholders like <X>, <Y>, etc.
+function parseTextWithPlaceholders(text: string): Array<{ text: string; isPlaceholder: boolean }> {
+  const placeholderRegex = /<[A-Z]>/g;
+  const parts: Array<{ text: string; isPlaceholder: boolean }> = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = placeholderRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), isPlaceholder: false });
+    }
+    parts.push({ text: match[0], isPlaceholder: true });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), isPlaceholder: false });
+  }
+
+  return parts.length > 0 ? parts : [{ text, isPlaceholder: false }];
+}
+
+// Component to render track changes view
+function TrackChangesText({
+  beforeText,
+  afterText,
+  className,
+  style,
+  isFocused,
+  onClick,
+}: {
+  beforeText: string;
+  afterText: string;
+  className?: string;
+  style?: React.CSSProperties;
+  isFocused?: boolean;
+  onClick?: () => void;
+}) {
+  // Normalize texts for comparison (trim whitespace)
+  const normalizedBefore = beforeText?.trim() || '';
+  const normalizedAfter = afterText?.trim() || '';
+
+  // If before and after are the same, just show the text normally without markup
+  const hasActualChanges = normalizedBefore !== normalizedAfter;
+
+  // If no actual changes, render without track changes styling
+  if (!hasActualChanges) {
+    const parts = parseTextWithPlaceholders(afterText || beforeText);
+    return (
+      <span
+        className={cn(
+          'inline cursor-pointer transition-all rounded',
+          isFocused && 'ring-2 ring-primary-500 ring-offset-2',
+          className,
+        )}
+        style={{ wordBreak: 'break-word', ...style }}
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+      >
+        {parts.map((part, idx) =>
+          part.isPlaceholder ? (
+            <span
+              key={idx}
+              className="font-medium"
+              style={{
+                backgroundColor: 'rgba(253, 230, 138, 0.8)',
+                color: '#92400e',
+                padding: '0 2px',
+                borderRadius: '2px',
+                textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+              }}
+            >
+              {part.text}
+            </span>
+          ) : (
+            <span key={idx}>{part.text}</span>
+          ),
+        )}
+      </span>
+    );
+  }
+
+  const afterParts = parseTextWithPlaceholders(afterText);
+
+  return (
+    <span
+      className={cn(
+        'inline cursor-pointer transition-all rounded',
+        isFocused && 'ring-2 ring-primary-500 ring-offset-2',
+        className,
+      )}
+      style={{ wordBreak: 'break-word', ...style }}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+    >
+      {/* Deleted text - strikethrough with red background */}
+      {beforeText && (
+        <span
+          className="line-through mr-1"
+          style={{
+            backgroundColor: 'rgba(254, 202, 202, 0.7)',
+            color: '#b91c1c',
+            padding: '0 2px',
+            borderRadius: '2px',
+          }}
+        >
+          {beforeText}
+        </span>
+      )}
+      {/* New text - green background with orange/yellow placeholders */}
+      {afterParts.map((part, idx) =>
+        part.isPlaceholder ? (
+          <span
+            key={idx}
+            className="font-medium"
+            style={{
+              backgroundColor: 'rgba(253, 230, 138, 0.8)',
+              color: '#92400e',
+              padding: '0 2px',
+              borderRadius: '2px',
+              textDecoration: 'underline',
+              textDecorationStyle: 'dotted',
+            }}
+          >
+            {part.text}
+          </span>
+        ) : (
+          <span
+            key={idx}
+            style={{
+              backgroundColor: 'rgba(187, 247, 208, 0.7)',
+              color: '#15803d',
+              padding: '0 2px',
+              borderRadius: '2px',
+            }}
+          >
+            {part.text}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
 
 interface InlineEditableTextProps {
   spanId: string;
@@ -24,6 +185,14 @@ interface InlineEditableTextProps {
   style?: React.CSSProperties;
   /** When true, shows a red border/highlight indicating this field needs attention */
   isMissing?: boolean;
+  /** Editor mode - 'editor' for normal editing, 'review' for track changes view */
+  editorMode?: EditorMode;
+  /** AI suggestions for track changes in review mode */
+  aiSuggestions?: AISuggestion[];
+  /** Focused suggestion ID for bidirectional linking */
+  focusedSuggestionId?: string | null;
+  /** Callback when track changes are clicked */
+  onTrackChangeClick?: (suggestionId: string) => void;
 }
 
 export function InlineEditableText({
@@ -39,6 +208,10 @@ export function InlineEditableText({
   onBlur,
   style,
   isMissing = false,
+  editorMode = 'editor',
+  aiSuggestions = [],
+  focusedSuggestionId,
+  onTrackChangeClick,
 }: InlineEditableTextProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -125,6 +298,37 @@ export function InlineEditableText({
   // Show placeholder text when empty and not editing
   const showPlaceholder = isEmpty && !isEditing;
 
+  // Find matching AI suggestion for this span (for review mode)
+  const matchingAISuggestion = aiSuggestions.find((s) => s.targetPath === spanId);
+  const isReviewMode = editorMode === 'review';
+  const hasTrackChanges = isReviewMode && matchingAISuggestion;
+
+  // In review mode with a matching suggestion, show track changes view (non-editable)
+  if (hasTrackChanges) {
+    const isFocused = focusedSuggestionId === matchingAISuggestion.id;
+    return (
+      <div
+        data-span-id={spanId}
+        data-suggestion-id={matchingAISuggestion.id}
+        className={cn('transition-all', className)}
+        style={{
+          minHeight: multiline ? '1.5em' : undefined,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
+          ...style,
+        }}
+      >
+        <TrackChangesText
+          beforeText={matchingAISuggestion.beforeText}
+          afterText={matchingAISuggestion.afterText}
+          isFocused={isFocused}
+          onClick={() => onTrackChangeClick?.(matchingAISuggestion.id)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       ref={ref}
@@ -188,6 +392,14 @@ interface BulletEditableProps {
   isMissing?: boolean;
   /** Custom placeholder text for empty bullets */
   placeholder?: string;
+  /** Editor mode - 'editor' for normal editing, 'review' for track changes view */
+  editorMode?: EditorMode;
+  /** AI suggestions for track changes in review mode */
+  aiSuggestions?: AISuggestion[];
+  /** Focused suggestion ID for bidirectional linking */
+  focusedSuggestionId?: string | null;
+  /** Callback when track changes are clicked */
+  onTrackChangeClick?: (suggestionId: string) => void;
 }
 
 // Individual bullet item component to properly manage contentEditable
@@ -203,6 +415,12 @@ interface BulletItemProps {
   onKeyDown: (index: number, e: React.KeyboardEvent) => void;
   onMouseEnter: (index: number, e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave: () => void;
+  /** Track changes data for review mode */
+  trackChanges?: { beforeText: string; afterText: string; suggestionId: string } | null;
+  /** Whether this track change is focused */
+  isTrackChangeFocused?: boolean;
+  /** Callback when track changes are clicked */
+  onTrackChangeClick?: (suggestionId: string) => void;
 }
 
 function BulletItem({
@@ -217,6 +435,9 @@ function BulletItem({
   onKeyDown,
   onMouseEnter,
   onMouseLeave,
+  trackChanges,
+  isTrackChangeFocused,
+  onTrackChangeClick,
 }: BulletItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const lastValueRef = useRef(bullet);
@@ -226,8 +447,10 @@ function BulletItem({
   // Show placeholder when empty and not focused
   const showPlaceholder = isEmpty && !isFocused;
 
-  // Sync DOM with external value changes
+  // Sync DOM with external value changes (must be before any early returns)
   useEffect(() => {
+    // Skip if we're showing track changes (non-editable)
+    if (trackChanges) return;
     if (ref.current && lastValueRef.current !== bullet && bullet) {
       // Only update if the element is not focused (not being edited)
       if (document.activeElement !== ref.current) {
@@ -235,15 +458,17 @@ function BulletItem({
       }
       lastValueRef.current = bullet;
     }
-  }, [bullet]);
+  }, [bullet, trackChanges]);
 
   // Set initial content on mount (only if there's a value)
   useEffect(() => {
+    // Skip if we're showing track changes (non-editable)
+    if (trackChanges) return;
     if (ref.current && bullet) {
       ref.current.textContent = bullet;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [trackChanges]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
@@ -264,6 +489,27 @@ function BulletItem({
     },
     [bullet, index, onBulletChange],
   );
+
+  // In review mode with track changes, show non-editable track changes view
+  if (trackChanges) {
+    return (
+      <li className="flex items-start gap-2 group/bullet">
+        <span className="text-slate-400 select-none mt-0.5">•</span>
+        <div
+          data-span-id={bulletSpanId}
+          data-suggestion-id={trackChanges.suggestionId}
+          className="flex-1"
+        >
+          <TrackChangesText
+            beforeText={trackChanges.beforeText}
+            afterText={trackChanges.afterText}
+            isFocused={isTrackChangeFocused}
+            onClick={() => onTrackChangeClick?.(trackChanges.suggestionId)}
+          />
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li className="flex items-start gap-2 group/bullet">
@@ -314,7 +560,12 @@ export function BulletEditable({
   aiLoading = false,
   isMissing = false,
   placeholder,
+  editorMode = 'editor',
+  aiSuggestions = [],
+  focusedSuggestionId,
+  onTrackChangeClick,
 }: BulletEditableProps) {
+  const isReviewMode = editorMode === 'review';
   // Track hover state for AI toolbar
   const [hoveredBulletIndex, setHoveredBulletIndex] = useState<number | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
@@ -452,6 +703,19 @@ export function BulletEditable({
           const bulletSuggestions = suggestions.filter((s) => s.spanId === bulletSpanId);
           const hasSuggestion = coachEnabled && bulletSuggestions.length > 0;
 
+          // Find matching AI suggestion for this bullet (for review mode)
+          const matchingAISuggestion = isReviewMode
+            ? aiSuggestions.find((s) => s.targetPath === bulletSpanId)
+            : null;
+          const trackChanges = matchingAISuggestion
+            ? {
+                beforeText: matchingAISuggestion.beforeText,
+                afterText: matchingAISuggestion.afterText,
+                suggestionId: matchingAISuggestion.id,
+              }
+            : null;
+          const isTrackChangeFocused = matchingAISuggestion?.id === focusedSuggestionId;
+
           return (
             <BulletItem
               key={bulletSpanId}
@@ -466,6 +730,9 @@ export function BulletEditable({
               onKeyDown={handleKeyDown}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
+              trackChanges={trackChanges}
+              isTrackChangeFocused={isTrackChangeFocused}
+              onTrackChangeClick={onTrackChangeClick}
             />
           );
         })}

@@ -629,6 +629,8 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
                   {cert.url && (
                     <a
                       href={cert.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       style={{ color: COLORS.PRIMARY_ACCENT, textDecoration: 'underline' }}
                     >
                       View Certificate

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ScoreResponse } from '@/lib/ai/schemas';
+import type { ScoreResponse, Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import type { TopFix } from '@/types/resume-editor';
 
 // AI issue type from ScoreResponse
@@ -9,24 +9,35 @@ type AITopIssue = ScoreResponse['topIssues'][number];
 interface TopFixesListProps {
   fixes: TopFix[];
   aiIssues?: AITopIssue[]; // Optional AI-generated top issues
+  aiSuggestions?: AISuggestion[]; // Optional AI-generated suggestions
 }
 
-export function TopFixesList({ fixes, aiIssues }: TopFixesListProps) {
-  // Prefer AI issues if available, otherwise use legacy fixes
+export function TopFixesList({ fixes, aiIssues, aiSuggestions }: TopFixesListProps) {
+  // Prefer AI issues/suggestions if available, otherwise use legacy fixes
   const hasAIIssues = aiIssues && aiIssues.length > 0;
+  const hasAISuggestions = aiSuggestions && aiSuggestions.length > 0;
   const hasLegacyFixes = fixes.length > 0;
 
-  if (!hasAIIssues && !hasLegacyFixes) return null;
+  if (!hasAIIssues && !hasAISuggestions && !hasLegacyFixes) return null;
 
-  // If we have AI issues, show category counts with text labels
-  // Note: hasAIIssues is only true when aiIssues.length > 0, so no need to check for empty
-  if (hasAIIssues) {
-    // Count issues by priority level (map categories to priority)
-    const criticalCount = aiIssues.filter(
-      (i) => i.category === 'impact' || i.category === 'ats',
-    ).length;
-    const importantCount = aiIssues.filter((i) => i.category === 'clarity').length;
-    const polishCount = aiIssues.filter((i) => i.category === 'brevity').length;
+  // If we have AI issues or suggestions, show combined category counts with text labels
+  if (hasAIIssues || hasAISuggestions) {
+    // Count AI issues by priority level (map categories to priority)
+    const issuesCritical =
+      aiIssues?.filter((i) => i.category === 'impact' || i.category === 'ats').length ?? 0;
+    const issuesImportant = aiIssues?.filter((i) => i.category === 'clarity').length ?? 0;
+    const issuesPolish = aiIssues?.filter((i) => i.category === 'brevity').length ?? 0;
+
+    // Count AI suggestions by severity
+    const suggestionsCritical = aiSuggestions?.filter((s) => s.severity === 'critical').length ?? 0;
+    const suggestionsImportant =
+      aiSuggestions?.filter((s) => s.severity === 'important').length ?? 0;
+    const suggestionsPolish = aiSuggestions?.filter((s) => s.severity === 'polish').length ?? 0;
+
+    // Combine counts
+    const criticalCount = issuesCritical + suggestionsCritical;
+    const importantCount = issuesImportant + suggestionsImportant;
+    const polishCount = issuesPolish + suggestionsPolish;
 
     return (
       <div className="px-4 py-3 border-b border-slate-200">

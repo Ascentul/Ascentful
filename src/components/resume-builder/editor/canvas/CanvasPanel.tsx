@@ -14,9 +14,11 @@ import type {
 import type { StyleConfig, TemplateId } from '@/components/resume-builder/templates/types';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import type { Suggestion, ZoomLevel } from '@/types/resume-editor';
 import { getZoomScale } from '@/types/resume-editor';
 
+import type { EditorMode } from '../EditorTopBar';
 import { ResumeCanvas } from './ResumeCanvas';
 
 // Page dimensions in pixels (at 96 DPI)
@@ -59,6 +61,12 @@ interface CanvasPanelProps {
   selectedItemId?: string | null;
   // Missing field spanIds for form validation-style highlighting
   missingSpanIds?: Set<string>;
+  // Editor/Review mode toggle
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  // Bidirectional linking - highlight track changes for focused suggestion
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
 }
 
 export function CanvasPanel({
@@ -85,6 +93,10 @@ export function CanvasPanel({
   selectedSectionId,
   selectedItemId,
   missingSpanIds,
+  editorMode = 'editor',
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
 }: CanvasPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentMeasureRef = useRef<HTMLDivElement>(null);
@@ -413,6 +425,10 @@ export function CanvasPanel({
                           selectedSectionId={selectedSectionId}
                           selectedItemId={selectedItemId}
                           missingSpanIds={missingSpanIds}
+                          editorMode={editorMode}
+                          aiSuggestions={aiSuggestions}
+                          focusedSuggestionId={focusedSuggestionId}
+                          onTrackChangeClick={onTrackChangeClick}
                         />
                       </div>
                     </div>

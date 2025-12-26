@@ -12,7 +12,6 @@ import {
   LayoutList,
   Lightbulb,
   Mail,
-  Palette,
   Plus,
   Sparkles,
   Target,
@@ -67,14 +66,14 @@ import { AIGuidanceModal } from './ai/AIGuidanceModal';
 import { CanvasPanel } from './canvas/CanvasPanel';
 import { ZoomControls } from './canvas/ZoomControls';
 import { CoachPanel } from './coach/CoachPanel';
-import { EditorTopBar } from './EditorTopBar';
+import { type EditorMode, EditorTopBar } from './EditorTopBar';
 import { OutlinePanel } from './outline/OutlinePanel';
+import { SectionFormPanel } from './outline/SectionFormPanel';
 import { FontPairingPicker } from './style/FontPairingPicker';
-import { StyleTab } from './style/StyleTab';
 import { TemplateSwitcher } from './style/TemplateSwitcher';
 
 // Side rail panel types
-type SideRailPanel = 'ai-assist' | 'sections' | 'templates' | 'theme' | 'fonts' | 'uploads' | null;
+type SideRailPanel = 'ai-assist' | 'sections' | 'templates' | 'fonts' | 'uploads' | null;
 
 interface ThreePanelEditorProps {
   resumeData: ResumeData;
@@ -137,6 +136,9 @@ function ThreePanelEditorInner({
   // UI State
   const [activeSidePanel, setActiveSidePanel] = useState<SideRailPanel>('sections');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(80);
+  const [editorMode, setEditorMode] = useState<EditorMode>('editor');
+  // Focused suggestion ID - for bidirectional linking between canvas and coach panel
+  const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
 
   // Coach is always enabled
   const coachEnabled = true;
@@ -189,6 +191,7 @@ function ThreePanelEditorInner({
     analyzeJobDescription,
     dismissSuggestion: dismissAISuggestion,
     applySuggestion: applyAISuggestion,
+    refreshSuggestions,
   } = useResumeAIActions();
 
   // Use legacy-compatible formats for existing components
@@ -969,6 +972,8 @@ function ThreePanelEditorInner({
           ),
         );
         applyAISuggestion(suggestionId);
+        // Scroll to and highlight the changed element
+        scrollToSpan(suggestion.targetPath);
       }
     },
     [aiSuggestions, applyAISuggestion, getSpanValue, applySpanText, pushAction],
@@ -989,20 +994,23 @@ function ThreePanelEditorInner({
     const parsed = parseSpanId(issue.location);
 
     if (parsed) {
-      // It's a valid spanId - scroll to it and select the section
+      // It's a valid spanId - scroll to it, highlight it, and select the section
       scrollToSpan(issue.location);
       setSelectedSectionId(parsed.sectionType);
       if (parsed.itemId) {
         setSelectedItemId(parsed.itemId);
       }
+      // Also open the left panel to the sections tab so user can edit
+      setActiveSidePanel('sections');
     } else {
-      // It's a section name - try to map it and open AI guidance
+      // It's a section name - try to map it and scroll/highlight
       const sectionMap: Record<string, string> = {
         experience: 'experience',
         summary: 'summary',
         education: 'education',
         skills: 'skills',
         projects: 'projects',
+        contact: 'contact',
       };
 
       const locationLower = issue.location.toLowerCase();
@@ -1010,12 +1018,11 @@ function ThreePanelEditorInner({
 
       if (sectionId) {
         setSelectedSectionId(sectionId);
-        // Open AI guidance modal for this section with the fix as context
-        setAIGuidanceSection(sectionId);
-        setAIGuidanceSectionLabel(
-          SECTION_CONFIGS[sectionId as keyof typeof SECTION_CONFIGS]?.label || sectionId,
-        );
-        setAIGuidanceOpen(true);
+        // Try to scroll to the section in the canvas
+        const sectionSpanId = `${sectionId}-section`;
+        scrollToSpan(sectionSpanId);
+        // Open the sections panel so user can edit
+        setActiveSidePanel('sections');
       }
     }
   }, []);
@@ -1041,7 +1048,6 @@ function ThreePanelEditorInner({
   const sideRailButtons: { id: SideRailPanel; label: string; icon: typeof FileText }[] = [
     { id: 'ai-assist', label: 'AI Assist', icon: Sparkles },
     { id: 'sections', label: 'Sections', icon: LayoutList },
-    { id: 'theme', label: 'Theme', icon: Palette },
     { id: 'fonts', label: 'Fonts', icon: Type },
     { id: 'templates', label: 'Templates', icon: FileText },
     { id: 'uploads', label: 'Uploads', icon: ImageIcon },
@@ -1089,44 +1095,36 @@ function ThreePanelEditorInner({
         );
       case 'sections':
         return (
-          <OutlinePanel
+          <SectionFormPanel
             sectionOrder={sectionOrder}
             enabledSections={enabledSections}
-            selectedSectionId={selectedSectionId}
-            selectedItemId={selectedItemId}
             resumeData={resumeData}
-            onSelectSection={(sectionId) => {
-              setSelectedSectionId(sectionId);
-              setSelectedItemId(null);
-            }}
-            onSelectItem={handleSelectItem}
             onReorderSections={handleReorderSections}
             onAddSection={handleAddSection}
-            onAddExperience={handleAddExperience}
-            onDeleteExperience={handleDeleteExperience}
-            onAddEducation={handleAddEducation}
-            onDeleteEducation={handleDeleteEducation}
-            onAddProject={handleAddProject}
-            onDeleteProject={handleDeleteProject}
-            onAddAchievement={handleAddAchievement}
-            onDeleteAchievement={handleDeleteAchievement}
-            onAddCertification={handleAddCertification}
-            onDeleteCertification={handleDeleteCertification}
+            onUpdateContactInfo={onUpdateContactInfo}
+            onUpdateSummary={onUpdateSummary}
+            onUpdateExperience={onUpdateExperience}
+            onUpdateEducation={onUpdateEducation}
+            onUpdateProjects={onUpdateProjects}
+            onUpdateSkills={onUpdateSkills}
+            onUpdateAchievements={onUpdateAchievements}
+            onUpdateCertifications={onUpdateCertifications}
+            onGenerateAI={(sectionId) => {
+              const config = SECTION_CONFIGS[sectionId as keyof typeof SECTION_CONFIGS];
+              openAIGuidance(sectionId, config?.label || sectionId);
+            }}
           />
         );
       case 'templates':
         return (
           <div className="p-4">
-            <TemplateSwitcher value={templateId} onChange={onTemplateChange} />
+            <TemplateSwitcher
+              value={templateId}
+              onChange={onTemplateChange}
+              styleConfig={styleConfig}
+              onStyleChange={onStyleChange}
+            />
           </div>
-        );
-      case 'theme':
-        return (
-          <StyleTab
-            templateId={templateId}
-            styleConfig={styleConfig}
-            onStyleChange={onStyleChange}
-          />
         );
       case 'fonts':
         return (
@@ -1163,9 +1161,7 @@ function ThreePanelEditorInner({
       case 'sections':
         return 'Sections';
       case 'templates':
-        return 'Templates';
-      case 'theme':
-        return 'Theme & Style';
+        return 'Templates & Theme';
       case 'fonts':
         return 'Fonts';
       case 'uploads':
@@ -1214,7 +1210,7 @@ function ThreePanelEditorInner({
             <div
               className={cn(
                 'bg-white border-r border-slate-200 flex flex-col overflow-hidden transition-all duration-200',
-                activeSidePanel === 'templates' ? 'w-[45vw] max-w-[600px]' : 'w-72',
+                activeSidePanel === 'templates' ? 'w-[45vw] max-w-[600px]' : 'w-[414px]',
               )}
             >
               {/* Panel header */}
@@ -1247,6 +1243,8 @@ function ThreePanelEditorInner({
         onExport={onExportPDF}
         onClose={onClose}
         isExporting={isExporting}
+        editorMode={editorMode}
+        onEditorModeChange={setEditorMode}
       />
 
       {/* Main content area */}
@@ -1278,6 +1276,10 @@ function ThreePanelEditorInner({
           selectedSectionId={selectedSectionId}
           selectedItemId={selectedItemId}
           missingSpanIds={missingSpanIds}
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={(suggestionId) => setFocusedSuggestionId(suggestionId)}
         />
 
         {/* Right Panel - Coach (hidden when templates panel is open) */}
@@ -1303,6 +1305,11 @@ function ThreePanelEditorInner({
             onJobDescriptionChange={setJobDescription}
             onAnalyzeJD={() => analyzeJobDescription(jobDescription)}
             jdLoading={jdLoading}
+            // Bidirectional linking
+            focusedSuggestionId={focusedSuggestionId}
+            // Rerun AI review
+            onRerunAIReview={refreshSuggestions}
+            aiReviewLoading={suggestionsLoading}
           />
         )}
       </div>

@@ -1440,7 +1440,7 @@ export function detectIndustryFromRole(role: string): Industry {
     return 'technology';
   }
 
-  // Healthcare keywords - exclude "clinical" if it's clearly tech (e.g., "clinical data")
+  // Healthcare keywords - tech roles (e.g., "clinical data scientist") are already matched above
   if (
     /nurse|rn|md|physician|doctor|patient|medical|healthcare|hospital|pharma|dental|therapist|radiolog|patholog/i.test(
       roleLower,

@@ -1,11 +1,42 @@
 'use client';
 
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 import type { ScoreResponse, Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
 import type { Suggestion, SuggestionType } from '@/types/resume-editor';
+
+// Checkbox component for selection
+function SelectionCheckbox({
+  checked,
+  onChange,
+  className,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={cn(
+        'w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0',
+        checked
+          ? 'bg-primary-500 border-primary-500 text-white'
+          : 'border-slate-300 hover:border-primary-400 bg-white',
+        className,
+      )}
+      aria-label={checked ? 'Deselect' : 'Select'}
+    >
+      {checked && <Check className="h-3 w-3" />}
+    </button>
+  );
+}
 
 interface SuggestionCardProps {
   suggestion: Suggestion;
@@ -20,6 +51,12 @@ interface AISuggestionCardProps {
   onApply: (suggestionId: string, afterText: string) => void;
   onDismiss: (suggestionId: string) => void;
   onScrollTo?: (targetPath: string) => void;
+  // Selection props - only one card can be selected (shows purple outline + buttons)
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
+  // Checkbox props - multiple cards can be checked for batch operations
+  isChecked?: boolean;
+  onCheckChange?: (checked: boolean) => void;
 }
 
 type SuggestionCategory = 'impact' | 'clarity' | 'relevance' | 'consistency' | 'ats' | 'brevity';
@@ -236,13 +273,6 @@ export function SuggestionGroups({
 // AI Suggestion Card (new format from AI API)
 // ============================================================================
 
-// Severity badge colors for AI suggestions
-const SEVERITY_COLORS: Record<AISuggestion['severity'], { bg: string; text: string }> = {
-  critical: { bg: 'bg-red-100', text: 'text-red-700' },
-  important: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  polish: { bg: 'bg-slate-100', text: 'text-slate-600' },
-};
-
 // AI suggestion type to category mapping
 function getAICategoryColor(category: AISuggestion['category']): { bg: string; text: string } {
   switch (category) {
@@ -266,139 +296,141 @@ export function AISuggestionCard({
   onApply,
   onDismiss,
   onScrollTo,
+  isSelected = false,
+  onSelectionChange,
+  isChecked = false,
+  onCheckChange,
 }: AISuggestionCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const categoryColor = getAICategoryColor(suggestion.category);
-  const severityColor = SEVERITY_COLORS[suggestion.severity];
 
+  // Clicking checkbox toggles checked state for batch operations
+  // Also deselects the card when checking
+  const handleCheckboxChange = (checked: boolean) => {
+    onCheckChange?.(checked);
+  };
+
+  // Clicking card selects it (shows purple outline and action buttons)
   const handleCardClick = () => {
-    if (!isExpanded) {
-      setIsExpanded(true);
+    if (!isSelected) {
+      onSelectionChange?.(true);
     }
   };
 
-  const handleScrollTo = () => {
-    onScrollTo?.(suggestion.targetPath);
+  // Get category label for the badge
+  const getCategoryLabel = (category: AISuggestion['category']) => {
+    switch (category) {
+      case 'impact':
+        return 'Missing Info';
+      case 'clarity':
+        return 'Clarity';
+      case 'ats':
+        return 'ATS';
+      case 'brevity':
+        return 'Brevity';
+      default:
+        return category;
+    }
   };
 
-  // Collapsed view
-  if (!isExpanded) {
-    return (
-      <button
-        type="button"
-        onClick={handleCardClick}
-        className="w-full text-left mb-2 p-3 rounded-xl border-2 border-slate-200 hover:border-primary-300 bg-white transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          {/* Category color dot */}
-          <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', categoryColor.bg)} />
-
+  return (
+    <div
+      data-suggestion-card-id={suggestion.id}
+      className={cn(
+        'mb-2 rounded-xl border-2 bg-white transition-all',
+        isSelected ? 'border-primary-400 shadow-sm' : 'border-slate-200 hover:border-primary-300',
+      )}
+    >
+      {/* Card content - clickable to select */}
+      <button type="button" onClick={handleCardClick} className="w-full text-left p-4">
+        {/* Header row with title and checkbox */}
+        <div className="flex items-start gap-3">
           {/* Title */}
-          <p className="text-sm text-slate-700 flex-1 line-clamp-2 leading-relaxed">
+          <p
+            className={cn(
+              'text-sm flex-1 leading-relaxed',
+              isSelected ? 'text-primary-600 font-medium' : 'text-slate-700',
+            )}
+          >
             {suggestion.title}
           </p>
 
-          {/* Severity badge */}
+          {/* Checkbox - always visible, for batch selection */}
+          <SelectionCheckbox
+            checked={isChecked}
+            onChange={handleCheckboxChange}
+            className="mt-0.5"
+          />
+        </div>
+
+        {/* Explanation */}
+        <p className="text-sm text-slate-600 mt-2 leading-relaxed">{suggestion.explanation}</p>
+
+        {/* Category badge */}
+        <div className="mt-3">
           <span
             className={cn(
-              'text-xs px-1.5 py-0.5 rounded font-medium',
-              severityColor.bg,
-              severityColor.text,
+              'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border',
+              'border-amber-200 bg-amber-50 text-amber-700',
             )}
           >
-            {suggestion.severity === 'critical'
-              ? '!'
-              : suggestion.severity === 'important'
-                ? '•'
-                : '○'}
+            <span className={cn('w-1.5 h-1.5 rounded-full', categoryColor.bg)} />
+            {getCategoryLabel(suggestion.category)}
           </span>
-
-          {/* Chevron */}
-          <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-colors" />
         </div>
       </button>
-    );
-  }
 
-  // Expanded view with before/after comparison
-  return (
-    <div className="mb-2 p-4 rounded-xl border-2 border-primary-400 bg-white shadow-sm">
-      {/* Header with category and severity */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className={cn('w-2.5 h-2.5 rounded-full', categoryColor.bg)} />
-        <span className={cn('text-xs font-medium uppercase tracking-wide', categoryColor.text)}>
-          {suggestion.category}
-        </span>
-        <span
-          className={cn(
-            'text-xs px-1.5 py-0.5 rounded font-medium ml-auto',
-            severityColor.bg,
-            severityColor.text,
-          )}
-        >
-          {suggestion.severity}
-        </span>
-      </div>
+      {/* Action buttons - only show when selected */}
+      {isSelected && (
+        <div className="px-4 pb-4">
+          <div className="flex items-center gap-2 pt-3 border-t border-dashed border-slate-200">
+            {/* Ignore button */}
+            <button
+              type="button"
+              onClick={() => {
+                onDismiss(suggestion.id);
+                onSelectionChange?.(false);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
+            >
+              <span className="text-base">×</span>
+              <span>Ignore</span>
+            </button>
 
-      {/* Title */}
-      <p className="text-sm font-medium text-slate-900 mb-2">{suggestion.title}</p>
+            {/* Spacer */}
+            <div className="flex-1" />
 
-      {/* Explanation */}
-      <p className="text-xs text-slate-500 mb-3 leading-relaxed">{suggestion.explanation}</p>
+            {/* Edit button */}
+            <button
+              type="button"
+              onClick={() => onScrollTo?.(suggestion.targetPath)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
+            >
+              <span className="text-base">✎</span>
+              <span>Edit</span>
+            </button>
 
-      {/* Before/After comparison */}
-      {suggestion.beforeText && suggestion.afterText && (
-        <div className="mb-3 space-y-2">
-          <div className="p-2.5 bg-red-50 rounded-lg border border-red-100">
-            <p className="text-xs text-red-600 mb-1 font-medium">Before:</p>
-            <p className="text-sm text-slate-700">{suggestion.beforeText}</p>
-          </div>
-          <div className="p-2.5 bg-green-50 rounded-lg border border-green-100">
-            <p className="text-xs text-green-600 mb-1 font-medium">After:</p>
-            <p className="text-sm text-slate-900 font-medium">{suggestion.afterText}</p>
+            {/* Apply button */}
+            <button
+              type="button"
+              onClick={() => {
+                onApply(suggestion.id, suggestion.afterText);
+                onSelectionChange?.(false);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-500 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              <span>Apply</span>
+            </button>
           </div>
         </div>
       )}
-
-      {/* Score impact indicator */}
-      {suggestion.estimatedScoreImpact > 0 && (
-        <p className="text-xs text-green-600 mb-3">
-          +{suggestion.estimatedScoreImpact} points estimated impact
-        </p>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={() => onApply(suggestion.id, suggestion.afterText)}
-          className="flex-1 text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
-        >
-          Accept
-        </button>
-        <button
-          type="button"
-          onClick={() => onDismiss(suggestion.id)}
-          className="text-sm text-slate-600 hover:text-slate-800 px-4 py-2 transition-colors"
-        >
-          Dismiss
-        </button>
-        {onScrollTo && (
-          <button
-            type="button"
-            onClick={handleScrollTo}
-            className="text-xs text-primary-600 hover:text-primary-700 ml-auto transition-colors"
-          >
-            Show in resume
-          </button>
-        )}
-      </div>
     </div>
   );
 }
 
 // ============================================================================
 // AI Top Issue Card (from AI scoring)
+// Same style as AISuggestionCard with checkbox and Ignore/Edit/Apply buttons
 // ============================================================================
 
 type AITopIssue = ScoreResponse['topIssues'][number];
@@ -406,30 +438,146 @@ type AITopIssue = ScoreResponse['topIssues'][number];
 interface AITopIssueCardProps {
   issue: AITopIssue;
   onApply?: (issue: AITopIssue) => void;
+  onDismiss?: (issue: AITopIssue) => void;
+  onScrollTo?: (location: string) => void;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
+  isChecked?: boolean;
+  onCheckChange?: (checked: boolean) => void;
 }
 
-function getAIIssueDot(category: AITopIssue['category']): string {
-  return CATEGORY_COLORS[category]?.bg ?? 'bg-slate-400';
-}
+function AITopIssueCard({
+  issue,
+  onApply,
+  onDismiss,
+  onScrollTo,
+  isSelected = false,
+  onSelectionChange,
+  isChecked = false,
+  onCheckChange,
+}: AITopIssueCardProps) {
+  const categoryColor = getAICategoryColor(issue.category);
 
-function AITopIssueCard({ issue, onApply }: AITopIssueCardProps) {
+  // Clicking checkbox toggles checked state for batch operations
+  const handleCheckboxChange = (checked: boolean) => {
+    onCheckChange?.(checked);
+  };
+
+  // Clicking card selects it (shows purple outline and action buttons)
+  const handleCardClick = () => {
+    if (!isSelected) {
+      onSelectionChange?.(true);
+    }
+  };
+
+  // Get category label for the badge
+  const getCategoryLabel = (category: AITopIssue['category']) => {
+    switch (category) {
+      case 'impact':
+        return 'Impact';
+      case 'clarity':
+        return 'Clarity';
+      case 'ats':
+        return 'ATS';
+      case 'brevity':
+        return 'Brevity';
+      default:
+        return category;
+    }
+  };
+
   return (
-    <button
-      type="button"
-      onClick={() => onApply?.(issue)}
-      className="w-full text-left mb-2 p-3 rounded-xl border-2 border-slate-200 hover:border-primary-300 bg-white transition-all group"
+    <div
+      className={cn(
+        'mb-2 rounded-xl border-2 bg-white transition-all',
+        isSelected ? 'border-primary-400 shadow-sm' : 'border-slate-200 hover:border-primary-300',
+      )}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', getAIIssueDot(issue.category))}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-slate-700 line-clamp-2 leading-relaxed">{issue.issue}</p>
-          <p className="text-xs text-slate-500 mt-1 line-clamp-1">{issue.fix}</p>
+      {/* Card content - clickable to select */}
+      <button type="button" onClick={handleCardClick} className="w-full text-left p-4">
+        {/* Header row with title and checkbox */}
+        <div className="flex items-start gap-3">
+          {/* Issue title */}
+          <p
+            className={cn(
+              'text-sm flex-1 leading-relaxed',
+              isSelected ? 'text-primary-600 font-medium' : 'text-slate-700',
+            )}
+          >
+            {issue.issue}
+          </p>
+
+          {/* Checkbox - always visible, for batch selection */}
+          <SelectionCheckbox
+            checked={isChecked}
+            onChange={handleCheckboxChange}
+            className="mt-0.5"
+          />
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-colors" />
-      </div>
-    </button>
+
+        {/* Suggested fix as explanation */}
+        <p className="text-sm text-slate-600 mt-2 leading-relaxed">{issue.fix}</p>
+
+        {/* Category badge */}
+        <div className="mt-3">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border',
+              'border-amber-200 bg-amber-50 text-amber-700',
+            )}
+          >
+            <span className={cn('w-1.5 h-1.5 rounded-full', categoryColor.bg)} />
+            {getCategoryLabel(issue.category)}
+          </span>
+        </div>
+      </button>
+
+      {/* Action buttons - only show when selected */}
+      {isSelected && (
+        <div className="px-4 pb-4">
+          <div className="flex items-center gap-2 pt-3 border-t border-dashed border-slate-200">
+            {/* Ignore button */}
+            <button
+              type="button"
+              onClick={() => {
+                onDismiss?.(issue);
+                onSelectionChange?.(false);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
+            >
+              <span className="text-base">×</span>
+              <span>Ignore</span>
+            </button>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Edit button */}
+            <button
+              type="button"
+              onClick={() => onScrollTo?.(issue.location)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-2 border-slate-200 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors"
+            >
+              <span className="text-base">✎</span>
+              <span>Edit</span>
+            </button>
+
+            {/* Apply button */}
+            <button
+              type="button"
+              onClick={() => {
+                onApply?.(issue);
+                onSelectionChange?.(false);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-500 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              <span>Apply</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -444,6 +592,13 @@ interface AISuggestionGroupsProps {
   onScrollTo?: (targetPath: string) => void;
   aiIssues?: AITopIssue[];
   onApplyAIIssue?: (issue: AITopIssue) => void;
+  onDismissAIIssue?: (issue: AITopIssue) => void;
+  // Selection props - only one can be selected at a time (shows purple outline + buttons)
+  selectedId?: string | null;
+  onSelectionChange?: (id: string, selected: boolean) => void;
+  // Checkbox props - multiple can be checked for batch operations
+  checkedIds?: Set<string>;
+  onCheckChange?: (id: string, checked: boolean) => void;
 }
 
 export function AISuggestionGroups({
@@ -453,6 +608,11 @@ export function AISuggestionGroups({
   onScrollTo,
   aiIssues,
   onApplyAIIssue,
+  onDismissAIIssue,
+  selectedId,
+  onSelectionChange,
+  checkedIds,
+  onCheckChange,
 }: AISuggestionGroupsProps) {
   // Sort by severity: critical first, then important, then polish
   const sortedSuggestions = [...suggestions].sort((a, b) => {
@@ -473,16 +633,30 @@ export function AISuggestionGroups({
   }
 
   return (
-    <div className="px-4 pt-3">
+    <div className="px-4 pt-3 pb-4">
       {hasAIIssues && (
         <div className="mb-2">
-          {aiIssues?.map((issue, index) => (
-            <AITopIssueCard
-              key={`${issue.category}-${issue.location}-${index}`}
-              issue={issue}
-              onApply={onApplyAIIssue}
-            />
-          ))}
+          {aiIssues?.map((issue, index) => {
+            // Create a unique ID for the issue for selection tracking
+            const issueId = `issue-${issue.category}-${index}`;
+            return (
+              <AITopIssueCard
+                key={issueId}
+                issue={issue}
+                onApply={onApplyAIIssue}
+                onDismiss={onDismissAIIssue}
+                onScrollTo={onScrollTo}
+                isSelected={selectedId === issueId}
+                onSelectionChange={
+                  onSelectionChange ? (selected) => onSelectionChange(issueId, selected) : undefined
+                }
+                isChecked={checkedIds?.has(issueId) ?? false}
+                onCheckChange={
+                  onCheckChange ? (checked) => onCheckChange(issueId, checked) : undefined
+                }
+              />
+            );
+          })}
         </div>
       )}
       {sortedSuggestions.map((suggestion) => (
@@ -492,8 +666,102 @@ export function AISuggestionGroups({
           onApply={onApply}
           onDismiss={onDismiss}
           onScrollTo={onScrollTo}
+          isSelected={selectedId === suggestion.id}
+          onSelectionChange={
+            onSelectionChange ? (selected) => onSelectionChange(suggestion.id, selected) : undefined
+          }
+          isChecked={checkedIds?.has(suggestion.id) ?? false}
+          onCheckChange={
+            onCheckChange ? (checked) => onCheckChange(suggestion.id, checked) : undefined
+          }
         />
       ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Batch Selection Footer
+// ============================================================================
+
+interface BatchSelectionFooterProps {
+  selectedCount: number;
+  totalCount: number;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+  onApplySelected: () => void;
+  onDismissSelected: () => void;
+}
+
+export function BatchSelectionFooter({
+  selectedCount,
+  totalCount,
+  onSelectAll,
+  onDeselectAll,
+  onApplySelected,
+  onDismissSelected,
+}: BatchSelectionFooterProps) {
+  const allSelected = selectedCount === totalCount && totalCount > 0;
+
+  return (
+    <div className="border-t border-slate-200 bg-white p-3 space-y-3">
+      {/* Selection controls row */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-slate-600">{selectedCount} selected</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={allSelected ? onDeselectAll : onSelectAll}
+            className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+          >
+            <SelectionCheckbox
+              checked={allSelected}
+              onChange={() => (allSelected ? onDeselectAll() : onSelectAll())}
+              className="w-4 h-4"
+            />
+            <span>Select All</span>
+          </button>
+          <button
+            type="button"
+            onClick={onDeselectAll}
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
+            Deselect All
+          </button>
+        </div>
+      </div>
+
+      {/* Action buttons row */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onDismissSelected}
+          disabled={selectedCount === 0}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors',
+            selectedCount === 0
+              ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+              : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800',
+          )}
+        >
+          <span>×</span>
+          <span>Ignore {selectedCount} Selected</span>
+        </button>
+        <button
+          type="button"
+          onClick={onApplySelected}
+          disabled={selectedCount === 0}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
+            selectedCount === 0
+              ? 'bg-green-200 text-green-400 cursor-not-allowed'
+              : 'bg-green-500 text-white hover:bg-green-600',
+          )}
+        >
+          <Check className="h-4 w-4" />
+          <span>Apply {selectedCount} Selected</span>
+        </button>
+      </div>
     </div>
   );
 }

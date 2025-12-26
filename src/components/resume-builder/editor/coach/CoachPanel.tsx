@@ -1,14 +1,14 @@
 'use client';
 
-import { FileText, Lightbulb, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { FileText, Lightbulb, RefreshCw, Sparkles, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { ScoreResponse, Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
 import type { GroupedSuggestions, ResumeScore, TopFix } from '@/types/resume-editor';
 
 import { ScoreCard } from './ScoreCard';
-import { AISuggestionGroups, SuggestionGroups } from './SuggestionCard';
+import { AISuggestionGroups, BatchSelectionFooter, SuggestionGroups } from './SuggestionCard';
 import { TopFixesList } from './TopFixesList';
 
 // AI top issue type from ScoreResponse
@@ -34,6 +34,7 @@ interface CoachPanelProps {
   onApplyAISuggestion?: (suggestionId: string, afterText: string) => void;
   onDismissAISuggestion?: (suggestionId: string) => void;
   onApplyAIFix?: (issue: AITopIssue) => void;
+  onDismissAIFix?: (issue: AITopIssue) => void;
   onScrollToTarget?: (targetPath: string) => void;
 
   // JD input props
@@ -41,6 +42,13 @@ interface CoachPanelProps {
   onJobDescriptionChange?: (jd: string) => void;
   onAnalyzeJD?: () => void;
   jdLoading?: boolean;
+
+  // Bidirectional linking - when a track change is clicked on canvas, this is set
+  focusedSuggestionId?: string | null;
+
+  // Rerun AI review
+  onRerunAIReview?: () => void;
+  aiReviewLoading?: boolean;
 }
 
 export function CoachPanel({
@@ -58,23 +66,162 @@ export function CoachPanel({
   onApplyAISuggestion,
   onDismissAISuggestion,
   onApplyAIFix,
+  onDismissAIFix,
   onScrollToTarget,
   // JD props
   jobDescription,
   onJobDescriptionChange,
   onAnalyzeJD,
   jdLoading,
+  // Bidirectional linking
+  focusedSuggestionId,
+  // Rerun AI review
+  onRerunAIReview,
+  aiReviewLoading,
 }: CoachPanelProps) {
   // Default to 'tips' tab
   const [activeTab, setActiveTab] = useState<CoachTab>('tips');
+
+  // Card selection state - only one card can show purple outline + buttons at a time
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState<string | null>(null);
+
+  // Checkbox state - multiple cards can be checked for batch operations
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+
+  // Sync selection state when focusedSuggestionId changes (from canvas click)
+  useEffect(() => {
+    if (focusedSuggestionId) {
+      setSelectedSuggestionId(focusedSuggestionId);
+      // Scroll the suggestion card into view
+      requestAnimationFrame(() => {
+        const cardElement = document.querySelector(
+          `[data-suggestion-card-id="${focusedSuggestionId}"]`,
+        );
+        if (cardElement) {
+          cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+  }, [focusedSuggestionId]);
 
   // Determine if we should use AI features
   const useAIScore = aiScore !== undefined && aiScore !== null;
   const useAISuggestions = aiSuggestions !== undefined && aiSuggestions.length > 0;
   const hasJDSupport = onJobDescriptionChange !== undefined;
 
+  // Track AI suggestions count for debugging (intentionally empty effect)
+  useEffect(() => {
+    // Suggestions tracking - no console output in production
+  }, [aiSuggestions]);
+
+  // Card selection handler - only one can be selected at a time (shows purple outline + buttons)
+  const handleSelectionChange = useCallback((id: string, selected: boolean) => {
+    if (selected) {
+      setSelectedSuggestionId(id);
+    } else {
+      setSelectedSuggestionId(null);
+    }
+  }, []);
+
+  // Checkbox handler - multiple can be checked, checking also deselects the card
+  const handleCheckChange = useCallback(
+    (id: string, checked: boolean) => {
+      // When checking a box, deselect the card (hide purple outline + buttons)
+      if (checked && selectedSuggestionId === id) {
+        setSelectedSuggestionId(null);
+      }
+
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+        return next;
+      });
+    },
+    [selectedSuggestionId],
+  );
+
+  const handleSelectAll = useCallback(() => {
+    const allIds: string[] = [];
+    if (aiSuggestions) {
+      allIds.push(...aiSuggestions.map((s) => s.id));
+    }
+    if (aiScore?.topIssues) {
+      aiScore.topIssues.forEach((issue, index) => {
+        allIds.push(`issue-${issue.category}-${index}`);
+      });
+    }
+    setCheckedIds(new Set(allIds));
+    // Also deselect any selected card
+    setSelectedSuggestionId(null);
+  }, [aiSuggestions, aiScore]);
+
+  const handleDeselectAll = useCallback(() => {
+    setCheckedIds(new Set());
+  }, []);
+
+  // Apply all checked items
+  const handleApplyChecked = useCallback(() => {
+    if (checkedIds.size === 0) return;
+
+    checkedIds.forEach((id) => {
+      if (id.startsWith('issue-')) {
+        // It's an AI issue
+        if (onApplyAIFix && aiScore?.topIssues) {
+          const parts = id.split('-');
+          const index = parseInt(parts[parts.length - 1], 10);
+          const issue = aiScore.topIssues[index];
+          if (issue) {
+            onApplyAIFix(issue);
+          }
+        }
+      } else {
+        // It's a suggestion
+        if (onApplyAISuggestion && aiSuggestions) {
+          const suggestion = aiSuggestions.find((s) => s.id === id);
+          if (suggestion) {
+            onApplyAISuggestion(suggestion.id, suggestion.afterText);
+          }
+        }
+      }
+    });
+
+    // Clear checked after applying
+    setCheckedIds(new Set());
+  }, [checkedIds, aiSuggestions, aiScore, onApplyAISuggestion, onApplyAIFix]);
+
+  // Dismiss all checked items
+  const handleDismissChecked = useCallback(() => {
+    if (checkedIds.size === 0) return;
+
+    checkedIds.forEach((id) => {
+      if (id.startsWith('issue-')) {
+        // It's an AI issue
+        if (onDismissAIFix && aiScore?.topIssues) {
+          const parts = id.split('-');
+          const index = parseInt(parts[parts.length - 1], 10);
+          const issue = aiScore.topIssues[index];
+          if (issue) {
+            onDismissAIFix(issue);
+          }
+        }
+      } else {
+        // It's a suggestion
+        if (onDismissAISuggestion) {
+          onDismissAISuggestion(id);
+        }
+      }
+    });
+
+    // Clear checked after dismissing
+    setCheckedIds(new Set());
+  }, [checkedIds, aiScore, onDismissAISuggestion, onDismissAIFix]);
+
   return (
-    <div className="w-80 bg-white border-l border-slate-200 flex flex-col h-full">
+    <div className="w-[352px] bg-white border-l border-slate-200 flex flex-col h-full">
       {/* Score card - supports both legacy and AI formats */}
       <ScoreCard score={score} aiScore={aiScore} loading={scoreLoading} matchScore={matchScore} />
 
@@ -117,8 +264,32 @@ export function CoachPanel({
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {activeTab === 'tips' ? (
           <>
+            {/* Rerun AI Review button */}
+            {onRerunAIReview && (
+              <div className="px-4 pt-3 pb-2">
+                <button
+                  type="button"
+                  onClick={onRerunAIReview}
+                  disabled={aiReviewLoading}
+                  className={cn(
+                    'w-full text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2',
+                    aiReviewLoading
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-primary-50 text-primary-600 hover:bg-primary-100 border border-primary-200',
+                  )}
+                >
+                  <RefreshCw className={cn('h-4 w-4', aiReviewLoading && 'animate-spin')} />
+                  {aiReviewLoading ? 'Analyzing...' : 'Rerun AI Review'}
+                </button>
+              </div>
+            )}
+
             {/* Top fixes - supports both legacy and AI formats */}
-            <TopFixesList fixes={topFixes} aiIssues={useAIScore ? aiScore.topIssues : undefined} />
+            <TopFixesList
+              fixes={topFixes}
+              aiIssues={useAIScore ? aiScore.topIssues : undefined}
+              aiSuggestions={useAISuggestions ? aiSuggestions : undefined}
+            />
 
             {/* Suggestions - use AI format if available, otherwise legacy */}
             {useAISuggestions && onApplyAISuggestion && onDismissAISuggestion ? (
@@ -129,6 +300,11 @@ export function CoachPanel({
                 onScrollTo={onScrollToTarget}
                 aiIssues={useAIScore ? aiScore.topIssues : undefined}
                 onApplyAIIssue={onApplyAIFix}
+                onDismissAIIssue={onDismissAIFix}
+                selectedId={selectedSuggestionId}
+                onSelectionChange={handleSelectionChange}
+                checkedIds={checkedIds}
+                onCheckChange={handleCheckChange}
               />
             ) : (
               <SuggestionGroups
@@ -259,6 +435,18 @@ export function CoachPanel({
           </div>
         )}
       </div>
+
+      {/* Batch selection footer - show when any checkboxes are checked */}
+      {activeTab === 'tips' && checkedIds.size > 0 && (
+        <BatchSelectionFooter
+          selectedCount={checkedIds.size}
+          totalCount={(aiSuggestions?.length ?? 0) + (aiScore?.topIssues?.length ?? 0)}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          onApplySelected={handleApplyChecked}
+          onDismissSelected={handleDismissChecked}
+        />
+      )}
     </div>
   );
 }

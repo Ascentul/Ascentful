@@ -88,6 +88,7 @@ export function AIChatInput({
           type="button"
           onClick={handleSubmit}
           disabled={!message.trim() || isSubmitting || disabled}
+          aria-label={isSubmitting ? 'Sending message' : 'Send message'}
           className={cn(
             'absolute right-2 top-2.5',
             'p-1.5 rounded-lg transition-colors',

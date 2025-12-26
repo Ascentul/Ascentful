@@ -18,10 +18,12 @@ import {
   FONT_PAIRINGS,
   TEMPLATE_LAYOUTS,
 } from '@/components/resume-builder/templates/types';
+import type { Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import { bulletPointsToDescription, parseBulletPoints } from '@/lib/resume-editor/span-utils';
 import { cn } from '@/lib/utils';
 import type { Suggestion } from '@/types/resume-editor';
 
+import type { EditorMode } from '../EditorTopBar';
 import { BulletEditable, InlineEditableText } from './InlineEditableText';
 
 // ============================================================================
@@ -111,6 +113,12 @@ interface ResumeCanvasProps {
   selectedItemId?: string | null;
   // Missing field spanIds for form validation-style highlighting
   missingSpanIds?: Set<string>;
+  // Editor/Review mode toggle
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  // Bidirectional linking - highlight track changes for focused suggestion
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
 }
 
 /* Intentionally keeping types as Experience[] since the handlers
@@ -135,6 +143,10 @@ export function ResumeCanvas({
   selectedSectionId,
   selectedItemId,
   missingSpanIds,
+  editorMode = 'editor',
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
 }: ResumeCanvasProps) {
   // Get template-specific layout configuration
   const templateConfig = TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_LAYOUTS.modern;
@@ -241,6 +253,10 @@ export function ResumeCanvas({
               }
               className="text-[11pt] leading-relaxed"
               isMissing={missingSpanIds?.has('summary-text')}
+              editorMode={editorMode}
+              aiSuggestions={aiSuggestions}
+              focusedSuggestionId={focusedSuggestionId}
+              onTrackChangeClick={onTrackChangeClick}
             />
           </section>
         );
@@ -286,6 +302,10 @@ export function ResumeCanvas({
                   accentColor={accentColor}
                   isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
                   missingSpanIds={missingSpanIds}
+                  editorMode={editorMode}
+                  aiSuggestions={aiSuggestions}
+                  focusedSuggestionId={focusedSuggestionId}
+                  onTrackChangeClick={onTrackChangeClick}
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'exp-empty') {
@@ -386,6 +406,10 @@ export function ResumeCanvas({
                   coachEnabled={coachEnabled}
                   isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
                   missingSpanIds={missingSpanIds}
+                  editorMode={editorMode}
+                  aiSuggestions={aiSuggestions}
+                  focusedSuggestionId={focusedSuggestionId}
+                  onTrackChangeClick={onTrackChangeClick}
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'edu-empty') {
@@ -493,6 +517,10 @@ export function ResumeCanvas({
                   suggestions={suggestions}
                   coachEnabled={coachEnabled}
                   isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
+                  editorMode={editorMode}
+                  aiSuggestions={aiSuggestions}
+                  focusedSuggestionId={focusedSuggestionId}
+                  onTrackChangeClick={onTrackChangeClick}
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'proj-empty') {
@@ -579,6 +607,10 @@ export function ResumeCanvas({
                   coachEnabled={coachEnabled}
                   isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
                   missingSpanIds={missingSpanIds}
+                  editorMode={editorMode}
+                  aiSuggestions={aiSuggestions}
+                  focusedSuggestionId={focusedSuggestionId}
+                  onTrackChangeClick={onTrackChangeClick}
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'ach-empty') {
@@ -667,6 +699,10 @@ export function ResumeCanvas({
                   accentColor={accentColor}
                   isSelected={selectedSectionId === sectionId && selectedItemId === item.id}
                   missingSpanIds={missingSpanIds}
+                  editorMode={editorMode}
+                  aiSuggestions={aiSuggestions}
+                  focusedSuggestionId={focusedSuggestionId}
+                  onTrackChangeClick={onTrackChangeClick}
                   onChange={(updated) => {
                     // If editing the placeholder entry, add it to real data
                     if (item.id === 'cert-empty') {
@@ -1028,6 +1064,10 @@ function ExperienceEntry({
   accentColor,
   isSelected,
   missingSpanIds,
+  editorMode,
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
   onChange,
   onAdd,
   onDuplicate,
@@ -1040,6 +1080,10 @@ function ExperienceEntry({
   accentColor: string;
   isSelected?: boolean;
   missingSpanIds?: Set<string>;
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
   onChange: (updated: Experience) => void;
   onAdd?: () => void;
   onDuplicate?: () => void;
@@ -1090,8 +1134,12 @@ function ExperienceEntry({
             coachEnabled={coachEnabled}
             className="font-semibold text-[12pt]"
             isMissing={titleIsMissing}
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
           />
-          <span className="mx-2 text-slate-400">|</span>
+          <span className="mx-2 text-slate-400">–</span>
           <InlineEditableText
             spanId={`experience-${experience.id}-company`}
             value={experience.company}
@@ -1102,6 +1150,10 @@ function ExperienceEntry({
             className="text-[12pt]"
             style={{ color: accentColor } as CSSProperties}
             isMissing={companyIsMissing}
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
           />
         </div>
         <div className="text-[10pt] text-slate-500">
@@ -1122,6 +1174,10 @@ function ExperienceEntry({
           placeholder={
             bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
           }
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
         />
       </div>
     </div>
@@ -1138,6 +1194,10 @@ function EducationEntry({
   coachEnabled,
   isSelected,
   missingSpanIds,
+  editorMode,
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
   onChange,
   onAdd,
   onDuplicate,
@@ -1149,6 +1209,10 @@ function EducationEntry({
   coachEnabled: boolean;
   isSelected?: boolean;
   missingSpanIds?: Set<string>;
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
   onChange: (updated: Education) => void;
   onAdd?: () => void;
   onDuplicate?: () => void;
@@ -1187,6 +1251,10 @@ function EducationEntry({
             coachEnabled={coachEnabled}
             className="font-semibold text-[12pt]"
             isMissing={schoolIsMissing}
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
           />
         </div>
         <div className="text-[10pt] text-slate-500">
@@ -1202,6 +1270,10 @@ function EducationEntry({
           suggestions={suggestions}
           coachEnabled={coachEnabled}
           isMissing={degreeIsMissing}
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
         />
         <span className="text-slate-500"> in </span>
         <InlineEditableText
@@ -1212,6 +1284,10 @@ function EducationEntry({
           suggestions={suggestions}
           coachEnabled={coachEnabled}
           isMissing={fieldIsMissing}
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
         />
       </div>
       {education.gpa && <div className="text-[10pt] text-slate-600">GPA: {education.gpa}</div>}
@@ -1504,6 +1580,10 @@ function ProjectEntry({
   suggestions,
   coachEnabled,
   isSelected,
+  editorMode,
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
   onChange,
   onAdd,
   onDuplicate,
@@ -1514,6 +1594,10 @@ function ProjectEntry({
   suggestions: Suggestion[];
   coachEnabled: boolean;
   isSelected?: boolean;
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
   onChange: (updated: Project) => void;
   onAdd?: () => void;
   onDuplicate?: () => void;
@@ -1546,6 +1630,10 @@ function ProjectEntry({
           suggestions={suggestions}
           coachEnabled={coachEnabled}
           className="font-semibold text-[12pt]"
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
         />
         {project.url && (
           <a
@@ -1567,6 +1655,10 @@ function ProjectEntry({
         suggestions={suggestions}
         coachEnabled={coachEnabled}
         className="text-[11pt] mt-1"
+        editorMode={editorMode}
+        aiSuggestions={aiSuggestions}
+        focusedSuggestionId={focusedSuggestionId}
+        onTrackChangeClick={onTrackChangeClick}
       />
       {project.technologies && (
         <div className="text-[10pt] text-slate-500 mt-1">
@@ -1587,6 +1679,10 @@ function AchievementEntry({
   coachEnabled,
   isSelected,
   missingSpanIds,
+  editorMode,
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
   onChange,
   onAdd,
   onDuplicate,
@@ -1598,6 +1694,10 @@ function AchievementEntry({
   coachEnabled: boolean;
   isSelected?: boolean;
   missingSpanIds?: Set<string>;
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
   onChange: (updated: Achievement) => void;
   onAdd?: () => void;
   onDuplicate?: () => void;
@@ -1633,6 +1733,10 @@ function AchievementEntry({
           coachEnabled={coachEnabled}
           className="font-semibold text-[12pt]"
           isMissing={titleIsMissing}
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
         />
         {achievement.date && <span className="text-[10pt] text-slate-500">{achievement.date}</span>}
       </div>
@@ -1645,6 +1749,10 @@ function AchievementEntry({
         suggestions={suggestions}
         coachEnabled={coachEnabled}
         className="text-[11pt] mt-1"
+        editorMode={editorMode}
+        aiSuggestions={aiSuggestions}
+        focusedSuggestionId={focusedSuggestionId}
+        onTrackChangeClick={onTrackChangeClick}
       />
     </div>
   );
@@ -1661,6 +1769,10 @@ function CertificationEntry({
   accentColor,
   isSelected,
   missingSpanIds,
+  editorMode,
+  aiSuggestions,
+  focusedSuggestionId,
+  onTrackChangeClick,
   onChange,
   onAdd,
   onDuplicate,
@@ -1673,6 +1785,10 @@ function CertificationEntry({
   accentColor: string;
   isSelected?: boolean;
   missingSpanIds?: Set<string>;
+  editorMode?: EditorMode;
+  aiSuggestions?: AISuggestion[];
+  focusedSuggestionId?: string | null;
+  onTrackChangeClick?: (suggestionId: string) => void;
   onChange: (updated: Certification) => void;
   onAdd?: () => void;
   onDuplicate?: () => void;
@@ -1710,6 +1826,8 @@ function CertificationEntry({
             coachEnabled={coachEnabled}
             className="font-semibold text-[12pt]"
             isMissing={nameIsMissing}
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
           />
           <span className="mx-2 text-slate-400">|</span>
           <InlineEditableText
@@ -1722,6 +1840,8 @@ function CertificationEntry({
             className="text-[12pt]"
             style={{ color: accentColor } as CSSProperties}
             isMissing={issuerIsMissing}
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
           />
         </div>
         <div className="text-[10pt] text-slate-500">

@@ -165,6 +165,7 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
               'p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600',
               'transition-colors',
             )}
+            aria-label="More options"
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>

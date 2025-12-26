@@ -1054,6 +1054,37 @@ export default function ResumeStudioPage() {
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
+                {/* New Resume Card - Always First */}
+                <div
+                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)] focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  role="button"
+                  tabIndex={0}
+                  onClick={createResume}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      createResume();
+                    }
+                  }}
+                  aria-label="Create new resume"
+                >
+                  {/* Placeholder Thumbnail */}
+                  <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 p-4 flex flex-col justify-center">
+                    <h3 className="font-medium text-primary-500 mb-1">New Resume</h3>
+                    <p className="text-sm text-slate-500">
+                      Create a tailored resume for each job application. Double your chances of
+                      getting hired!
+                    </p>
+                  </div>
+                </div>
+
                 {/* Existing Resumes - Horizontal Cards */}
                 {sortedResumes.map((r) => (
                   <div
@@ -1170,37 +1201,6 @@ export default function ResumeStudioPage() {
                     </div>
                   </div>
                 ))}
-
-                {/* New Resume Card */}
-                <div
-                  className="flex bg-white border-2 border-dashed border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer w-full md:w-[calc(50%-12px)] focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  role="button"
-                  tabIndex={0}
-                  onClick={createResume}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      createResume();
-                    }
-                  }}
-                  aria-label="Create new resume"
-                >
-                  {/* Placeholder Thumbnail */}
-                  <div className="w-32 min-h-[180px] bg-slate-100 flex-shrink-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
-                      <Plus className="h-6 w-6 text-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 p-4 flex flex-col justify-center">
-                    <h3 className="font-medium text-primary-500 mb-1">New Resume</h3>
-                    <p className="text-sm text-slate-500">
-                      Create a tailored resume for each job application. Double your chances of
-                      getting hired!
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
 
