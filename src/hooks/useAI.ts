@@ -334,14 +334,14 @@ export function useAI() {
     jdAnalysis.loading ||
     matchScore.loading;
 
-  // Collect all errors
+  // Collect all errors (type guard ensures proper string[] typing)
   const errors = [
     score.error,
     suggestions.error,
     rewrite.error,
     jdAnalysis.error,
     matchScore.error,
-  ].filter(Boolean);
+  ].filter((e): e is string => Boolean(e));
 
   // Reset all states (use stable reset function references, not hook objects)
   const resetAll = useCallback(() => {

@@ -269,8 +269,8 @@ export function parseBulletPoints(description: string): string[] {
     .filter(Boolean);
 
   return lines.map((line) => {
-    // Remove common bullet prefixes
-    return line.replace(/^[•\-\*]\s*/, '');
+    // Remove common bullet prefixes (bullet, dash, asterisk, plus)
+    return line.replace(/^[•\-\*\+]\s*/, '');
   });
 }
 

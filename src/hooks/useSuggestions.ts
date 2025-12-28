@@ -53,8 +53,10 @@ export function useSuggestions(
     resumeDataRef.current = resumeData;
   }, [resumeData]);
 
-  // Deep comparison needed to detect any content changes for re-fetching suggestions
-  // ResumeData lacks a version/timestamp field, so we serialize to compare
+  // Deep comparison needed to detect any content changes for re-fetching suggestions.
+  // ResumeData lacks a version/timestamp field, so we serialize to compare.
+  // Note: JSON.stringify is acceptable here since ResumeData is typically small (<10KB).
+  // If performance becomes an issue with larger data, consider using a fast hash function.
   const resumeDataKey = useMemo(() => {
     return JSON.stringify(resumeData);
   }, [resumeData]);

@@ -28,6 +28,8 @@ export function AIQuickGeneratePopup({
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Track if we've already generated for the current open session to prevent duplicate calls
+  const hasGeneratedRef = useRef(false);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -35,6 +37,20 @@ export function AIQuickGeneratePopup({
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  // Handle Escape key for keyboard accessibility
+  useEffect(() => {
+    if (!open) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open, onClose]);
 
   const generateContent = useCallback(async () => {
     abortControllerRef.current?.abort();
@@ -77,12 +93,18 @@ export function AIQuickGeneratePopup({
   // Generate content when popup opens
   useEffect(() => {
     if (open) {
-      generateContent();
+      // Only generate once per open session to prevent duplicate API calls
+      // when generateContent's identity changes due to prop updates
+      if (!hasGeneratedRef.current) {
+        hasGeneratedRef.current = true;
+        generateContent();
+      }
     } else {
       // Reset state when closed
       setGeneratedContent(null);
       setError(null);
       setIsLoading(false);
+      hasGeneratedRef.current = false;
     }
   }, [open, generateContent]);
 

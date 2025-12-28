@@ -33,11 +33,16 @@ type VersionTrigger =
   | 'restoration'
   | 'auto_checkpoint';
 
+// Interface matches the resume_versions table schema in convex/schema.ts
 interface ResumeVersion {
   _id: Id<'resume_versions'>;
+  _creationTime: number; // Convex built-in field
   resume_id: Id<'resumes'>;
+  user_id: Id<'users'>;
+  university_id?: Id<'universities'>;
   version_number: number;
   version_label?: string;
+  content_snapshot: unknown; // Full resume content at this point
   trigger: VersionTrigger;
   created_at: number;
 }
@@ -170,6 +175,7 @@ export function VersionHistoryPanel({
       <div
         className="fixed inset-0 bg-black/20 z-40 transition-opacity"
         onClick={onClose}
+        role="presentation"
         aria-hidden="true"
       />
 

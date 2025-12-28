@@ -445,6 +445,8 @@ export function SummaryText({ text, config }: SummaryTextProps) {
       style={{
         fontFamily: fonts.body,
         fontSize: '11pt',
+        // Justified text creates clean block edges typical of professional resumes.
+        // May cause awkward spacing on very short summaries (<2 lines).
         textAlign: 'justify',
       }}
     >

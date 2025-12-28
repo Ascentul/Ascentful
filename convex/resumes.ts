@@ -1,25 +1,8 @@
 import { v } from 'convex/values';
 
-import { mutation, MutationCtx, query, QueryCtx } from './_generated/server';
-import type { Id } from './_generated/dataModel';
+import { mutation, query } from './_generated/server';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireMembership } from './lib/roles';
-
-async function getBaseVersionNumber(
-  ctx: QueryCtx | MutationCtx,
-  resumeId: Id<'resumes'>,
-  versionCounter: number | null | undefined,
-): Promise<number> {
-  if (versionCounter !== null && versionCounter !== undefined) {
-    return versionCounter;
-  }
-  const latestVersion = await ctx.db
-    .query('resume_versions')
-    .withIndex('by_resume', (q) => q.eq('resume_id', resumeId))
-    .order('desc')
-    .first();
-  return latestVersion?.version_number ?? 0;
-}
 
 // Get resumes for a user
 export const getUserResumes = query({
@@ -562,9 +545,9 @@ export const createResumeVersion = mutation({
       throw new Error('Unauthorized: Resume belongs to another university');
     }
 
-    const baseVersion = await getBaseVersionNumber(ctx, args.resumeId, resume.version_counter);
-
-    const newVersionNumber = baseVersion + 1;
+    // Use existing version_counter since we already have the resume document loaded
+    const currentVersion = resume.version_counter ?? 0;
+    const newVersionNumber = currentVersion + 1;
 
     await ctx.db.patch(args.resumeId, { version_counter: newVersionNumber });
 
@@ -621,8 +604,9 @@ export const restoreResumeVersion = mutation({
       throw new Error('Version not found');
     }
 
-    const baseVersion = await getBaseVersionNumber(ctx, args.resumeId, resume.version_counter);
-    const newVersionNumber = baseVersion + 1;
+    // Use existing version_counter since we already have the resume document loaded
+    const currentVersion = resume.version_counter ?? 0;
+    const newVersionNumber = currentVersion + 1;
 
     // Update the resume with the snapshot and new version counter
     await ctx.db.patch(args.resumeId, {

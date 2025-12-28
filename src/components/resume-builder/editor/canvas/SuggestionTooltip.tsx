@@ -6,6 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { Suggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
 
+/**
+ * Props for SuggestionTooltip component.
+ * Note: Callback props (onApply, onDismiss, onClose) should be memoized with useCallback
+ * in the parent component to avoid unnecessary event listener re-registration.
+ */
 interface SuggestionTooltipProps {
   suggestion: Suggestion;
   position: { x: number; y: number };

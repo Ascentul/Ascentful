@@ -158,12 +158,14 @@ export function InlineAIToolbar({ position, onAction, onClose, isLoading }: Inli
 
       {/* More Options */}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <DropdownMenuTrigger asChild disabled={isLoading}>
           <button
             type="button"
+            disabled={isLoading}
             className={cn(
               'p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600',
               'transition-colors',
+              isLoading && 'opacity-50 cursor-not-allowed',
             )}
             aria-label="More options"
           >

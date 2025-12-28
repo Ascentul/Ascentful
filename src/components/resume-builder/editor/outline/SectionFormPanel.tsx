@@ -266,6 +266,11 @@ interface PersonalInfoFormProps {
 }
 
 function PersonalInfoForm({ contactInfo, onUpdate }: PersonalInfoFormProps) {
+  // Note: Name splitting uses simple first-word/rest-of-words logic.
+  // This handles "John Van der Berg" correctly for display, but editing
+  // either field will recombine as "FirstName LastName" (two parts only).
+  // For MVP this is acceptable; consider separate firstName/lastName fields
+  // in ContactInfo if more complex name handling is needed.
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -544,9 +549,10 @@ function EducationForm({ education, onUpdate }: EducationFormProps) {
   };
 
   const handleDelete = (id: string) => {
-    onUpdate(education.filter((edu) => edu.id !== id));
+    const remaining = education.filter((edu) => edu.id !== id);
+    onUpdate(remaining);
     if (expandedId === id) {
-      setExpandedId(education[0]?.id || null);
+      setExpandedId(remaining[0]?.id || null);
     }
   };
 
@@ -779,9 +785,10 @@ function ProjectsForm({ projects, onUpdate }: ProjectsFormProps) {
   };
 
   const handleDelete = (id: string) => {
-    onUpdate(projects.filter((proj) => proj.id !== id));
+    const remaining = projects.filter((proj) => proj.id !== id);
+    onUpdate(remaining);
     if (expandedId === id) {
-      setExpandedId(projects[0]?.id || null);
+      setExpandedId(remaining[0]?.id || null);
     }
   };
 
@@ -917,9 +924,10 @@ function AchievementsForm({ achievements, onUpdate }: AchievementsFormProps) {
   };
 
   const handleDelete = (id: string) => {
-    onUpdate(achievements.filter((ach) => ach.id !== id));
+    const remaining = achievements.filter((ach) => ach.id !== id);
+    onUpdate(remaining);
     if (expandedId === id) {
-      setExpandedId(achievements[0]?.id || null);
+      setExpandedId(remaining[0]?.id || null);
     }
   };
 
@@ -1045,9 +1053,10 @@ function CertificationsForm({ certifications, onUpdate }: CertificationsFormProp
   };
 
   const handleDelete = (id: string) => {
-    onUpdate(certifications.filter((cert) => cert.id !== id));
+    const remaining = certifications.filter((cert) => cert.id !== id);
+    onUpdate(remaining);
     if (expandedId === id) {
-      setExpandedId(certifications[0]?.id || null);
+      setExpandedId(remaining[0]?.id || null);
     }
   };
 
@@ -1381,13 +1390,6 @@ export function SectionFormPanel({
         section={quickGenerateSection}
         sectionLabel={quickGenerateSectionLabel}
         currentResumeData={resumeData}
-        currentValue={
-          quickGenerateSection === 'summary'
-            ? resumeData.summary
-            : quickGenerateSection === 'skills'
-              ? resumeData.skills?.join(', ')
-              : undefined
-        }
         onAccept={handleAcceptGenerated}
       />
     </div>

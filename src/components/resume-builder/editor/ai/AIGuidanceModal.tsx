@@ -293,9 +293,9 @@ export function AIGuidanceModal({
         {suggestions.length > 0 && !isLoading && (
           <div className="px-4 pb-2 flex-shrink-0">
             <div className="flex flex-wrap gap-2">
-              {suggestions.map((suggestion, idx) => (
+              {suggestions.map((suggestion) => (
                 <button
-                  key={idx}
+                  key={suggestion}
                   type="button"
                   onClick={() => handleSuggestionClick(suggestion)}
                   className={cn(

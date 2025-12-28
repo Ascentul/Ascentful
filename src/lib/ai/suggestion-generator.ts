@@ -483,25 +483,83 @@ function createSuggestion(params: {
 }
 
 /**
+ * Context-aware mapping of weak verbs to strong alternatives.
+ * Each weak verb maps to an array of strong replacements with contextual hints.
+ */
+const WEAK_VERB_REPLACEMENTS: Record<string, { alternatives: string[]; contextHints: string[] }> = {
+  helped: {
+    alternatives: ['Enabled', 'Empowered', 'Facilitated', 'Guided'],
+    contextHints: ['team', 'stakeholder', 'client', 'user'],
+  },
+  assisted: {
+    alternatives: ['Collaborated', 'Partnered', 'Supported', 'Coordinated'],
+    contextHints: ['team', 'department', 'cross-functional'],
+  },
+  worked: {
+    alternatives: ['Developed', 'Executed', 'Delivered', 'Built'],
+    contextHints: ['project', 'system', 'solution', 'feature'],
+  },
+  responsible: {
+    alternatives: ['Owned', 'Managed', 'Directed', 'Oversaw'],
+    contextHints: ['budget', 'team', 'project', 'initiative'],
+  },
+  involved: {
+    alternatives: ['Led', 'Drove', 'Spearheaded', 'Championed'],
+    contextHints: ['initiative', 'effort', 'transformation'],
+  },
+  participated: {
+    alternatives: ['Contributed', 'Delivered', 'Executed', 'Drove'],
+    contextHints: ['project', 'initiative', 'program'],
+  },
+  contributed: {
+    alternatives: ['Delivered', 'Drove', 'Advanced', 'Accelerated'],
+    contextHints: ['growth', 'revenue', 'efficiency', 'improvement'],
+  },
+  supported: {
+    alternatives: ['Maintained', 'Sustained', 'Ensured', 'Strengthened'],
+    contextHints: ['system', 'infrastructure', 'operations', 'platform'],
+  },
+  aided: {
+    alternatives: ['Enabled', 'Accelerated', 'Streamlined', 'Optimized'],
+    contextHints: ['process', 'workflow', 'efficiency'],
+  },
+  handled: {
+    alternatives: ['Managed', 'Resolved', 'Processed', 'Orchestrated'],
+    contextHints: ['issue', 'request', 'escalation', 'case'],
+  },
+};
+
+const WEAK_VERBS = Object.keys(WEAK_VERB_REPLACEMENTS);
+
+/**
+ * Get the best replacement verb based on bullet content context
+ */
+function getContextAwareReplacement(weakVerb: string, bulletContent: string): string {
+  const lowerBullet = bulletContent.toLowerCase();
+  const mapping = WEAK_VERB_REPLACEMENTS[weakVerb];
+
+  if (!mapping) {
+    return 'Led'; // Fallback
+  }
+
+  // Check if any context hints match the bullet content
+  for (let i = 0; i < mapping.contextHints.length; i++) {
+    if (lowerBullet.includes(mapping.contextHints[i])) {
+      // Return the alternative at the same index, or first if out of bounds
+      return mapping.alternatives[Math.min(i, mapping.alternatives.length - 1)];
+    }
+  }
+
+  // Default to first alternative if no context match
+  return mapping.alternatives[0];
+}
+
+/**
  * Apply rule-based checks for content quality issues
  * (Weak verbs, missing metrics, etc. - complements AI analysis)
  */
 export function applyRuleBasedChecks(resumeData: ResumeData): Suggestion[] {
   const suggestions: Suggestion[] = [];
-
-  // Check for weak verbs at the start of bullets
-  const weakVerbs = [
-    'helped',
-    'assisted',
-    'worked',
-    'responsible',
-    'involved',
-    'participated',
-    'contributed',
-    'supported',
-    'aided',
-    'handled',
-  ];
 
   const experience = resumeData.experience || [];
 
@@ -514,13 +572,23 @@ export function applyRuleBasedChecks(resumeData: ResumeData): Suggestion[] {
 
     for (let i = 0; i < bullets.length; i++) {
       const bullet = bullets[i];
-      const firstWord = bullet
-        .split(/\s+/)[0]
-        ?.toLowerCase()
-        .replace(/[^a-z]/g, '');
+      if (!bullet) continue; // Skip empty bullets
 
-      // Check for weak starting verbs
-      if (weakVerbs.some((wv) => firstWord === wv || firstWord?.startsWith(wv))) {
+      const words = bullet.split(/\s+/);
+      const firstWord = words[0]?.toLowerCase().replace(/[^a-z]/g, '');
+
+      if (!firstWord) continue; // Skip if no valid first word
+
+      // Find matching weak verb (exact match or prefix match like "worked" -> "working")
+      const matchedWeakVerb = WEAK_VERBS.find((wv) => firstWord === wv || firstWord.startsWith(wv));
+
+      if (matchedWeakVerb) {
+        const strongVerb = getContextAwareReplacement(matchedWeakVerb, bullet);
+        const originalFirstWord = words[0]; // Preserve original casing pattern
+
+        // Replace first word while preserving the rest of the bullet
+        const improvedBullet = strongVerb + bullet.slice(originalFirstWord.length);
+
         suggestions.push(
           createSuggestion({
             id: `weak-verb-${exp.id}-${i}`,
@@ -531,9 +599,9 @@ export function applyRuleBasedChecks(resumeData: ResumeData): Suggestion[] {
             targetId: exp.id,
             targetPath: `experience-${exp.id}-bullets-${i}`,
             title: 'Replace weak starting verb',
-            explanation: `"${firstWord}" is a weak verb that diminishes impact. Start with a powerful action verb like Led, Drove, Delivered, Spearheaded, or Architected.`,
+            explanation: `"${originalFirstWord}" is a weak verb that diminishes impact. "${strongVerb}" is more powerful and action-oriented.`,
             beforeText: bullet,
-            afterText: bullet.replace(/^\w+/, 'Led'), // Simple replacement - AI will do better
+            afterText: improvedBullet,
             estimatedScoreImpact: 3,
           }),
         );

@@ -41,13 +41,20 @@ export async function POST(request: NextRequest) {
     // Build context from resume data
     const context = buildContext(resumeData, intent, jobTarget);
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      temperature: 0.7,
-      messages: [
+    // Timeout protection: abort if OpenAI takes too long (40s, leaving buffer for maxDuration=45)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
+
+    let response;
+    try {
+      response = await openai.chat.completions.create(
         {
-          role: 'system',
-          content: `You are an expert resume writer. Generate a concise, impactful professional summary for a resume.
+          model: 'gpt-4o',
+          temperature: 0.7,
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert resume writer. Generate a concise, impactful professional summary for a resume.
 The summary should:
 - Be 2-3 sentences (50-150 words)
 - Highlight key skills and experience relevant to the target
@@ -56,13 +63,18 @@ The summary should:
 - Be tailored to the intent (${intent || 'general job search'})
 
 Respond with ONLY the summary text, no quotes or additional formatting.`,
+            },
+            {
+              role: 'user',
+              content: context,
+            },
+          ],
         },
-        {
-          role: 'user',
-          content: context,
-        },
-      ],
-    });
+        { signal: controller.signal },
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const summary = response.choices[0]?.message?.content?.trim();
 
@@ -89,6 +101,9 @@ Respond with ONLY the summary text, no quotes or additional formatting.`,
 
     return NextResponse.json({ summary });
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json({ error: 'AI request timed out' }, { status: 504 });
+    }
     console.error(
       'Error generating summary:',
       error instanceof Error ? error.message : 'Unknown error',

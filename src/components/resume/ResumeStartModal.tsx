@@ -41,6 +41,24 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type by MIME type (accept attribute only provides UI hint)
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'application/msword', // .doc
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    ];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload a PDF or Word document (.pdf, .doc, .docx).',
+        variant: 'destructive',
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
     // Validate file size (10MB limit)
     const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {

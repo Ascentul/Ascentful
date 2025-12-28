@@ -112,8 +112,8 @@ export function formatResumeForPrompt(resumeData: ResumeData): string {
       parts.push(`  Company spanId: experience-${exp.id}-company`);
       if (exp.location) parts.push(`  Location: ${exp.location}`);
       if (exp.description) {
-        // Split description into bullets with span IDs
-        // IMPORTANT: Use "bullets" not "description" to match canvas component
+        // Split description field into individual bullet points
+        // SpanIDs use "bullets" pattern to match canvas component's BulletEditable
         parts.push(`  Bullets:`);
         const bullets = exp.description
           .split('\n')

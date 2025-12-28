@@ -255,6 +255,7 @@ function SaveStatusIndicator({
 
     if (minutes < 1) return 'Saved just now';
     if (minutes === 1) return 'Saved 1 min ago';
+    if (minutes < 5) return 'Saved recently';
     if (minutes < 60) return `Saved ${minutes} mins ago`;
 
     const hours = Math.floor(minutes / 60);

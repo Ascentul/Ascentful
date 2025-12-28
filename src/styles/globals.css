@@ -196,15 +196,39 @@
   }
 
   .span-highlight-flash {
-    animation: span-highlight-pulse 2s ease-out;
+    animation: span-highlight-pulse 2s ease-out forwards;
     border-radius: 4px;
-    /* Use box-shadow instead of outline to avoid per-line outlines on wrapped text */
-    box-shadow: 0 0 0 2px hsl(var(--primary));
+    /* animation-fill-mode: forwards keeps the 100% keyframe state after animation ends */
   }
 
   @media (prefers-reduced-motion: reduce) {
     .span-highlight-flash {
       animation: none;
     }
+  }
+
+  /* Custom range slider styling for zoom controls and similar inputs */
+  .range-slider {
+    @apply w-full h-1.5 rounded-full appearance-none cursor-pointer;
+  }
+
+  .range-slider::-webkit-slider-thumb {
+    @apply appearance-none w-3 h-3 rounded-full bg-slate-700 cursor-pointer shadow-sm;
+  }
+
+  .range-slider::-moz-range-thumb {
+    @apply w-3 h-3 rounded-full bg-slate-700 cursor-pointer border-0;
+  }
+
+  .range-slider:focus {
+    @apply outline-none;
+  }
+
+  .range-slider:focus::-webkit-slider-thumb {
+    @apply ring-2 ring-slate-400 ring-offset-1;
+  }
+
+  .range-slider:focus::-moz-range-thumb {
+    @apply ring-2 ring-slate-400 ring-offset-1;
   }
 }

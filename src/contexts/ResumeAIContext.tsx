@@ -38,6 +38,63 @@ import type {
 } from '@/types/resume-editor';
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+// Maps AI suggestion severity to legacy severity values
+const SEVERITY_MAP: Record<Suggestion['severity'], LegacySuggestion['severity']> = {
+  critical: 'critical',
+  important: 'improve',
+  polish: 'optional',
+};
+
+// Maps AI suggestion type to legacy type values
+const TYPE_MAP: Record<Suggestion['type'], LegacySuggestion['type']> = {
+  'missing-metrics': 'metric',
+  'weak-verb': 'verb',
+  'too-long': 'length',
+  'passive-voice': 'clarity',
+  'missing-keyword': 'keyword',
+  'vague-achievement': 'impact',
+  'no-outcome': 'clarity',
+  'missing-info': 'clarity',
+  'generic-content': 'clarity',
+  'redundant-content': 'clarity',
+  'weak-scope': 'impact',
+  'buried-impact': 'impact',
+  'filler-words': 'clarity',
+  'formatting-consistency': 'clarity',
+  'order-optimization': 'clarity',
+  'enhancement-opportunity': 'clarity',
+  'structure-issue': 'clarity',
+  'missing-summary': 'clarity',
+  'missing-experience': 'clarity',
+  'missing-education': 'clarity',
+  'missing-skills': 'clarity',
+  'missing-contact-field': 'clarity',
+  'incomplete-entry': 'clarity',
+  'empty-bullets': 'clarity',
+  'short-content': 'clarity',
+  'career-gap': 'clarity',
+  'missing-progression': 'impact',
+  'outdated-skills': 'keyword',
+};
+
+// Factory function to create a legacy suggestion mapper with dismissed state
+function createLegacyMapper(dismissedIds: Set<string>) {
+  return (s: Suggestion): LegacySuggestion => ({
+    suggestionId: s.id,
+    spanId: s.targetPath,
+    severity: SEVERITY_MAP[s.severity] ?? 'optional',
+    type: TYPE_MAP[s.type] ?? 'clarity',
+    category: s.category.charAt(0).toUpperCase() + s.category.slice(1),
+    message: s.explanation,
+    proposedText: s.afterText,
+    dismissed: dismissedIds.has(s.id),
+  });
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -266,29 +323,49 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     resumeDataRef.current = resumeData;
   }, [resumeData]);
 
+  // Create a lightweight content signature for change detection.
+  // Only stringify fields that affect suggestions to avoid expensive full serialization.
   const resumeDataSignature = useMemo(() => {
     try {
-      return JSON.stringify(resumeData);
+      const { contactInfo, summary, experience, education, skills, projects } = resumeData;
+      // Extract only the content-relevant parts (exclude metadata like ids, timestamps)
+      const contentSnapshot = {
+        summary,
+        skills,
+        experience: experience?.map((e) => ({
+          title: e.title,
+          company: e.company,
+          description: e.description,
+        })),
+        education: education?.map((e) => ({
+          degree: e.degree,
+          school: e.school,
+          field: e.field,
+        })),
+        projects: projects?.map((p) => ({
+          name: p.name,
+          description: p.description,
+        })),
+        hasContact: Boolean(contactInfo?.name || contactInfo?.email),
+      };
+      return JSON.stringify(contentSnapshot);
     } catch {
       return '';
     }
   }, [resumeData]);
 
   // Preserve dismissed suggestions by content signature
+  // Only trigger on signature change - dismissed IDs are captured via the sync effect below
   useEffect(() => {
     const nextSignature = resumeDataSignature;
     const prevSignature = contentSignatureRef.current;
-
-    if (prevSignature && prevSignature !== nextSignature) {
-      dismissedByContentRef.current[prevSignature] = new Set(state.dismissedSuggestionIds);
-    }
 
     if (prevSignature !== nextSignature) {
       const nextDismissed = dismissedByContentRef.current[nextSignature] ?? new Set();
       dispatch({ type: 'SET_DISMISSED_SUGGESTIONS', payload: nextDismissed });
       contentSignatureRef.current = nextSignature;
     }
-  }, [resumeDataSignature, state.dismissedSuggestionIds]);
+  }, [resumeDataSignature]);
 
   useEffect(() => {
     if (!resumeDataSignature) return;
@@ -706,34 +783,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
 
   // Legacy-compatible grouped suggestions (uses activeSuggestions to respect dismissals)
   const legacyGroupedSuggestions = useMemo((): GroupedSuggestions => {
-    const mapToLegacy = (s: Suggestion): LegacySuggestion => ({
-      suggestionId: s.id,
-      spanId: s.targetPath,
-      severity:
-        s.severity === 'critical'
-          ? 'critical'
-          : s.severity === 'important'
-            ? 'improve'
-            : 'optional',
-      type:
-        s.type === 'missing-metrics'
-          ? 'metric'
-          : s.type === 'weak-verb'
-            ? 'verb'
-            : s.type === 'too-long'
-              ? 'length'
-              : s.type === 'passive-voice'
-                ? 'clarity'
-                : s.type === 'missing-keyword'
-                  ? 'keyword'
-                  : s.type === 'vague-achievement'
-                    ? 'impact'
-                    : 'clarity',
-      category: s.category.charAt(0).toUpperCase() + s.category.slice(1),
-      message: s.explanation,
-      proposedText: s.afterText,
-      dismissed: state.dismissedSuggestionIds.has(s.id),
-    });
+    const mapToLegacy = createLegacyMapper(state.dismissedSuggestionIds);
 
     return {
       critical: activeSuggestions.filter((s) => s.severity === 'critical').map(mapToLegacy),

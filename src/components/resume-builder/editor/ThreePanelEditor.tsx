@@ -165,6 +165,10 @@ function ThreePanelEditorInner({
     link.href = url;
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    // Note: Not removing on cleanup since fonts should persist across the session
+    // and may be reused if the user switches back. The duplicate check above
+    // prevents accumulation of identical links.
   }, [styleConfig.font_pairing]);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);

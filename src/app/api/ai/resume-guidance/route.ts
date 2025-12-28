@@ -308,7 +308,9 @@ function parseResumeContent(response: string): ParsedResumeContent | null {
     try {
       return JSON.parse(match[1].trim()) as ParsedResumeContent;
     } catch {
-      console.warn('Failed to parse resume content from AI response');
+      // Log truncated content for debugging malformed AI output
+      const content = match[1].trim();
+      console.warn('Failed to parse resume content from AI response:', content.slice(0, 200));
       return null;
     }
   }

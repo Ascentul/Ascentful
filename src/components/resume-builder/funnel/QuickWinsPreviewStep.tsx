@@ -1,5 +1,6 @@
 'use client';
 
+import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, CheckCircle, Loader2, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -8,6 +9,37 @@ import { cn } from '@/lib/utils';
 
 // Shorter delay in development for faster iteration
 const ANALYSIS_DELAY_MS = process.env.NODE_ENV === 'development' ? 200 : 1000;
+
+// Icon mapping for quick win types
+const TYPE_ICONS: Record<QuickWinItem['type'], LucideIcon> = {
+  metric: TrendingUp,
+  verb: Zap,
+  length: AlertCircle,
+  keyword: CheckCircle,
+  structure: CheckCircle,
+};
+
+// Severity-based styling classes
+const SEVERITY_STYLES = {
+  high: {
+    dot: 'bg-red-500',
+    iconBg: 'bg-red-50',
+    iconText: 'text-red-600',
+    badge: 'bg-red-100 text-red-700',
+  },
+  medium: {
+    dot: 'bg-amber-500',
+    iconBg: 'bg-amber-50',
+    iconText: 'text-amber-600',
+    badge: 'bg-amber-100 text-amber-700',
+  },
+  low: {
+    dot: 'bg-green-500',
+    iconBg: 'bg-green-50',
+    iconText: 'text-green-600',
+    badge: 'bg-green-100 text-green-700',
+  },
+} as const;
 
 export interface QuickWinItem {
   id: string;
@@ -249,90 +281,37 @@ export function QuickWinsPreviewStep({
       {/* Quick Wins List */}
       {quickWins.length > 0 && (
         <div className="bg-slate-50 rounded-2xl p-5 space-y-3">
-          {quickWins.map((win) => (
-            <div
-              key={win.id}
-              className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100"
-            >
-              {/* Severity indicator */}
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full flex-shrink-0',
-                  win.severity === 'high' && 'bg-red-500',
-                  win.severity === 'medium' && 'bg-amber-500',
-                  win.severity === 'low' && 'bg-green-500',
-                )}
-              />
+          {quickWins.map((win) => {
+            const IconComponent = TYPE_ICONS[win.type];
+            const styles = SEVERITY_STYLES[win.severity];
 
-              {/* Icon */}
+            return (
               <div
-                className={cn(
-                  'p-2 rounded-lg flex-shrink-0',
-                  win.severity === 'high' && 'bg-red-50',
-                  win.severity === 'medium' && 'bg-amber-50',
-                  win.severity === 'low' && 'bg-green-50',
-                )}
+                key={win.id}
+                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100"
               >
-                {win.type === 'metric' && (
-                  <TrendingUp
-                    className={cn(
-                      'h-4 w-4',
-                      win.severity === 'high' && 'text-red-600',
-                      win.severity === 'medium' && 'text-amber-600',
-                      win.severity === 'low' && 'text-green-600',
-                    )}
-                  />
-                )}
-                {win.type === 'verb' && (
-                  <Zap
-                    className={cn(
-                      'h-4 w-4',
-                      win.severity === 'high' && 'text-red-600',
-                      win.severity === 'medium' && 'text-amber-600',
-                      win.severity === 'low' && 'text-green-600',
-                    )}
-                  />
-                )}
-                {win.type === 'length' && (
-                  <AlertCircle
-                    className={cn(
-                      'h-4 w-4',
-                      win.severity === 'high' && 'text-red-600',
-                      win.severity === 'medium' && 'text-amber-600',
-                      win.severity === 'low' && 'text-green-600',
-                    )}
-                  />
-                )}
-                {(win.type === 'keyword' || win.type === 'structure') && (
-                  <CheckCircle
-                    className={cn(
-                      'h-4 w-4',
-                      win.severity === 'high' && 'text-red-600',
-                      win.severity === 'medium' && 'text-amber-600',
-                      win.severity === 'low' && 'text-green-600',
-                    )}
-                  />
+                {/* Severity indicator */}
+                <div className={cn('w-2 h-2 rounded-full flex-shrink-0', styles.dot)} />
+
+                {/* Icon */}
+                <div className={cn('p-2 rounded-lg flex-shrink-0', styles.iconBg)}>
+                  <IconComponent className={cn('h-4 w-4', styles.iconText)} />
+                </div>
+
+                {/* Message */}
+                <span className="text-sm font-medium text-slate-700 flex-1">{win.message}</span>
+
+                {/* Count badge */}
+                {win.count > 1 && (
+                  <span
+                    className={cn('text-xs font-medium px-2 py-0.5 rounded-full', styles.badge)}
+                  >
+                    {win.count}
+                  </span>
                 )}
               </div>
-
-              {/* Message */}
-              <span className="text-sm font-medium text-slate-700 flex-1">{win.message}</span>
-
-              {/* Count badge */}
-              {win.count > 1 && (
-                <span
-                  className={cn(
-                    'text-xs font-medium px-2 py-0.5 rounded-full',
-                    win.severity === 'high' && 'bg-red-100 text-red-700',
-                    win.severity === 'medium' && 'bg-amber-100 text-amber-700',
-                    win.severity === 'low' && 'bg-green-100 text-green-700',
-                  )}
-                >
-                  {win.count}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -76,6 +76,7 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           </label>
           <Input
             id="contact-linkedin"
+            type="url"
             value={contactInfo.linkedin || ''}
             onChange={(e) => onChange('linkedin', e.target.value)}
             placeholder="linkedin.com/in/johndoe"
@@ -88,6 +89,7 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
           </label>
           <Input
             id="contact-github"
+            type="url"
             value={contactInfo.github || ''}
             onChange={(e) => onChange('github', e.target.value)}
             placeholder="github.com/johndoe"
@@ -102,6 +104,7 @@ export function ContactSection({ contactInfo, onChange }: ContactSectionProps) {
         </label>
         <Input
           id="contact-website"
+          type="url"
           value={contactInfo.website || ''}
           onChange={(e) => onChange('website', e.target.value)}
           placeholder="johndoe.com"

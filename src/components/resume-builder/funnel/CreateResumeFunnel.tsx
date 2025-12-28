@@ -372,7 +372,7 @@ export function CreateResumeFunnel({
       templateId: null,
       enabledSections: DEFAULT_ENABLED_SECTIONS,
       sectionOrder: DEFAULT_SECTION_ORDER,
-      uploadedContent: undefined,
+      uploadedContent,
     });
     onClose();
   };

@@ -128,6 +128,7 @@ export function ProjectsSection({ projects, onChange }: ProjectsSectionProps) {
             </label>
             <Input
               id={`proj-url-${proj.id}`}
+              type="url"
               value={proj.url || ''}
               onChange={(e) => handleUpdate(index, { url: e.target.value })}
               placeholder="https://github.com/username/project"

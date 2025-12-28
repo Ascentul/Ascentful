@@ -855,6 +855,7 @@ export function AIAssistPanel({
                   type="button"
                   onClick={() => onGetAIHelp(currentStep.id)}
                   disabled={isLoading}
+                  aria-label="Get AI help for this section"
                   className={cn(
                     'py-2 px-3 rounded-lg text-sm font-medium',
                     'bg-white border border-primary-200 text-primary-600',

@@ -266,6 +266,17 @@ export function CanvasPanel({
     };
   }, [measureContent]);
 
+  // Helper to calculate clip height for each page based on intelligent page breaks
+  const getClipHeight = (pageIndex: number): string => {
+    const pageStart = pageBreaks[pageIndex] ?? 0;
+    const pageEnd = pageBreaks[pageIndex + 1] ?? pageStart + PAGE_CONTENT_HEIGHT_PX;
+    const clipHeight = pageEnd - pageStart;
+    // Cap at content area height and account for margins
+    return pageIndex === 0
+      ? `${Math.min(clipHeight, PAGE_HEIGHT_PX - TOP_MARGIN_PX)}px`
+      : `${Math.min(clipHeight, PAGE_CONTENT_HEIGHT_PX)}px`;
+  };
+
   return (
     <TooltipProvider>
       <div className="flex-1 flex flex-col bg-slate-100 min-w-0">
@@ -432,16 +443,7 @@ export function CanvasPanel({
                         // Use intelligent page breaks to determine clip height
                         // First page: from top to first break point (or full page minus margin)
                         // Subsequent pages: from break point to next break point (or content height)
-                        height: (() => {
-                          const pageStart = pageBreaks[pageIndex] ?? 0;
-                          const pageEnd =
-                            pageBreaks[pageIndex + 1] ?? pageStart + PAGE_CONTENT_HEIGHT_PX;
-                          const clipHeight = pageEnd - pageStart;
-                          // Cap at content area height and account for margins
-                          return pageIndex === 0
-                            ? `${Math.min(clipHeight, PAGE_HEIGHT_PX - TOP_MARGIN_PX)}px`
-                            : `${Math.min(clipHeight, PAGE_CONTENT_HEIGHT_PX)}px`;
-                        })(),
+                        height: getClipHeight(pageIndex),
                         overflow: 'hidden',
                         // Use absolute positioning to place clip area with top margin for subsequent pages
                         position: 'absolute',

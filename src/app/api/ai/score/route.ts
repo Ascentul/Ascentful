@@ -19,11 +19,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { resume, jobDescription } = body;
 
-    if (!resume) {
+    // Validate resume exists and has required structure
+    if (!resume || typeof resume !== 'object') {
       return NextResponse.json({ error: 'Resume data is required' }, { status: 400 });
+    }
+
+    // Validate required contactInfo field
+    if (!resume.contactInfo || typeof resume.contactInfo !== 'object') {
+      return NextResponse.json(
+        { error: 'Resume must include contactInfo with name and email' },
+        { status: 400 },
+      );
+    }
+
+    // Validate essential contact fields
+    if (!resume.contactInfo.name || !resume.contactInfo.email) {
+      return NextResponse.json(
+        { error: 'Resume contactInfo must include name and email' },
+        { status: 400 },
+      );
     }
 
     // Build the user prompt with resume data

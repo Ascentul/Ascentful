@@ -241,8 +241,9 @@ export function InlineEditableText({
     if (isEditing) return; // Already editing
     setIsEditing(true);
     onFocus?.();
-    // Focus and place cursor at start (placeholder will be cleared)
-    setTimeout(() => {
+    // Use requestAnimationFrame to defer DOM focus until after React's state update
+    // and before the next repaint - more appropriate than setTimeout for DOM operations
+    requestAnimationFrame(() => {
       if (ref.current) {
         // Clear placeholder content when focusing on empty field
         if (!value) {
@@ -262,7 +263,7 @@ export function InlineEditableText({
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
-    }, 0);
+    });
   }, [onFocus, isEditing, value]);
 
   const handleBlur = useCallback(() => {
@@ -569,8 +570,8 @@ export function BulletEditable({
   // Track hover state for AI toolbar
   const [hoveredBulletIndex, setHoveredBulletIndex] = useState<number | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleBulletChange = useCallback(
     (index: number, newValue: string) => {

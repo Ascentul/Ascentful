@@ -80,6 +80,11 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
   const fonts = getFontStyles(config.fontPairing);
   const { contactInfo, summary, skills, experience, education, projects } = data;
 
+  // Split name into first and last for stacked display
+  const nameParts = contactInfo.name.split(' ').filter(Boolean);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ');
+
   return (
     <div
       className={`executive-template bg-white ${className}`}
@@ -115,18 +120,8 @@ export function ExecutiveTemplate({ data, className = '' }: ExecutiveTemplatePro
               marginBottom: '4px',
             }}
           >
-            {(() => {
-              const nameParts = contactInfo.name.split(' ').filter(Boolean);
-              const firstName = nameParts[0] || '';
-              const lastName = nameParts.slice(1).join(' ');
-
-              return (
-                <>
-                  <span style={{ display: 'block' }}>{firstName}</span>
-                  {lastName && <span style={{ display: 'block' }}>{lastName}</span>}
-                </>
-              );
-            })()}
+            <span style={{ display: 'block' }}>{firstName}</span>
+            {lastName && <span style={{ display: 'block' }}>{lastName}</span>}
           </h1>
         </div>
 

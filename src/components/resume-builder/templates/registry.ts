@@ -33,7 +33,10 @@ export const TEMPLATE_COMPONENTS: Record<
   bold: BoldTemplate,
   minimal: MinimalTemplate,
   classic: ClassicTemplate,
-  ats: ExecutiveTemplate, // 'ats' ID maps to ExecutiveTemplate
+  // 'ats' uses ExecutiveTemplate: a two-column sidebar layout optimized for ATS parsers.
+  // The template prioritizes machine readability with clean section hierarchy, standard
+  // headings, and no complex formatting that could confuse applicant tracking systems.
+  ats: ExecutiveTemplate,
 };
 
 /**

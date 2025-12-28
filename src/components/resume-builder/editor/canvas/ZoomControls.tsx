@@ -82,7 +82,7 @@ export function ZoomControls({ value, onChange }: ZoomControlsProps) {
           step={ZOOM_STEP}
           value={clampedValue}
           onChange={handleSliderChange}
-          className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-slate-700 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-slate-700 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-0"
+          className="range-slider"
           style={{
             background: `linear-gradient(to right, #334155 0%, #334155 ${fillPercent}%, #e2e8f0 ${fillPercent}%, #e2e8f0 100%)`,
           }}
