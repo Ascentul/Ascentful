@@ -61,11 +61,8 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      console.error('AI suggestions failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to generate suggestions', details: result.error },
-        { status: 500 },
-      );
+      console.error('AI suggestions failed');
+      return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 });
     }
 
     // Evaluate AI-generated content for safety

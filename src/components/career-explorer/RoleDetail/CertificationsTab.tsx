@@ -53,7 +53,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         </div>
                       )}
                     </div>
-                    {cert.url && (
+                    {cert.url && /^https?:\/\//i.test(cert.url) && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -97,7 +97,7 @@ export function CertificationsTab({ certifications }: CertificationsTabProps) {
                         </div>
                       )}
                     </div>
-                    {cert.url && (
+                    {cert.url && /^https?:\/\//i.test(cert.url) && (
                       <Button
                         variant="ghost"
                         size="sm"

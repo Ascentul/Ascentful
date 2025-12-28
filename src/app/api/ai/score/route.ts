@@ -59,11 +59,8 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      console.error('AI scoring failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to score resume', details: result.error },
-        { status: 500 },
-      );
+      console.error('AI scoring failed');
+      return NextResponse.json({ error: 'Failed to score resume' }, { status: 500 });
     }
 
     // Evaluate AI-generated content for safety

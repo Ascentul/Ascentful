@@ -407,10 +407,18 @@ function ThreePanelEditorInner({
               };
               onUpdateExperience([...currentExperience, newExp]);
             }
-          } catch (e) {
-            // If not JSON, it might be a bullet point to add
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Experience value is not JSON:', value, e);
+          } catch {
+            // Fallback: append plain text to the first experience entry's description
+            if (typeof value === 'string' && value.trim()) {
+              const experiences = resumeData.experience || [];
+              if (experiences.length > 0) {
+                const [first, ...rest] = experiences;
+                const existing = first.description || '';
+                const nextDescription = existing
+                  ? `${existing.trim()}\n${value.trim()}`
+                  : value.trim();
+                onUpdateExperience([{ ...first, description: nextDescription }, ...rest]);
+              }
             }
           }
           break;
@@ -429,9 +437,8 @@ function ThreePanelEditorInner({
               onUpdateEducation([...currentEducation, newEdu]);
             }
           } catch {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Education value is not JSON:', value);
-            }
+            // Education requires structured JSON - plain text cannot be applied
+            // since Education has no free-text description field
           }
           break;
 

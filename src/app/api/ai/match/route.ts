@@ -53,12 +53,8 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      const errorMessage = result.error || 'Unknown error';
-      console.error('AI match scoring failed:', errorMessage);
-      return NextResponse.json(
-        { error: 'Failed to calculate match score', details: errorMessage },
-        { status: 500 },
-      );
+      console.error('AI match scoring failed');
+      return NextResponse.json({ error: 'Failed to calculate match score' }, { status: 500 });
     }
 
     // Evaluate AI-generated content for safety

@@ -224,10 +224,10 @@ export function getMissingFields(sectionId: string, data: ResumeData): MissingFi
       }
       break;
     case 'skills':
-      if (!data.skills || data.skills.length < 3) {
+      if (!data.skills || data.skills.length < 5) {
         const count = data.skills?.length || 0;
         missing.push({
-          label: `Add ${3 - count} more skill${3 - count > 1 ? 's' : ''}`,
+          label: `Add ${5 - count} more skill${5 - count > 1 ? 's' : ''}`,
           spanId: 'skills-input',
         });
       }

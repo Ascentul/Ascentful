@@ -625,8 +625,10 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
                   style={{ fontSize: FONT_SIZES.small, color: COLORS.LIGHT_GRAY, marginTop: '4px' }}
                 >
                   {cert.credentialId && <span>Credential ID: {cert.credentialId}</span>}
-                  {cert.credentialId && cert.url && <span> · </span>}
-                  {cert.url && (
+                  {cert.credentialId && cert.url && /^https?:\/\//i.test(cert.url) && (
+                    <span> · </span>
+                  )}
+                  {cert.url && /^https?:\/\//i.test(cert.url) && (
                     <a
                       href={cert.url}
                       target="_blank"
