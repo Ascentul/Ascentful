@@ -868,8 +868,9 @@ export default defineSchema({
         v.literal('minimal'),
         v.literal('classic'),
         v.literal('ats'),
+        v.literal('executive'), // Legacy template
       ),
-    ), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
+    ),
     style_config: v.optional(
       v.object({
         font_pairing: v.optional(
@@ -2186,4 +2187,126 @@ export default defineSchema({
     .index('by_application', ['application_id'])
     .index('by_user', ['user_id', 'created_at'])
     .index('by_user_undone', ['user_id', 'undone_at']),
+
+  // ============================================================================
+  // ADVISOR COMMENTS - Universal commenting system for advisor feedback
+  // Supports inline document comments (Google Docs style) and section-level comments
+  // across all artifact types: resumes, cover letters, goals, applications, sessions, etc.
+  // ============================================================================
+  advisor_comments: defineTable({
+    // Tenant & ownership
+    university_id: v.id('universities'), // Tenant isolation
+    author_id: v.id('users'), // Comment author (advisor or student)
+    student_id: v.id('users'), // Student whose artifact is being commented on
+
+    // Target artifact (polymorphic - exactly one target ID must be set based on target_type)
+    target_type: v.union(
+      v.literal('resume'),
+      v.literal('cover_letter'),
+      v.literal('goal'),
+      v.literal('application'),
+      v.literal('session'),
+      v.literal('career_plan'),
+      v.literal('skill'),
+      v.literal('linkedin_profile'),
+      v.literal('interview_recording'),
+      v.literal('profile'),
+    ),
+    // Target IDs (exactly one set based on target_type)
+    resume_id: v.optional(v.id('resumes')),
+    cover_letter_id: v.optional(v.id('cover_letters')),
+    goal_id: v.optional(v.id('goals')),
+    application_id: v.optional(v.id('applications')),
+    session_id: v.optional(v.id('advisor_sessions')),
+    career_plan_id: v.optional(v.id('career_main_paths')),
+    // Note: skill, linkedin_profile, interview_recording, and profile don't have dedicated
+    // ID fields - they use a generic_target_id string for flexibility
+
+    // Comment type determines which positioning fields are relevant
+    comment_type: v.union(
+      v.literal('inline'), // Document text selection (resumes, cover letters)
+      v.literal('section'), // Field/section level (goals, applications, profile)
+      v.literal('media'), // Timestamp-based (interview recordings)
+      v.literal('general'), // General comment on artifact
+    ),
+
+    // Inline comment positioning (for resumes, cover letters - text selection)
+    inline_position: v.optional(
+      v.object({
+        selection_start: v.number(), // Character offset start
+        selection_end: v.number(), // Character offset end
+        selection_text: v.string(), // Snapshot of selected text
+        section_id: v.optional(v.string()), // Resume section ID (experience, education, etc.)
+        field_path: v.optional(v.string()), // JSON path to field (e.g., "experience[0].description")
+        page_number: v.optional(v.number()), // Page number for multi-page documents
+      }),
+    ),
+
+    // Section comment positioning (for structured data like goals, applications)
+    section_position: v.optional(
+      v.object({
+        target_section: v.string(), // Section identifier (e.g., "description", "status", "notes")
+        field_label: v.optional(v.string()), // Human-readable field name
+      }),
+    ),
+
+    // Media comment positioning (for interview recordings)
+    media_position: v.optional(
+      v.object({
+        timestamp_ms: v.number(), // Playback position in milliseconds
+        duration_ms: v.optional(v.number()), // Duration of segment being commented on
+      }),
+    ),
+
+    // Comment content
+    body: v.string(), // Sanitized HTML content
+    visibility: v.union(
+      v.literal('shared'), // Visible to student
+      v.literal('advisor_only'), // Private to advisors
+    ),
+
+    // Threading support
+    parent_id: v.optional(v.id('advisor_comments')), // For replies - immediate parent
+    thread_root_id: v.optional(v.id('advisor_comments')), // Root of thread (for flat queries)
+
+    // Status management
+    status: v.union(v.literal('active'), v.literal('resolved'), v.literal('archived')),
+    is_pinned: v.optional(v.boolean()), // Pinned comments appear first
+    resolved_by: v.optional(v.id('users')),
+    resolved_at: v.optional(v.number()),
+
+    // Reactions (lightweight - stored inline)
+    reactions: v.optional(
+      v.array(
+        v.object({
+          user_id: v.id('users'),
+          emoji: v.string(), // Unicode emoji
+          created_at: v.number(),
+        }),
+      ),
+    ),
+
+    // Version tracking for optimistic concurrency
+    version: v.optional(v.number()),
+
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    // Primary indexes for comment retrieval by artifact
+    .index('by_university', ['university_id'])
+    .index('by_resume', ['resume_id', 'status'])
+    .index('by_cover_letter', ['cover_letter_id', 'status'])
+    .index('by_goal', ['goal_id', 'status'])
+    .index('by_application', ['application_id', 'status'])
+    .index('by_session', ['session_id', 'status'])
+    .index('by_career_plan', ['career_plan_id', 'status'])
+    .index('by_student', ['student_id', 'status'])
+    .index('by_author', ['author_id'])
+    // Threading indexes
+    .index('by_parent', ['parent_id'])
+    .index('by_thread_root', ['thread_root_id', 'created_at'])
+    // Visibility filtering (for student view)
+    .index('by_resume_visibility', ['resume_id', 'visibility', 'status'])
+    .index('by_student_visibility', ['student_id', 'visibility', 'status']),
 });

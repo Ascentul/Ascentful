@@ -20,7 +20,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -100,6 +101,7 @@ const StatusIcon = ({ status }: { status: string }) => {
 export default function AdvisorSessionsPage() {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,6 +112,13 @@ export default function AdvisorSessionsPage() {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Open create dialog if ?action=new is in URL
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setCreateDialogOpen(true);
+    }
+  }, [searchParams]);
 
   // New session form state
   const [newSession, setNewSession] = useState({
