@@ -700,7 +700,7 @@ export default function CareerProfilePage() {
                         )}
                         {(project.url || project.github_url) && (
                           <div className="flex gap-3 text-xs">
-                            {project.url && (
+                            {project.url && /^https?:\/\//i.test(project.url) && (
                               <a
                                 href={project.url}
                                 target="_blank"

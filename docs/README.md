@@ -19,6 +19,8 @@ For implementation details, see the code under `src/` and `convex/`.
   - [`docs/product/FEATURE_AUDIT.md`](./product/FEATURE_AUDIT.md)
 - QA
   - [`docs/qa/CAREER_APP_BUG_CHECKLIST.md`](./qa/CAREER_APP_BUG_CHECKLIST.md)
+- Operations
+  - Resume version counter backfill: `npx convex run migrations:backfillResumeVersionCounter '{"dryRun": true}'`
 - Migration → Next.js
   - [`docs/migration/nextjs/MIGRATION_GUIDE.md`](./migration/nextjs/MIGRATION_GUIDE.md)
   - [`docs/migration/nextjs/COMPLETE_FEATURE_MIGRATION.md`](./migration/nextjs/COMPLETE_FEATURE_MIGRATION.md)

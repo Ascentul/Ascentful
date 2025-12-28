@@ -513,6 +513,87 @@ export async function generateResumePDF(
         yPos += SPACING.sm; // 3mm spacing if no description
       }
     });
+
+    yPos += SPACING.md; // Section spacing
+  }
+
+  // ==================== CERTIFICATIONS ====================
+  if (data.certifications && data.certifications.length > 0) {
+    yPos = checkPageBreak(doc, yPos, 25);
+    yPos += SPACING.lg; // 6mm margin top for section
+    yPos = addSectionHeading(doc, 'Certifications', yPos);
+
+    data.certifications.forEach((cert, index) => {
+      if (index > 0) yPos += SPACING.md; // 4.5mm between entries
+
+      yPos = checkPageBreak(doc, yPos, 20);
+
+      // Certification name (bold, 12pt, black)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(FONT_SIZE.COMPANY);
+      const [blackR, blackG, blackB] = hexToRgb(COLORS.BLACK);
+      doc.setTextColor(blackR, blackG, blackB);
+      doc.text(cert.name, MARGIN.LEFT, yPos);
+
+      // Date and expiration (right-aligned, small, light gray)
+      const dateText = cert.date
+        ? cert.expirationDate
+          ? `${cert.date} - ${cert.expirationDate}`
+          : cert.date
+        : '';
+      if (dateText) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZE.SMALL);
+        const [grayR, grayG, grayB] = hexToRgb(COLORS.LIGHT_GRAY);
+        doc.setTextColor(grayR, grayG, grayB);
+        const dateWidth = doc.getTextWidth(dateText);
+        doc.text(dateText, PAGE_WIDTH - MARGIN.RIGHT - dateWidth, yPos);
+      }
+
+      yPos += SPACING.xs + 1; // ~4mm spacing
+
+      // Issuer (normal, 11pt, gray)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(FONT_SIZE.BODY);
+      const [grayR, grayG, grayB] = hexToRgb(COLORS.GRAY);
+      doc.setTextColor(grayR, grayG, grayB);
+      doc.text(cert.issuer, MARGIN.LEFT, yPos);
+      yPos += SPACING.xs + 1;
+
+      // Credential ID and URL
+      if (cert.credentialId || cert.url) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZE.SMALL);
+        const [lightGrayR, lightGrayG, lightGrayB] = hexToRgb(COLORS.LIGHT_GRAY);
+        doc.setTextColor(lightGrayR, lightGrayG, lightGrayB);
+
+        let credentialLine = '';
+        if (cert.credentialId) {
+          credentialLine = `Credential ID: ${cert.credentialId}`;
+        }
+
+        if (credentialLine) {
+          doc.text(credentialLine, MARGIN.LEFT, yPos);
+        }
+
+        // URL (brand accent color)
+        if (cert.url) {
+          const credentialWidth = credentialLine ? doc.getTextWidth(credentialLine + ' · ') : 0;
+          const [accentR, accentG, accentB] = hexToRgb(COLORS.PRIMARY_ACCENT);
+          doc.setTextColor(accentR, accentG, accentB);
+
+          if (credentialLine) {
+            doc.setTextColor(lightGrayR, lightGrayG, lightGrayB);
+            doc.text(' · ', MARGIN.LEFT + doc.getTextWidth(credentialLine), yPos);
+            doc.setTextColor(accentR, accentG, accentB);
+          }
+
+          doc.text('View Certificate', MARGIN.LEFT + credentialWidth, yPos);
+        }
+
+        yPos += SPACING.xs + 1;
+      }
+    });
   }
 
   // Save the PDF

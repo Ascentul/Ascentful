@@ -32,6 +32,9 @@ export const AI_TOOL_IDS = [
   'resume-optimization',
   'resume-suggestions',
   'resume-parse',
+  'resume-guidance',
+  'resume-match',
+  'jd-analysis',
   // Cover letter tools
   'cover-letter-generation',
   'cover-letter-analysis',
@@ -74,6 +77,9 @@ export const TOOL_CATEGORIES: Record<AIToolId, ToolCategory> = {
   'resume-optimization': 'student-facing',
   'resume-suggestions': 'student-facing',
   'resume-parse': 'student-facing',
+  'resume-guidance': 'student-facing',
+  'resume-match': 'student-facing',
+  'jd-analysis': 'student-facing',
   'cover-letter-generation': 'student-facing',
   'cover-letter-analysis': 'student-facing',
   'ai-coach-response': 'student-facing',
@@ -409,9 +415,12 @@ export interface EvaluationConfig {
 
 /**
  * Default evaluation configuration
+ *
+ * Note: evaluator_model uses gpt-4o-mini as placeholder.
+ * Will upgrade to a faster, cheaper model when available.
  */
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
-  evaluator_model: 'gpt-4o-mini',
+  evaluator_model: 'gpt-4o-mini', // TODO: Upgrade to a faster, cheaper model when available
   temperature: 0.1, // Deterministic
   enabled: true,
   log_all: true,

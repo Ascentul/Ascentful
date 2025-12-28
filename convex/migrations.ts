@@ -289,6 +289,86 @@ export const backfillStudentRoles = internalMutation({
 });
 
 /**
+ * Backfill resume version_counter for existing resumes.
+ *
+ * Run via: npx convex run migrations:backfillResumeVersionCounter '{"dryRun": true}'
+ */
+export const backfillResumeVersionCounter = internalMutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const BATCH_SIZE = 100;
+    let cursor: string | null = null;
+    let isDone = false;
+    let totalProcessed = 0;
+    let updatedCount = 0;
+    let alreadySetCount = 0;
+    let skippedCount = 0;
+    let wouldUpdateCount = 0;
+
+    console.log(`🚀 Starting resume version_counter backfill (dryRun: ${dryRun})...`);
+
+    do {
+      const page = await ctx.db.query('resumes').paginate({ cursor, numItems: BATCH_SIZE });
+
+      for (const resume of page.page) {
+        totalProcessed++;
+        if (resume.version_counter !== undefined) {
+          alreadySetCount++;
+          continue;
+        }
+
+        const latestVersion = await ctx.db
+          .query('resume_versions')
+          .withIndex('by_resume', (q) => q.eq('resume_id', resume._id))
+          .order('desc')
+          .first();
+
+        const versionCounter = latestVersion?.version_number ?? 0;
+
+        if (dryRun) {
+          wouldUpdateCount++;
+          console.log(
+            `📝 DRY RUN: Would set version_counter=${versionCounter} for resume ${maskId(resume._id)}`,
+          );
+        } else {
+          try {
+            await ctx.db.patch(resume._id, { version_counter: versionCounter });
+            updatedCount++;
+          } catch (error) {
+            skippedCount++;
+            console.warn(
+              `⚠️  Failed to update resume ${maskId(resume._id)}:`,
+              error instanceof Error ? error.message : error,
+            );
+          }
+        }
+      }
+
+      cursor = page.continueCursor;
+      isDone = page.isDone;
+    } while (!isDone);
+
+    const summary = {
+      success: skippedCount === 0,
+      totalProcessed,
+      updatedCount: dryRun ? wouldUpdateCount : updatedCount,
+      alreadySetCount,
+      skippedCount,
+      dryRun,
+    };
+
+    console.log(
+      `✅ Resume version_counter backfill complete: ${totalProcessed} checked, ${alreadySetCount} already set, ${summary.updatedCount} ${dryRun ? 'would be updated (dry run)' : 'updated'}`,
+    );
+
+    return summary;
+  },
+});
+
+/**
  * List all super_admin users
  * Run via: npx convex run migrations:listSuperAdmins '{"clerkId": "your_clerk_id"}'
  */

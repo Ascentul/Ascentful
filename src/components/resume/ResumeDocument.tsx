@@ -26,6 +26,9 @@ export interface ContactInfo {
   email: string;
   phone: string;
   location: string;
+  country?: string;
+  postalCode?: string;
+  photoUrl?: string;
   linkedin?: string;
   github?: string;
   website?: string;
@@ -73,6 +76,16 @@ export interface Achievement {
   date: string;
 }
 
+export interface Certification {
+  id: string;
+  name: string;
+  issuer: string;
+  date: string;
+  expirationDate?: string;
+  credentialId?: string;
+  url?: string;
+}
+
 export interface ResumeData {
   contactInfo: ContactInfo;
   summary?: string;
@@ -81,6 +94,7 @@ export interface ResumeData {
   education?: Education[];
   projects?: Project[];
   achievements?: Achievement[];
+  certifications?: Certification[];
 }
 
 interface ResumeDocumentProps {
@@ -108,7 +122,16 @@ const FONT_SIZES = {
 };
 
 export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className = '' }) => {
-  const { contactInfo, summary, skills, experience, education, projects, achievements } = data;
+  const {
+    contactInfo,
+    summary,
+    skills,
+    experience,
+    education,
+    projects,
+    achievements,
+    certifications,
+  } = data;
 
   return (
     <div
@@ -458,7 +481,7 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
                 )}
 
                 {/* URL */}
-                {project.url && (
+                {project.url && /^https?:\/\//i.test(project.url) && (
                   <div style={{ fontSize: FONT_SIZES.small, marginBottom: '4px' }}>
                     <a
                       href={project.url}
@@ -551,6 +574,74 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Certifications Section */}
+      {certifications && certifications.length > 0 && (
+        <section style={{ marginTop: '16px', marginBottom: '16px' }}>
+          <h2
+            className="font-bold uppercase tracking-wide"
+            style={{
+              fontSize: FONT_SIZES.sectionHeading,
+              color: COLORS.PRIMARY_ACCENT,
+              marginBottom: '8px',
+              paddingBottom: '4px',
+              borderBottom: `1px solid ${COLORS.SUBTLE_ACCENT}`,
+            }}
+          >
+            Certifications
+          </h2>
+          {certifications.map((cert, index) => (
+            <div key={cert.id} style={{ marginTop: index > 0 ? '12px' : '0' }}>
+              {/* Certification Name and Date */}
+              <div
+                className="flex justify-between items-baseline gap-2"
+                style={{ marginBottom: '4px' }}
+              >
+                <span
+                  style={{ fontSize: FONT_SIZES.company, fontWeight: 700, color: COLORS.BLACK }}
+                >
+                  {cert.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: FONT_SIZES.small,
+                    color: COLORS.LIGHT_GRAY,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {cert.date}
+                  {cert.expirationDate && ` - ${cert.expirationDate}`}
+                </span>
+              </div>
+
+              {/* Issuer */}
+              <div style={{ fontSize: FONT_SIZES.body, color: COLORS.GRAY }}>{cert.issuer}</div>
+
+              {/* Credential ID and URL */}
+              {(cert.credentialId || cert.url) && (
+                <div
+                  style={{ fontSize: FONT_SIZES.small, color: COLORS.LIGHT_GRAY, marginTop: '4px' }}
+                >
+                  {cert.credentialId && <span>Credential ID: {cert.credentialId}</span>}
+                  {cert.credentialId && cert.url && /^https?:\/\//i.test(cert.url) && (
+                    <span> · </span>
+                  )}
+                  {cert.url && /^https?:\/\//i.test(cert.url) && (
+                    <a
+                      href={cert.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: COLORS.PRIMARY_ACCENT, textDecoration: 'underline' }}
+                    >
+                      View Certificate
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </section>
       )}
     </div>

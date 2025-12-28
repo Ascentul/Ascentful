@@ -840,6 +840,73 @@ export default defineSchema({
         v.literal('pdf_upload'),
       ),
     ), // Source of resume creation
+
+    // Resume Builder 2.0: Intent and start source
+    intent: v.optional(
+      v.union(
+        v.literal('internship'),
+        v.literal('fulltime'),
+        v.literal('parttime'),
+        v.literal('grad_school'),
+        v.literal('unsure'),
+      ),
+    ),
+    start_source: v.optional(
+      v.union(
+        v.literal('profile'), // Started from Career Profile
+        v.literal('upload'), // Started from PDF/DOCX upload
+        v.literal('blank'), // Started blank
+      ),
+    ),
+
+    // Resume Builder 2.0: Template and styling
+    template_id: v.optional(
+      v.union(
+        v.literal('clean'),
+        v.literal('modern'),
+        v.literal('bold'),
+        v.literal('minimal'),
+        v.literal('classic'),
+        v.literal('ats'),
+      ),
+    ), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
+    style_config: v.optional(
+      v.object({
+        font_pairing: v.optional(
+          v.union(
+            v.literal('classic'),
+            v.literal('modern'),
+            v.literal('elegant'),
+            v.literal('minimal'),
+            v.literal('executive'),
+            v.literal('creative'),
+            v.literal('technical'),
+            v.literal('swiss'),
+            v.literal('editorial'),
+            v.literal('geometric'),
+            v.literal('humanist'),
+            v.literal('traditional'),
+          ),
+        ),
+        accent_color: v.optional(v.string()), // hex color
+        density: v.optional(v.union(v.literal('comfortable'), v.literal('compact'))),
+        heading_style: v.optional(v.union(v.literal('caps'), v.literal('title_case'))),
+      }),
+    ),
+
+    // Resume Builder 2.0: Section configuration
+    sections_config: v.optional(
+      v.object({
+        enabled_sections: v.optional(v.array(v.string())), // ['summary', 'experience', ...]
+        section_order: v.optional(v.array(v.string())), // Order of sections
+      }),
+    ),
+
+    // Resume Builder 2.0: Autosave tracking
+    last_autosave_at: v.optional(v.number()),
+    is_draft: v.optional(v.boolean()),
+    version_counter: v.optional(v.number()),
+
     // Analysis data
     extracted_text: v.optional(v.string()), // Text extracted from uploaded PDF/DOCX
     job_description: v.optional(v.string()), // Job description for analysis
@@ -850,6 +917,28 @@ export default defineSchema({
   })
     .index('by_user', ['user_id'])
     // SECURITY: Tenant-scoped index for university reporting
+    .index('by_university', ['university_id']),
+
+  // Resume Builder 2.0: Version history for undo support
+  resume_versions: defineTable({
+    resume_id: v.id('resumes'),
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // Denormalized for tenant isolation
+    version_number: v.number(),
+    version_label: v.optional(v.string()), // "Initial draft", "Before AI edit"
+    content_snapshot: v.any(), // Full resume content at this point
+    trigger: v.union(
+      v.literal('creation'),
+      v.literal('ai_edit'),
+      v.literal('manual_save'),
+      v.literal('section_change'),
+      v.literal('restoration'),
+      v.literal('auto_checkpoint'), // Periodic automatic version from autosave
+    ),
+    created_at: v.number(),
+  })
+    .index('by_resume', ['resume_id'])
+    .index('by_resume_version', ['resume_id', 'version_number'])
     .index('by_university', ['university_id']),
 
   // Applications table
