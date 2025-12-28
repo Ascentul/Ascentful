@@ -65,6 +65,10 @@ export function SuggestionTooltip({
     // If too close to bottom, position above
     if (y + rect.height > viewportHeight - 16) {
       y = position.y - rect.height - 8;
+      // Ensure it doesn't overflow above viewport
+      if (y < 16) {
+        y = 16;
+      }
     }
 
     setAdjustedPosition({ x, y });

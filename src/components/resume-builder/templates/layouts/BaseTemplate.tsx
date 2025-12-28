@@ -259,7 +259,9 @@ export function EducationItem({ education, config, isFirst = false }: EducationI
         >
           {education.startYear && education.endYear
             ? `${education.startYear} - ${education.endYear}`
-            : education.endYear || ''}
+            : education.startYear
+              ? `${education.startYear} - Present`
+              : education.endYear || ''}
         </span>
       </div>
 

@@ -532,8 +532,8 @@ export function ResumeCanvas({
                       const newProj = { ...updated, id: `proj-${crypto.randomUUID()}` };
                       onUpdateProjects([newProj]);
                     } else {
-                      const newProjects = (data.projects || []).map((p, i) =>
-                        i === index ? updated : p,
+                      const newProjects = (data.projects || []).map((p) =>
+                        p.id === item.id ? updated : p,
                       );
                       onUpdateProjects(newProjects);
                     }
@@ -623,8 +623,8 @@ export function ResumeCanvas({
                       const newAch = { ...updated, id: `ach-${crypto.randomUUID()}` };
                       onUpdateAchievements?.([newAch]);
                     } else {
-                      const newAchievements = (data.achievements || []).map((a, i) =>
-                        i === index ? updated : a,
+                      const newAchievements = (data.achievements || []).map((a) =>
+                        a.id === item.id ? updated : a,
                       );
                       onUpdateAchievements?.(newAchievements);
                     }
@@ -716,8 +716,8 @@ export function ResumeCanvas({
                       const newCert = { ...updated, id: `cert-${crypto.randomUUID()}` };
                       onUpdateCertifications?.([newCert]);
                     } else {
-                      const newCertifications = (data.certifications || []).map((c, i) =>
-                        i === index ? updated : c,
+                      const newCertifications = (data.certifications || []).map((c) =>
+                        c.id === item.id ? updated : c,
                       );
                       onUpdateCertifications?.(newCertifications);
                     }
