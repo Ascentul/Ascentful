@@ -20,6 +20,7 @@ const MISSING_CONTENT_TYPES = new Set([
 ]);
 
 // Checkbox component for selection
+// Uses div with role="checkbox" to avoid nested button issues when used inside button wrappers
 function SelectionCheckbox({
   checked,
   onChange,
@@ -30,23 +31,34 @@ function SelectionCheckbox({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="checkbox"
+      aria-checked={checked}
+      tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
         onChange(!checked);
       }}
+      onKeyDown={(e) => {
+        // Handle Enter and Space for keyboard accessibility
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onChange(!checked);
+        }
+      }}
       className={cn(
-        'w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0',
+        'w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 cursor-pointer',
         checked
           ? 'bg-primary-500 border-primary-500 text-white'
           : 'border-slate-300 hover:border-primary-400 bg-white',
+        'focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-1',
         className,
       )}
-      aria-label={checked ? 'Deselect' : 'Select'}
+      aria-label={checked ? 'Deselect suggestion' : 'Select suggestion'}
     >
       {checked && <Check className="h-3 w-3" />}
-    </button>
+    </div>
   );
 }
 
@@ -801,18 +813,15 @@ export function BatchSelectionFooter({
       <div className="flex items-center justify-between">
         <span className="text-sm text-slate-600">{selectedCount} selected</span>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={allSelected ? onDeselectAll : onSelectAll}
-            className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-          >
+          {/* Select All - using label with checkbox for proper a11y */}
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 cursor-pointer">
             <SelectionCheckbox
               checked={allSelected}
               onChange={() => (allSelected ? onDeselectAll() : onSelectAll())}
               className="w-4 h-4"
             />
             <span>Select All</span>
-          </button>
+          </label>
           <button
             type="button"
             onClick={onDeselectAll}

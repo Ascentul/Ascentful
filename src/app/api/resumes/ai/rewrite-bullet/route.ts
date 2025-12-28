@@ -87,6 +87,13 @@ Respond with JSON: { "rewritten": "the rewritten bullet point" }`;
 
     const rewritten = result.data.rewritten || bullet;
     const usedFallback = !result.data.rewritten;
+
+    if (usedFallback) {
+      console.warn('AI rewrite returned empty result, using original bullet as fallback', {
+        mode,
+        bulletLength: bullet.length,
+      });
+    }
     const evaluation = await evaluate({
       tool_id: 'resume-suggestions',
       input: { bullet, mode, context },

@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
 // ============================================================================
@@ -77,7 +79,7 @@ export interface TemplateConfig {
   name: string;
   description: string;
   categories: ('all' | 'two-column' | 'ats' | 'free')[];
-  component: React.ComponentType<TemplateProps>;
+  component: ComponentType<TemplateProps>;
 }
 
 // Font Pairing Configuration

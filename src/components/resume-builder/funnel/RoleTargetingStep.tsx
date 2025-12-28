@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 export interface RoleTargetingData {
   targetRole: string;
-  alternateRoles?: string; // Comma-separated string of roles
+  alternateRoles?: string; // JSON array string of roles (e.g., '["Role 1", "Role 2"]')
   jobDescription?: string;
 }
 
@@ -20,13 +20,20 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
   const [showJDInput, setShowJDInput] = useState(!!value.jobDescription);
   const [newRole, setNewRole] = useState('');
 
-  // Parse alternate roles from comma-separated string to array
-  const alternateRolesArray = value.alternateRoles
-    ? value.alternateRoles
+  // Parse alternate roles from JSON array string
+  const alternateRolesArray: string[] = (() => {
+    if (!value.alternateRoles) return [];
+    try {
+      const parsed = JSON.parse(value.alternateRoles);
+      return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === 'string') : [];
+    } catch {
+      // Fallback for legacy comma-separated format during migration
+      return value.alternateRoles
         .split(',')
         .map((r) => r.trim())
-        .filter(Boolean)
-    : [];
+        .filter(Boolean);
+    }
+  })();
 
   const handleRoleChange = (targetRole: string) => {
     onChange({ ...value, targetRole });
@@ -43,7 +50,7 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
     }
 
     const updatedRoles = [...alternateRolesArray, trimmedRole];
-    onChange({ ...value, alternateRoles: updatedRoles.join(', ') });
+    onChange({ ...value, alternateRoles: JSON.stringify(updatedRoles) });
     setNewRole('');
   }, [newRole, alternateRolesArray, value, onChange]);
 
@@ -52,7 +59,7 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
       const updatedRoles = alternateRolesArray.filter((r) => r !== roleToRemove);
       onChange({
         ...value,
-        alternateRoles: updatedRoles.length > 0 ? updatedRoles.join(', ') : undefined,
+        alternateRoles: updatedRoles.length > 0 ? JSON.stringify(updatedRoles) : undefined,
       });
     },
     [alternateRolesArray, value, onChange],

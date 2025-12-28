@@ -88,6 +88,13 @@ export default function ResumeBuilderPage() {
   const autosaveMutation = useMutation(api.resumes.autosaveResume);
   const createResumeMutation = useMutation(api.resumes.createResume);
 
+  // Handle resume not found - redirect via useEffect to avoid side effects during render
+  useEffect(() => {
+    if (!isNewResume && existingResume === null) {
+      router.push('/resume-studio');
+    }
+  }, [isNewResume, existingResume, router]);
+
   // Initialize from existing resume
   useEffect(() => {
     if (isInitialized) return;
@@ -379,9 +386,8 @@ export default function ResumeBuilderPage() {
     );
   }
 
-  // Resume not found
+  // Resume not found - useEffect handles redirect
   if (!isNewResume && existingResume === null) {
-    router.push('/resume-studio');
     return null;
   }
 

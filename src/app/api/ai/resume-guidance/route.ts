@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     // Handle quick generate mode - directly generate content
     if (quickGenerate) {
-      return handleQuickGenerate(section, currentResumeData, userProfile);
+      return handleQuickGenerate(section, currentResumeData, userProfile, userId);
     }
 
     // For initial request, return the opening question
@@ -319,6 +319,7 @@ async function handleQuickGenerate(
   section: string,
   currentResumeData: CurrentResume | null,
   userProfile: UserProfile | null,
+  userId: string,
 ) {
   if (!openai) {
     return NextResponse.json({
@@ -380,6 +381,21 @@ ${quickPrompts[section] || 'Generate appropriate content for this resume section
     const generatedContent =
       completion.choices[0]?.message?.content?.trim() ||
       'Unable to generate content. Please try again.';
+
+    // Evaluate AI-generated content for safety
+    const evaluation = await evaluate({
+      tool_id: 'resume-guidance',
+      input: { section },
+      output: { response: generatedContent },
+      user_id: userId,
+    });
+
+    if (!evaluation.passed) {
+      return NextResponse.json(
+        { error: 'Generated content failed safety checks' },
+        { status: 422 },
+      );
+    }
 
     return NextResponse.json({
       response: generatedContent,

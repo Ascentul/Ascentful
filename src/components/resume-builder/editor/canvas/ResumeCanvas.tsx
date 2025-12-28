@@ -1107,7 +1107,7 @@ function ExperienceEntry({
   };
 
   // Check if any bullet in this experience is missing (needs description)
-  const bulletSpanId = `experience-${experience.id}-description-0`;
+  const bulletSpanId = `experience-${experience.id}-bullets`;
 
   const titleIsMissing = missingSpanIds?.has(`experience-${experience.id}-title`);
   const companyIsMissing = missingSpanIds?.has(`experience-${experience.id}-company`);

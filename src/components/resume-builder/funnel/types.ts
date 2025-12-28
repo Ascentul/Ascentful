@@ -20,7 +20,7 @@ export type SectionId =
 
 export interface RoleTargetingData {
   targetRole: string;
-  alternateRoles?: string;
+  alternateRoles?: string; // JSON array string of roles (e.g., '["Role 1", "Role 2"]')
   jobDescription?: string;
 }
 
