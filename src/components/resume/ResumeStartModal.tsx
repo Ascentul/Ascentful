@@ -67,6 +67,9 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
         description: 'Please upload a resume under 10MB.',
         variant: 'destructive',
       });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 

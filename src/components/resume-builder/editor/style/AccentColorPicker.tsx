@@ -36,6 +36,7 @@ export function AccentColorPicker({ value, onChange }: AccentColorPickerProps) {
               type="button"
               onClick={() => onChange(color.value)}
               title={color.label}
+              aria-label={`Select ${color.label} accent color`}
               className={cn(
                 'w-8 h-8 rounded-full transition-all flex items-center justify-center',
                 'hover:scale-110 hover:shadow-md',

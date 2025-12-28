@@ -212,6 +212,14 @@
     @apply w-full h-1.5 rounded-full appearance-none cursor-pointer;
   }
 
+  .range-slider::-webkit-slider-runnable-track {
+    @apply h-1.5 rounded-full bg-slate-200;
+  }
+
+  .range-slider::-moz-range-track {
+    @apply h-1.5 rounded-full bg-slate-200;
+  }
+
   .range-slider::-webkit-slider-thumb {
     @apply appearance-none w-3 h-3 rounded-full bg-slate-700 cursor-pointer shadow-sm;
   }

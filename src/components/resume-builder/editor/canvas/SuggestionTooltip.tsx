@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, ChevronRight, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { Suggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
@@ -43,8 +43,8 @@ export function SuggestionTooltip({
   const [adjustedPosition, setAdjustedPosition] = useState(position);
   const [showFull, setShowFull] = useState(false);
 
-  // Adjust position to keep tooltip in viewport
-  useEffect(() => {
+  // Adjust position to keep tooltip in viewport (useLayoutEffect to avoid flash)
+  useLayoutEffect(() => {
     if (!tooltipRef.current) return;
 
     const rect = tooltipRef.current.getBoundingClientRect();

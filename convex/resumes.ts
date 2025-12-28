@@ -431,7 +431,16 @@ export const autosaveResume = mutation({
         section_order: v.optional(v.array(v.string())),
       }),
     ),
-    templateId: v.optional(v.string()),
+    templateId: v.optional(
+      v.union(
+        v.literal('clean'),
+        v.literal('modern'),
+        v.literal('bold'),
+        v.literal('minimal'),
+        v.literal('classic'),
+        v.literal('ats'),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db

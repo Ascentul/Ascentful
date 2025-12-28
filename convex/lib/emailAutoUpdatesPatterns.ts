@@ -147,7 +147,7 @@ const APPLICATION_PATTERNS: ClassificationPattern[] = [
     category: 'application',
     eventType: 'withdrawal_confirmation',
     pattern:
-      /\b(withdr(ew|awal).{0,50}(application|candidacy)|(application|candidacy).{0,50}withdra(w|wal|wn))\b/i,
+      /\b(withdr(aw|ew|awal|awn).{0,50}(application|candidacy)|(application|candidacy).{0,50}withdra(w|wal|wn))\b/i,
     baseConfidence: 0.9,
     description: 'Application withdrawal confirmation',
   },

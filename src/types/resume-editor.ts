@@ -166,7 +166,7 @@ export interface SectionConfig {
   maxItems?: number;
 }
 
-export const SECTION_CONFIGS: Record<string, SectionConfig> = {
+export const SECTION_CONFIGS: Record<SectionType, SectionConfig> = {
   contact: { id: 'contact', label: 'Contact Information', required: true },
   summary: { id: 'summary', label: 'Professional Summary' },
   experience: { id: 'experience', label: 'Work Experience' },

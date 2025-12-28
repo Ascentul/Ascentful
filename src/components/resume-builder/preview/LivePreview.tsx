@@ -17,14 +17,14 @@ interface LivePreviewProps {
 export function LivePreview({
   data,
   templateId: _templateId,
-  theme,
+  theme: _theme,
   className = '',
 }: LivePreviewProps) {
   // TODO: Switch based on _templateId to use different templates
   return (
     <div className={`relative h-full flex flex-col ${className}`}>
       {/* Preview container with dark background */}
-      <div className="flex-1 overflow-auto p-6" style={{ backgroundColor: theme.primaryColor }}>
+      <div className="flex-1 overflow-auto p-6 bg-slate-700">
         <div className="flex items-start justify-center min-h-full">
           {/* Scaled resume preview */}
           <div

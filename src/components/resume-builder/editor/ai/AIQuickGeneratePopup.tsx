@@ -118,7 +118,12 @@ export function AIQuickGeneratePopup({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quick-generate-title"
+    >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
@@ -128,7 +133,9 @@ export function AIQuickGeneratePopup({
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary-500" />
-            <span className="font-medium text-slate-900">AI {sectionLabel}</span>
+            <span id="quick-generate-title" className="font-medium text-slate-900">
+              AI {sectionLabel}
+            </span>
           </div>
           <button
             type="button"

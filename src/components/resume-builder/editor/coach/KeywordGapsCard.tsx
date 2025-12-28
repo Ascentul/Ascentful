@@ -57,22 +57,29 @@ export function KeywordGapsCard({ matchScore, onAddKeyword, loading }: KeywordGa
         <div>
           <h4 className="text-xs font-medium text-slate-500 mb-2">Missing Keywords</h4>
           <div className="flex flex-wrap gap-1.5">
-            {keywordAnalysis.missing.slice(0, 8).map((keyword) => (
-              <button
-                key={keyword}
-                type="button"
-                onClick={() => onAddKeyword?.(keyword)}
-                className={cn(
-                  'group inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full',
-                  'bg-red-50 text-red-700 hover:bg-red-100 transition-colors',
-                )}
-              >
-                <span>{keyword}</span>
-                {onAddKeyword && (
+            {keywordAnalysis.missing.slice(0, 8).map((keyword) =>
+              onAddKeyword ? (
+                <button
+                  key={keyword}
+                  type="button"
+                  onClick={() => onAddKeyword(keyword)}
+                  className={cn(
+                    'group inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full',
+                    'bg-red-50 text-red-700 hover:bg-red-100 transition-colors cursor-pointer',
+                  )}
+                >
+                  <span>{keyword}</span>
                   <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
-              </button>
-            ))}
+                </button>
+              ) : (
+                <span
+                  key={keyword}
+                  className="inline-flex items-center text-xs px-2 py-1 rounded-full bg-red-50 text-red-700"
+                >
+                  {keyword}
+                </span>
+              ),
+            )}
             {keywordAnalysis.missing.length > 8 && (
               <span className="text-xs text-slate-400 px-2 py-1">
                 +{keywordAnalysis.missing.length - 8} more

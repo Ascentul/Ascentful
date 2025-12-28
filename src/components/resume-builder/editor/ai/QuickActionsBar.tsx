@@ -76,7 +76,7 @@ export function QuickActionsBar({ onAction, disabled, className }: QuickActionsB
 
 // Standalone chip version for inline use
 interface QuickActionChipProps {
-  action: (typeof QUICK_ACTIONS)[number];
+  action: QuickAction;
   onClick?: () => void;
   disabled?: boolean;
   size?: 'sm' | 'md';

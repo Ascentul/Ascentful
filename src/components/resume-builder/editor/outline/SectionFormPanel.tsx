@@ -715,7 +715,7 @@ function SkillsForm({ skills, onUpdate }: SkillsFormProps) {
         <div className="flex flex-wrap gap-1.5">
           {skills.map((skill, index) => (
             <span
-              key={index}
+              key={skill}
               className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full"
             >
               {skill}

@@ -629,10 +629,11 @@ export function AIAssistPanel({
     return null; // All done
   }, [sections]);
 
-  // Calculate overall progress
-  const completedCount = sections.filter((s) => s.isComplete).length;
-  const totalCount = 5; // Required sections
-  const progressPercent = Math.round((completedCount / totalCount) * 100);
+  // Calculate overall progress (only count required sections, not optional like projects)
+  const requiredSections = sections.filter((s) => s.id !== 'projects');
+  const completedRequired = requiredSections.filter((s) => s.isComplete).length;
+  const totalCount = requiredSections.length;
+  const progressPercent = Math.round((completedRequired / totalCount) * 100);
 
   // Track expanded sections in the "All Sections" list
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
