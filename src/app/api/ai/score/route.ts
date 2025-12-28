@@ -27,6 +27,11 @@ export async function POST(request: Request) {
     }
     const { resume, jobDescription } = body;
 
+    // Validate jobDescription if provided
+    if (jobDescription !== undefined && typeof jobDescription !== 'string') {
+      return NextResponse.json({ error: 'jobDescription must be a string' }, { status: 400 });
+    }
+
     // Validate resume exists and has required structure
     if (!resume || typeof resume !== 'object') {
       return NextResponse.json({ error: 'Resume data is required' }, { status: 400 });
