@@ -22,7 +22,10 @@ export function ResumeScoreIndicator({ score, className }: ResumeScoreIndicatorP
       </div>
       <span className="text-sm text-slate-500">Your resume score</span>
       {/* Progress bar */}
-      <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[100px]">
+      <div
+        className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[100px]"
+        aria-hidden="true"
+      >
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{ width: `${clampedScore}%`, backgroundColor: color }}

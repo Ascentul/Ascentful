@@ -1,6 +1,6 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -162,17 +162,12 @@ function CategorySection({
           </div>
           <div className="text-xs text-slate-500">{categoryMeta.description}</div>
         </div>
-        <svg
+        <ChevronDown
           className={cn(
             'w-5 h-5 text-slate-400 transition-transform duration-200',
             isExpanded && 'rotate-180',
           )}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        />
       </button>
 
       {/* Expanded content */}

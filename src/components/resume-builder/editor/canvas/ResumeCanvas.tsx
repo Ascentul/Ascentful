@@ -314,8 +314,8 @@ export function ResumeCanvas({
                       const newExp = { ...updated, id: `exp-${crypto.randomUUID()}` };
                       onUpdateExperience([newExp]);
                     } else {
-                      const newExperiences = (data.experience || []).map((e, i) =>
-                        i === index ? updated : e,
+                      const newExperiences = (data.experience || []).map((e) =>
+                        e.id === item.id ? updated : e,
                       );
                       onUpdateExperience(newExperiences);
                     }
@@ -419,8 +419,8 @@ export function ResumeCanvas({
                       const newEdu = { ...updated, id: `edu-${crypto.randomUUID()}` };
                       onUpdateEducation([newEdu]);
                     } else {
-                      const newEducation = (data.education || []).map((e, i) =>
-                        i === index ? updated : e,
+                      const newEducation = (data.education || []).map((e) =>
+                        e.id === item.id ? updated : e,
                       );
                       onUpdateEducation(newEducation);
                     }
@@ -1476,10 +1476,7 @@ function SkillsEditor({
               type="text"
               value={newSkillValue}
               onChange={(e) => setNewSkillValue(e.target.value)}
-              onBlur={() => {
-                handleAddSkill();
-                setIsAddingNew(false);
-              }}
+              onBlur={handleAddSkill}
               onKeyDown={(e) => handleKeyDown(e, 'add')}
               placeholder="Type skill..."
               className="flex-1 bg-transparent border-b border-slate-400 outline-none text-[9pt] min-w-0"
@@ -1557,10 +1554,7 @@ function SkillsEditor({
             type="text"
             value={newSkillValue}
             onChange={(e) => setNewSkillValue(e.target.value)}
-            onBlur={() => {
-              handleAddSkill();
-              setIsAddingNew(false);
-            }}
+            onBlur={handleAddSkill}
             onKeyDown={(e) => handleKeyDown(e, 'add')}
             placeholder="Type skill..."
             className="bg-transparent outline-none text-[11pt] min-w-[80px]"
@@ -1840,6 +1834,8 @@ function CertificationEntry({
             isMissing={nameIsMissing}
             editorMode={editorMode}
             aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
           />
           <span className="mx-2 text-slate-400">|</span>
           <InlineEditableText
@@ -1854,6 +1850,8 @@ function CertificationEntry({
             isMissing={issuerIsMissing}
             editorMode={editorMode}
             aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
           />
         </div>
         <div className="text-[10pt] text-slate-500">

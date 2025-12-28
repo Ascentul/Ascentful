@@ -1246,7 +1246,8 @@ export function SectionFormPanel({
   // Check if section should show Generate button
   const shouldShowGenerate = (sectionId: string): boolean => {
     // Show generate for sections that can use AI
-    return ['summary', 'experience', 'skills'].includes(sectionId);
+    // Note: experience excluded until handleAcceptGenerated supports it
+    return ['summary', 'skills'].includes(sectionId);
   };
 
   // Open quick generate popup

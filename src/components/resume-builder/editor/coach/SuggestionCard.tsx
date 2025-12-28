@@ -351,9 +351,12 @@ export function AISuggestionCard({
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     // 3. Apply the change
-    onApply(suggestion.id, suggestion.afterText);
-    setIsEditPreviewOpen(false);
-    onSelectionChange?.(false);
+    try {
+      onApply(suggestion.id, suggestion.afterText);
+    } finally {
+      setIsEditPreviewOpen(false);
+      onSelectionChange?.(false);
+    }
   };
 
   // Get category label for the badge

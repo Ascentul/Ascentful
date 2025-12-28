@@ -30,6 +30,9 @@ const VALID_SECTION_TYPES = new Set<SectionType>([
  * - "skills-list-0" (first skill chip - 3 parts: section-field-lineIndex)
  * - "experience-exp-1-title" (experience title - 3 parts: section-itemId-field)
  * - "experience-exp-1-description-0" (first bullet - 4 parts: section-itemId-field-lineIndex)
+ *
+ * IMPORTANT: Field names must NOT be purely numeric (e.g., "123") as parseSpanId
+ * uses numeric detection to distinguish field names from lineIndex values.
  */
 export function generateSpanId(params: {
   sectionType: SectionType;

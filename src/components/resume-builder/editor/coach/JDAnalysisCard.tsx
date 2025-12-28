@@ -149,9 +149,9 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                 <div>
                   <h4 className="text-xs font-medium text-slate-700 mb-1.5">Required</h4>
                   <ul className="space-y-1">
-                    {requirements.required.slice(0, 5).map((req) => (
+                    {requirements.required.slice(0, 5).map((req, idx) => (
                       <li
-                        key={req.item}
+                        key={`${req.item}-${idx}`}
                         className="text-xs text-slate-600 flex items-start gap-1.5"
                       >
                         <span
@@ -186,9 +186,9 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                 <div>
                   <h4 className="text-xs font-medium text-slate-500 mb-1.5">Preferred</h4>
                   <ul className="space-y-1">
-                    {requirements.preferred.slice(0, 3).map((req) => (
+                    {requirements.preferred.slice(0, 3).map((req, idx) => (
                       <li
-                        key={req.item}
+                        key={`${req.item}-${idx}`}
                         className="text-xs text-slate-500 flex items-start gap-1.5"
                       >
                         <span className="text-slate-300 mt-0.5">•</span>
@@ -213,9 +213,9 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                 <div>
                   <h4 className="text-xs font-medium text-slate-700 mb-1.5">Technical</h4>
                   <div className="flex flex-wrap gap-1">
-                    {keywords.technical.slice(0, 8).map((kw) => (
+                    {keywords.technical.slice(0, 8).map((kw, idx) => (
                       <span
-                        key={kw.keyword}
+                        key={`${kw.keyword}-${idx}`}
                         className={cn(
                           'text-xs px-2 py-0.5 rounded-full',
                           kw.mustIncludeInResume
@@ -243,9 +243,9 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                 <div>
                   <h4 className="text-xs font-medium text-slate-500 mb-1.5">Soft Skills</h4>
                   <div className="flex flex-wrap gap-1">
-                    {keywords.soft.slice(0, 5).map((kw) => (
+                    {keywords.soft.slice(0, 5).map((kw, idx) => (
                       <span
-                        key={kw.keyword}
+                        key={`${kw.keyword}-${idx}`}
                         className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700"
                       >
                         {kw.keyword}
@@ -265,9 +265,9 @@ export function JDAnalysisCard({ analysis, loading }: JDAnalysisCardProps) {
                 <div>
                   <h4 className="text-xs font-medium text-slate-500 mb-1.5">Domain</h4>
                   <div className="flex flex-wrap gap-1">
-                    {keywords.domain.slice(0, 4).map((kw) => (
+                    {keywords.domain.slice(0, 4).map((kw, idx) => (
                       <span
-                        key={kw.keyword}
+                        key={`${kw.keyword}-${idx}`}
                         className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700"
                       >
                         {kw.keyword}

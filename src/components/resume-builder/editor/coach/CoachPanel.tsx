@@ -159,7 +159,7 @@ export function CoachPanel({
       if (selected) {
         setSelectedSuggestionId(id);
         // Find the suggestion to get its targetPath and trigger review mode
-        const suggestion = aiSuggestions?.find((s) => s.id === id);
+        const suggestion = allSuggestions.find((s) => s.id === id);
         if (suggestion && onSuggestionSelect) {
           onSuggestionSelect(id, suggestion.targetPath);
         }
@@ -167,7 +167,7 @@ export function CoachPanel({
         setSelectedSuggestionId(null);
       }
     },
-    [aiSuggestions, onSuggestionSelect],
+    [allSuggestions, onSuggestionSelect],
   );
 
   // Checkbox handler - multiple can be checked, checking also deselects the card
@@ -450,7 +450,7 @@ export function CoachPanel({
       {activeTab === 'tips' && checkedIds.size > 0 && (
         <BatchSelectionFooter
           selectedCount={checkedIds.size}
-          totalCount={(aiSuggestions?.length ?? 0) + (aiScore?.topIssues?.length ?? 0)}
+          totalCount={allSuggestions.length}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
           onApplySelected={handleApplyChecked}

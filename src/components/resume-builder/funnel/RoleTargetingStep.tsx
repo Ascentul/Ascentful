@@ -1,7 +1,7 @@
 'use client';
 
 import { Briefcase, Plus, Target, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -21,7 +21,7 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
   const [newRole, setNewRole] = useState('');
 
   // Parse alternate roles from JSON array string
-  const alternateRolesArray: string[] = (() => {
+  const alternateRolesArray = useMemo<string[]>(() => {
     if (!value.alternateRoles) return [];
     try {
       const parsed = JSON.parse(value.alternateRoles);
@@ -33,7 +33,7 @@ export function RoleTargetingStep({ value, onChange }: RoleTargetingStepProps) {
         .map((r) => r.trim())
         .filter(Boolean);
     }
-  })();
+  }, [value.alternateRoles]);
 
   const handleRoleChange = (targetRole: string) => {
     onChange({ ...value, targetRole });

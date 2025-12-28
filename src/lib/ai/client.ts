@@ -1,4 +1,4 @@
-// AI client wrapper for GPT-5.2 tiered model calls
+// AI client wrapper for tiered OpenAI model calls
 
 import OpenAI from 'openai';
 import { z } from 'zod';
@@ -13,9 +13,9 @@ const openai = process.env.OPENAI_API_KEY
 export type ModelTier = 'pro' | 'standard' | 'mini';
 
 const MODEL_MAP = {
-  pro: 'gpt-4o', // Will upgrade to gpt-5.2-pro when available
-  standard: 'gpt-4o', // Will upgrade to gpt-5.2 when available
-  mini: 'gpt-4o-mini', // Will upgrade to gpt-5.2-mini when available
+  pro: 'gpt-5.2-pro',
+  standard: 'gpt-5.2',
+  mini: 'gpt-5.2-mini',
 } as const;
 
 // Temperature defaults by tier
@@ -110,7 +110,7 @@ function extractJSON(content: string): string {
 
 /**
  * Main AI call function with tiered model support
- * Uses GPT-5.2 models (currently using GPT-4o as placeholder)
+ * Uses OpenAI o3 models for optimal performance
  */
 export async function callAI<T>(
   systemPrompt: string,
@@ -270,6 +270,16 @@ export async function callAIText(
         await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
       }
     }
+  }
+
+  // If pro tier fails, try standard as fallback
+  if (tier === 'pro' && maxRetries > 0) {
+    console.warn(`Pro tier failed (${lastError}), falling back to standard tier`);
+    return callAIText(systemPrompt, userPrompt, {
+      ...options,
+      tier: 'standard',
+      maxRetries: 1,
+    });
   }
 
   return {
