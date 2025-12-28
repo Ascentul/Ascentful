@@ -629,6 +629,9 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       dispatch({ type: 'SET_JD', payload: jd });
       dispatch({ type: 'SET_JD_LOADING', payload: true });
       dispatch({ type: 'SET_JD_ERROR', payload: null });
+      // Clear previous analysis/match so UI doesn't show stale data
+      dispatch({ type: 'SET_JD_ANALYSIS', payload: null });
+      dispatch({ type: 'SET_MATCH_SCORE', payload: null });
 
       try {
         const result = await jdHook.analyzeJD(jd);

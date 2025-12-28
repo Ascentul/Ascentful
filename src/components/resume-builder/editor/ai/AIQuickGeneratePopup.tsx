@@ -80,6 +80,9 @@ export function AIQuickGeneratePopup({
 
       // Try to get the resume content value, or fall back to the response text
       const content = data.resumeContent?.value || data.response;
+      if (!content) {
+        throw new Error('No content received from AI');
+      }
       setGeneratedContent(content);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;

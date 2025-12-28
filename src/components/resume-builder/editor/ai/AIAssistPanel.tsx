@@ -438,7 +438,7 @@ function getSectionFields(sectionId: string, data: ResumeData): SectionField[] {
       fields.push({
         label: `Skills (${skillCount}/5 minimum)`,
         spanId: 'skills-input',
-        isComplete: skillCount >= 3,
+        isComplete: skillCount >= 5,
       });
       break;
     }

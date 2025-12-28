@@ -107,6 +107,12 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
 
           // Convert parsed data to resume format
           // Ensure all contactInfo fields are present per ResumeData type
+          // Filter out undefined values to avoid overwriting defaults with undefined
+          const filteredPersonalInfo = parsedData.personalInfo
+            ? Object.fromEntries(
+                Object.entries(parsedData.personalInfo).filter(([, v]) => v !== undefined),
+              )
+            : {};
           setUploadedContent({
             contactInfo: {
               name: '',
@@ -116,7 +122,7 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
               linkedin: '',
               github: '',
               website: '',
-              ...parsedData.personalInfo,
+              ...filteredPersonalInfo,
             },
             summary: parsedData.summary || '',
             skills: parsedData.skills || [],
@@ -138,7 +144,10 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
       setStartSource('upload');
       setShowFunnel(true);
     } catch (error) {
-      console.error('Error parsing upload:', error instanceof Error ? error.name : 'Unknown');
+      console.error(
+        'Error parsing upload:',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
       toast({
         title: 'Upload processing failed',
         description: 'Starting with a blank draft instead.',

@@ -153,6 +153,12 @@ export function CoachPanel({
     return [...convertedTopIssues, ...suggestions];
   }, [convertedTopIssues, aiSuggestions]);
 
+  // Clear stale batch selection when the suggestion set changes
+  useEffect(() => {
+    setCheckedIds(new Set());
+    setSelectedSuggestionId(null);
+  }, [aiSuggestions, convertedTopIssues]);
+
   // Card selection handler - only one can be selected at a time (shows purple outline + buttons)
   const handleSelectionChange = useCallback(
     (id: string, selected: boolean) => {

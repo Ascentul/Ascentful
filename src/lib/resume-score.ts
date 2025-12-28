@@ -400,7 +400,7 @@ function calculateClarityScore(data: ResumeData): number {
 
   // Check summary length and clarity
   if (data.summary) {
-    const wordCount = data.summary.split(/\s+/).length;
+    const wordCount = data.summary.trim().split(/\s+/).filter(Boolean).length;
 
     // Ideal summary: 50-100 words
     if (wordCount < 30) {
@@ -480,7 +480,7 @@ function calculateRelevanceScore(data: ResumeData): number {
 
   // Summary present and substantial (20 points)
   if (data.summary) {
-    const wordCount = data.summary.split(/\s+/).length;
+    const wordCount = data.summary.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount >= 50) earnedPoints += 20;
     else if (wordCount >= 30) earnedPoints += 15;
     else earnedPoints += 10;
