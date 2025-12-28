@@ -392,9 +392,10 @@ function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
   };
 
   const handleDelete = (id: string) => {
-    onUpdate(experiences.filter((exp) => exp.id !== id));
+    const remaining = experiences.filter((exp) => exp.id !== id);
+    onUpdate(remaining);
     if (expandedId === id) {
-      setExpandedId(experiences[0]?.id || null);
+      setExpandedId(remaining[0]?.id || null);
     }
   };
 

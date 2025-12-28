@@ -538,6 +538,7 @@ export const createResumeVersion = mutation({
       v.literal('manual_save'),
       v.literal('section_change'),
       v.literal('auto_checkpoint'),
+      v.literal('restoration'),
     ),
     contentSnapshot: v.any(),
   },

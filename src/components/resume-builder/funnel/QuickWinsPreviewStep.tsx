@@ -28,7 +28,6 @@ export interface QuickWinsAnalysis {
 interface QuickWinsPreviewStepProps {
   resumeContent: ResumeData | null;
   startSource: 'profile' | 'upload' | 'blank';
-  onViewSuggestions?: () => void;
   jobDescription?: string;
 }
 
@@ -168,7 +167,6 @@ function analyzeResumeContent(
 export function QuickWinsPreviewStep({
   resumeContent,
   startSource,
-  onViewSuggestions,
   jobDescription,
 }: QuickWinsPreviewStepProps) {
   const [analysis, setAnalysis] = useState<QuickWinsAnalysis>({

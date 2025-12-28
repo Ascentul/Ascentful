@@ -74,6 +74,7 @@ export function AIChatInput({
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          aria-label="AI assistant chat input"
           disabled={disabled || isSubmitting}
           rows={1}
           className={cn(

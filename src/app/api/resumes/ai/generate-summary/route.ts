@@ -5,6 +5,9 @@ import OpenAI from 'openai';
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { evaluate } from '@/lib/ai-evaluation';
 
+export const runtime = 'nodejs';
+export const maxDuration = 45;
+
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,

@@ -604,8 +604,7 @@ export function prioritizeAndDedupe(suggestions: Suggestion[]): Suggestion[] {
   // First, filter out suggestions without valid targetPaths
   const validSuggestions = suggestions.filter((s) => {
     const isValid = hasValidTargetPath(s);
-    if (!isValid) {
-      // Log invalid suggestions for debugging (can be removed in production)
+    if (!isValid && process.env.NODE_ENV !== 'production') {
       console.warn(
         `Filtering out suggestion with invalid targetPath: "${s.targetPath}" - "${s.title}"`,
       );

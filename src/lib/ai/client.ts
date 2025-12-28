@@ -15,7 +15,7 @@ export type ModelTier = 'pro' | 'standard' | 'mini';
 const MODEL_MAP = {
   pro: 'gpt-5.2-pro',
   standard: 'gpt-5.2',
-  mini: 'gpt-5.2-mini',
+  mini: 'gpt-5.2-chat-latest',
 } as const;
 
 // Temperature defaults by tier

@@ -382,7 +382,7 @@ export function CreateResumeFunnel({
       <DialogContent className="max-w-2xl p-0 overflow-hidden bg-white">
         <DialogTitle className="sr-only">Create Resume</DialogTitle>
         <DialogDescription className="sr-only">
-          Create a new resume in 3 easy steps
+          Create a new resume in {TOTAL_STEPS} easy steps
         </DialogDescription>
 
         <div className="px-8 py-8">

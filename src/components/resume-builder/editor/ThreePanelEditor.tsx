@@ -399,7 +399,7 @@ function ThreePanelEditorInner({
               // Add new experience with generated ID
               const newExp = {
                 ...expData,
-                id: `exp-${Date.now()}`,
+                id: `exp-${crypto.randomUUID()}`,
               };
               onUpdateExperience([...currentExperience, newExp]);
             }
@@ -420,7 +420,7 @@ function ThreePanelEditorInner({
             } else {
               const newEdu = {
                 ...eduData,
-                id: `edu-${Date.now()}`,
+                id: `edu-${crypto.randomUUID()}`,
               };
               onUpdateEducation([...currentEducation, newEdu]);
             }

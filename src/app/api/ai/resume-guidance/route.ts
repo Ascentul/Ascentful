@@ -146,7 +146,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to obtain auth token' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const {
       section,
       message,
@@ -191,11 +196,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!openai) {
-      return NextResponse.json({
-        response:
-          "I'm sorry, AI features are not currently available. Please configure the OpenAI API key.",
-        suggestions: [],
-      });
+      return NextResponse.json({ error: 'AI service is not configured' }, { status: 503 });
     }
 
     // Build context about current resume state
@@ -322,10 +323,7 @@ async function handleQuickGenerate(
   userId: string,
 ) {
   if (!openai) {
-    return NextResponse.json({
-      response: 'AI features are not currently available. Please configure the OpenAI API key.',
-      resumeContent: null,
-    });
+    return NextResponse.json({ error: 'AI service is not configured' }, { status: 503 });
   }
 
   // Build context about current resume state

@@ -23,7 +23,7 @@ export function FunnelProgress({ currentStep, totalSteps }: FunnelProgressProps)
           key={index}
           aria-hidden="true"
           className={cn(
-            'h-2 w-2 rounded-full transition-colors duration-200',
+            'h-2 w-2 rounded-full transition-all duration-200',
             index === safeStep
               ? 'bg-primary-500 w-6'
               : index < safeStep

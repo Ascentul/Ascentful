@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Sparkles, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ interface AIQuickGeneratePopupProps {
   section: string;
   sectionLabel: string;
   currentResumeData: Partial<ResumeData>;
-  currentValue?: string;
   onAccept: (value: string) => void;
 }
 
@@ -23,14 +22,24 @@ export function AIQuickGeneratePopup({
   section,
   sectionLabel,
   currentResumeData,
-  currentValue,
   onAccept,
 }: AIQuickGeneratePopupProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const generateContent = useCallback(async () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     setIsLoading(true);
     setError(null);
     setGeneratedContent(null);
@@ -46,6 +55,7 @@ export function AIQuickGeneratePopup({
           currentResumeData,
           quickGenerate: true,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) throw new Error('Failed to generate content');
@@ -56,6 +66,7 @@ export function AIQuickGeneratePopup({
       const content = data.resumeContent?.value || data.response;
       setGeneratedContent(content);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Failed to generate content:', err);
       setError('Failed to generate content. Please try again.');
     } finally {
