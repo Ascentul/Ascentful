@@ -93,7 +93,7 @@ export function AIChatInput({
           className={cn(
             'absolute right-2 top-2.5',
             'p-1.5 rounded-lg transition-colors',
-            message.trim() && !isSubmitting
+            message.trim() && !isSubmitting && !disabled
               ? 'bg-primary-500 text-white hover:bg-primary-600'
               : 'bg-slate-100 text-slate-400 cursor-not-allowed',
           )}

@@ -80,7 +80,7 @@ export function isSectionComplete(sectionId: string, data: ResumeData): boolean 
         data.education.some((edu) => edu.school && edu.degree)
       );
     case 'skills':
-      return !!(data.skills && data.skills.length >= 3);
+      return !!(data.skills && data.skills.length >= 5);
     case 'projects':
       // Projects are optional, consider complete if empty or has content
       return !data.projects || data.projects.length === 0 || data.projects.some((p) => p.name);
@@ -799,9 +799,9 @@ export function AIAssistPanel({
               <div className="mt-3 pt-3 border-t border-primary-100">
                 <div className="text-xs font-medium text-red-600 mb-2">Fill in these fields:</div>
                 <div className="flex flex-wrap gap-1.5">
-                  {currentStep.missingFields.slice(0, 4).map((field, idx) => (
+                  {currentStep.missingFields.slice(0, 4).map((field) => (
                     <button
-                      key={idx}
+                      key={field.spanId || field.label}
                       type="button"
                       onClick={() =>
                         field.spanId && onSelectSection?.(currentStep.id, field.spanId)

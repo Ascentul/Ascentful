@@ -44,8 +44,8 @@ export function SectionCard({
         {/* Drag handle */}
         <button
           type="button"
-          aria-label={`Drag to reorder ${title}`}
           {...dragHandleProps}
+          aria-label={`Drag to reorder ${title}`}
           className={cn(
             'cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded',
             dragHandleProps?.className,

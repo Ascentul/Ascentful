@@ -306,7 +306,17 @@ function parseResumeContent(response: string): ParsedResumeContent | null {
   const match = response.match(/\[RESUME_CONTENT\]([\s\S]*?)\[\/RESUME_CONTENT\]/);
   if (match) {
     try {
-      return JSON.parse(match[1].trim()) as ParsedResumeContent;
+      const parsed = JSON.parse(match[1].trim());
+      // Validate required fields match expected structure
+      if (
+        typeof parsed.field === 'string' &&
+        typeof parsed.value === 'string' &&
+        (parsed.action === 'set' || parsed.action === 'append')
+      ) {
+        return parsed as ParsedResumeContent;
+      }
+      console.warn('Invalid resume content structure from AI');
+      return null;
     } catch {
       // Log truncated content for debugging malformed AI output
       const content = match[1].trim();

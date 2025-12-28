@@ -303,6 +303,12 @@ export default function ResumeBuilderPage() {
 
   // Close handler
   const handleClose = async () => {
+    // Cancel any pending autosave
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
     if (isDirty) {
       const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
       if (!confirmed) return;

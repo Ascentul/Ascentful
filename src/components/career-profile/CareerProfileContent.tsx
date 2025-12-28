@@ -1640,7 +1640,7 @@ export function CareerProfileContent() {
                     )}
 
                     <div className="flex gap-2 mt-3">
-                      {project.url && (
+                      {project.url && /^https?:\/\//i.test(project.url) && (
                         <Button
                           size="sm"
                           variant="outline"

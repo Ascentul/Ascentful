@@ -318,6 +318,9 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
   const dismissedByContentRef = useRef<Record<string, Set<string>>>({});
   const contentSignatureRef = useRef<string>('');
 
+  // Limit dismissed cache size to prevent memory leak during long editing sessions
+  const MAX_DISMISSED_CACHE_SIZE = 10;
+
   // Keep resumeData ref up to date
   useEffect(() => {
     resumeDataRef.current = resumeData;
@@ -370,6 +373,15 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
   useEffect(() => {
     if (!resumeDataSignature) return;
     dismissedByContentRef.current[resumeDataSignature] = new Set(state.dismissedSuggestionIds);
+
+    // Trim cache to prevent unbounded growth during long editing sessions
+    const keys = Object.keys(dismissedByContentRef.current);
+    if (keys.length > MAX_DISMISSED_CACHE_SIZE) {
+      const keysToRemove = keys
+        .filter((k) => k !== resumeDataSignature)
+        .slice(0, keys.length - MAX_DISMISSED_CACHE_SIZE);
+      keysToRemove.forEach((k) => delete dismissedByContentRef.current[k]);
+    }
   }, [resumeDataSignature, state.dismissedSuggestionIds]);
 
   // Determine assist mode based on resume state

@@ -242,6 +242,7 @@ export function PersonalDetailsStep({
         type="button"
         onClick={() => setShowMoreDetails(!showMoreDetails)}
         className="flex items-center gap-1 text-sm text-primary-500 hover:text-primary-600 font-medium"
+        aria-expanded={showMoreDetails}
       >
         Add more details
         <ChevronDown

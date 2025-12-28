@@ -342,7 +342,7 @@ export function ProjectItem({ project, config, isFirst = false }: ProjectItemPro
       )}
 
       {/* URL */}
-      {project.url && (
+      {project.url && /^https?:\/\//i.test(project.url) && (
         <div style={{ fontFamily: fonts.body, fontSize: '10pt', marginBottom: '4px' }}>
           <a href={project.url} style={{ color: config.accentColor, textDecoration: 'underline' }}>
             {project.url}

@@ -446,7 +446,7 @@ export default function PublicProfilePage() {
                         )}
                         {(project.url || project.github_url) && (
                           <div className="flex gap-2 mt-2">
-                            {project.url && (
+                            {project.url && /^https?:\/\//i.test(project.url) && (
                               <a
                                 href={project.url}
                                 target="_blank"

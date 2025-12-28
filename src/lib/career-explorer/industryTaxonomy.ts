@@ -1423,7 +1423,7 @@ export function detectIndustryFromRole(role: string): Industry {
 
   // Technology role keywords organized by category for maintainability
   const engineeringKeywords =
-    'software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full.stack';
+    'software|developer|engineer|programmer|devops|sre|frontend|backend|fullstack|full[\\s._-]?stack';
   const dataKeywords =
     'data engineer|data scientist|data analyst|machine learning|ml engineer|ai engineer';
   const productDesignKeywords = 'product manager|ux|ui|web developer|mobile developer';

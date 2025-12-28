@@ -97,7 +97,7 @@ export function ProjectPreviewModal({ open, onClose, project }: ProjectPreviewMo
           {/* Links */}
           {(project.url || project.github_url) && (
             <div className="flex gap-3 pt-4 border-t">
-              {project.url && (
+              {project.url && /^https?:\/\//i.test(project.url) && (
                 <Button variant="default" asChild>
                   <a href={project.url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />

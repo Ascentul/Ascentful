@@ -642,8 +642,10 @@ export function applyRuleBasedChecks(resumeData: ResumeData): Suggestion[] {
 const VALID_TARGET_PATH_PATTERNS = [
   /^summary-text$/,
   /^contact-(name|email|phone|location|linkedin|website|github)$/,
+  /^experience-section$/,
   /^experience-[\w-]+-bullets(-\d+)?$/,
   /^experience-[\w-]+-(title|company|location|dates)$/,
+  /^education-section$/,
   /^education-[\w-]+-(school|degree|field|year|gpa)$/,
   /^projects-[\w-]+-(name|description)$/,
   /^skills-list(-\d+)?$/,

@@ -87,7 +87,8 @@ const isCoverLetterDoc = (doc: unknown): doc is { _id: Id<'cover_letters'> } => 
     typeof doc === 'object' &&
     doc !== null &&
     '_id' in doc &&
-    typeof (doc as { _id?: unknown })._id === 'string'
+    typeof (doc as { _id?: unknown })._id === 'string' &&
+    'job_title' in doc // Cover letters have job_title, resumes don't
   );
 };
 

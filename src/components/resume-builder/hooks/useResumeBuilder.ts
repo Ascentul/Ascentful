@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 
 import type {
   Achievement,
+  Certification,
   ContactInfo,
   Education,
   Experience,
@@ -48,6 +49,7 @@ const createEmptyResumeData = (): ResumeData => ({
   education: [],
   projects: [],
   achievements: [],
+  certifications: [],
 });
 
 // Helper for deep merging resumeData with proper contactInfo handling
@@ -291,6 +293,42 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
     }));
   }, []);
 
+  // Certifications updates
+  const addCertification = useCallback((certification: Certification) => {
+    setState((prev) => ({
+      ...prev,
+      isDirty: true,
+      resumeData: {
+        ...prev.resumeData,
+        certifications: [...(prev.resumeData.certifications || []), certification],
+      },
+    }));
+  }, []);
+
+  const updateCertification = useCallback((index: number, certification: Certification) => {
+    setState((prev) => ({
+      ...prev,
+      isDirty: true,
+      resumeData: {
+        ...prev.resumeData,
+        certifications: (prev.resumeData.certifications ?? []).map((c, i) =>
+          i === index ? certification : c,
+        ),
+      },
+    }));
+  }, []);
+
+  const removeCertification = useCallback((index: number) => {
+    setState((prev) => ({
+      ...prev,
+      isDirty: true,
+      resumeData: {
+        ...prev.resumeData,
+        certifications: (prev.resumeData.certifications ?? []).filter((_, i) => i !== index),
+      },
+    }));
+  }, []);
+
   // Template and theme updates
   const setTemplateId = useCallback((templateId: TemplateId) => {
     setState((prev) => ({
@@ -388,6 +426,10 @@ export function useResumeBuilder(existingData?: Partial<ResumeBuilderState>) {
     addAchievement,
     updateAchievement,
     removeAchievement,
+    // Certifications
+    addCertification,
+    updateCertification,
+    removeCertification,
     // Template & Theme
     setTemplateId,
     setTheme,

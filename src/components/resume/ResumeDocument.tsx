@@ -481,7 +481,7 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
                 )}
 
                 {/* URL */}
-                {project.url && (
+                {project.url && /^https?:\/\//i.test(project.url) && (
                   <div style={{ fontSize: FONT_SIZES.small, marginBottom: '4px' }}>
                     <a
                       href={project.url}

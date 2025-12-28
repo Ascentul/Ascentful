@@ -1639,7 +1639,7 @@ function ProjectEntry({
           focusedSuggestionId={focusedSuggestionId}
           onTrackChangeClick={onTrackChangeClick}
         />
-        {project.url && (
+        {project.url && /^https?:\/\//i.test(project.url) && (
           <a
             href={project.url}
             target="_blank"
