@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     log.debug('Extension session refreshed', {
       event: 'session.refreshed',
       clerkId,
-      expiresAt,
+      extra: { expiresAt },
     });
 
     return NextResponse.json(

@@ -18,9 +18,6 @@ interface ProfileStore {
   lastSyncedAt: number | null;
   error: string | null;
 
-  // Computed
-  selectedResume: ResumeListItem | null;
-
   // Actions
   initialize: () => Promise<void>;
   syncProfile: () => Promise<void>;
@@ -83,13 +80,6 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
   isLoading: false,
   lastSyncedAt: null,
   error: null,
-
-  // Computed getter for selected resume
-  get selectedResume() {
-    const { profile, selectedResumeId } = get();
-    if (!profile || !selectedResumeId) return null;
-    return profile.resumes.find((r) => r.id === selectedResumeId) || null;
-  },
 
   /**
    * Initialize profile from storage
@@ -269,5 +259,16 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
     };
   },
 }));
+
+/**
+ * Selector hook for getting the currently selected resume.
+ * Use this instead of accessing selectedResume directly from the store.
+ */
+export const useSelectedResume = (): ResumeListItem | null => {
+  return useProfileStore((state: ProfileStore) => {
+    if (!state.profile || !state.selectedResumeId) return null;
+    return state.profile.resumes.find((r: ResumeListItem) => r.id === state.selectedResumeId) || null;
+  });
+};
 
 export default useProfileStore;

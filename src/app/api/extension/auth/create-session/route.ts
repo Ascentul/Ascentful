@@ -64,12 +64,12 @@ export async function POST(request: NextRequest) {
       const payload = verifyExtensionState(state);
       log.debug('State verified', {
         event: 'state.verified',
-        extensionId: payload.extensionId,
+        extra: { extensionId: payload.extensionId },
       });
     } catch (error) {
       log.warn('State verification failed', {
         event: 'state.invalid',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
       });
       return NextResponse.json(
         { error: 'Invalid or expired state token' },
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     log.info('Extension session created', {
       event: 'session.created',
       clerkId: userId,
-      expiresAt,
+      extra: { expiresAt },
     });
 
     return NextResponse.json(

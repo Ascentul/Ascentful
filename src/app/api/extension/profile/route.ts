@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get Convex token for server-side queries
-    const convexToken = await requireConvexToken();
+    const { token: convexToken } = await requireConvexToken();
 
     // Fetch user profile
     const user = await fetchQuery(api.users.getUserByClerkId, { clerkId }, { token: convexToken });
@@ -159,8 +159,8 @@ export async function GET(request: NextRequest) {
     log.debug('Extension profile fetched', {
       event: 'request.success',
       clerkId,
-      resumeCount: extensionProfile.resumes.length,
       durationMs,
+      extra: { resumeCount: extensionProfile.resumes.length },
     });
 
     return NextResponse.json(

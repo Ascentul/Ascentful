@@ -165,6 +165,11 @@ export function verifyExtensionSessionToken(token: string): { clerkId: string } 
     throw new Error('Invalid token payload');
   }
 
+  // Validate version
+  if (payload.v !== 1) {
+    throw new Error('Invalid token version');
+  }
+
   // Check expiry
   if (Date.now() > payload.expiresAt) {
     throw new Error('Token expired');

@@ -2219,8 +2219,8 @@ export default defineSchema({
     application_id: v.optional(v.id('applications')),
     session_id: v.optional(v.id('advisor_sessions')),
     career_plan_id: v.optional(v.id('career_main_paths')),
-    // Note: skill, linkedin_profile, interview_recording, and profile don't have dedicated
-    // ID fields - they use a generic_target_id string for flexibility
+    // For targets without dedicated ID fields (skill, linkedin_profile, interview_recording, profile)
+    generic_target_id: v.optional(v.string()),
 
     // Comment type determines which positioning fields are relevant
     comment_type: v.union(

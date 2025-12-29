@@ -21,8 +21,14 @@ interface AuthStore extends AuthState {
 }
 
 /**
- * Generate a signed state token for OAuth flow
- * Note: In production, this should be signed by the server
+ * Generate a state token for OAuth CSRF protection.
+ *
+ * Security model: The state is stored in memory and compared on callback.
+ * This prevents CSRF because an attacker cannot predict the cryptographically
+ * random nonce. The state doesn't need server-side signing since:
+ * 1. It's generated and stored client-side before the auth flow
+ * 2. The callback must return the exact same state value
+ * 3. The nonce is generated using crypto.randomUUID() (CSPRNG)
  */
 function generateState(): string {
   const payload = {

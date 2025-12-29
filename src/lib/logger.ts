@@ -77,6 +77,8 @@ export type LogFeature =
   | 'billing'
   | 'career-path'
   | 'cover-letter'
+  | 'extension'
+  | 'extension-auth'
   | 'file'
   | 'gdpr'
   | 'goal'

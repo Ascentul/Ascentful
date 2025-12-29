@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     if (!validationResult.success) {
       log.warn('Invalid request body', {
         event: 'validation.failed',
-        errors: validationResult.error.issues,
+        extra: { errors: validationResult.error.issues },
       });
       return NextResponse.json(
         {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     const { company, jobTitle, url, source, atsPlatform, notes } = validationResult.data;
 
     // Get Convex token for server-side mutations
-    const convexToken = await requireConvexToken();
+    const { token: convexToken } = await requireConvexToken();
 
     // Build notes with ATS platform info
     const applicationNotes = [notes, atsPlatform ? `Applied via ${atsPlatform}` : null]
@@ -135,10 +135,8 @@ export async function POST(request: NextRequest) {
     const durationMs = Date.now() - startTime;
     log.info('Application created via extension', {
       event: 'application.created',
-      applicationId,
-      company,
-      atsPlatform,
       durationMs,
+      extra: { applicationId, company, atsPlatform },
     });
 
     return NextResponse.json(
@@ -201,7 +199,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
@@ -210,7 +208,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get Convex token for server-side queries
-    const convexToken = await requireConvexToken();
+    const { token: convexToken } = await requireConvexToken();
 
     // Fetch user's recent applications
     const applications = await fetchQuery(
@@ -232,8 +230,8 @@ export async function GET(request: NextRequest) {
     const durationMs = Date.now() - startTime;
     log.debug('Recent applications fetched', {
       event: 'request.success',
-      count: recentApplications.length,
       durationMs,
+      extra: { count: recentApplications.length },
     });
 
     return NextResponse.json(

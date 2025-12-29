@@ -67,6 +67,8 @@ export function QuickFillButton() {
   };
 
   const handleFill = async () => {
+    // Capture current platform to avoid stale closure in setTimeout callbacks
+    const currentPlatform = atsInfo?.platform;
     setStatus('filling');
 
     try {
@@ -87,7 +89,7 @@ export function QuickFillButton() {
         // Reset after 3 seconds
         setTimeout(() => {
           setStatus('ready');
-          setMessage(`${atsInfo?.platform} detected`);
+          setMessage(`${currentPlatform} detected`);
         }, 3000);
       } else {
         throw new Error(response?.error || 'Fill failed');
@@ -100,7 +102,7 @@ export function QuickFillButton() {
       // Reset after 3 seconds
       setTimeout(() => {
         setStatus('ready');
-        setMessage(`${atsInfo?.platform} detected`);
+        setMessage(`${currentPlatform} detected`);
       }, 3000);
     }
   };

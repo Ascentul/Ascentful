@@ -66,7 +66,13 @@ export interface ExtensionProfile {
   // Career Data
   currentPosition?: string;
   currentCompany?: string;
-  skills?: string; // comma-separated
+  /**
+   * Skills as comma-separated string (from backend user profile).
+   * Note: ResumeData.skills uses string[] format. The AutofillData interface
+   * provides both formats (skills: string, skillsArray: string[]) for flexibility.
+   * @see profileStore.getAutofillData for transformation logic
+   */
+  skills?: string;
   industry?: string;
   experienceLevel?: string;
 
@@ -136,6 +142,11 @@ export interface ResumeListItem {
 export interface ResumeData {
   contactInfo: ContactInfo;
   summary?: string;
+  /**
+   * Skills as string array (from resume builder).
+   * Note: ExtensionProfile.skills uses comma-separated string format.
+   * @see profileStore.getAutofillData for transformation logic
+   */
   skills?: string[];
   experience?: Experience[];
   education?: Education[];

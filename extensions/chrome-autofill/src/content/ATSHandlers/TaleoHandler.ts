@@ -102,7 +102,7 @@ export class TaleoHandler extends BaseATSHandler {
         'input[name*="city"]',
         'input[aria-label*="City"]',
       ],
-      dataKey: 'location',
+      dataKey: 'city',
       priority: 7,
     },
     {
@@ -119,6 +119,12 @@ export class TaleoHandler extends BaseATSHandler {
       ],
       dataKey: 'location',
       priority: 6,
+      transform: (value: unknown) => {
+        // Extract postal code from location if it contains one
+        const location = typeof value === 'string' ? value : '';
+        const postalMatch = location.match(/\d{5}(-\d{4})?/);
+        return postalMatch ? postalMatch[0] : '';
+      },
     },
 
     // Professional Links
@@ -131,7 +137,7 @@ export class TaleoHandler extends BaseATSHandler {
         'input[name*="linkedin"]',
         'input[aria-label*="LinkedIn"]',
       ],
-      dataKey: 'linkedinUrl',
+      dataKey: 'linkedin',
       priority: 5,
     },
     {
@@ -144,7 +150,7 @@ export class TaleoHandler extends BaseATSHandler {
         'input[aria-label*="Website"]',
         'input[aria-label*="Portfolio"]',
       ],
-      dataKey: 'websiteUrl',
+      dataKey: 'website',
       priority: 4,
     },
 

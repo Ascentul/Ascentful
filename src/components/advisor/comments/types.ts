@@ -117,7 +117,7 @@ export interface CommentThread {
  */
 export interface CommentThreadProps {
   thread: CommentThread;
-  currentUserId: Id<'users'>;
+  currentUserId: string; // Clerk user ID
   isAdvisor: boolean;
   onReply: (parentId: Id<'advisor_comments'>, body: string, visibility: CommentVisibility) => void;
   onResolve: (commentId: Id<'advisor_comments'>) => void;
@@ -134,7 +134,7 @@ export interface CommentThreadProps {
  */
 export interface CommentItemProps {
   comment: CommentWithAuthor;
-  currentUserId: Id<'users'>;
+  currentUserId: string; // Clerk user ID
   isAdvisor: boolean;
   isRoot?: boolean;
   depth?: number;
