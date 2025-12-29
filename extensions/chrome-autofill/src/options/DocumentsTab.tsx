@@ -114,6 +114,15 @@ function ResumeCard({ resume, isSelected, onSelect, formatDate }: ResumeCardProp
     <div
       className={`resume-card ${isSelected ? 'selected' : ''}`}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
       style={{ cursor: 'pointer' }}
     >
       <div className="resume-icon">📄</div>

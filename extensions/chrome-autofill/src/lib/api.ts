@@ -26,8 +26,10 @@ async function getAuthToken(): Promise<string | null> {
   const auth = await storage.getAuth();
   if (!auth?.token) return null;
 
-  // Check if token is expired
-  if (auth.expiresAt && Date.now() > auth.expiresAt) {
+  // Check if token is expired or expiring soon
+  // Refresh 5 minutes before expiry to avoid edge cases where server rejects expired token
+  const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+  if (auth.expiresAt && Date.now() > auth.expiresAt - REFRESH_BUFFER_MS) {
     // Try to refresh
     try {
       const refreshed = await refreshToken(auth.token);

@@ -11,6 +11,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { sanitizeCommentBody } from './lib/sanitizeHtml';
 import {
   assertCanAccessStudent,
   canViewPrivateContent,
@@ -454,8 +455,8 @@ export const addComment = mutation({
       throw new Error('Comment body too long (max 10000 characters)');
     }
 
-    // Sanitize: trim whitespace and remove any null bytes
-    const sanitizedBody = args.body.trim().replace(/\0/g, '');
+    /// Sanitize HTML to prevent XSS
+    const sanitizedBody = sanitizeCommentBody(args.body);
 
     const now = Date.now();
     const currentComments = review.comments || [];
@@ -540,8 +541,8 @@ export const updateComment = mutation({
       throw new Error('Comment body too long (max 10000 characters)');
     }
 
-    // Sanitize: trim whitespace and remove any null bytes
-    const sanitizedBody = args.body.trim().replace(/\0/g, '');
+    /// Sanitize HTML to prevent XSS
+    const sanitizedBody = sanitizeCommentBody(args.body);
 
     const comments = review.comments || [];
     const commentIndex = comments.findIndex((c) => c.id === args.commentId);
@@ -766,8 +767,8 @@ export const approveReview = mutation({
       if (args.comment.length > 10000) {
         throw new Error('Comment body too long (max 10000 characters)');
       }
-      // Sanitize: trim whitespace and remove any null bytes
-      sanitizedComment = args.comment.trim().replace(/\0/g, '');
+      // Sanitize HTML to prevent XSS
+      sanitizedComment = sanitizeCommentBody(args.comment);
     }
 
     const now = Date.now();

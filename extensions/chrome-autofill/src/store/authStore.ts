@@ -178,8 +178,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const { token: newToken, expiresAt } = await response.json();
 
       const auth = await storage.getAuth();
+      if (!auth) {
+        // Auth was cleared during refresh (e.g., concurrent logout)
+        return false;
+      }
       const updatedAuth: AuthState = {
-        ...auth!,
+        ...auth,
         token: newToken,
         expiresAt,
       };

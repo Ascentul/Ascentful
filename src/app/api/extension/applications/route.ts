@@ -39,7 +39,6 @@ const createApplicationSchema = z.object({
       'unknown',
     ])
     .optional(),
-  resumeId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { company, jobTitle, url, source, atsPlatform, resumeId, notes } = validationResult.data;
+    const { company, jobTitle, url, source, atsPlatform, notes } = validationResult.data;
 
     // Get Convex token for server-side mutations
     const convexToken = await requireConvexToken();
@@ -129,7 +128,6 @@ export async function POST(request: NextRequest) {
         url: url || undefined,
         notes: applicationNotes || undefined,
         applied_at: Date.now(),
-        // Note: resume_id would need to be converted to Convex Id type if passed
       },
       { token: convexToken },
     );

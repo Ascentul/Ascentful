@@ -33,7 +33,8 @@ export function SectionCommentIndicator({
   targetId,
   studentId,
   section,
-  sectionLabel,
+  // sectionLabel reserved for future use (e.g., display in CommentButton header)
+  sectionLabel: _sectionLabel,
   count = 0,
   unresolvedCount = 0,
 }: SectionCommentIndicatorProps) {

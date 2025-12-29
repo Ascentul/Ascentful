@@ -68,18 +68,7 @@ const mediaPositionValidator = v.object({
 // Helpers
 // ============================================================================
 
-/**
- * Sanitize HTML to prevent XSS
- * For now, this is a basic implementation - could be enhanced with a library like DOMPurify
- */
-function sanitizeHtml(html: string): string {
-  // Remove script tags and event handlers
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/javascript:/gi, '');
-}
+import { sanitizeCommentBody } from './lib/sanitizeHtml';
 
 /**
  * Check if user can create comments (advisors only for root comments)
@@ -158,7 +147,7 @@ export const createComment = mutation({
     }
 
     // Sanitize HTML
-    const sanitizedBody = sanitizeHtml(args.body);
+    const sanitizedBody = sanitizeCommentBody(args.body);
 
     // Determine if this is a reply
     let parentComment = null;
@@ -304,7 +293,7 @@ export const updateComment = mutation({
     if (!args.body.trim()) {
       throw new ConvexError({ message: 'Comment body cannot be empty', code: 'VALIDATION_ERROR' });
     }
-    const sanitizedBody = sanitizeHtml(args.body);
+    const sanitizedBody = sanitizeCommentBody(args.body);
 
     // Update
     const newVersion = currentVersion + 1;

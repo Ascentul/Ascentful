@@ -10,9 +10,9 @@ import type {
   ExtensionProfile,
   ExtensionSettings,
   JobApplication,
-  STORAGE_KEYS,
-  DEFAULT_SETTINGS,
 } from '~/types';
+
+import { DEFAULT_SETTINGS } from '~/types';
 
 // Re-export storage keys and defaults
 export { STORAGE_KEYS, DEFAULT_SETTINGS, PROFILE_CACHE_DURATION } from '~/types';
@@ -23,7 +23,7 @@ export { STORAGE_KEYS, DEFAULT_SETTINGS, PROFILE_CACHE_DURATION } from '~/types'
 export async function getLocal<T>(key: string): Promise<T | null> {
   try {
     const result = await chrome.storage.local.get(key);
-    return (result[key] as T) || null;
+    return (result[key] as T) ?? null;
   } catch (error) {
     console.error(`[Ascentul] Storage get error for ${key}:`, error);
     return null;
@@ -60,7 +60,7 @@ export async function removeLocal(key: string): Promise<void> {
 export async function getSession<T>(key: string): Promise<T | null> {
   try {
     const result = await chrome.storage.session.get(key);
-    return (result[key] as T) || null;
+    return (result[key] as T) ?? null;
   } catch (error) {
     console.error(`[Ascentul] Session storage get error for ${key}:`, error);
     return null;

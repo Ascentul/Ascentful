@@ -133,7 +133,7 @@ export function CommentThread({
  */
 interface CommentThreadListProps {
   threads: CommentThreadProps['thread'][];
-  currentUserId: string;
+  currentUserId: CommentThreadProps['currentUserId'];
   isAdvisor: boolean;
   onReply: CommentThreadProps['onReply'];
   onResolve: CommentThreadProps['onResolve'];
@@ -172,7 +172,7 @@ export function CommentThreadList({
         <div key={thread.root._id} className="pt-4 first:pt-0">
           <CommentThread
             thread={thread}
-            currentUserId={currentUserId as any}
+            currentUserId={currentUserId}
             isAdvisor={isAdvisor}
             onReply={onReply}
             onResolve={onResolve}

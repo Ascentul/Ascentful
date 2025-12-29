@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
+import { CommentButton } from '@/components/advisor/comments';
 import { SessionEditor } from '@/components/advisor/sessions/SessionEditor';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Badge } from '@/components/ui/badge';
@@ -299,6 +300,21 @@ export default function SessionDetailPage() {
                       <p className="text-sm text-muted-foreground">Visibility</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Comments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Comments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CommentButton
+                    targetType="session"
+                    targetId={session._id}
+                    studentId={session.student_id}
+                    section="general"
+                  />
                 </CardContent>
               </Card>
 

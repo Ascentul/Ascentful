@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
+import { CommentButton } from '@/components/advisor/comments';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1042,6 +1043,17 @@ export default function UniversityStudentsPage() {
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
                   <p className="text-sm">{selectedStudent.email}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Advisor Notes</Label>
+                  <div className="mt-1">
+                    <CommentButton
+                      targetType="profile"
+                      targetId={selectedStudent._id}
+                      studentId={selectedStudent._id}
+                      section="general"
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Role</Label>

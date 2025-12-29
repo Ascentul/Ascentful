@@ -11,7 +11,6 @@ import type { PlasmoCSConfig } from 'plasmo';
 import { detectATS, getHandlerForCurrentPage } from './ATSHandlers';
 import { storage } from '~/lib/storage';
 import { api } from '~/lib/api';
-import { useProfileStore } from '~/store/profileStore';
 
 // Plasmo content script configuration
 export const config: PlasmoCSConfig = {
@@ -369,9 +368,13 @@ function setupMessageListener() {
     if (message.type === 'FILL_FORM') {
       // Trigger fill
       const atsInfo = detectATS();
-      handleFillClick(atsInfo).then(() => {
-        sendResponse({ success: true });
-      });
+      handleFillClick(atsInfo)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          sendResponse({ success: false, error: error instanceof Error ? error.message : 'Fill failed' });
+        });
       return true; // Async response
     }
 

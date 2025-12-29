@@ -56,7 +56,15 @@ export default function ExtensionLoginPage() {
       }
 
       // Validate redirect URI (must be a Chrome extension URL)
-      if (!redirectUri.includes('.chromiumapp.org')) {
+      // Use strict hostname validation to prevent open redirect attacks
+      try {
+        const redirectUrl = new URL(redirectUri);
+        if (!redirectUrl.hostname.endsWith('.chromiumapp.org')) {
+          setStatus('error');
+          setErrorMessage('Invalid redirect URI. Please try signing in from the extension again.');
+          return;
+        }
+      } catch {
         setStatus('error');
         setErrorMessage('Invalid redirect URI. Please try signing in from the extension again.');
         return;
