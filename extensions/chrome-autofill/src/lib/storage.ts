@@ -174,6 +174,10 @@ export const storage = {
     return apps || [];
   },
 
+  async setRecentApplications(apps: JobApplication[]): Promise<void> {
+    await setLocal('ascentul_recent_apps', apps.slice(0, 20));
+  },
+
   async addRecentApplication(app: JobApplication): Promise<void> {
     const apps = await this.getRecentApplications();
     // Add to front, keep only 20 most recent

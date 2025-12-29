@@ -31,12 +31,18 @@ export function PopupAuth() {
     <div className="w-[360px] bg-white">
       {/* Header */}
       <div className="px-6 pt-8 pb-6 text-center">
-        <div className="w-16 h-16 bg-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-        </div>
-        <h1 className="text-xl font-bold text-neutral-900 mb-1">Ascentul Autofill</h1>
+        {/* Ascentful Logo - "A" icon */}
+        <svg className="w-16 h-16 mx-auto mb-4" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGradient" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6"/>
+              <stop offset="100%" stopColor="#2563eb"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="6" fill="url(#logoGradient)"/>
+          <path d="M9.5 22.5l6.5-13 6.5 13h-2.9l-1.5-3.2h-4.2l-1.5 3.2H9.5zm8-5.7l-1.6-3.5-1.6 3.5h3.2z" fill="#ffffff"/>
+        </svg>
+        <h1 className="text-xl font-bold text-neutral-900 mb-1">Ascentful Autofill</h1>
         <p className="text-sm text-neutral-500">
           Fill job applications with one click
         </p>
@@ -85,7 +91,7 @@ export function PopupAuth() {
               </svg>
             }
             title="Secure & Private"
-            description="Your data stays in your Ascentul account"
+            description="Your data stays in your Ascentful account"
           />
         </div>
       </div>
@@ -102,8 +108,8 @@ export function PopupAuth() {
         <button
           onClick={handleLogin}
           disabled={isLoading}
-          className="w-full py-3 px-4 bg-primary-500 text-white font-medium rounded-control
-                     hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
+          className="w-full py-3 px-4 bg-neutral-900 text-white font-medium rounded-full
+                     hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors flex items-center justify-center gap-2"
         >
           {isLoading ? (
@@ -113,7 +119,7 @@ export function PopupAuth() {
             </>
           ) : (
             <>
-              <span>Sign in with Ascentul</span>
+              <span>Sign in with Ascentful</span>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

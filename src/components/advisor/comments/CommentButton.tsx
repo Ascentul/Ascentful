@@ -99,7 +99,7 @@ export function CommentButton({
         setIsSubmitting(false);
       }
     },
-    [createComment, currentUserId, studentId, targetType, section],
+    [createComment, currentUserId, studentId, targetType, targetId, section],
   );
 
   // Reply to comment
@@ -118,7 +118,7 @@ export function CommentButton({
         parentId,
       });
     },
-    [createComment, currentUserId, studentId, targetType, section],
+    [createComment, currentUserId, studentId, targetType, targetId, section],
   );
 
   // Render different button variants

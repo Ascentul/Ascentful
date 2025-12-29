@@ -4,7 +4,7 @@
  * Primary action button that triggers autofill on the current page.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ATSDetectionResult } from '~/types';
 
 type FillStatus = 'idle' | 'detecting' | 'ready' | 'filling' | 'success' | 'error' | 'not-supported';
@@ -13,6 +13,16 @@ export function QuickFillButton() {
   const [status, setStatus] = useState<FillStatus>('detecting');
   const [atsInfo, setAtsInfo] = useState<ATSDetectionResult | null>(null);
   const [message, setMessage] = useState<string>('');
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Detect ATS on current page via content script
@@ -87,7 +97,7 @@ export function QuickFillButton() {
         setMessage(`Filled ${response.filledFields || 'all'} fields!`);
 
         // Reset after 3 seconds
-        setTimeout(() => {
+        timeoutRef.current = setTimeout(() => {
           setStatus('ready');
           setMessage(`${currentPlatform} detected`);
         }, 3000);
@@ -100,7 +110,7 @@ export function QuickFillButton() {
       setMessage(error instanceof Error ? error.message : 'Fill failed');
 
       // Reset after 3 seconds
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setStatus('ready');
         setMessage(`${currentPlatform} detected`);
       }, 3000);

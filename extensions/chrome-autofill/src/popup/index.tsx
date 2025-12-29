@@ -61,12 +61,18 @@ function Popup() {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-          </div>
-          <span className="font-semibold text-neutral-900">Ascentul</span>
+          {/* Ascentful Logo */}
+          <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="headerLogoGradient" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6"/>
+                <stop offset="100%" stopColor="#2563eb"/>
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="6" fill="url(#headerLogoGradient)"/>
+            <path d="M9.5 22.5l6.5-13 6.5 13h-2.9l-1.5-3.2h-4.2l-1.5 3.2H9.5zm8-5.7l-1.6-3.5-1.6 3.5h3.2z" fill="#ffffff"/>
+          </svg>
+          <span className="font-semibold text-neutral-900">Ascentful</span>
         </div>
         <button
           onClick={() => chrome.runtime.openOptionsPage()}

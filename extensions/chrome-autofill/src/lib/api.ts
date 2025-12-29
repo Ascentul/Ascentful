@@ -40,6 +40,10 @@ async function getAuthToken(): Promise<string | null> {
           expiresAt: refreshed.expiresAt,
         });
         return refreshed.token;
+      } else {
+        // Refresh returned null (e.g., 401) - clear expired auth
+        await storage.clearAuth();
+        return null;
       }
     } catch {
       // Token refresh failed, clear auth

@@ -30,7 +30,20 @@ export function RecentApplications() {
       // Then fetch fresh data
       const result = await api.getRecentApplications();
       if (result.success && result.data?.applications) {
-        setApplications(result.data.applications.slice(0, 5) as any);
+        // Map API response to JobApplication type with defaults for missing fields
+        const freshApps: JobApplication[] = result.data.applications.slice(0, 5).map((app) => ({
+          id: app.id,
+          company: app.company,
+          jobTitle: app.jobTitle,
+          url: app.url,
+          status: app.status as JobApplication['status'],
+          appliedAt: app.appliedAt,
+          source: 'api',
+          atsPlatform: 'unknown',
+        }));
+        setApplications(freshApps);
+        // Update cache with fresh data
+        await storage.setRecentApplications(freshApps);
       }
     } catch (error) {
       console.error('[Ascentul] Failed to load applications:', error);

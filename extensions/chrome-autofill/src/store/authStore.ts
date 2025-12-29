@@ -12,6 +12,8 @@ import { storage } from '~/lib/storage';
 const APP_URL = process.env.PLASMO_PUBLIC_APP_URL || 'https://app.ascentful.io';
 
 interface AuthStore extends AuthState {
+  // Loading state
+  isLoading: boolean;
   // Actions
   initialize: () => Promise<void>;
   login: () => Promise<void>;
@@ -45,37 +47,44 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   token: null,
   expiresAt: null,
+  isLoading: true,
 
   /**
    * Initialize auth state from storage
    */
   initialize: async () => {
-    const auth = await storage.getAuth();
+    set({ isLoading: true });
 
-    if (auth?.token && auth.expiresAt) {
-      // Check if token is expired
-      if (Date.now() < auth.expiresAt) {
-        set({
-          isAuthenticated: true,
-          user: auth.user,
-          token: auth.token,
-          expiresAt: auth.expiresAt,
-        });
+    try {
+      const auth = await storage.getAuth();
 
-        // Schedule token refresh if needed
-        const timeUntilExpiry = auth.expiresAt - Date.now();
-        if (timeUntilExpiry < 10 * 60 * 1000) {
-          // Less than 10 minutes
-          get().refreshToken();
-        }
-      } else {
-        // Token expired, try to refresh
-        const refreshed = await get().refreshToken();
-        if (!refreshed) {
-          await storage.clearAuth();
-          set({ isAuthenticated: false, user: null, token: null, expiresAt: null });
+      if (auth?.token && auth.expiresAt) {
+        // Check if token is expired
+        if (Date.now() < auth.expiresAt) {
+          set({
+            isAuthenticated: true,
+            user: auth.user,
+            token: auth.token,
+            expiresAt: auth.expiresAt,
+          });
+
+          // Schedule token refresh if needed
+          const timeUntilExpiry = auth.expiresAt - Date.now();
+          if (timeUntilExpiry < 10 * 60 * 1000) {
+            // Less than 10 minutes
+            get().refreshToken();
+          }
+        } else {
+          // Token expired, try to refresh
+          const refreshed = await get().refreshToken();
+          if (!refreshed) {
+            await storage.clearAuth();
+            set({ isAuthenticated: false, user: null, token: null, expiresAt: null });
+          }
         }
       }
+    } finally {
+      set({ isLoading: false });
     }
   },
 

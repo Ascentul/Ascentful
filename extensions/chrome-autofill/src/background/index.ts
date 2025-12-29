@@ -15,10 +15,16 @@ import type { ExtensionMessage, ExtensionResponse } from '~/types';
 // Refresh token before it expires (10 minutes before)
 const TOKEN_REFRESH_BUFFER = 10 * 60 * 1000;
 
+// Guard against multiple initialization (onInstalled, onStartup, and module load can all trigger)
+let initialized = false;
+
 /**
  * Initialize the background worker
  */
 async function initialize() {
+  if (initialized) return;
+  initialized = true;
+
   console.log('[Ascentul] Background worker initialized');
 
   // Set up message listener
