@@ -5,9 +5,21 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import type { ATSDetectionResult } from '~/types';
+import type { ATSDetectionResult, ATSPlatform } from '~/types';
 
 type FillStatus = 'idle' | 'detecting' | 'ready' | 'filling' | 'success' | 'error' | 'not-supported';
+
+// Type-safe ATS pattern configuration
+const ATS_PATTERNS: Array<{ pattern: RegExp; platform: ATSPlatform; displayName: string }> = [
+  { pattern: /greenhouse\.io/i, platform: 'greenhouse', displayName: 'Greenhouse' },
+  { pattern: /lever\.co/i, platform: 'lever', displayName: 'Lever' },
+  { pattern: /myworkdayjobs\.com/i, platform: 'workday', displayName: 'Workday' },
+  { pattern: /linkedin\.com\/jobs/i, platform: 'linkedin', displayName: 'LinkedIn' },
+  { pattern: /indeed\.com\/(viewjob|apply)/i, platform: 'indeed', displayName: 'Indeed' },
+  { pattern: /taleo\.net/i, platform: 'taleo', displayName: 'Taleo' },
+  { pattern: /icims\.com/i, platform: 'icims', displayName: 'iCIMS' },
+  { pattern: /smartrecruiters\.com/i, platform: 'smartrecruiters', displayName: 'SmartRecruiters' },
+];
 
 export function QuickFillButton() {
   const [status, setStatus] = useState<FillStatus>('detecting');
@@ -44,33 +56,22 @@ export function QuickFillButton() {
 
       // Check if URL matches any known ATS patterns
       const url = tab.url.toLowerCase();
-      const atsPatterns: Array<{ pattern: RegExp; platform: string }> = [
-        { pattern: /greenhouse\.io/i, platform: 'Greenhouse' },
-        { pattern: /lever\.co/i, platform: 'Lever' },
-        { pattern: /myworkdayjobs\.com/i, platform: 'Workday' },
-        { pattern: /linkedin\.com\/jobs/i, platform: 'LinkedIn' },
-        { pattern: /indeed\.com\/(viewjob|apply)/i, platform: 'Indeed' },
-        { pattern: /taleo\.net/i, platform: 'Taleo' },
-        { pattern: /icims\.com/i, platform: 'iCIMS' },
-        { pattern: /smartrecruiters\.com/i, platform: 'SmartRecruiters' },
-      ];
-
-      const match = atsPatterns.find((p) => p.pattern.test(url));
+      const match = ATS_PATTERNS.find((p) => p.pattern.test(url));
 
       if (match) {
         setAtsInfo({
           detected: true,
-          platform: match.platform.toLowerCase() as any,
+          platform: match.platform,
           confidence: 0.9,
         });
         setStatus('ready');
-        setMessage(`${match.platform} detected`);
+        setMessage(`${match.displayName} detected`);
       } else {
         setStatus('not-supported');
         setMessage('Not a supported job application page');
       }
     } catch (error) {
-      console.error('[Ascentul] ATS detection error:', error);
+      console.error('[Ascentful] ATS detection error:', error);
       setStatus('not-supported');
       setMessage('Unable to detect ATS');
     }

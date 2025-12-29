@@ -458,23 +458,22 @@ export const getOutcomesByCohort = query({
       }
     }
 
-    const query = ctx.db
+    let query = ctx.db
       .query('graduate_outcomes')
       .withIndex('by_cohort', (q) => q.eq('cohort_id', args.cohortId));
+
+    // Apply filter before pagination to ensure consistent page sizes
+    if (args.outcomeStatus) {
+      query = query.filter((q) => q.eq(q.field('outcome_status'), args.outcomeStatus));
+    }
 
     const result = await query.paginate({
       numItems: limit,
       cursor: args.cursor ?? null,
     });
 
-    let outcomes = result.page;
-
-    if (args.outcomeStatus) {
-      outcomes = outcomes.filter((o) => o.outcome_status === args.outcomeStatus);
-    }
-
     return {
-      outcomes,
+      outcomes: result.page,
       cursor: result.continueCursor,
       hasMore: !result.isDone,
     };
@@ -857,10 +856,44 @@ export const bulkImportOutcomes = mutation({
 });
 
 /**
- * Delete an outcome
+ * Archive an outcome (soft delete)
  * Requires university_admin role
+ *
+ * Uses soft delete to preserve data for:
+ * - NACE reporting audit trails
+ * - Institutional metrics history
+ * - Data correction tracking
  */
-export const deleteOutcome = mutation({
+export const archiveOutcome = mutation({
+  args: {
+    outcomeId: v.id('graduate_outcomes'),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const outcome = await ctx.db.get(args.outcomeId);
+    if (!outcome) {
+      throw new Error('Outcome not found');
+    }
+
+    assertUniversityAccess(user, outcome.institution_id);
+
+    await ctx.db.patch(args.outcomeId, {
+      is_active: false,
+      updated_at: Date.now(),
+    });
+
+    return args.outcomeId;
+  },
+});
+
+/**
+ * Hard delete an outcome - use only for test data cleanup
+ * Requires university_admin role
+ *
+ * WARNING: Permanently removes data. Use archiveOutcome for normal operations.
+ */
+export const hardDeleteOutcome = mutation({
   args: {
     outcomeId: v.id('graduate_outcomes'),
   },

@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import type { Id } from 'convex/_generated/dataModel';
 import { MessageSquare } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,8 +41,8 @@ export function CommentButton({
   );
   const currentUserId = user?.id ?? '';
 
-  // Get the correct ID prop based on target type
-  const getIdProps = () => {
+  // Memoize ID props to use in callbacks
+  const idProps = useMemo(() => {
     switch (targetType) {
       case 'resume':
         return { resumeId: targetId as Id<'resumes'> };
@@ -59,7 +59,7 @@ export function CommentButton({
       default:
         return {};
     }
-  };
+  }, [targetType, targetId]);
 
   // Fetch comments
   const {
@@ -74,7 +74,7 @@ export function CommentButton({
     togglePin,
   } = useComments({
     targetType,
-    ...getIdProps(),
+    ...idProps,
     includeResolved: true,
     includeReplies: true,
   });
@@ -92,14 +92,14 @@ export function CommentButton({
           commentType: section ? 'section' : 'general',
           body,
           visibility,
-          ...getIdProps(),
+          ...idProps,
           sectionPosition: section ? { target_section: section } : undefined,
         });
       } finally {
         setIsSubmitting(false);
       }
     },
-    [createComment, currentUserId, studentId, targetType, targetId, section],
+    [createComment, currentUserId, studentId, targetType, idProps, section],
   );
 
   // Reply to comment
@@ -113,12 +113,12 @@ export function CommentButton({
         commentType: section ? 'section' : 'general',
         body,
         visibility,
-        ...getIdProps(),
+        ...idProps,
         sectionPosition: section ? { target_section: section } : undefined,
         parentId,
       });
     },
-    [createComment, currentUserId, studentId, targetType, targetId, section],
+    [createComment, currentUserId, studentId, targetType, idProps, section],
   );
 
   // Render different button variants
