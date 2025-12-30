@@ -346,12 +346,15 @@ export class UniversalScraper {
       let min = parseInt(match[1].replace(/,/g, ''), 10);
       let max = parseInt(match[3].replace(/,/g, ''), 10);
 
-      // Handle k/K suffix
-      if (match[2] || min < 1000) min *= 1000;
-      if (match[4] || max < 1000) max *= 1000;
+      // Handle k/K suffix only when explicitly present
+      if (match[2]) min *= 1000;
+      if (match[4]) max *= 1000;
+
+      // Format display text based on value magnitude
+      const formatValue = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`;
 
       return {
-        text: `$${(min / 1000).toFixed(0)}k - $${(max / 1000).toFixed(0)}k`,
+        text: `${formatValue(min)} - ${formatValue(max)}`,
         min,
         max,
       };
@@ -362,10 +365,14 @@ export class UniversalScraper {
     const singleMatch = text.match(singlePattern);
     if (singleMatch) {
       let value = parseInt(singleMatch[1].replace(/,/g, ''), 10);
-      if (singleMatch[2] || value < 1000) value *= 1000;
+      // Handle k/K suffix only when explicitly present
+      if (singleMatch[2]) value *= 1000;
+
+      // Format display text based on value magnitude
+      const displayText = value >= 1000 ? `$${(value / 1000).toFixed(0)}k` : `$${value}`;
 
       return {
-        text: `$${(value / 1000).toFixed(0)}k`,
+        text: displayText,
         min: value,
         max: value,
       };

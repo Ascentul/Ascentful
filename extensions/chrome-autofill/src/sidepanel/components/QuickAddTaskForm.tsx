@@ -28,7 +28,7 @@ export function QuickAddTaskForm({ onSubmit, onClose, defaultApplicationId }: Qu
     try {
       await onSubmit({
         title: title.trim(),
-        dueAt: dueDate ? new Date(dueDate).getTime() : undefined,
+        dueAt: dueDate ? new Date(`${dueDate}T00:00:00`).getTime() : undefined,
         priority,
       });
     } finally {

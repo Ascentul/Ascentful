@@ -111,6 +111,11 @@ async function handleAsyncMessage(
 
     case 'PAGE_CONTEXT_UPDATED':
       // Forward to side panel if open
+      try {
+        await chrome.runtime.sendMessage({ type: 'PAGE_CONTEXT_UPDATED', payload: message.payload });
+      } catch {
+        // Side panel may not be open - that's okay
+      }
       return { success: true };
 
     // Tasks

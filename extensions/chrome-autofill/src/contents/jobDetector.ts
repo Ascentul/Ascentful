@@ -84,24 +84,37 @@ function notifyContextUpdate(context: PageContext): void {
   }
 }
 
+// Track interval and listener for cleanup
+let urlCheckInterval: ReturnType<typeof setInterval> | null = null;
+let popstateHandler: (() => void) | null = null;
+
 /**
  * Observe URL changes for SPA navigation
  */
 function observeUrlChanges(): void {
   let lastUrl = window.location.href;
 
+  // Clear any existing interval (prevents accumulation on hot-reload)
+  if (urlCheckInterval) {
+    clearInterval(urlCheckInterval);
+  }
+
   // Check URL periodically (for SPAs that don't fire popstate)
-  setInterval(() => {
+  urlCheckInterval = setInterval(() => {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       scheduleContextUpdate();
     }
   }, 1000);
 
+  // Remove existing listener if any
+  if (popstateHandler) {
+    window.removeEventListener('popstate', popstateHandler);
+  }
+
   // Also listen to popstate for back/forward navigation
-  window.addEventListener('popstate', () => {
-    scheduleContextUpdate();
-  });
+  popstateHandler = () => scheduleContextUpdate();
+  window.addEventListener('popstate', popstateHandler);
 }
 
 /**

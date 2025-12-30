@@ -335,7 +335,7 @@ export class ManualSelector {
         }
       }
 
-      // Add nth-child if needed
+      // Add nth-of-type if needed (for same-tag siblings)
       const parent = current.parentElement;
       if (parent) {
         const siblings = Array.from(parent.children).filter(
@@ -343,7 +343,7 @@ export class ManualSelector {
         );
         if (siblings.length > 1) {
           const index = siblings.indexOf(current) + 1;
-          selector += `:nth-child(${index})`;
+          selector += `:nth-of-type(${index})`;
         }
       }
 

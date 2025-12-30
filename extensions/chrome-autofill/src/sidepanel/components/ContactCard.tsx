@@ -12,6 +12,7 @@ interface ContactCardProps {
 }
 
 function getInitials(name: string): string {
+  if (!name?.trim()) return '?';
   return name
     .split(' ')
     .map((part) => part[0])

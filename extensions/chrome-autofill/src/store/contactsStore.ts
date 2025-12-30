@@ -148,10 +148,12 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
     const { contacts, searchQuery } = get();
 
     if (!searchQuery) {
-      return contacts.sort((a, b) => b.createdAt - a.createdAt);
+      // Create a copy before sorting to avoid mutating store state
+      return [...contacts].sort((a, b) => b.createdAt - a.createdAt);
     }
 
     const query = searchQuery.toLowerCase();
+    // filter() already creates a new array, so sort() is safe here
     return contacts
       .filter((contact) => {
         return (
