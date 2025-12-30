@@ -68,7 +68,7 @@ export function QuickAddContactForm({ onSubmit, onClose }: QuickAddContactFormPr
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="max-h-[60vh] overflow-y-auto p-4">
+        <form id="quick-add-contact-form" onSubmit={handleSubmit} className="max-h-[60vh] overflow-y-auto p-4">
           <div className="space-y-4">
             {/* Name */}
             <div>
@@ -171,7 +171,7 @@ export function QuickAddContactForm({ onSubmit, onClose }: QuickAddContactFormPr
           </button>
           <button
             type="submit"
-            onClick={handleSubmit}
+            form="quick-add-contact-form"
             disabled={isSubmitting || !name.trim()}
             className="flex-1 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
           >

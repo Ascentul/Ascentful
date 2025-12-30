@@ -73,7 +73,7 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="max-h-[60vh] overflow-y-auto p-4">
+        <form id="save-job-form" onSubmit={handleSubmit} className="max-h-[60vh] overflow-y-auto p-4">
           <div className="space-y-4">
             {/* Company */}
             <div>
@@ -213,8 +213,8 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
             Cancel
           </button>
           <button
-            type="button"
-            onClick={handleSubmit}
+            type="submit"
+            form="save-job-form"
             disabled={isSaving || !formData.company || !formData.jobTitle}
             className="flex-1 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
           >

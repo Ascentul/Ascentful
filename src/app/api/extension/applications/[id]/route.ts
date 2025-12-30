@@ -240,8 +240,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // Build updates object
     const updates: Record<string, unknown> = {};
-    if (effectiveStatus) updates.status = effectiveStatus;
-    if (notes !== undefined) updates.notes = notes || null;
+
+    // Persist primary stage field when provided
+    if (stage !== undefined) {
+      updates.stage = stage;
+    }
+
+    // Keep legacy status in sync for backward compatibility
+    if (effectiveStatus) {
+      updates.status = effectiveStatus;
+    }
+
+    // Allow clearing notes by sending an empty string
+    if (notes !== undefined) {
+      updates.notes = notes || null;
+    }
 
     // Update application using existing mutation
     await fetchMutation(

@@ -27,6 +27,7 @@ export function CurrentJobTab() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isFilling, setIsFilling] = useState(false);
   const [fillResult, setFillResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Fetch page context on mount and when page changes
   useEffect(() => {
@@ -97,6 +98,7 @@ export function CurrentJobTab() {
 
   const handleSaveJob = async (data: SaveJobFormData) => {
     if (!pageContext?.jobData) return;
+    setSaveError(null);
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -121,9 +123,12 @@ export function CurrentJobTab() {
         );
 
         setShowSaveModal(false);
+      } else {
+        setSaveError(response?.error || 'Failed to save job');
       }
     } catch (error) {
       console.error('[SidePanel] Failed to save job:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save job');
     }
   };
 
@@ -259,17 +264,22 @@ export function CurrentJobTab() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setShowSaveModal(true)}
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-            Save Job
-          </button>
+          <>
+            <button
+              onClick={() => setShowSaveModal(true)}
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              Save Job
+            </button>
+            {saveError && (
+              <p className="mb-3 text-center text-sm text-red-600">{saveError}</p>
+            )}
+          </>
         )}
 
         {formDetected && (

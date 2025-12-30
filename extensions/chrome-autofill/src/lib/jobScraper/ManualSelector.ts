@@ -107,6 +107,7 @@ export class ManualSelector {
     // Clear highlight
     if (this.state.highlightedElement) {
       this.state.highlightedElement.style.outline = '';
+      this.state.highlightedElement.style.outlineOffset = '';
     }
   }
 
@@ -122,6 +123,7 @@ export class ManualSelector {
     // Clear previous highlight
     if (this.state.highlightedElement) {
       this.state.highlightedElement.style.outline = '';
+      this.state.highlightedElement.style.outlineOffset = '';
     }
 
     // Highlight new element
