@@ -61,15 +61,18 @@ export function getExtensionCorsHeaders(
     };
   }
 
-  // Check if request origin is in allowed list
-  const origin =
-    requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0]; // Fallback to first allowed origin
+  // Only allow if request origin is in the allowed list
+  if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {
+    return {
+      'Access-Control-Allow-Methods': methods,
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    };
+  }
 
   return {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': requestOrigin,
     'Access-Control-Allow-Methods': methods,
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    // Required for credentialed requests from specific origins
     'Access-Control-Allow-Credentials': 'true',
   };
 }

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Check, Chrome, ExternalLink, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ const autofillFeatures: AutofillFeature[] = [
 ];
 
 export function ExtensionPromo() {
+  const router = useRouter();
   const [isDismissed, setIsDismissed] = useState(true); // Start hidden to prevent flash
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function ExtensionPromo() {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
-                onClick={() => window.open('/account/profile', '_self')}
+                onClick={() => router.push('/account/profile')}
                 className="bg-primary-500 hover:bg-primary-600 text-white rounded-full px-6"
               >
                 Edit Profile

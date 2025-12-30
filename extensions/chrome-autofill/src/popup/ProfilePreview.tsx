@@ -35,6 +35,7 @@ export function ProfilePreview({ profile }: ProfilePreviewProps) {
           <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-semibold text-sm">
             {profile.name
               ?.split(' ')
+              .filter((n) => n.length > 0)
               .map((n) => n[0])
               .join('')
               .toUpperCase()

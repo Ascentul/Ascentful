@@ -9,6 +9,7 @@ import crypto from 'crypto';
 
 type ExtensionStatePayload = {
   v: 1;
+  type: 'state';
   extensionId: string;
   redirectUri: string;
   ts: number;
@@ -55,6 +56,7 @@ function sign(payloadB64: string): string {
 export function createExtensionState(input: { extensionId: string; redirectUri: string }): string {
   const payload: ExtensionStatePayload = {
     v: 1,
+    type: 'state',
     extensionId: input.extensionId,
     redirectUri: input.redirectUri,
     ts: Date.now(),
@@ -97,9 +99,12 @@ export function verifyExtensionState(
     throw new Error('Invalid state payload');
   }
 
-  // Validate version
+  // Validate version and type
   if (payload.v !== 1) {
     throw new Error('Invalid state version');
+  }
+  if (payload.type !== 'state') {
+    throw new Error('Invalid token type');
   }
 
   // Check expiry (default 10 minutes)
@@ -123,6 +128,7 @@ export function generateExtensionSessionToken(clerkId: string): {
 
   const payload = {
     v: 1,
+    type: 'session' as const,
     clerkId,
     expiresAt,
     nonce: crypto.randomUUID(),
@@ -158,16 +164,19 @@ export function verifyExtensionSessionToken(token: string): { clerkId: string } 
   }
 
   // Parse payload
-  let payload: { v: number; clerkId: string; expiresAt: number };
+  let payload: { v: number; type: string; clerkId: string; expiresAt: number };
   try {
     payload = JSON.parse(base64UrlDecodeToString(payloadB64));
   } catch {
     throw new Error('Invalid token payload');
   }
 
-  // Validate version
+  // Validate version and type
   if (payload.v !== 1) {
     throw new Error('Invalid token version');
+  }
+  if (payload.type !== 'session') {
+    throw new Error('Invalid token type');
   }
 
   // Check expiry

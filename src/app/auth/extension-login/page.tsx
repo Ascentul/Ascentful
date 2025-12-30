@@ -23,7 +23,7 @@ type AuthStatus =
  * 4. Redirects back to extension with token
  */
 export default function ExtensionLoginPage() {
-  const { isSignedIn, isLoaded, getToken } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -114,7 +114,7 @@ export default function ExtensionLoginPage() {
     }
 
     handleExtensionAuth();
-  }, [isLoaded, isSignedIn, user, state, redirectUri, getToken]);
+  }, [isLoaded, isSignedIn, user, state, redirectUri]);
 
   // Loading state
   if (status === 'loading') {
@@ -143,7 +143,11 @@ export default function ExtensionLoginPage() {
               card: 'shadow-card rounded-card',
             },
           }}
-          redirectUrl={`/auth/extension-login?state=${state}&redirect_uri=${encodeURIComponent(redirectUri || '')}`}
+          redirectUrl={
+            state && redirectUri
+              ? `/auth/extension-login?state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`
+              : '/auth/extension-login'
+          }
         />
       </div>
     );
