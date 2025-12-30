@@ -107,16 +107,21 @@ export function CommentButton({
     async (parentId: Id<'advisor_comments'>, body: string, visibility: CommentVisibility) => {
       if (!currentUserId) return;
 
-      await createComment({
-        studentId,
-        targetType,
-        commentType: section ? 'section' : 'general',
-        body,
-        visibility,
-        ...idProps,
-        sectionPosition: section ? { target_section: section } : undefined,
-        parentId,
-      });
+      setIsSubmitting(true);
+      try {
+        await createComment({
+          studentId,
+          targetType,
+          commentType: section ? 'section' : 'general',
+          body,
+          visibility,
+          ...idProps,
+          sectionPosition: section ? { target_section: section } : undefined,
+          parentId,
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     [createComment, currentUserId, studentId, targetType, idProps, section],
   );

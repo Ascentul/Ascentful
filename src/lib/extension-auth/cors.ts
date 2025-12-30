@@ -53,6 +53,14 @@ export function getExtensionCorsHeaders(
     };
   }
 
+  // No origins configured - don't set CORS headers (fail closed)
+  if (allowedOrigins.length === 0) {
+    return {
+      'Access-Control-Allow-Methods': methods,
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    };
+  }
+
   // Check if request origin is in allowed list
   const origin =
     requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0]; // Fallback to first allowed origin

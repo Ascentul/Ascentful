@@ -82,6 +82,11 @@ export function QuickFillButton() {
     const currentPlatform = atsInfo?.platform;
     setStatus('filling');
 
+    // Clear any existing timeout to prevent unexpected state transitions
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
     try {
       // Get current tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

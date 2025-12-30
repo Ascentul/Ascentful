@@ -1,7 +1,5 @@
 'use client';
 
-import { MessageSquare } from 'lucide-react';
-
 import { cn } from '@/lib/utils';
 
 import { CommentButton } from './CommentButton';
