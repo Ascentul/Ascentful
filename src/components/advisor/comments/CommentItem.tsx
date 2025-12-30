@@ -212,10 +212,7 @@ export function CommentItem({
               </div>
             </div>
           ) : (
-            <div
-              className="mt-1 text-sm text-neutral-700 whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: comment.body }}
-            />
+            <div className="mt-1 text-sm text-neutral-700 whitespace-pre-wrap">{comment.body}</div>
           )}
 
           {/* Reactions */}

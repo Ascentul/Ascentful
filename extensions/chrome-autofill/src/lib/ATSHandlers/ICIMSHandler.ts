@@ -96,7 +96,7 @@ export class ICIMSHandler extends BaseATSHandler {
         'input[aria-label*="Address"]',
         'input[aria-label*="Street"]',
       ],
-      dataKey: 'location',
+      dataKey: 'address',
       priority: 7,
     },
     {
@@ -108,7 +108,7 @@ export class ICIMSHandler extends BaseATSHandler {
         'input[aria-label*="City"]',
         'input[placeholder*="City"]',
       ],
-      dataKey: 'location',
+      dataKey: 'city',
       priority: 7,
     },
     {
@@ -122,7 +122,7 @@ export class ICIMSHandler extends BaseATSHandler {
         'input[aria-label*="Zip"]',
         'input[aria-label*="Postal"]',
       ],
-      dataKey: 'location',
+      dataKey: 'zipCode',
       priority: 6,
     },
 

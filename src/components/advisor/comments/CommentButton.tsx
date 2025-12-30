@@ -138,7 +138,10 @@ export function CommentButton({
 
       case 'badge':
         return (
-          <button className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 transition-colors"
+          >
             <MessageSquare className="h-3 w-3" />
             <span>{count}</span>
           </button>

@@ -142,16 +142,17 @@ export const getCohortWithStats = query({
     const knownOutcomes = outcomes.filter((o) => o.outcome_status === 'known');
     const knownCount = knownOutcomes.length;
 
-    const employedCount = knownOutcomes.filter(
+    const employedOutcomes = knownOutcomes.filter(
       (o) => o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime',
-    ).length;
+    );
+    const employedCount = employedOutcomes.length;
 
     const continuingEdCount = knownOutcomes.filter(
       (o) => o.outcome_type === 'continuing_education',
     ).length;
 
-    // Calculate salary statistics from employed outcomes with salary data
-    const salaries = knownOutcomes
+    // Calculate salary statistics from employed outcomes only (consistent with finalizeCohort)
+    const salaries = employedOutcomes
       .filter((o) => o.salary !== undefined && o.salary !== null && o.salary > 0)
       .map((o) => o.salary as number)
       .sort((a, b) => a - b);

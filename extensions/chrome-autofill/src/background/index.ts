@@ -252,6 +252,9 @@ async function checkAndRefreshToken() {
   if (timeUntilExpiry < TOKEN_REFRESH_BUFFER) {
     console.log('[Ascentful] Token expiring soon, refreshing...');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
     try {
       const response = await fetch(
         `${process.env.PLASMO_PUBLIC_APP_URL}/api/extension/auth/refresh`,
@@ -261,8 +264,10 @@ async function checkAndRefreshToken() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${auth.token}`,
           },
+          signal: controller.signal,
         },
       );
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const { token, expiresAt } = await response.json();
@@ -272,6 +277,7 @@ async function checkAndRefreshToken() {
         console.warn('[Ascentful] Token refresh failed');
       }
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('[Ascentful] Token refresh error:', error);
     }
   }
@@ -289,7 +295,12 @@ async function syncPendingApplications() {
 
   console.log(`[Ascentful] Syncing ${pending.length} pending applications`);
 
-  await api.syncPendingApplications();
+  try {
+    await api.syncPendingApplications();
+  } catch (error) {
+    console.error('[Ascentful] Failed to sync pending applications:', error);
+    return; // Don't update badge if sync failed
+  }
 
   // Update badge after sync
   await updateBadge();

@@ -38,11 +38,6 @@ export function ExtensionPromo() {
     setIsDismissed(true);
   };
 
-  const handleRemindLater = () => {
-    // Dismiss for this session only (will show again on next visit)
-    setIsDismissed(true);
-  };
-
   if (isDismissed) {
     return null;
   }

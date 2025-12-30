@@ -19,6 +19,6 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": [".plasmo/index.d.ts", "src/**/*", ".plasmo/**/*"],
-  "exclude": ["node_modules"]
+  "include": [".plasmo/index.d.ts", "src/**/*"],
+  "exclude": ["node_modules", ".plasmo"]
 }

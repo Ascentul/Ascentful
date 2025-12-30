@@ -21,11 +21,11 @@ function getAllowedOrigins(): string[] {
     if (process.env.NODE_ENV === 'development') {
       return ['*'];
     }
-    // In production, if no origins configured, use wildcard but this should be fixed
-    console.warn(
-      '[extension-cors] No extension origins configured. Set CHROME_EXTENSION_ORIGIN and/or FIREFOX_EXTENSION_ORIGIN for production.',
+    // In production, fail securely by not allowing any origins
+    console.error(
+      '[extension-cors] SECURITY: No extension origins configured in production. Set CHROME_EXTENSION_ORIGIN and/or FIREFOX_EXTENSION_ORIGIN.',
     );
-    return ['*'];
+    return [];
   }
 
   return origins;

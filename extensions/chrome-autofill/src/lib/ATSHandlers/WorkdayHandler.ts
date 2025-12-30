@@ -104,9 +104,10 @@ export class WorkdayHandler extends BaseATSHandler {
       ],
       dataKey: 'location',
       priority: 6,
-      transform: (location: string) => {
+      transform: (value: unknown) => {
         // Extract postal code from location if it contains one
-        const postalMatch = location?.match(/\d{5}(-\d{4})?/);
+        const location = String(value || '');
+        const postalMatch = location.match(/\d{5}(-\d{4})?/);
         return postalMatch ? postalMatch[0] : '';
       },
     },

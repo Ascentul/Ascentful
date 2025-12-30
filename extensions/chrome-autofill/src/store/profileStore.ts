@@ -15,13 +15,16 @@ interface ProfileStore {
   profile: ExtensionProfile | null;
   selectedResumeId: string | null;
   isLoading: boolean;
+  isSyncing: boolean;
   lastSyncedAt: number | null;
   error: string | null;
 
   // Actions
   initialize: () => Promise<void>;
   syncProfile: () => Promise<void>;
+  updateProfile: (updates: Partial<ExtensionProfile>) => Promise<void>;
   selectResume: (resumeId: string) => Promise<void>;
+  setSelectedResume: (resumeId: string) => Promise<void>; // Alias for selectResume
   clearProfile: () => Promise<void>;
   getAutofillData: () => AutofillData | null;
 }
@@ -30,6 +33,9 @@ interface ProfileStore {
  * Flattened data structure for easy autofill field mapping
  */
 export interface AutofillData {
+  // Index signature for getNestedValue compatibility
+  [key: string]: string | string[] | ExtensionProfile['workHistory'] | ExtensionProfile['educationHistory'];
+
   // Contact Info
   firstName: string;
   lastName: string;
@@ -78,6 +84,7 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
   profile: null,
   selectedResumeId: null,
   isLoading: false,
+  isSyncing: false,
   lastSyncedAt: null,
   error: null,
 
@@ -159,6 +166,24 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
   },
 
   /**
+   * Update profile with partial data
+   */
+  updateProfile: async (updates: Partial<ExtensionProfile>) => {
+    const { profile } = get();
+    if (!profile) return;
+
+    set({ isSyncing: true });
+    try {
+      const updatedProfile = { ...profile, ...updates };
+      await storage.setProfile(updatedProfile);
+      set({ profile: updatedProfile, isSyncing: false });
+    } catch (error) {
+      console.error('[Ascentful] Profile update error:', error);
+      set({ isSyncing: false, error: error instanceof Error ? error.message : 'Failed to update profile' });
+    }
+  },
+
+  /**
    * Select a resume for autofill
    */
   selectResume: async (resumeId: string) => {
@@ -170,6 +195,13 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
       set({ selectedResumeId: resumeId });
       await storage.setSelectedResumeId(resumeId);
     }
+  },
+
+  /**
+   * Alias for selectResume (used by DocumentsTab)
+   */
+  setSelectedResume: async (resumeId: string) => {
+    await get().selectResume(resumeId);
   },
 
   /**

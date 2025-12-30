@@ -2335,6 +2335,7 @@ export default defineSchema({
     verified_at: v.optional(v.number()),
 
     notes: v.optional(v.string()),
+    is_active: v.optional(v.boolean()), // For soft delete
     created_at: v.number(),
     updated_at: v.number(),
   })

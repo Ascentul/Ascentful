@@ -80,6 +80,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           if (!refreshed) {
             await storage.clearAuth();
             set({ isAuthenticated: false, user: null, token: null, expiresAt: null });
+          } else {
+            // Refresh succeeded - reload auth from storage and mark as authenticated
+            const latestAuth = await storage.getAuth();
+            if (latestAuth?.token && latestAuth.expiresAt) {
+              set({
+                isAuthenticated: true,
+                user: latestAuth.user ?? null,
+                token: latestAuth.token,
+                expiresAt: latestAuth.expiresAt,
+              });
+            }
           }
         }
       }
@@ -204,7 +215,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       };
 
       await storage.setAuth(updatedAuth);
-      set({ token: newToken, expiresAt });
+      set({ isAuthenticated: true, token: newToken, expiresAt });
 
       return true;
     } catch (error) {

@@ -55,6 +55,7 @@ export interface ExtensionProfile {
   name: string;
   email: string;
   phoneNumber?: string;
+  phone?: string; // Alias for phoneNumber
   location?: string;
   city?: string;
 
@@ -62,10 +63,13 @@ export interface ExtensionProfile {
   linkedinUrl?: string;
   githubUrl?: string;
   website?: string;
+  websiteUrl?: string; // Alias for website
 
   // Career Data
   currentPosition?: string;
+  currentTitle?: string; // Alias for currentPosition
   currentCompany?: string;
+  summary?: string;
   /**
    * Skills as comma-separated string (from backend user profile).
    * Note: ResumeData.skills uses string[] format. The AutofillData interface
@@ -98,19 +102,26 @@ export interface EducationHistoryItem {
   fieldOfStudy?: string;
   startYear?: string;
   endYear?: string;
+  startDate?: string;
+  endDate?: string;
   isCurrent?: boolean;
   description?: string;
+  gpa?: string;
+  activities?: string;
+  location?: string;
 }
 
 export interface WorkHistoryItem {
   id: string;
   role?: string;
+  title?: string;
   company?: string;
   startDate?: string;
   endDate?: string;
   isCurrent?: boolean;
   location?: string;
   summary?: string;
+  description?: string;
 }
 
 export interface AchievementHistoryItem {
@@ -133,6 +144,21 @@ export interface ResumeListItem {
   title: string;
   templateId?: string;
   updatedAt: number;
+  createdAt?: number;
+  content?: ResumeData;
+}
+
+/**
+ * Resume type alias for compatibility with DocumentsTab
+ * Uses `name` as alias for `title`
+ */
+export interface Resume {
+  id: string;
+  name?: string;
+  title?: string;
+  templateId?: string;
+  updatedAt?: number;
+  createdAt?: number;
   content?: ResumeData;
 }
 
@@ -264,7 +290,7 @@ export interface CreateApplicationRequest {
 // ATS FIELD MAPPING
 // ============================================
 
-export type FieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'file' | 'date';
+export type FieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'file' | 'date' | 'url';
 
 export interface FieldMapping {
   fieldType: FieldType;
@@ -313,6 +339,7 @@ export interface ExtensionSettings {
   showFloatingButton: boolean;
   confirmBeforeFill: boolean;
   autoDetectATS: boolean;
+  autoDetect?: boolean; // Alias for autoDetectATS
 
   // Data Preferences
   fillEEOFields: boolean;
@@ -320,10 +347,15 @@ export interface ExtensionSettings {
 
   // Notifications
   showFillNotification: boolean;
+  showNotifications?: boolean; // Alias for showFillNotification
   showApplicationSaved: boolean;
 
   // Privacy
   trackApplications: boolean;
+  autoLogApplications?: boolean; // Auto-log applications when filling forms
+
+  // Sync
+  syncEnabled?: boolean; // Keep data synced with Ascentul account
 
   // UI
   floatingButtonPosition: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
@@ -333,11 +365,15 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   showFloatingButton: true,
   confirmBeforeFill: true,
   autoDetectATS: true,
+  autoDetect: true,
   fillEEOFields: false,
   shareWithAdvisor: true,
   showFillNotification: true,
+  showNotifications: true,
   showApplicationSaved: true,
   trackApplications: true,
+  autoLogApplications: true,
+  syncEnabled: true,
   floatingButtonPosition: 'bottom-right',
 };
 
