@@ -175,6 +175,34 @@ export default defineSchema({
     is_test: v.optional(v.boolean()), // Test universities can be hard deleted
     archived_at: v.optional(v.number()), // Timestamp when archived (non-destructive disable)
     deleted_at: v.optional(v.number()), // Timestamp when hard deleted (rare, guarded)
+
+    // === Institution Classification ===
+    institution_type: v.optional(
+      v.union(
+        v.literal('community_college'),
+        v.literal('public_4year'),
+        v.literal('private_nonprofit'),
+        v.literal('private_forprofit'),
+        v.literal('graduate_only'),
+        v.literal('vocational'),
+        v.literal('other'),
+      ),
+    ),
+    carnegie_classification: v.optional(v.string()), // e.g., "R1: Doctoral Universities"
+    total_students: v.optional(v.number()), // Total student body size
+
+    // === Branding ===
+    primary_color: v.optional(v.string()), // Hex color, e.g., "#5371FF"
+    secondary_color: v.optional(v.string()), // Hex color
+
+    // === Financial/Operational ===
+    avg_tuition_fees: v.optional(v.number()), // Average annual tuition in USD
+    career_services_budget: v.optional(v.number()), // Annual budget in USD
+
+    // === Flexible Settings ===
+    settings: v.optional(v.any()), // JSON blob for misc institution settings
+    feature_flags: v.optional(v.any()), // JSON blob for feature toggles
+
     created_at: v.number(),
     updated_at: v.number(),
   })
@@ -187,11 +215,58 @@ export default defineSchema({
     university_id: v.id('universities'),
     name: v.string(),
     code: v.optional(v.string()),
+
+    // === Hierarchy (self-reference stored as string due to Convex limitation) ===
+    parent_id: v.optional(v.string()), // ID of parent department for nested hierarchy
+
+    // === Leadership ===
+    dean_name: v.optional(v.string()),
+    dean_email: v.optional(v.string()),
+    career_liaison: v.optional(v.string()), // Name of career services liaison
+    career_liaison_email: v.optional(v.string()),
+
+    // === Performance Targets (0-100 percentages) ===
+    engagement_target: v.optional(v.number()), // Target % of students engaged
+    placement_target: v.optional(v.number()), // Target placement rate
+    knowledge_rate_target: v.optional(v.number()), // Target FDS response rate
+
+    // === Settings ===
+    has_own_career_center: v.optional(v.boolean()),
+    custom_settings: v.optional(v.any()), // JSON blob for department-specific settings
+
     created_at: v.number(),
     updated_at: v.number(),
   })
     .index('by_university', ['university_id'])
-    .index('by_name', ['name']),
+    .index('by_name', ['name'])
+    .index('by_parent', ['parent_id']),
+
+  // University majors/programs
+  majors: defineTable({
+    department_id: v.id('departments'),
+    university_id: v.id('universities'), // Denormalized for efficient queries
+    name: v.string(),
+    cip_code: v.optional(v.string()), // Classification of Instructional Programs code
+    degree_level: v.optional(
+      v.union(
+        v.literal('certificate'),
+        v.literal('associate'),
+        v.literal('bachelor'),
+        v.literal('master'),
+        v.literal('doctoral'),
+        v.literal('professional'), // JD, MD, etc.
+      ),
+    ),
+    common_careers: v.optional(v.array(v.string())), // Common career paths for graduates
+    average_salary: v.optional(v.number()), // Average starting salary for graduates
+    job_growth_rate: v.optional(v.number()), // Percentage job growth projection
+    is_active: v.optional(v.boolean()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_department', ['department_id'])
+    .index('by_university', ['university_id'])
+    .index('by_cip_code', ['cip_code']),
 
   // University courses (learning modules)
   courses: defineTable({
@@ -868,8 +943,9 @@ export default defineSchema({
         v.literal('minimal'),
         v.literal('classic'),
         v.literal('ats'),
+        v.literal('executive'), // Legacy template
       ),
-    ), // 'clean', 'modern', 'bold', 'minimal', 'classic', 'ats'
+    ),
     style_config: v.optional(
       v.object({
         font_pairing: v.optional(
@@ -1978,6 +2054,300 @@ export default defineSchema({
   }).index('by_tool', ['tool_id']),
 
   // ============================================================================
+  // PER-INSTITUTION AI CONFIGURATION
+  // Allows each institution to customize their AI assistant's personality,
+  // knowledge base, guardrails, and integrations.
+  // ============================================================================
+
+  // Per-institution AI assistant configuration
+  ai_institution_config: defineTable({
+    institution_id: v.id('universities'), // One config per institution
+
+    // === Personality ===
+    assistant_name: v.optional(v.string()), // e.g., "Career Coach"
+    personality: v.optional(
+      v.union(
+        v.literal('professional'),
+        v.literal('friendly'),
+        v.literal('encouraging'),
+        v.literal('direct'),
+        v.literal('custom'),
+      ),
+    ),
+    formality_level: v.optional(
+      v.union(v.literal('formal'), v.literal('semiformal'), v.literal('casual')),
+    ),
+    custom_personality_prompt: v.optional(v.string()), // For 'custom' personality
+
+    // === Feature Flags ===
+    enable_salary_advice: v.optional(v.boolean()),
+    enable_job_recommendations: v.optional(v.boolean()),
+    enable_interview_prep: v.optional(v.boolean()),
+    enable_resume_critique: v.optional(v.boolean()),
+    enable_networking_advice: v.optional(v.boolean()),
+
+    // === Referral Information ===
+    counseling_center_name: v.optional(v.string()),
+    counseling_center_url: v.optional(v.string()),
+    counseling_center_phone: v.optional(v.string()),
+    career_center_name: v.optional(v.string()),
+    career_center_url: v.optional(v.string()),
+    career_center_phone: v.optional(v.string()),
+    emergency_protocol: v.optional(v.string()), // Crisis response instructions
+
+    // === Model Settings ===
+    model_preference: v.optional(v.string()), // e.g., "gpt-4o", "gpt-4o-mini"
+    max_tokens_per_response: v.optional(v.number()),
+    temperature: v.optional(v.number()), // 0.0 - 1.0
+
+    // === Guardrails ===
+    blocked_topics: v.optional(v.array(v.string())), // Topics to avoid
+    required_disclaimers: v.optional(v.array(v.string())), // Always include
+
+    is_active: v.optional(v.boolean()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_institution', ['institution_id']),
+
+  // Institution-specific AI knowledge base documents
+  ai_knowledge_documents: defineTable({
+    config_id: v.id('ai_institution_config'),
+    institution_id: v.id('universities'), // Denormalized for queries
+
+    // === Document Info ===
+    title: v.string(),
+    description: v.optional(v.string()),
+    document_type: v.union(
+      v.literal('policy'),
+      v.literal('faq'),
+      v.literal('resource'),
+      v.literal('guideline'),
+      v.literal('employer_list'),
+      v.literal('alumni_network'),
+      v.literal('other'),
+    ),
+
+    // === File Storage ===
+    file_url: v.optional(v.string()), // External URL
+    file_storage_id: v.optional(v.id('_storage')), // Convex storage
+    file_name: v.optional(v.string()),
+    file_size: v.optional(v.number()), // Bytes
+    mime_type: v.optional(v.string()),
+
+    // === Content ===
+    content: v.optional(v.string()), // Plain text content for processing
+
+    // === Processing Status ===
+    is_processed: v.optional(v.boolean()),
+    embedding_id: v.optional(v.string()), // Reference to vector store
+    chunk_count: v.optional(v.number()), // Number of chunks created
+    processing_error: v.optional(v.string()),
+    processed_at: v.optional(v.number()),
+
+    is_active: v.optional(v.boolean()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_config', ['config_id'])
+    .index('by_institution', ['institution_id'])
+    .index('by_document_type', ['document_type']),
+
+  // Custom AI guardrail rules per institution
+  ai_guardrails: defineTable({
+    config_id: v.id('ai_institution_config'),
+    institution_id: v.id('universities'), // Denormalized
+
+    // === Rule Definition ===
+    name: v.string(),
+    description: v.optional(v.string()),
+    rule_type: v.union(
+      v.literal('topic_block'), // Block certain topics
+      v.literal('topic_redirect'), // Redirect to resource
+      v.literal('content_filter'), // Filter specific content
+      v.literal('response_modifier'), // Modify response tone/content
+      v.literal('disclaimer_inject'), // Inject disclaimers
+      v.literal('escalation'), // Escalate to human advisor
+    ),
+
+    // === Rule Logic ===
+    condition: v.optional(v.any()), // JSON: trigger conditions
+    action: v.optional(v.any()), // JSON: what to do when triggered
+    custom_response: v.optional(v.string()), // Custom response text
+    redirect_url: v.optional(v.string()), // URL to redirect to
+
+    // === Priority & Status ===
+    priority: v.optional(v.number()), // Lower = higher priority
+    is_active: v.optional(v.boolean()),
+    is_default: v.optional(v.boolean()), // Platform default rule
+
+    created_by: v.optional(v.id('users')),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_config', ['config_id'])
+    .index('by_institution', ['institution_id'])
+    .index('by_rule_type', ['rule_type']),
+
+  // ============================================================================
+  // GRADUATION OUTCOMES TRACKING (NACE)
+  // Tracks cohort-level graduation and employment outcomes for NACE reporting.
+  // ============================================================================
+
+  // Graduation cohorts for outcome tracking
+  graduation_cohorts: defineTable({
+    institution_id: v.id('universities'),
+
+    // === Cohort Identification ===
+    graduation_term: v.union(
+      v.literal('spring'),
+      v.literal('summer'),
+      v.literal('fall'),
+      v.literal('winter'),
+    ),
+    graduation_year: v.number(), // e.g., 2024
+    degree_level: v.optional(
+      v.union(
+        v.literal('certificate'),
+        v.literal('associate'),
+        v.literal('bachelor'),
+        v.literal('master'),
+        v.literal('doctoral'),
+        v.literal('professional'),
+      ),
+    ),
+
+    // === Cohort Counts ===
+    total_graduates: v.optional(v.number()),
+    known_outcomes: v.optional(v.number()), // Graduates with known outcomes
+    unknown_outcomes: v.optional(v.number()), // Graduates with unknown status
+
+    // === Outcome Rates (0-100 percentages) ===
+    knowledge_rate: v.optional(v.number()), // % with known outcomes
+    employment_rate: v.optional(v.number()), // % employed
+    continuing_ed_rate: v.optional(v.number()), // % in grad school
+    seeking_employment_rate: v.optional(v.number()), // % still seeking
+    not_seeking_rate: v.optional(v.number()), // % not seeking (personal reasons)
+
+    // === Salary Data ===
+    average_salary: v.optional(v.number()),
+    median_salary: v.optional(v.number()),
+    salary_25th_percentile: v.optional(v.number()),
+    salary_75th_percentile: v.optional(v.number()),
+
+    // === NACE Reporting ===
+    nace_submitted: v.optional(v.boolean()),
+    nace_submitted_at: v.optional(v.number()),
+    nace_report_url: v.optional(v.string()),
+
+    // === Survey Management ===
+    survey_launched_at: v.optional(v.number()),
+    survey_closed_at: v.optional(v.number()),
+    last_reminder_at: v.optional(v.number()),
+    reminder_count: v.optional(v.number()),
+
+    // === Status ===
+    status: v.optional(
+      v.union(
+        v.literal('draft'),
+        v.literal('collecting'),
+        v.literal('finalized'),
+        v.literal('submitted'),
+      ),
+    ),
+
+    notes: v.optional(v.string()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_institution', ['institution_id'])
+    .index('by_institution_year', ['institution_id', 'graduation_year'])
+    .index('by_graduation_year', ['graduation_year'])
+    .index('by_status', ['status']),
+
+  // Individual graduate outcome records
+  graduate_outcomes: defineTable({
+    cohort_id: v.id('graduation_cohorts'),
+    institution_id: v.id('universities'), // Denormalized for queries
+    student_id: v.optional(v.id('users')), // Optional link to platform user
+    major_id: v.optional(v.id('majors')), // Optional link to major
+
+    // === Student Identification (for non-platform users) ===
+    external_student_id: v.optional(v.string()), // University student ID
+    student_email: v.optional(v.string()),
+    student_name: v.optional(v.string()),
+
+    // === Outcome Classification ===
+    outcome_status: v.union(
+      v.literal('unknown'),
+      v.literal('known'),
+      v.literal('partial'), // Some info but incomplete
+    ),
+    outcome_type: v.optional(
+      v.union(
+        v.literal('employed_fulltime'),
+        v.literal('employed_parttime'),
+        v.literal('continuing_education'),
+        v.literal('military'),
+        v.literal('volunteer'),
+        v.literal('seeking'),
+        v.literal('not_seeking'),
+      ),
+    ),
+
+    // === Employment Details ===
+    employer_name: v.optional(v.string()),
+    job_title: v.optional(v.string()),
+    job_function: v.optional(v.string()), // e.g., "Software Engineering"
+    industry: v.optional(v.string()), // e.g., "Technology"
+    naics_code: v.optional(v.string()), // Industry classification
+    is_full_time: v.optional(v.boolean()),
+    salary: v.optional(v.number()), // Annual salary
+    start_date: v.optional(v.number()), // Employment start date
+
+    // === Location ===
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    country: v.optional(v.string()),
+    is_remote: v.optional(v.boolean()),
+
+    // === Continuing Education ===
+    grad_school_name: v.optional(v.string()),
+    grad_school_program: v.optional(v.string()),
+    grad_school_degree: v.optional(v.string()), // e.g., "MBA", "PhD"
+
+    // === Career-Major Relationship ===
+    is_major_related: v.optional(v.boolean()),
+
+    // === Data Quality ===
+    data_source: v.optional(
+      v.union(
+        v.literal('survey'),
+        v.literal('linkedin'),
+        v.literal('advisor_input'),
+        v.literal('student_self_report'),
+        v.literal('employer_report'),
+        v.literal('platform_inference'),
+      ),
+    ),
+    is_verified: v.optional(v.boolean()),
+    confidence_score: v.optional(v.number()), // 0-100
+    verified_by: v.optional(v.id('users')),
+    verified_at: v.optional(v.number()),
+
+    notes: v.optional(v.string()),
+    is_active: v.optional(v.boolean()), // For soft delete
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_cohort', ['cohort_id'])
+    .index('by_institution', ['institution_id'])
+    .index('by_student', ['student_id'])
+    .index('by_major', ['major_id'])
+    .index('by_outcome_status', ['outcome_status'])
+    .index('by_outcome_type', ['outcome_type'])
+    .index('by_employer', ['employer_name']),
+
+  // ============================================================================
   // EMAIL AUTO UPDATES (Gmail + Outlook)
   // Privacy: store minimal metadata + derived signals only (no full bodies)
   // ============================================================================
@@ -2186,4 +2556,126 @@ export default defineSchema({
     .index('by_application', ['application_id'])
     .index('by_user', ['user_id', 'created_at'])
     .index('by_user_undone', ['user_id', 'undone_at']),
+
+  // ============================================================================
+  // ADVISOR COMMENTS - Universal commenting system for advisor feedback
+  // Supports inline document comments (Google Docs style) and section-level comments
+  // across all artifact types: resumes, cover letters, goals, applications, sessions, etc.
+  // ============================================================================
+  advisor_comments: defineTable({
+    // Tenant & ownership
+    university_id: v.id('universities'), // Tenant isolation
+    author_id: v.id('users'), // Comment author (advisor or student)
+    student_id: v.id('users'), // Student whose artifact is being commented on
+
+    // Target artifact (polymorphic - exactly one target ID must be set based on target_type)
+    target_type: v.union(
+      v.literal('resume'),
+      v.literal('cover_letter'),
+      v.literal('goal'),
+      v.literal('application'),
+      v.literal('session'),
+      v.literal('career_plan'),
+      v.literal('skill'),
+      v.literal('linkedin_profile'),
+      v.literal('interview_recording'),
+      v.literal('profile'),
+    ),
+    // Target IDs (exactly one set based on target_type)
+    resume_id: v.optional(v.id('resumes')),
+    cover_letter_id: v.optional(v.id('cover_letters')),
+    goal_id: v.optional(v.id('goals')),
+    application_id: v.optional(v.id('applications')),
+    session_id: v.optional(v.id('advisor_sessions')),
+    career_plan_id: v.optional(v.id('career_main_paths')),
+    // For targets without dedicated ID fields (skill, linkedin_profile, interview_recording, profile)
+    generic_target_id: v.optional(v.string()),
+
+    // Comment type determines which positioning fields are relevant
+    comment_type: v.union(
+      v.literal('inline'), // Document text selection (resumes, cover letters)
+      v.literal('section'), // Field/section level (goals, applications, profile)
+      v.literal('media'), // Timestamp-based (interview recordings)
+      v.literal('general'), // General comment on artifact
+    ),
+
+    // Inline comment positioning (for resumes, cover letters - text selection)
+    inline_position: v.optional(
+      v.object({
+        selection_start: v.number(), // Character offset start
+        selection_end: v.number(), // Character offset end
+        selection_text: v.string(), // Snapshot of selected text
+        section_id: v.optional(v.string()), // Resume section ID (experience, education, etc.)
+        field_path: v.optional(v.string()), // JSON path to field (e.g., "experience[0].description")
+        page_number: v.optional(v.number()), // Page number for multi-page documents
+      }),
+    ),
+
+    // Section comment positioning (for structured data like goals, applications)
+    section_position: v.optional(
+      v.object({
+        target_section: v.string(), // Section identifier (e.g., "description", "status", "notes")
+        field_label: v.optional(v.string()), // Human-readable field name
+      }),
+    ),
+
+    // Media comment positioning (for interview recordings)
+    media_position: v.optional(
+      v.object({
+        timestamp_ms: v.number(), // Playback position in milliseconds
+        duration_ms: v.optional(v.number()), // Duration of segment being commented on
+      }),
+    ),
+
+    // Comment content
+    body: v.string(), // Sanitized HTML content
+    visibility: v.union(
+      v.literal('shared'), // Visible to student
+      v.literal('advisor_only'), // Private to advisors
+    ),
+
+    // Threading support
+    parent_id: v.optional(v.id('advisor_comments')), // For replies - immediate parent
+    thread_root_id: v.optional(v.id('advisor_comments')), // Root of thread (for flat queries)
+
+    // Status management
+    status: v.union(v.literal('active'), v.literal('resolved'), v.literal('archived')),
+    is_pinned: v.optional(v.boolean()), // Pinned comments appear first
+    resolved_by: v.optional(v.id('users')),
+    resolved_at: v.optional(v.number()),
+
+    // Reactions (lightweight - stored inline)
+    reactions: v.optional(
+      v.array(
+        v.object({
+          user_id: v.id('users'),
+          emoji: v.string(), // Unicode emoji
+          created_at: v.number(),
+        }),
+      ),
+    ),
+
+    // Version tracking for optimistic concurrency
+    version: v.optional(v.number()),
+
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    // Primary indexes for comment retrieval by artifact
+    .index('by_university', ['university_id'])
+    .index('by_resume', ['resume_id', 'status'])
+    .index('by_cover_letter', ['cover_letter_id', 'status'])
+    .index('by_goal', ['goal_id', 'status'])
+    .index('by_application', ['application_id', 'status'])
+    .index('by_session', ['session_id', 'status'])
+    .index('by_career_plan', ['career_plan_id', 'status'])
+    .index('by_student', ['student_id', 'status'])
+    .index('by_author', ['author_id'])
+    // Threading indexes
+    .index('by_parent', ['parent_id'])
+    .index('by_thread_root', ['thread_root_id', 'created_at'])
+    // Visibility filtering (for student view)
+    .index('by_resume_visibility', ['resume_id', 'visibility', 'status'])
+    .index('by_student_visibility', ['student_id', 'visibility', 'status']),
 });

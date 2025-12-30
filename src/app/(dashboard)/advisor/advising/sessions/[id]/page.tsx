@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
+import { CommentButton } from '@/components/advisor/comments';
 import { SessionEditor } from '@/components/advisor/sessions/SessionEditor';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +50,7 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
 
   const rawSessionId = Array.isArray(params.id) ? params.id[0] : params.id;
   const sessionId = rawSessionId?.trim() ?? '';
@@ -72,7 +73,36 @@ export default function SessionDetailPage() {
   // Find student in caseload
   const student = caseload?.find((s) => s._id === session?.student_id);
 
-  const isLoading = session === undefined || caseload === undefined;
+  // Only show loading if we have a valid ID and are waiting for data
+  // Also show loading while Clerk user is still loading
+  const isLoading =
+    !isUserLoaded || (isValidSessionId && (session === undefined || caseload === undefined));
+
+  // If the session ID is invalid (e.g., "new"), show not found immediately
+  if (!isValidSessionId) {
+    return (
+      <ErrorBoundary>
+        <AdvisorGate requiredFlag="advisor.advising">
+          <div className="container mx-auto p-6">
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <h2 className="text-lg font-medium">Session not found</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                The session you&apos;re looking for doesn&apos;t exist or you don&apos;t have access
+                to it.
+              </p>
+              <Button asChild>
+                <Link href="/advisor/advising/sessions">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Sessions
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </AdvisorGate>
+      </ErrorBoundary>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -270,6 +300,21 @@ export default function SessionDetailPage() {
                       <p className="text-sm text-muted-foreground">Visibility</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Comments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Comments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CommentButton
+                    targetType="session"
+                    targetId={session._id}
+                    studentId={session.student_id}
+                    section="general"
+                  />
                 </CardContent>
               </Card>
 

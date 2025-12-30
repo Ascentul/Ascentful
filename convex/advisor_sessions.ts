@@ -48,8 +48,12 @@ export const getSessionById = query({
       throw new Error('Unauthorized: Session not in your university');
     }
 
-    // Verify advisor can access this student
-    await assertCanAccessStudent(ctx, sessionCtx, session.student_id);
+    // Allow access if advisor created this session OR is primary owner of the student
+    const isSessionCreator = session.advisor_id === sessionCtx.userId;
+    if (!isSessionCreator) {
+      // Fall back to student ownership check
+      await assertCanAccessStudent(ctx, sessionCtx, session.student_id);
+    }
 
     // Enrich with student data
     const student = await ctx.db.get(session.student_id);

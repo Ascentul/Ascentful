@@ -27,19 +27,16 @@ export const getSessionsInRange = query({
     const universityId = requireTenant(sessionCtx);
 
     // Get sessions in the date range
+    // Simplified filter: session starts within the visible range
+    // This captures all sessions that should appear on the calendar
+    // Previous complex filter had edge cases with undefined end_at
     const sessions = await ctx.db
       .query('advisor_sessions')
       .withIndex('by_advisor', (q) =>
         q.eq('advisor_id', sessionCtx.userId).eq('university_id', universityId),
       )
       .filter((q) =>
-        q.and(
-          q.lte(q.field('start_at'), args.endDate),
-          q.or(
-            q.gte(q.field('end_at'), args.startDate),
-            q.and(q.eq(q.field('end_at'), undefined), q.gte(q.field('start_at'), args.startDate)),
-          ),
-        ),
+        q.and(q.gte(q.field('start_at'), args.startDate), q.lte(q.field('start_at'), args.endDate)),
       )
       .collect();
 
@@ -166,19 +163,14 @@ export const getCalendarStats = query({
     requireAdvisorRole(sessionCtx);
     const universityId = requireTenant(sessionCtx);
 
+    // Simplified filter: session starts within the visible range
     const sessions = await ctx.db
       .query('advisor_sessions')
       .withIndex('by_advisor', (q) =>
         q.eq('advisor_id', sessionCtx.userId).eq('university_id', universityId),
       )
       .filter((q) =>
-        q.and(
-          q.lte(q.field('start_at'), args.endDate),
-          q.or(
-            q.gte(q.field('end_at'), args.startDate),
-            q.and(q.eq(q.field('end_at'), undefined), q.gte(q.field('start_at'), args.startDate)),
-          ),
-        ),
+        q.and(q.gte(q.field('start_at'), args.startDate), q.lte(q.field('start_at'), args.endDate)),
       )
       .collect();
 

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { CommentButton } from '@/components/advisor/comments';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -362,7 +363,15 @@ export function ReviewEditor({
       {review.asset_content && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Document Preview</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Document Preview</CardTitle>
+              <CommentButton
+                targetType={review.asset_type === 'resume' ? 'resume' : 'cover_letter'}
+                targetId={review.asset_id}
+                studentId={review.student_id}
+                section="document"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {review.asset_content.file_url ? (

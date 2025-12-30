@@ -125,48 +125,54 @@ function TrackChangesText({
       {/* Deleted text - strikethrough with red background */}
       {beforeText && (
         <span
-          className="line-through mr-1"
+          className="line-through mr-1 rounded px-1 border border-red-400"
           style={{
-            backgroundColor: 'rgba(254, 202, 202, 0.7)',
+            backgroundColor: 'rgba(254, 202, 202, 0.5)',
             color: '#b91c1c',
-            padding: '0 2px',
-            borderRadius: '2px',
+            boxDecorationBreak: 'clone',
+            WebkitBoxDecorationBreak: 'clone',
           }}
         >
           {beforeText}
         </span>
       )}
       {/* New text - green background with orange/yellow placeholders */}
-      {afterParts.map((part, idx) =>
-        part.isPlaceholder ? (
-          <span
-            key={idx}
-            className="font-medium"
-            style={{
-              backgroundColor: 'rgba(253, 230, 138, 0.8)',
-              color: '#92400e',
-              padding: '0 2px',
-              borderRadius: '2px',
-              textDecoration: 'underline',
-              textDecorationStyle: 'dotted',
-            }}
-          >
-            {part.text}
-          </span>
-        ) : (
-          <span
-            key={idx}
-            style={{
-              backgroundColor: 'rgba(187, 247, 208, 0.7)',
-              color: '#15803d',
-              padding: '0 2px',
-              borderRadius: '2px',
-            }}
-          >
-            {part.text}
-          </span>
-        ),
-      )}
+      <span
+        className="rounded px-1 border border-green-400"
+        style={{
+          backgroundColor: 'rgba(187, 247, 208, 0.5)',
+          boxDecorationBreak: 'clone',
+          WebkitBoxDecorationBreak: 'clone',
+        }}
+      >
+        {afterParts.map((part, idx) =>
+          part.isPlaceholder ? (
+            <span
+              key={idx}
+              className="font-medium"
+              style={{
+                backgroundColor: 'rgba(253, 230, 138, 0.9)',
+                color: '#92400e',
+                padding: '0 2px',
+                borderRadius: '2px',
+                textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+              }}
+            >
+              {part.text}
+            </span>
+          ) : (
+            <span
+              key={idx}
+              style={{
+                color: '#15803d',
+              }}
+            >
+              {part.text}
+            </span>
+          ),
+        )}
+      </span>
     </span>
   );
 }

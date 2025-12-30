@@ -90,7 +90,7 @@ export default function AdvisorCalendarPage() {
             <p className="text-muted-foreground mt-1">Manage your advising schedule</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/advisor/advising/sessions/new">
+            <Link href="/advisor/advising/sessions?action=new">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Schedule Session

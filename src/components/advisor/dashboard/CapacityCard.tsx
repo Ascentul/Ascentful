@@ -157,7 +157,7 @@ export function CapacityCard({ data, isLoading }: CapacityCardProps) {
             Schedule & Capacity
           </CardTitle>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/advisor/advising/sessions/new" className="flex items-center gap-1">
+            <Link href="/advisor/advising/sessions?action=new" className="flex items-center gap-1">
               <Plus className="h-3.5 w-3.5" />
               New Session
             </Link>

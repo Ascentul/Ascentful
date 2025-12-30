@@ -34,7 +34,7 @@ export function QuickActionsBar({ className }: QuickActionsBarProps) {
           asChild
           className="h-8 gap-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
         >
-          <Link href="/advisor/advising/sessions/new">
+          <Link href="/advisor/advising/sessions?action=new">
             <Plus className="h-3.5 w-3.5" />
             <FileText className="h-3.5 w-3.5" />
             Log Session
@@ -47,10 +47,9 @@ export function QuickActionsBar({ className }: QuickActionsBarProps) {
           asChild
           className="h-8 gap-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
         >
-          <Link href="/advisor/students?action=add-followup">
-            <Plus className="h-3.5 w-3.5" />
+          <Link href="/advisor/students">
             <ListTodo className="h-3.5 w-3.5" />
-            Add Follow-up
+            View Students
           </Link>
         </Button>
 
@@ -60,10 +59,9 @@ export function QuickActionsBar({ className }: QuickActionsBarProps) {
           asChild
           className="h-8 gap-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
         >
-          <Link href="/advisor/applications/new">
-            <Plus className="h-3.5 w-3.5" />
+          <Link href="/advisor/applications">
             <Briefcase className="h-3.5 w-3.5" />
-            New Application
+            View Applications
           </Link>
         </Button>
 
@@ -73,10 +71,9 @@ export function QuickActionsBar({ className }: QuickActionsBarProps) {
           asChild
           className="h-8 gap-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
         >
-          <Link href="/advisor/students?action=update-goal">
-            <Plus className="h-3.5 w-3.5" />
+          <Link href="/advisor/analytics">
             <Target className="h-3.5 w-3.5" />
-            Update Goal
+            View Analytics
           </Link>
         </Button>
       </div>

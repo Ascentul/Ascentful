@@ -11,6 +11,7 @@ import { ApplicationsJourney } from '@/components/ApplicationsJourney';
 import { CareerGoalsSummary } from '@/components/CareerGoalsSummary';
 import { CareerTimeline } from '@/components/CareerTimeline';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { ExtensionPromo } from '@/components/ExtensionPromo';
 import { InterviewsAndFollowUpsCard } from '@/components/InterviewsAndFollowUpsCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { OnboardingGuard } from '@/components/OnboardingGuard';
@@ -200,6 +201,11 @@ export default function DashboardPage() {
             />
           </motion.div>
         )}
+
+        {/* Extension Promo - dismissible banner */}
+        <motion.div variants={cardAnimation}>
+          <ExtensionPromo />
+        </motion.div>
 
         {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}
         <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={staggeredContainer}>

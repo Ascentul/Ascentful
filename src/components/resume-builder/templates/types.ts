@@ -6,7 +6,7 @@ import type { ResumeData } from '@/components/resume/ResumeDocument';
 // Resume Builder 2.0: Enhanced Template System
 // ============================================================================
 
-export type TemplateId = 'clean' | 'modern' | 'bold' | 'minimal' | 'classic' | 'ats';
+export type TemplateId = 'clean' | 'modern' | 'bold' | 'minimal' | 'classic' | 'ats' | 'executive';
 
 // ============================================================================
 // Layout System Types
@@ -299,6 +299,7 @@ export const TEMPLATE_METADATA: Record<TemplateId, { name: string; description: 
   minimal: { name: 'Minimal', description: 'Whitespace-focused' },
   classic: { name: 'Classic', description: 'Traditional format' },
   ats: { name: 'ATS Executive', description: 'ATS-friendly two-column' },
+  executive: { name: 'Executive', description: 'Professional corporate style' },
 };
 
 // Template layout configurations
@@ -370,6 +371,17 @@ export const TEMPLATE_LAYOUTS: Record<TemplateId, TemplateLayoutConfig> = {
     fontPairing: 'minimal',
     sectionDivider: 'line',
     density: 'compact',
+  },
+  executive: {
+    id: 'executive',
+    name: 'Executive',
+    description: 'Professional corporate style',
+    layoutType: 'single-column',
+    headerStyle: 'left',
+    accentColor: '#1e3a5f', // deep navy
+    fontPairing: 'executive',
+    sectionDivider: 'line',
+    density: 'comfortable',
   },
 };
 

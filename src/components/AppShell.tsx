@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronRight } from 'lucide-react';
 import { ReactNode } from 'react';
 
 import { NotificationButtons } from '@/components/layout/NotificationButtons';
@@ -47,11 +46,12 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         <button
           type="button"
           onClick={() => sidebarContext?.expand()}
-          className="hidden md:flex items-center justify-center fixed top-5 z-40 h-8 w-8 bg-white hover:bg-slate-100 shadow-md border border-slate-200 rounded-full cursor-pointer"
+          className="hidden md:flex flex-col items-center justify-center gap-[3px] fixed top-5 z-40 h-8 w-8 cursor-pointer hover:opacity-70 transition-opacity"
           style={{ left: SIDEBAR_EXPAND_BUTTON_LEFT }}
           aria-label="Expand sidebar"
         >
-          <ChevronRight className="h-4 w-4 text-slate-600" />
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
+          <span className="w-3.5 h-[2px] bg-slate-400 rounded-full" />
         </button>
       )}
     </div>

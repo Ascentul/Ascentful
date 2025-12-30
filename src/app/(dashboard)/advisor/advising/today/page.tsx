@@ -138,8 +138,12 @@ export default function AdvisorTodayPage() {
     router.push(`/advisor/advising/sessions/${sessionId}?edit=notes`);
   };
 
-  const handleAddFollowUp = (studentId: Id<'users'>) => {
-    router.push(`/advisor/students/${studentId}?action=add-followup`);
+  const handleAddFollowUp = (_studentId: Id<'users'>) => {
+    // TODO: Implement student detail page with follow-up creation
+    toast({
+      title: 'Coming soon',
+      description: 'Student follow-up creation will be available in a future update.',
+    });
   };
 
   // Default empty data for loading states
@@ -166,7 +170,7 @@ export default function AdvisorTodayPage() {
             <p className="text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/advisor/advising/sessions/new">
+            <Link href="/advisor/advising/sessions?action=new">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Schedule Session
@@ -239,7 +243,7 @@ export default function AdvisorTodayPage() {
                   <div className="border rounded-lg p-12 text-center">
                     <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground mb-4">No sessions scheduled for today</p>
-                    <Link href="/advisor/advising/sessions/new">
+                    <Link href="/advisor/advising/sessions?action=new">
                       <Button variant="outline" size="sm">
                         <Plus className="h-4 w-4 mr-2" />
                         Schedule Session

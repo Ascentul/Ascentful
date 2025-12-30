@@ -37,6 +37,8 @@ export const TEMPLATE_COMPONENTS: Record<
   // The template prioritizes machine readability with clean section hierarchy, standard
   // headings, and no complex formatting that could confuse applicant tracking systems.
   ats: ExecutiveTemplate,
+  // 'executive' also uses ExecutiveTemplate for a professional corporate look
+  executive: ExecutiveTemplate,
 };
 
 /**
