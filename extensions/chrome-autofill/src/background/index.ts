@@ -12,6 +12,9 @@ import { storage } from '~/lib/storage';
 import { api } from '~/lib/api';
 import type { ExtensionMessage, ExtensionResponse } from '~/types';
 
+// App URL with fallback for token refresh
+const APP_URL = process.env.PLASMO_PUBLIC_APP_URL || 'https://app.ascentful.io';
+
 // Refresh token before it expires (10 minutes before)
 const TOKEN_REFRESH_BUFFER = 10 * 60 * 1000;
 
@@ -257,7 +260,7 @@ async function checkAndRefreshToken() {
 
     try {
       const response = await fetch(
-        `${process.env.PLASMO_PUBLIC_APP_URL}/api/extension/auth/refresh`,
+        `${APP_URL}/api/extension/auth/refresh`,
         {
           method: 'POST',
           headers: {

@@ -214,8 +214,8 @@ export default function ProfileTab() {
 
       {/* Actions */}
       <div className="btn-group">
-        <button className="btn-primary" onClick={handleSave} disabled={!isDirty || isSyncing}>
-          {isSyncing ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : 'Save Changes'}
+        <button className="btn-primary" onClick={handleSave} disabled={!isDirty || isSyncing || saveStatus === 'saving'}>
+          {isSyncing || saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : 'Save Changes'}
         </button>
         {saveStatus === 'error' && (
           <span style={{ color: '#ef4444', fontSize: '14px', alignSelf: 'center' }}>

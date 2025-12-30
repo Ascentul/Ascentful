@@ -149,7 +149,6 @@ export class LeverHandler extends BaseATSHandler {
       '.posting-title',
       'h1.posting-headline',
       '.content h1',
-      'h2',
     ];
 
     for (const selector of selectors) {

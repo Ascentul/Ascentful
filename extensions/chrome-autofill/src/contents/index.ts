@@ -192,11 +192,11 @@ function injectFloatingButton(atsInfo: ReturnType<typeof detectATS>) {
 /**
  * Handle click on the floating button
  */
-async function handleFillClick(atsInfo: ReturnType<typeof detectATS>) {
+async function handleFillClick(atsInfo: ReturnType<typeof detectATS>): Promise<{ filledFields: number } | null> {
   const button = document.getElementById('ascentul-fab-button');
   const tooltip = document.getElementById('ascentul-fab-tooltip');
 
-  if (!button) return;
+  if (!button) return null;
 
   // Show loading state
   button.classList.add('loading');
@@ -249,6 +249,8 @@ async function handleFillClick(atsInfo: ReturnType<typeof detectATS>) {
         button.classList.remove('success');
         if (tooltip) tooltip.textContent = 'Fill application with Ascentful';
       }, 3000);
+
+      return { filledFields: result.filledFields };
     } else {
       throw new Error('No fields were filled');
     }
@@ -266,6 +268,8 @@ async function handleFillClick(atsInfo: ReturnType<typeof detectATS>) {
       button.classList.remove('error');
       if (tooltip) tooltip.textContent = 'Fill application with Ascentful';
     }, 3000);
+
+    throw error; // Re-throw to be caught by message listener
   }
 }
 
@@ -369,8 +373,8 @@ function setupMessageListener() {
       // Trigger fill
       const atsInfo = detectATS();
       handleFillClick(atsInfo)
-        .then(() => {
-          sendResponse({ success: true });
+        .then((result) => {
+          sendResponse({ success: true, filledFields: result?.filledFields });
         })
         .catch((error) => {
           sendResponse({ success: false, error: error instanceof Error ? error.message : 'Fill failed' });

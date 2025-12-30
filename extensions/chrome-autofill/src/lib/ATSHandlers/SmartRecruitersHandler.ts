@@ -109,7 +109,7 @@ export class SmartRecruitersHandler extends BaseATSHandler {
         'input[placeholder*="LinkedIn"]',
         'input[aria-label*="LinkedIn"]',
       ],
-      dataKey: 'linkedinUrl',
+      dataKey: 'linkedin',
       priority: 5,
     },
     {
@@ -125,7 +125,7 @@ export class SmartRecruitersHandler extends BaseATSHandler {
         'input[aria-label*="Website"]',
         'input[aria-label*="Portfolio"]',
       ],
-      dataKey: 'websiteUrl',
+      dataKey: 'website',
       priority: 4,
     },
     {
@@ -138,7 +138,7 @@ export class SmartRecruitersHandler extends BaseATSHandler {
         'input[placeholder*="GitHub"]',
         'input[aria-label*="GitHub"]',
       ],
-      dataKey: 'githubUrl',
+      dataKey: 'github',
       priority: 4,
     },
 
