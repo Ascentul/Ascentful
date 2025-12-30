@@ -1,8 +1,8 @@
 {
   "name": "ascentful-autofill",
   "displayName": "Ascentful Job Application Autofill",
-  "version": "1.0.0",
-  "description": "Autofill job applications with your Ascentful profile data across major ATS platforms",
+  "version": "1.1.0",
+  "description": "Track, save and autofill job applications with your Ascentful profile. One-click apply across all major job boards and ATS platforms.",
   "author": "Ascentful",
   "scripts": {
     "dev": "plasmo dev",
@@ -47,14 +47,25 @@
       "https://*.indeed.com/*",
       "https://*.taleo.net/*",
       "https://*.icims.com/*",
-      "https://*.smartrecruiters.com/*"
+      "https://*.smartrecruiters.com/*",
+      "https://www.glassdoor.com/*",
+      "https://www.ziprecruiter.com/*",
+      "https://www.monster.com/*",
+      "https://angel.co/*",
+      "https://wellfound.com/*",
+      "https://*.dice.com/*",
+      "https://*.simplyhired.com/*"
     ],
     "permissions": [
       "storage",
       "identity",
       "activeTab",
       "notifications",
-      "alarms"
-    ]
+      "alarms",
+      "sidePanel"
+    ],
+    "side_panel": {
+      "default_path": "sidepanel.html"
+    }
   }
 }

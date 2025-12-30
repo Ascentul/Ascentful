@@ -84,6 +84,10 @@ const careerProfileSchema = z.object({
   email: z.string().email('Please enter a valid email').optional().or(z.literal('')),
   phone_number: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
+  zip_code: z.string().optional(),
+  country: z.string().optional(),
+  street_address: z.string().optional(),
   linkedin_url: z.string().url('Please enter a valid LinkedIn URL').optional().or(z.literal('')),
   major: z.string().optional(),
   university_name: z.string().optional(),
@@ -93,7 +97,14 @@ const careerProfileSchema = z.object({
   experience_level: z.string().optional(),
   industry: z.string().optional(),
   skills: z.string().optional(),
+  years_of_experience: z.string().optional(),
   career_goals: z.string().max(1000, 'Career goals must be 1000 characters or less').optional(),
+  // Work Authorization
+  work_authorization: z.string().optional(),
+  requires_sponsorship: z.boolean().optional(),
+  // Job Preferences
+  desired_salary: z.string().optional(),
+  available_start_date: z.string().optional(),
 });
 
 type CareerProfileFormValues = z.infer<typeof careerProfileSchema>;
@@ -223,6 +234,10 @@ export function CareerProfileContent() {
       email: displayProfile?.email || '',
       phone_number: displayProfile?.phone_number || '',
       city: displayProfile?.city || '',
+      state: displayProfile?.state || '',
+      zip_code: displayProfile?.zip_code || '',
+      country: displayProfile?.country || '',
+      street_address: displayProfile?.street_address || '',
       linkedin_url: displayProfile?.linkedin_url || '',
       major: displayProfile?.major || '',
       university_name: displayProfile?.university_name || '',
@@ -232,7 +247,12 @@ export function CareerProfileContent() {
       experience_level: displayProfile?.experience_level || '',
       industry: displayProfile?.industry || '',
       skills: displayProfile?.skills || '',
+      years_of_experience: displayProfile?.years_of_experience || '',
       career_goals: displayProfile?.career_goals || '',
+      work_authorization: displayProfile?.work_authorization || '',
+      requires_sponsorship: displayProfile?.requires_sponsorship ?? false,
+      desired_salary: displayProfile?.desired_salary || '',
+      available_start_date: displayProfile?.available_start_date || '',
     },
   });
 
@@ -244,6 +264,10 @@ export function CareerProfileContent() {
         email: displayProfile.email || '',
         phone_number: displayProfile.phone_number || '',
         city: displayProfile.city || '',
+        state: displayProfile.state || '',
+        zip_code: displayProfile.zip_code || '',
+        country: displayProfile.country || '',
+        street_address: displayProfile.street_address || '',
         linkedin_url: displayProfile.linkedin_url || '',
         major: displayProfile.major || '',
         university_name: displayProfile.university_name || '',
@@ -253,7 +277,12 @@ export function CareerProfileContent() {
         experience_level: displayProfile.experience_level || '',
         industry: displayProfile.industry || '',
         skills: displayProfile.skills || '',
+        years_of_experience: displayProfile.years_of_experience || '',
         career_goals: displayProfile.career_goals || '',
+        work_authorization: displayProfile.work_authorization || '',
+        requires_sponsorship: displayProfile.requires_sponsorship ?? false,
+        desired_salary: displayProfile.desired_salary || '',
+        available_start_date: displayProfile.available_start_date || '',
       });
     }
   }, [displayProfile, isEditingProfile, profileForm]);
@@ -1958,35 +1987,95 @@ export function CareerProfileContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Address Section for Job Applications */}
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-neutral-700">
+                  Address (for job applications)
+                </h4>
                 <FormField
                   control={profileForm.control}
-                  name="city"
+                  name="street_address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel>Street Address</FormLabel>
                       <FormControl>
-                        <Input placeholder="San Francisco, CA" {...field} />
+                        <Input placeholder="123 Main St, Apt 4B" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={profileForm.control}
-                  name="linkedin_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>LinkedIn Profile URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://linkedin.com/in/yourprofile" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="San Francisco" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State/Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="CA" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="zip_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP/Postal Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="94105" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input placeholder="United States" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
+
+              <FormField
+                control={profileForm.control}
+                name="linkedin_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>LinkedIn Profile URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://linkedin.com/in/yourprofile" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -2109,6 +2198,96 @@ export function CareerProfileContent() {
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={profileForm.control}
+                name="years_of_experience"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Years of Experience</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 3" {...field} />
+                    </FormControl>
+                    <FormDescription>Total years of professional experience</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Work Authorization Section */}
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-neutral-700">Work Authorization</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="work_authorization"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Work Authorization Status</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. US Citizen, Green Card, H1B" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="requires_sponsorship"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Requires Visa Sponsorship</FormLabel>
+                          <FormDescription className="text-xs">
+                            Will you need sponsorship now or in the future?
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value ?? false}
+                            onChange={field.onChange}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Job Preferences Section */}
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-neutral-700">Job Preferences</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="desired_salary"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Desired Salary</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. $80,000 - $100,000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="available_start_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Available Start Date</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Immediately, 2 weeks notice" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
 
               <FormField
                 control={profileForm.control}

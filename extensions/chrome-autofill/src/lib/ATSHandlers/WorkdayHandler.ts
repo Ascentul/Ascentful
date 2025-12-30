@@ -79,7 +79,7 @@ export class WorkdayHandler extends BaseATSHandler {
         'input[name*="addressLine1"]',
         'input[aria-label*="Address Line 1"]',
       ],
-      dataKey: 'location',
+      dataKey: 'streetAddress',
       priority: 7,
     },
     {
@@ -96,20 +96,64 @@ export class WorkdayHandler extends BaseATSHandler {
     {
       fieldType: 'text',
       selectors: [
+        '[data-automation-id="addressSection_countryRegion"] input',
+        '[data-automation-id="state"] input',
+        '[data-automation-id="region"] input',
+        'input[name*="state"]',
+        'select[name*="state"]',
+        'input[aria-label*="State"]',
+      ],
+      dataKey: 'state',
+      priority: 7,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
         '[data-automation-id="addressSection_postalCode"] input',
         '[data-automation-id="postalCode"] input',
         'input[name*="postalCode"]',
         'input[name*="zipCode"]',
         'input[aria-label*="Postal"]',
+        'input[aria-label*="ZIP"]',
       ],
-      dataKey: 'location',
+      dataKey: 'zipCode',
       priority: 6,
-      transform: (value: unknown) => {
-        // Extract postal code from location if it contains one
-        const location = String(value || '');
-        const postalMatch = location.match(/\d{5}(-\d{4})?/);
-        return postalMatch ? postalMatch[0] : '';
-      },
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        '[data-automation-id="addressSection_country"] input',
+        '[data-automation-id="country"] input',
+        'input[name*="country"]',
+        'select[name*="country"]',
+        'input[aria-label*="Country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        '[data-automation-id="workAuthorization"] input',
+        '[data-automation-id="legallyAuthorized"] input',
+        'input[name*="workAuthorization"]',
+        'input[aria-label*="authorized to work"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        '[data-automation-id="sponsorship"] input',
+        '[data-automation-id="visaSponsorship"] input',
+        'input[name*="sponsorship"]',
+        'input[aria-label*="sponsorship"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
     },
 
     // Links

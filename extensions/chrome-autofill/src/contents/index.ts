@@ -11,6 +11,7 @@ import type { PlasmoCSConfig } from 'plasmo';
 import { detectATS, getHandlerForCurrentPage } from '~/lib/ATSHandlers';
 import { storage } from '~/lib/storage';
 import { api } from '~/lib/api';
+import { initJobDetection, getCurrentPageContext, updatePageContext, hasDetectedJob } from './jobDetector';
 
 // Plasmo content script configuration
 export const config: PlasmoCSConfig = {
@@ -52,6 +53,9 @@ async function initialize() {
   }
 
   console.log(`[Ascentful] Detected ${atsInfo.platform}:`, atsInfo);
+
+  // Initialize job detection
+  initJobDetection();
 
   // Check settings to see if we should show FAB
   const settings = await storage.getSettings();
@@ -285,6 +289,7 @@ function constructAutofillData(profile: any) {
   const recentWork = profile.workHistory?.[0];
 
   return {
+    // Contact Info
     firstName,
     lastName,
     fullName: profile.name || '',
@@ -292,23 +297,51 @@ function constructAutofillData(profile: any) {
     phone: profile.phoneNumber || '',
     location: profile.location || '',
     city: profile.city || '',
+    state: profile.state || '',
+    zipCode: profile.zipCode || '',
+    country: profile.country || '',
+    streetAddress: profile.streetAddress || '',
+
+    // Links
     linkedin: profile.linkedinUrl || '',
     github: profile.githubUrl || '',
     website: profile.website || '',
+
+    // Current Role
     currentTitle: profile.currentPosition || '',
     currentCompany: profile.currentCompany || '',
+
+    // Skills & Experience
     skills: profile.skills || '',
     skillsArray: profile.skills?.split(',').map((s: string) => s.trim()) || [],
+    yearsOfExperience: profile.yearsOfExperience || '',
+
+    // Most Recent Education
     school: recentEducation?.school || '',
     degree: recentEducation?.degree || '',
     major: recentEducation?.fieldOfStudy || '',
     graduationYear: recentEducation?.endYear || '',
-    gpa: '',
+    gpa: recentEducation?.gpa || '',
+
+    // Most Recent Work Experience
     previousCompany: recentWork?.company || '',
-    previousTitle: recentWork?.role || '',
+    previousTitle: recentWork?.role || recentWork?.title || '',
     previousStartDate: recentWork?.startDate || '',
     previousEndDate: recentWork?.endDate || '',
-    summary: '',
+
+    // Summary
+    summary: profile.summary || '',
+
+    // Work Authorization
+    workAuthorization: profile.workAuthorization || '',
+    requiresSponsorship: profile.requiresSponsorship || false,
+    sponsorshipRequired: profile.requiresSponsorship ? 'Yes' : 'No',
+
+    // Job Preferences
+    desiredSalary: profile.desiredSalary || '',
+    availableStartDate: profile.availableStartDate || '',
+
+    // Full arrays for complex forms
     workHistory: profile.workHistory || [],
     educationHistory: profile.educationHistory || [],
   };
@@ -385,6 +418,30 @@ function setupMessageListener() {
     if (message.type === 'DETECT_ATS') {
       const atsInfo = detectATS();
       sendResponse(atsInfo);
+      return true;
+    }
+
+    if (message.type === 'GET_PAGE_CONTEXT') {
+      // Return current page context for side panel
+      updatePageContext()
+        .then((context) => {
+          sendResponse({ success: true, data: context });
+        })
+        .catch((error) => {
+          sendResponse({ success: false, error: error instanceof Error ? error.message : 'Failed to get page context' });
+        });
+      return true; // Async response
+    }
+
+    if (message.type === 'SCRAPE_PAGE') {
+      // Force re-scrape the page
+      updatePageContext()
+        .then((context) => {
+          sendResponse({ success: true, data: context.jobData });
+        })
+        .catch((error) => {
+          sendResponse({ success: false, error: error instanceof Error ? error.message : 'Scrape failed' });
+        });
       return true;
     }
 

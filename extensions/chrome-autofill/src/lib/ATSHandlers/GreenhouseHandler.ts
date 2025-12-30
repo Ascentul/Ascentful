@@ -196,6 +196,55 @@ export class GreenhouseHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 4,
     },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="authorized"]',
+        'input[name*="work_authorization"]',
+        'select[name*="authorized"]',
+        '[data-field*="authorized"] input',
+        '[data-field*="authorization"] input',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="sponsorship"]',
+        'select[name*="sponsorship"]',
+        '[data-field*="sponsorship"] input',
+        'input[name*="visa"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="salary"]',
+        'input[name*="compensation"]',
+        '[data-field*="salary"] input',
+        'input[placeholder*="salary"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="start_date"]',
+        'input[name*="availability"]',
+        '[data-field*="start"] input',
+        'input[placeholder*="start"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

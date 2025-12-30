@@ -138,6 +138,55 @@ export class LeverHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 4,
     },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="authorized"]',
+        'input[name*="authorization"]',
+        'select[name*="authorized"]',
+        'input[placeholder*="authorized to work"]',
+        'input[placeholder*="work authorization"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="sponsorship"]',
+        'select[name*="sponsorship"]',
+        'input[name*="visa"]',
+        'input[placeholder*="sponsorship"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="salary"]',
+        'input[name*="compensation"]',
+        'input[placeholder*="salary"]',
+        'input[placeholder*="compensation"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="start"]',
+        'input[name*="availability"]',
+        'input[placeholder*="start date"]',
+        'input[placeholder*="available"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

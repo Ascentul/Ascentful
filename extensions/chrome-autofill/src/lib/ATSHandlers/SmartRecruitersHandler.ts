@@ -208,6 +208,146 @@ export class SmartRecruitersHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 3,
     },
+
+    // Address Fields
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="address"]',
+        'input[name="streetAddress"]',
+        'input[id="address"]',
+        'input[data-test="address-input"]',
+        'input[placeholder*="Address"]',
+        'input[placeholder*="Street"]',
+        'input[aria-label*="Address"]',
+        'input[aria-label*="Street"]',
+      ],
+      dataKey: 'streetAddress',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="state"]',
+        'input[id="state"]',
+        'select[name="state"]',
+        'input[data-test="state-input"]',
+        'input[placeholder*="State"]',
+        'input[aria-label*="State"]',
+        'input[aria-label*="Province"]',
+      ],
+      dataKey: 'state',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="zipCode"]',
+        'input[name="postalCode"]',
+        'input[id="zipCode"]',
+        'input[data-test="zip-input"]',
+        'input[placeholder*="Zip"]',
+        'input[placeholder*="Postal"]',
+        'input[aria-label*="Zip"]',
+        'input[aria-label*="Postal"]',
+      ],
+      dataKey: 'zipCode',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="country"]',
+        'input[id="country"]',
+        'select[name="country"]',
+        'input[data-test="country-input"]',
+        'input[placeholder*="Country"]',
+        'input[aria-label*="Country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="workAuthorization"]',
+        'input[name="authorized"]',
+        'input[id="workAuthorization"]',
+        'select[name="workAuthorization"]',
+        'input[data-test="work-authorization-input"]',
+        'input[placeholder*="authorized"]',
+        'input[aria-label*="authorized to work"]',
+        'input[aria-label*="work authorization"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="sponsorship"]',
+        'input[name="visaSponsorship"]',
+        'input[id="sponsorship"]',
+        'select[name="sponsorship"]',
+        'input[data-test="sponsorship-input"]',
+        'input[placeholder*="sponsorship"]',
+        'input[aria-label*="sponsorship"]',
+        'input[aria-label*="visa"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Years of Experience
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="yearsOfExperience"]',
+        'input[name="experience"]',
+        'input[id="yearsOfExperience"]',
+        'select[name="experience"]',
+        'input[data-test="experience-input"]',
+        'input[placeholder*="years of experience"]',
+        'input[aria-label*="years of experience"]',
+        'input[aria-label*="total experience"]',
+      ],
+      dataKey: 'yearsOfExperience',
+      priority: 7,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="salary"]',
+        'input[name="expectedSalary"]',
+        'input[id="salary"]',
+        'input[data-test="salary-input"]',
+        'input[placeholder*="Salary"]',
+        'input[placeholder*="salary"]',
+        'input[aria-label*="Salary"]',
+        'input[aria-label*="Compensation"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name="startDate"]',
+        'input[name="availability"]',
+        'input[id="startDate"]',
+        'input[data-test="start-date-input"]',
+        'input[placeholder*="start date"]',
+        'input[placeholder*="Start date"]',
+        'input[aria-label*="Start Date"]',
+        'input[aria-label*="Available"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

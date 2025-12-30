@@ -107,6 +107,107 @@ export class IndeedHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 4,
     },
+
+    // Address Fields
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="address"]',
+        'input[name*="street"]',
+        'input[aria-label*="Address"]',
+        'input[aria-label*="Street"]',
+      ],
+      dataKey: 'streetAddress',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="state"]',
+        'select[name*="state"]',
+        'input[aria-label*="State"]',
+      ],
+      dataKey: 'state',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="zip"]',
+        'input[name*="postal"]',
+        'input[aria-label*="Zip"]',
+        'input[aria-label*="Postal"]',
+      ],
+      dataKey: 'zipCode',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="country"]',
+        'select[name*="country"]',
+        'input[aria-label*="Country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="authorized"]',
+        'input[name*="authorization"]',
+        'select[name*="authorized"]',
+        'input[aria-label*="authorized"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="sponsorship"]',
+        'select[name*="sponsorship"]',
+        'input[aria-label*="sponsorship"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Years of Experience
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="experience"]',
+        'select[name*="experience"]',
+        'input[aria-label*="years of experience"]',
+      ],
+      dataKey: 'yearsOfExperience',
+      priority: 7,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="salary"]',
+        'input[name*="compensation"]',
+        'input[aria-label*="salary"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[name*="start"]',
+        'input[name*="availability"]',
+        'input[aria-label*="start date"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

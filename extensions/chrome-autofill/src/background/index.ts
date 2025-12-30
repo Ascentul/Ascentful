@@ -99,6 +99,41 @@ async function handleAsyncMessage(
     case 'GET_RECENT_APPLICATIONS':
       return handleGetRecentApplications();
 
+    // Side panel / Job saving
+    case 'SAVE_JOB':
+      return handleSaveJob(message.payload);
+
+    case 'UPDATE_APPLICATION':
+      return handleUpdateApplication(message.payload);
+
+    case 'OPEN_SIDE_PANEL':
+      return handleOpenSidePanel(sender);
+
+    case 'PAGE_CONTEXT_UPDATED':
+      // Forward to side panel if open
+      return { success: true };
+
+    // Tasks
+    case 'GET_TASKS':
+      return handleGetTasks();
+
+    case 'CREATE_TASK':
+      return handleCreateTask(message.payload);
+
+    case 'COMPLETE_TASK':
+      return handleCompleteTask(message.payload);
+
+    // Contacts
+    case 'GET_CONTACTS':
+      return handleGetContacts();
+
+    case 'CREATE_CONTACT':
+      return handleCreateContact(message.payload);
+
+    // Stats
+    case 'GET_STATS':
+      return handleGetStats();
+
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
@@ -219,6 +254,176 @@ async function handleGetRecentApplications(): Promise<ExtensionResponse> {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to get applications',
+    };
+  }
+}
+
+/**
+ * Save a job (create application with stage)
+ */
+async function handleSaveJob(payload: any): Promise<ExtensionResponse> {
+  try {
+    const result = await api.saveJob({
+      company: payload.company,
+      jobTitle: payload.jobTitle,
+      url: payload.url,
+      stage: payload.stage || 'Prospect',
+      location: payload.location,
+      salary: payload.salary,
+      salaryMin: payload.salaryMin,
+      salaryMax: payload.salaryMax,
+      jobType: payload.jobType,
+      remote: payload.remote,
+      description: payload.description,
+      notes: payload.notes,
+      atsPlatform: payload.atsDetected,
+    });
+
+    await updateBadge();
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save job',
+    };
+  }
+}
+
+/**
+ * Update an application
+ */
+async function handleUpdateApplication(payload: any): Promise<ExtensionResponse> {
+  try {
+    const result = await api.updateApplication(payload.id, {
+      stage: payload.stage,
+      notes: payload.notes,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update application',
+    };
+  }
+}
+
+/**
+ * Open side panel
+ */
+async function handleOpenSidePanel(sender: chrome.runtime.MessageSender): Promise<ExtensionResponse> {
+  try {
+    if (sender.tab?.windowId) {
+      await chrome.sidePanel.open({ windowId: sender.tab.windowId });
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to open side panel',
+    };
+  }
+}
+
+/**
+ * Get tasks
+ */
+async function handleGetTasks(): Promise<ExtensionResponse> {
+  try {
+    const result = await api.getTasks();
+    return { success: true, data: result.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get tasks',
+    };
+  }
+}
+
+/**
+ * Create a task
+ */
+async function handleCreateTask(payload: any): Promise<ExtensionResponse> {
+  try {
+    const result = await api.createTask({
+      title: payload.title,
+      description: payload.description,
+      dueAt: payload.dueAt,
+      priority: payload.priority || 'medium',
+      applicationId: payload.applicationId,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create task',
+    };
+  }
+}
+
+/**
+ * Complete a task
+ */
+async function handleCompleteTask(payload: any): Promise<ExtensionResponse> {
+  try {
+    const result = await api.completeTask(payload.id);
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to complete task',
+    };
+  }
+}
+
+/**
+ * Get contacts
+ */
+async function handleGetContacts(): Promise<ExtensionResponse> {
+  try {
+    const result = await api.getContacts();
+    return { success: true, data: result.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get contacts',
+    };
+  }
+}
+
+/**
+ * Create a contact
+ */
+async function handleCreateContact(payload: any): Promise<ExtensionResponse> {
+  try {
+    const result = await api.createContact({
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      company: payload.company,
+      position: payload.title || payload.position,
+      linkedinUrl: payload.linkedinUrl,
+      notes: payload.notes,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create contact',
+    };
+  }
+}
+
+/**
+ * Get application stats
+ */
+async function handleGetStats(): Promise<ExtensionResponse> {
+  try {
+    const result = await api.getStats();
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get stats',
     };
   }
 }

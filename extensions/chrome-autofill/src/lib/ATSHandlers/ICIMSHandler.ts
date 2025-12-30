@@ -229,6 +229,112 @@ export class ICIMSHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 3,
     },
+
+    // State/Province
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="state"]',
+        'input[name*="state"]',
+        'select[id*="state"]',
+        'select[name*="state"]',
+        'input[data-field="state"]',
+        'input[aria-label*="State"]',
+        'input[aria-label*="Province"]',
+      ],
+      dataKey: 'state',
+      priority: 7,
+    },
+
+    // Country
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="country"]',
+        'input[name*="country"]',
+        'select[id*="country"]',
+        'select[name*="country"]',
+        'input[data-field="country"]',
+        'input[aria-label*="Country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="authorized"]',
+        'input[name*="authorized"]',
+        'input[id*="authorization"]',
+        'select[id*="authorized"]',
+        'select[name*="authorized"]',
+        'input[data-field="workAuthorization"]',
+        'input[aria-label*="authorized to work"]',
+        'input[aria-label*="work authorization"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="sponsorship"]',
+        'input[name*="sponsorship"]',
+        'select[id*="sponsorship"]',
+        'select[name*="sponsorship"]',
+        'input[data-field="sponsorship"]',
+        'input[aria-label*="sponsorship"]',
+        'input[aria-label*="visa"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Years of Experience
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="experience"]',
+        'input[name*="experience"]',
+        'select[id*="experience"]',
+        'input[data-field="experience"]',
+        'input[aria-label*="years of experience"]',
+        'input[aria-label*="total experience"]',
+      ],
+      dataKey: 'yearsOfExperience',
+      priority: 7,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="salary"]',
+        'input[name*="salary"]',
+        'input[id*="compensation"]',
+        'input[data-field="salary"]',
+        'input[aria-label*="Salary"]',
+        'input[aria-label*="Compensation"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="startDate"]',
+        'input[name*="startDate"]',
+        'input[id*="availability"]',
+        'input[name*="availability"]',
+        'input[data-field="startDate"]',
+        'input[aria-label*="Start Date"]',
+        'input[aria-label*="Available"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

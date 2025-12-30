@@ -209,6 +209,113 @@ export class TaleoHandler extends BaseATSHandler {
       dataKey: 'summary',
       priority: 3,
     },
+
+    // State/Province
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="State"]',
+        'input[name*="State"]',
+        'input[id*="state"]',
+        'input[name*="state"]',
+        'select[id*="State"]',
+        'select[name*="State"]',
+        'input[aria-label*="State"]',
+        'input[aria-label*="Province"]',
+      ],
+      dataKey: 'state',
+      priority: 7,
+    },
+
+    // Country
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="Country"]',
+        'input[name*="Country"]',
+        'input[id*="country"]',
+        'select[id*="Country"]',
+        'select[name*="Country"]',
+        'input[aria-label*="Country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="Authorized"]',
+        'input[name*="Authorized"]',
+        'input[id*="authorized"]',
+        'input[name*="authorized"]',
+        'select[id*="Authorized"]',
+        'select[name*="Authorized"]',
+        'input[aria-label*="authorized to work"]',
+        'input[aria-label*="work authorization"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="Sponsorship"]',
+        'input[name*="Sponsorship"]',
+        'input[id*="sponsorship"]',
+        'select[id*="Sponsorship"]',
+        'select[name*="Sponsorship"]',
+        'input[aria-label*="sponsorship"]',
+        'input[aria-label*="visa"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Years of Experience
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="Experience"]',
+        'input[name*="Experience"]',
+        'input[id*="experience"]',
+        'select[id*="Experience"]',
+        'input[aria-label*="years of experience"]',
+        'input[aria-label*="total experience"]',
+      ],
+      dataKey: 'yearsOfExperience',
+      priority: 7,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="Salary"]',
+        'input[name*="Salary"]',
+        'input[id*="salary"]',
+        'input[id*="Compensation"]',
+        'input[aria-label*="Salary"]',
+        'input[aria-label*="Compensation"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[id*="StartDate"]',
+        'input[name*="StartDate"]',
+        'input[id*="startDate"]',
+        'input[id*="Availability"]',
+        'input[name*="Availability"]',
+        'input[aria-label*="Start Date"]',
+        'input[aria-label*="Available"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**
