@@ -46,8 +46,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json();
-    const { state } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      log.warn('Invalid JSON in request body', { event: 'validation.failed' });
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400, headers: corsHeaders },
+      );
+    }
+    const { state } = body as { state?: unknown };
 
     if (!state || typeof state !== 'string') {
       log.warn('Missing state parameter', { event: 'validation.failed' });

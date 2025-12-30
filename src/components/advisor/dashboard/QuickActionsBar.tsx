@@ -7,10 +7,10 @@
  * to key workflows without navigating through menus.
  *
  * Business meaning: Reduces friction for high-frequency advisor tasks:
- * - Log session notes (documentation after meetings)
- * - Add follow-up tasks (action items from sessions)
- * - Create applications (help students track new opportunities)
- * - Update career goals (guide student direction)
+ * - Log session (create new advising session notes)
+ * - View students (access student roster)
+ * - View applications (monitor student job applications)
+ * - View analytics (review advising metrics)
  */
 
 import { Briefcase, FileText, ListTodo, Plus, Target } from 'lucide-react';
