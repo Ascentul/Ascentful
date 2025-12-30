@@ -11,6 +11,7 @@ import { detectATS } from '~/lib/ATSHandlers';
 
 let currentPageContext: PageContext | null = null;
 let contextUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+let domObserver: MutationObserver | null = null;
 
 /**
  * Initialize job detection on the page
@@ -121,7 +122,12 @@ function observeUrlChanges(): void {
  * Observe DOM changes that might indicate content update
  */
 function observeDomChanges(): void {
-  const observer = new MutationObserver((mutations) => {
+  // Clean up existing observer to prevent accumulation on hot-reload
+  if (domObserver) {
+    domObserver.disconnect();
+  }
+
+  domObserver = new MutationObserver((mutations) => {
     // Check if significant changes occurred
     const hasSignificantChange = mutations.some((mutation) => {
       // Look for added nodes that might contain job info
@@ -144,7 +150,7 @@ function observeDomChanges(): void {
     }
   });
 
-  observer.observe(document.body, {
+  domObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });

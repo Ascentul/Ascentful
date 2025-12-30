@@ -174,7 +174,14 @@ export async function POST(request: NextRequest) {
     const notesParts: string[] = [];
     if (notes) notesParts.push(notes);
     if (location) notesParts.push(`Location: ${location}`);
-    if (salary) notesParts.push(`Salary: ${salary}`);
+    if (salary) {
+      notesParts.push(`Salary: ${salary}`);
+    } else if (salaryMin || salaryMax) {
+      // Use structured salary range if string salary not provided
+      const minStr = salaryMin ? `$${salaryMin.toLocaleString()}` : '?';
+      const maxStr = salaryMax ? `$${salaryMax.toLocaleString()}` : '?';
+      notesParts.push(`Salary Range: ${minStr} - ${maxStr}`);
+    }
     if (jobType) notesParts.push(`Type: ${jobType}`);
     if (remote) notesParts.push(`Remote: ${remote}`);
     if (atsPlatform && atsPlatform !== 'unknown') notesParts.push(`ATS: ${atsPlatform}`);

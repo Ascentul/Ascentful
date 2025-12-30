@@ -25,17 +25,12 @@ export function JobsTab() {
     fetchApplications,
     selectedApplicationId,
     selectApplication,
-    updateApplication
   } = useApplicationsStore();
   const [filter, setFilter] = useState<ApplicationStage | 'all'>('all');
 
   useEffect(() => {
     fetchApplications();
   }, [fetchApplications]);
-
-  const handleUpdateStatus = async (id: string, stage: ApplicationStage) => {
-    await updateApplication(id, { stage });
-  };
 
   const filteredApplications =
     filter === 'all'
@@ -147,7 +142,6 @@ export function JobsTab() {
                 location: app.location,
               }}
               onClick={() => selectApplication(app.id)}
-              onUpdateStatus={(stage: ApplicationStage) => handleUpdateStatus(app.id, stage)}
             />
           ))}
         </div>
