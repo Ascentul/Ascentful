@@ -46,6 +46,21 @@ export const createApplication = mutation({
       v.literal('offer'),
       v.literal('rejected'),
     ),
+    // Optional: Explicit stage to use instead of auto-mapping from status
+    // This preserves distinct stages (e.g., Withdrawn vs Rejected) that would be lost
+    // when mapping through the limited status enum
+    stage: v.optional(
+      v.union(
+        v.literal('Prospect'),
+        v.literal('Applied'),
+        v.literal('Interview'),
+        v.literal('Offer'),
+        v.literal('Accepted'),
+        v.literal('Rejected'),
+        v.literal('Withdrawn'),
+        v.literal('Archived'),
+      ),
+    ),
     source: v.optional(v.string()),
     url: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -95,9 +110,10 @@ export const createApplication = mutation({
       company: args.company,
       job_title: args.job_title,
       status: args.status,
-      // MIGRATION: Sync stage field from status for data consistency
-      // See docs/TECH_DEBT_APPLICATION_STATUS_STAGE.md
-      stage: mapStatusToStage(args.status),
+      // Use explicit stage if provided, otherwise auto-map from status
+      // Explicit stage preserves distinct values (Withdrawn, Archived) that would be
+      // lost when mapping through the limited status enum
+      stage: args.stage ?? mapStatusToStage(args.status),
       stage_set_at: now,
       source: args.source,
       url: args.url,

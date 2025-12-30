@@ -62,6 +62,7 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
           <h2 className="text-base font-medium text-neutral-900">Save Job</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -212,7 +213,7 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
             Cancel
           </button>
           <button
-            type="submit"
+            type="button"
             onClick={handleSubmit}
             disabled={isSaving || !formData.company || !formData.jobTitle}
             className="flex-1 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"

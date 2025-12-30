@@ -21,7 +21,6 @@ interface Application {
 interface JobCardProps {
   application: Application;
   onClick?: () => void;
-  onUpdateStatus?: (stage: ApplicationStage) => void;
 }
 
 const stageColors: Record<ApplicationStage, { bg: string; text: string }> = {

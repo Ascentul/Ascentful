@@ -57,6 +57,7 @@ export function QuickAddContactForm({ onSubmit, onClose }: QuickAddContactFormPr
           <h2 className="text-base font-medium text-neutral-900">Add Contact</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

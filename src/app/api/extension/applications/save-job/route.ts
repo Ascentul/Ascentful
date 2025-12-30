@@ -181,7 +181,8 @@ export async function POST(request: NextRequest) {
 
     const applicationNotes = notesParts.join('\n');
 
-    // Create application
+    // Create application with explicit stage to preserve distinct values
+    // (e.g., Withdrawn vs Rejected) that would be lost in status mapping
     const applicationId = await fetchMutation(
       api.applications.createApplication,
       {
@@ -189,6 +190,7 @@ export async function POST(request: NextRequest) {
         company,
         job_title: jobTitle,
         status,
+        stage, // Pass explicit stage to preserve distinct values
         source: 'extension_save_job',
         url: url || undefined,
         notes: applicationNotes || undefined,

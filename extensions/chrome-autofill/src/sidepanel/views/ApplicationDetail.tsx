@@ -75,6 +75,7 @@ export function ApplicationDetail({ applicationId, onClose }: ApplicationDetailP
       <div className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
         <button
           onClick={onClose}
+          aria-label="Go back"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -241,6 +242,7 @@ export function ApplicationDetail({ applicationId, onClose }: ApplicationDetailP
           {application.url && (
             <button
               onClick={() => window.open(application.url, '_blank')}
+              aria-label="View job posting"
               className="flex items-center justify-center rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
