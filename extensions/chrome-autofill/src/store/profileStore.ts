@@ -108,7 +108,7 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
         set({ isLoading: false });
       }
     } catch (error) {
-      console.error('[Ascentul] Profile initialization error:', error);
+      console.error('[Ascentful] Profile initialization error:', error);
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to load profile',
@@ -150,7 +150,7 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
         });
       }
     } catch (error) {
-      console.error('[Ascentul] Profile sync error:', error);
+      console.error('[Ascentful] Profile sync error:', error);
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to sync profile',

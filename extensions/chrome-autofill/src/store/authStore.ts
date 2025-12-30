@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         },
         async (callbackUrl) => {
           if (chrome.runtime.lastError) {
-            console.error('[Ascentul] Auth error:', chrome.runtime.lastError);
+            console.error('[Ascentful] Auth error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
             return;
           }
@@ -148,7 +148,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
             resolve();
           } catch (error) {
-            console.error('[Ascentul] Error parsing callback:', error);
+            console.error('[Ascentful] Error parsing callback:', error);
             reject(error);
           }
         },
@@ -208,7 +208,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       return true;
     } catch (error) {
-      console.error('[Ascentul] Token refresh failed:', error);
+      console.error('[Ascentful] Token refresh failed:', error);
       return false;
     }
   },

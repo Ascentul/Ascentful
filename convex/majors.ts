@@ -134,7 +134,7 @@ export const searchMajors = query({
     const majors = await ctx.db
       .query('majors')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.eq(q.field('is_active'), true))
+      .filter((q) => q.neq(q.field('is_active'), false))
       .collect();
 
     // Filter by search term (name or CIP code)

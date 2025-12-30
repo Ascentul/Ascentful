@@ -28,7 +28,7 @@ export default function DocumentsTab() {
   };
 
   const openDashboard = () => {
-    window.open('https://ascentul.io/resumes', '_blank');
+    window.open('https://ascentful.io/resumes', '_blank');
   };
 
   const handleSelectResume = async (resumeId: string) => {

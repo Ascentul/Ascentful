@@ -100,20 +100,20 @@ export function QuickFillButton() {
         // Reset after 3 seconds
         timeoutRef.current = setTimeout(() => {
           setStatus('ready');
-          setMessage(`${currentPlatform} detected`);
+          setMessage(currentPlatform ? `${currentPlatform} detected` : 'Ready');
         }, 3000);
       } else {
         throw new Error(response?.error || 'Fill failed');
       }
     } catch (error) {
-      console.error('[Ascentul] Fill error:', error);
+      console.error('[Ascentful] Fill error:', error);
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Fill failed');
 
       // Reset after 3 seconds
       timeoutRef.current = setTimeout(() => {
         setStatus('ready');
-        setMessage(`${currentPlatform} detected`);
+        setMessage(currentPlatform ? `${currentPlatform} detected` : 'Ready');
       }, 3000);
     }
   };

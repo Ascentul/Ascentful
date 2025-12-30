@@ -3,19 +3,15 @@ import { fetchQuery } from 'convex/nextjs';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { requireConvexToken } from '@/lib/convex-auth';
+import { getExtensionCorsHeaders } from '@/lib/extension-auth/cors';
 import { verifyExtensionSessionToken } from '@/lib/extension-auth/extensionState';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
-// CORS headers for extension requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-};
-
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'GET, OPTIONS');
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
@@ -30,6 +26,8 @@ export async function OPTIONS() {
  * - List of resumes
  */
 export async function GET(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'GET, OPTIONS');
   const correlationId = getCorrelationIdFromRequest(request);
   const log = createRequestLogger(correlationId, {
     feature: 'extension',

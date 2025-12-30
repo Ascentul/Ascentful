@@ -28,7 +28,35 @@
     "page": "./options.html",
     "open_in_tab": true
   },
-  "permissions": ["storage", "identity", "activeTab", "notifications", "alarms"],
+  "permissions": [
+    "storage",
+    "identity",
+    "activeTab",
+    "notifications",
+    "alarms"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://boards.greenhouse.io/*",
+        "https://job-boards.greenhouse.io/*",
+        "https://*.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://*.lever.co/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://www.linkedin.com/jobs/*",
+        "https://*.indeed.com/*",
+        "https://*.taleo.net/*",
+        "https://*.icims.com/*",
+        "https://*.smartrecruiters.com/*"
+      ],
+      "js": [
+        "../src/contents/index.ts"
+      ],
+      "all_frames": true,
+      "run_at": "document_end"
+    }
+  ],
   "host_permissions": [
     "https://boards.greenhouse.io/*",
     "https://*.greenhouse.io/*",

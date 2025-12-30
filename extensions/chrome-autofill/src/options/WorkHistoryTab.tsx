@@ -24,7 +24,7 @@ export default function WorkHistoryTab() {
   };
 
   const openDashboard = () => {
-    window.open('https://ascentul.io/dashboard/profile', '_blank');
+    window.open('https://ascentful.io/dashboard/profile', '_blank');
   };
 
   return (

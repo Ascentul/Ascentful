@@ -46,7 +46,7 @@ export function RecentApplications() {
         await storage.setRecentApplications(freshApps);
       }
     } catch (error) {
-      console.error('[Ascentul] Failed to load applications:', error);
+      console.error('[Ascentful] Failed to load applications:', error);
     } finally {
       setIsLoading(false);
     }

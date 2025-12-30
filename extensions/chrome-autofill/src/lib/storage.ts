@@ -25,7 +25,7 @@ export async function getLocal<T>(key: string): Promise<T | null> {
     const result = await chrome.storage.local.get(key);
     return (result[key] as T) ?? null;
   } catch (error) {
-    console.error(`[Ascentul] Storage get error for ${key}:`, error);
+    console.error(`[Ascentful] Storage get error for ${key}:`, error);
     return null;
   }
 }
@@ -37,7 +37,7 @@ export async function setLocal<T>(key: string, value: T): Promise<void> {
   try {
     await chrome.storage.local.set({ [key]: value });
   } catch (error) {
-    console.error(`[Ascentul] Storage set error for ${key}:`, error);
+    console.error(`[Ascentful] Storage set error for ${key}:`, error);
     throw error;
   }
 }
@@ -49,7 +49,7 @@ export async function removeLocal(key: string): Promise<void> {
   try {
     await chrome.storage.local.remove(key);
   } catch (error) {
-    console.error(`[Ascentul] Storage remove error for ${key}:`, error);
+    console.error(`[Ascentful] Storage remove error for ${key}:`, error);
     throw error;
   }
 }
@@ -62,7 +62,7 @@ export async function getSession<T>(key: string): Promise<T | null> {
     const result = await chrome.storage.session.get(key);
     return (result[key] as T) ?? null;
   } catch (error) {
-    console.error(`[Ascentul] Session storage get error for ${key}:`, error);
+    console.error(`[Ascentful] Session storage get error for ${key}:`, error);
     return null;
   }
 }
@@ -74,7 +74,7 @@ export async function setSession<T>(key: string, value: T): Promise<void> {
   try {
     await chrome.storage.session.set({ [key]: value });
   } catch (error) {
-    console.error(`[Ascentul] Session storage set error for ${key}:`, error);
+    console.error(`[Ascentful] Session storage set error for ${key}:`, error);
     throw error;
   }
 }
@@ -86,7 +86,7 @@ export async function removeSession(key: string): Promise<void> {
   try {
     await chrome.storage.session.remove(key);
   } catch (error) {
-    console.error(`[Ascentul] Session storage remove error for ${key}:`, error);
+    console.error(`[Ascentful] Session storage remove error for ${key}:`, error);
     throw error;
   }
 }

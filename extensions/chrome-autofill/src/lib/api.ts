@@ -89,7 +89,7 @@ async function apiRequest<T>(
     const data = await response.json();
     return { success: true, data };
   } catch (error) {
-    console.error(`[Ascentul] API request failed for ${endpoint}:`, error);
+    console.error(`[Ascentful] API request failed for ${endpoint}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',

@@ -34,7 +34,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const settings = await storage.getSettings();
       set({ settings, isLoading: false });
     } catch (error) {
-      console.error('[Ascentul] Settings initialization error:', error);
+      console.error('[Ascentful] Settings initialization error:', error);
       set({ settings: DEFAULT_SETTINGS, isLoading: false });
     }
   },

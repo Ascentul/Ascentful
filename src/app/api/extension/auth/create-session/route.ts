@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getExtensionCorsHeaders } from '@/lib/extension-auth/cors';
 import {
   generateExtensionSessionToken,
   verifyExtensionState,
@@ -9,14 +10,9 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const dynamic = 'force-dynamic';
 
-// CORS headers for extension requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'POST, OPTIONS');
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
@@ -27,6 +23,8 @@ export async function OPTIONS() {
  * Called from the extension login page after Clerk authentication.
  */
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'POST, OPTIONS');
   const correlationId = getCorrelationIdFromRequest(request);
   const log = createRequestLogger(correlationId, {
     feature: 'extension-auth',

@@ -144,6 +144,99 @@ async function enrichComments(
   return Promise.all(comments.map((c) => enrichComment(ctx, c)));
 }
 
+/**
+ * Verify authorization to access comments for an artifact
+ *
+ * Rules:
+ * - Students can only access their own artifacts
+ * - Advisors must have ownership of the student (via student_advisors)
+ * - University admins can access any student in their university
+ * - Super admins can access any student
+ *
+ * @returns The student_id (owner) of the artifact, or null if unauthorized
+ */
+async function verifyArtifactAccess(
+  ctx: QueryCtx,
+  sessionCtx: AdvisorSessionContext,
+  artifactType: 'resume' | 'cover_letter' | 'goal' | 'application' | 'session' | 'career_plan',
+  artifactId:
+    | Id<'resumes'>
+    | Id<'cover_letters'>
+    | Id<'goals'>
+    | Id<'applications'>
+    | Id<'advisor_sessions'>
+    | Id<'career_main_paths'>,
+): Promise<{ studentId: Id<'users'>; universityId: Id<'universities'> | undefined } | null> {
+  // Look up the artifact to get its owner
+  let studentId: Id<'users'> | undefined;
+  let artifactUniversityId: Id<'universities'> | undefined;
+
+  if (artifactType === 'resume') {
+    const resume = await ctx.db.get(artifactId as Id<'resumes'>);
+    studentId = resume?.user_id;
+  } else if (artifactType === 'cover_letter') {
+    const coverLetter = await ctx.db.get(artifactId as Id<'cover_letters'>);
+    studentId = coverLetter?.user_id;
+  } else if (artifactType === 'goal') {
+    const goal = await ctx.db.get(artifactId as Id<'goals'>);
+    studentId = goal?.user_id;
+  } else if (artifactType === 'application') {
+    const application = await ctx.db.get(artifactId as Id<'applications'>);
+    studentId = application?.user_id;
+  } else if (artifactType === 'session') {
+    const session = await ctx.db.get(artifactId as Id<'advisor_sessions'>);
+    studentId = session?.student_id;
+    artifactUniversityId = session?.university_id;
+  } else if (artifactType === 'career_plan') {
+    const careerPlan = await ctx.db.get(artifactId as Id<'career_main_paths'>);
+    studentId = careerPlan?.user_id;
+  }
+
+  if (!studentId) {
+    return null; // Artifact not found
+  }
+
+  // Students can only access their own artifacts
+  if (
+    sessionCtx.role === 'student' ||
+    sessionCtx.role === 'user' ||
+    sessionCtx.role === 'individual'
+  ) {
+    if (studentId !== sessionCtx.userId) {
+      return null; // Not the owner
+    }
+    return { studentId, universityId: sessionCtx.universityId };
+  }
+
+  // For advisors and admins, verify access to this student
+  const canAccess = await canAccessStudent(ctx, sessionCtx, studentId);
+  if (!canAccess) {
+    return null;
+  }
+
+  // Get student's university for tenant filtering
+  const student = await ctx.db.get(studentId);
+  const universityId = student?.university_id ?? artifactUniversityId;
+
+  return { studentId, universityId };
+}
+
+/**
+ * Filter comments by tenant (university_id)
+ * Returns only comments that belong to the caller's university
+ */
+function filterByTenant(
+  comments: Doc<'advisor_comments'>[],
+  universityId: Id<'universities'> | undefined,
+): Doc<'advisor_comments'>[] {
+  if (!universityId) {
+    // No tenant - should only happen for super_admin viewing individual users
+    // In this case, allow all comments
+    return comments;
+  }
+  return comments.filter((c) => c.university_id === universityId);
+}
+
 // ============================================================================
 // Queries
 // ============================================================================
@@ -171,6 +264,36 @@ export const getCommentsByArtifact = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
+
+    // Verify authorization to access this artifact's comments
+    let accessInfo: {
+      studentId: Id<'users'>;
+      universityId: Id<'universities'> | undefined;
+    } | null = null;
+
+    if (args.targetType === 'resume' && args.resumeId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'resume', args.resumeId);
+    } else if (args.targetType === 'cover_letter' && args.coverLetterId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'cover_letter', args.coverLetterId);
+    } else if (args.targetType === 'goal' && args.goalId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'goal', args.goalId);
+    } else if (args.targetType === 'application' && args.applicationId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'application', args.applicationId);
+    } else if (args.targetType === 'session' && args.sessionId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'session', args.sessionId);
+    } else if (args.targetType === 'career_plan' && args.careerPlanId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'career_plan', args.careerPlanId);
+    } else {
+      // For types without dedicated ID fields (skill, linkedin_profile, etc.)
+      // We'd need to filter by target_type from a student query
+      // For now, return empty - these can be implemented as needed
+      return { comments: [], threads: [] };
+    }
+
+    // Return empty if unauthorized
+    if (!accessInfo) {
+      return { comments: [], threads: [] };
+    }
 
     // Build query based on target type
     let comments: Doc<'advisor_comments'>[] = [];
@@ -205,12 +328,10 @@ export const getCommentsByArtifact = query({
         .query('advisor_comments')
         .withIndex('by_career_plan', (q) => q.eq('career_plan_id', args.careerPlanId))
         .collect();
-    } else {
-      // For types without dedicated ID fields (skill, linkedin_profile, etc.)
-      // We'd need to filter by target_type from a student query
-      // For now, return empty - these can be implemented as needed
-      return { comments: [], threads: [] };
     }
+
+    // Filter by tenant (university_id) for additional security
+    comments = filterByTenant(comments, accessInfo.universityId);
 
     // Filter by status
     if (!args.includeResolved) {
@@ -284,6 +405,23 @@ export const getInlineComments = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
 
+    // Verify authorization to access this artifact's comments
+    let accessInfo: {
+      studentId: Id<'users'>;
+      universityId: Id<'universities'> | undefined;
+    } | null = null;
+
+    if (args.targetType === 'resume' && args.resumeId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'resume', args.resumeId);
+    } else if (args.targetType === 'cover_letter' && args.coverLetterId) {
+      accessInfo = await verifyArtifactAccess(ctx, sessionCtx, 'cover_letter', args.coverLetterId);
+    }
+
+    // Return empty if unauthorized or no artifact provided
+    if (!accessInfo) {
+      return [];
+    }
+
     let comments: Doc<'advisor_comments'>[] = [];
 
     if (args.targetType === 'resume' && args.resumeId) {
@@ -297,6 +435,9 @@ export const getInlineComments = query({
         .withIndex('by_cover_letter', (q) => q.eq('cover_letter_id', args.coverLetterId))
         .collect();
     }
+
+    // Filter by tenant (university_id) for additional security
+    comments = filterByTenant(comments, accessInfo.universityId);
 
     // Filter to only inline comments
     comments = comments.filter((c) => c.comment_type === 'inline' && c.inline_position);
@@ -342,16 +483,46 @@ export const getThread = query({
       return null;
     }
 
+    // SECURITY: Verify authorization to access this comment's student
+    // The comment has student_id which tells us whose artifact this is
+    const canAccess = await canAccessStudent(ctx, sessionCtx, root.student_id);
+    if (!canAccess) {
+      // For students, they can only see comments on their own artifacts
+      if (
+        (sessionCtx.role === 'student' ||
+          sessionCtx.role === 'user' ||
+          sessionCtx.role === 'individual') &&
+        root.student_id !== sessionCtx.userId
+      ) {
+        return null;
+      }
+      // For advisors/admins who can't access this student
+      if (sessionCtx.role === 'advisor' || sessionCtx.role === 'university_admin') {
+        return null;
+      }
+    }
+
+    // SECURITY: Verify tenant isolation
+    if (sessionCtx.universityId && root.university_id !== sessionCtx.universityId) {
+      // Super admins can access across universities, others cannot
+      if (sessionCtx.role !== 'super_admin') {
+        return null;
+      }
+    }
+
     // Check visibility
     if (!canViewPrivateContent(sessionCtx, root.visibility, root.author_id)) {
       return null;
     }
 
     // Get all replies in thread
-    const replies = await ctx.db
+    let replies = await ctx.db
       .query('advisor_comments')
       .withIndex('by_thread_root', (q) => q.eq('thread_root_id', args.threadRootId))
       .collect();
+
+    // Filter replies by tenant
+    replies = filterByTenant(replies, sessionCtx.universityId);
 
     // Filter replies by visibility
     const visibleReplies = filterByVisibility(replies, sessionCtx);
@@ -388,19 +559,33 @@ export const getCommentCounts = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
-    const isStudent = sessionCtx.role === 'student' || sessionCtx.role === 'user';
+    const isStudent =
+      sessionCtx.role === 'student' ||
+      sessionCtx.role === 'user' ||
+      sessionCtx.role === 'individual';
 
     const counts: Record<string, { total: number; unresolved: number }> = {};
 
-    // Helper to count comments for an ID
+    // Helper to verify access and count comments for an artifact ID
     const countForId = async (
+      artifactType: 'resume' | 'cover_letter' | 'goal' | 'application' | 'session',
       index: 'by_resume' | 'by_cover_letter' | 'by_goal' | 'by_application' | 'by_session',
       id: Id<'resumes' | 'cover_letters' | 'goals' | 'applications' | 'advisor_sessions'>,
     ) => {
-      const comments = await ctx.db
+      // SECURITY: Verify authorization to access this artifact
+      const accessInfo = await verifyArtifactAccess(ctx, sessionCtx, artifactType, id);
+      if (!accessInfo) {
+        // Return zero counts for unauthorized artifacts
+        return { total: 0, unresolved: 0 };
+      }
+
+      let comments = await ctx.db
         .query('advisor_comments')
         .withIndex(index, (q) => q.eq((index.replace('by_', '') + '_id') as any, id))
         .collect();
+
+      // SECURITY: Filter by tenant
+      comments = filterByTenant(comments, accessInfo.universityId);
 
       // Filter by visibility for students
       const visible = isStudent ? comments.filter((c) => c.visibility === 'shared') : comments;
@@ -417,23 +602,23 @@ export const getCommentCounts = query({
     // Count for each ID based on target type
     if (args.targetType === 'resume' && args.resumeIds) {
       for (const id of args.resumeIds) {
-        counts[id] = await countForId('by_resume', id);
+        counts[id] = await countForId('resume', 'by_resume', id);
       }
     } else if (args.targetType === 'cover_letter' && args.coverLetterIds) {
       for (const id of args.coverLetterIds) {
-        counts[id] = await countForId('by_cover_letter', id);
+        counts[id] = await countForId('cover_letter', 'by_cover_letter', id);
       }
     } else if (args.targetType === 'goal' && args.goalIds) {
       for (const id of args.goalIds) {
-        counts[id] = await countForId('by_goal', id);
+        counts[id] = await countForId('goal', 'by_goal', id);
       }
     } else if (args.targetType === 'application' && args.applicationIds) {
       for (const id of args.applicationIds) {
-        counts[id] = await countForId('by_application', id);
+        counts[id] = await countForId('application', 'by_application', id);
       }
     } else if (args.targetType === 'session' && args.sessionIds) {
       for (const id of args.sessionIds) {
-        counts[id] = await countForId('by_session', id);
+        counts[id] = await countForId('session', 'by_session', id);
       }
     }
 

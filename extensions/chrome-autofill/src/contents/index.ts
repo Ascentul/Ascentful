@@ -8,7 +8,7 @@
  */
 
 import type { PlasmoCSConfig } from 'plasmo';
-import { detectATS, getHandlerForCurrentPage } from './ATSHandlers';
+import { detectATS, getHandlerForCurrentPage } from '~/lib/ATSHandlers';
 import { storage } from '~/lib/storage';
 import { api } from '~/lib/api';
 
@@ -41,17 +41,17 @@ async function initialize() {
   if (initialized) return;
   initialized = true;
 
-  console.log('[Ascentul] Content script loaded');
+  console.log('[Ascentful] Content script loaded');
 
   // Detect ATS on page
   const atsInfo = detectATS();
 
   if (!atsInfo.detected) {
-    console.log('[Ascentul] Not a supported ATS page');
+    console.log('[Ascentful] Not a supported ATS page');
     return;
   }
 
-  console.log(`[Ascentul] Detected ${atsInfo.platform}:`, atsInfo);
+  console.log(`[Ascentful] Detected ${atsInfo.platform}:`, atsInfo);
 
   // Check settings to see if we should show FAB
   const settings = await storage.getSettings();
@@ -170,14 +170,14 @@ function injectFloatingButton(atsInfo: ReturnType<typeof detectATS>) {
     </style>
 
     <div id="ascentul-fab">
-      <button id="ascentul-fab-button" title="Fill with Ascentul">
+      <button id="ascentul-fab-button" title="Fill with Ascentful">
         <svg id="ascentul-fab-icon" viewBox="0 0 24 24" fill="white">
           <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
         <div id="ascentul-fab-spinner"></div>
       </button>
       <div id="ascentul-fab-tooltip">
-        Fill application with Ascentul
+        Fill application with Ascentful
       </div>
     </div>
   `;
@@ -247,13 +247,13 @@ async function handleFillClick(atsInfo: ReturnType<typeof detectATS>) {
       // Reset after 3 seconds
       setTimeout(() => {
         button.classList.remove('success');
-        if (tooltip) tooltip.textContent = 'Fill application with Ascentul';
+        if (tooltip) tooltip.textContent = 'Fill application with Ascentful';
       }, 3000);
     } else {
       throw new Error('No fields were filled');
     }
   } catch (error) {
-    console.error('[Ascentul] Fill error:', error);
+    console.error('[Ascentful] Fill error:', error);
 
     button.classList.remove('loading');
     button.classList.add('error');
@@ -264,7 +264,7 @@ async function handleFillClick(atsInfo: ReturnType<typeof detectATS>) {
     // Reset after 3 seconds
     setTimeout(() => {
       button.classList.remove('error');
-      if (tooltip) tooltip.textContent = 'Fill application with Ascentul';
+      if (tooltip) tooltip.textContent = 'Fill application with Ascentful';
     }, 3000);
   }
 }

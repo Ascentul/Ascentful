@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getExtensionCorsHeaders } from '@/lib/extension-auth/cors';
 import {
   generateExtensionSessionToken,
   verifyExtensionSessionToken,
@@ -8,14 +9,9 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const dynamic = 'force-dynamic';
 
-// CORS headers for extension requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-};
-
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'POST, OPTIONS');
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
@@ -26,6 +22,8 @@ export async function OPTIONS() {
  * The old token must still be valid (not expired) to get a new one.
  */
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'POST, OPTIONS');
   const correlationId = getCorrelationIdFromRequest(request);
   const log = createRequestLogger(correlationId, {
     feature: 'extension-auth',

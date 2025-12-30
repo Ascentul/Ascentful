@@ -126,7 +126,7 @@ export function CommentButton({
     switch (variant) {
       case 'icon':
         return (
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0">
             <MessageSquare className="h-4 w-4" />
             {count > 0 && (
               <span className="absolute -top-1 -right-1 h-4 min-w-4 flex items-center justify-center rounded-full bg-primary-500 text-[10px] font-medium text-white px-1">

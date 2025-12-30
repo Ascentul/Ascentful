@@ -134,11 +134,11 @@ export default function OptionsPage() {
       <footer className="options-footer">
         <p>
           Ascentul Autofill Extension •{' '}
-          <a href="https://ascentul.io" target="_blank" rel="noopener noreferrer">
+          <a href="https://ascentful.io" target="_blank" rel="noopener noreferrer">
             Visit Dashboard
           </a>{' '}
           •{' '}
-          <a href="https://ascentul.io/help" target="_blank" rel="noopener noreferrer">
+          <a href="https://ascentful.io/help" target="_blank" rel="noopener noreferrer">
             Help Center
           </a>
         </p>

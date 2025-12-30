@@ -4,19 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { requireConvexToken } from '@/lib/convex-auth';
+import { getExtensionCorsHeaders } from '@/lib/extension-auth/cors';
 import { verifyExtensionSessionToken } from '@/lib/extension-auth/extensionState';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
-// CORS headers for extension requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-};
-
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'GET, POST, OPTIONS');
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
@@ -49,6 +45,8 @@ const createApplicationSchema = z.object({
  * Automatically sets status to 'applied' and includes university_id for advisor visibility.
  */
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'GET, POST, OPTIONS');
   const correlationId = getCorrelationIdFromRequest(request);
   const log = createRequestLogger(correlationId, {
     feature: 'extension',
@@ -169,6 +167,8 @@ export async function POST(request: NextRequest) {
  * Limited to the 10 most recent applications.
  */
 export async function GET(request: NextRequest) {
+  const origin = request.headers.get('Origin');
+  const corsHeaders = getExtensionCorsHeaders(origin, 'GET, POST, OPTIONS');
   const correlationId = getCorrelationIdFromRequest(request);
   const log = createRequestLogger(correlationId, {
     feature: 'extension',

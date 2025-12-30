@@ -25,7 +25,7 @@ async function initialize() {
   if (initialized) return;
   initialized = true;
 
-  console.log('[Ascentul] Background worker initialized');
+  console.log('[Ascentful] Background worker initialized');
 
   // Set up message listener
   chrome.runtime.onMessage.addListener(handleMessage);
@@ -51,13 +51,13 @@ function handleMessage(
   sender: chrome.runtime.MessageSender,
   sendResponse: (response: ExtensionResponse) => void,
 ): boolean {
-  console.log('[Ascentul] Received message:', message.type);
+  console.log('[Ascentful] Received message:', message.type);
 
   // Handle async messages
   handleAsyncMessage(message, sender)
     .then(sendResponse)
     .catch((error) => {
-      console.error('[Ascentul] Message handling error:', error);
+      console.error('[Ascentful] Message handling error:', error);
       sendResponse({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -224,7 +224,7 @@ async function handleGetRecentApplications(): Promise<ExtensionResponse> {
  * Handle periodic alarms
  */
 async function handleAlarm(alarm: chrome.alarms.Alarm) {
-  console.log('[Ascentul] Alarm triggered:', alarm.name);
+  console.log('[Ascentful] Alarm triggered:', alarm.name);
 
   switch (alarm.name) {
     case 'token-refresh':
@@ -250,7 +250,7 @@ async function checkAndRefreshToken() {
   const timeUntilExpiry = auth.expiresAt - Date.now();
 
   if (timeUntilExpiry < TOKEN_REFRESH_BUFFER) {
-    console.log('[Ascentul] Token expiring soon, refreshing...');
+    console.log('[Ascentful] Token expiring soon, refreshing...');
 
     try {
       const response = await fetch(
@@ -267,12 +267,12 @@ async function checkAndRefreshToken() {
       if (response.ok) {
         const { token, expiresAt } = await response.json();
         await storage.setAuth({ ...auth, token, expiresAt });
-        console.log('[Ascentul] Token refreshed successfully');
+        console.log('[Ascentful] Token refreshed successfully');
       } else {
-        console.warn('[Ascentul] Token refresh failed');
+        console.warn('[Ascentful] Token refresh failed');
       }
     } catch (error) {
-      console.error('[Ascentul] Token refresh error:', error);
+      console.error('[Ascentful] Token refresh error:', error);
     }
   }
 }
@@ -287,7 +287,7 @@ async function syncPendingApplications() {
     return;
   }
 
-  console.log(`[Ascentul] Syncing ${pending.length} pending applications`);
+  console.log(`[Ascentful] Syncing ${pending.length} pending applications`);
 
   await api.syncPendingApplications();
 
@@ -313,13 +313,13 @@ async function updateBadge() {
 
 // Initialize on install/update
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('[Ascentul] Extension installed/updated:', details.reason);
+  console.log('[Ascentful] Extension installed/updated:', details.reason);
   initialize();
 });
 
 // Initialize on startup
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[Ascentul] Extension started');
+  console.log('[Ascentful] Extension started');
   initialize();
 });
 

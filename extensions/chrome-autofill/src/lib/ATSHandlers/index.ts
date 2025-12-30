@@ -37,12 +37,12 @@ export function detectATS(): ATSDetectionResult {
   for (const handler of handlers) {
     const result = handler.detect();
     if (result.detected) {
-      console.log(`[Ascentul] Detected ATS: ${handler.displayName}`);
+      console.log(`[Ascentful] Detected ATS: ${handler.displayName}`);
       return result;
     }
   }
 
-  console.log('[Ascentul] No ATS detected on this page');
+  console.log('[Ascentful] No ATS detected on this page');
   return {
     detected: false,
     platform: 'unknown',

@@ -223,7 +223,7 @@ export class LinkedInHandler extends BaseATSHandler {
     // Check if in Easy Apply modal
     const easyApplyModal = document.querySelector('.jobs-easy-apply-modal');
     if (easyApplyModal) {
-      console.log('[Ascentul] LinkedIn Easy Apply modal detected');
+      console.log('[Ascentful] LinkedIn Easy Apply modal detected');
     }
 
     return super.fillForm(data);

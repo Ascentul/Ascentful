@@ -203,7 +203,7 @@ export default function PreferencesTab() {
           <p style={{ margin: '0 0 4px 0' }}>Version 1.0.0</p>
           <p style={{ margin: '0' }}>
             <a
-              href="https://ascentul.io/privacy"
+              href="https://ascentful.io/privacy"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#5371ff' }}
@@ -212,7 +212,7 @@ export default function PreferencesTab() {
             </a>
             {' • '}
             <a
-              href="https://ascentul.io/terms"
+              href="https://ascentful.io/terms"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#5371ff' }}
@@ -221,7 +221,7 @@ export default function PreferencesTab() {
             </a>
             {' • '}
             <a
-              href="https://ascentul.io/help"
+              href="https://ascentful.io/help"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#5371ff' }}

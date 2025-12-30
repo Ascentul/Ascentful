@@ -197,7 +197,7 @@ export class WorkdayHandler extends BaseATSHandler {
     // Check if we need to wait for specific elements
     const formLoaded = await this.waitForElement('[data-automation-id="jobPostingPage"]', 5000);
     if (!formLoaded) {
-      console.warn('[Ascentul] Workday form not fully loaded');
+      console.warn('[Ascentful] Workday form not fully loaded');
     }
 
     return super.fillForm(data);
