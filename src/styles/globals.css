@@ -251,9 +251,9 @@
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(135deg, hsl(231 100% 66% / 0.08) 0%, transparent 50%),
-      linear-gradient(225deg, hsl(231 100% 70% / 0.05) 0%, transparent 40%),
-      linear-gradient(315deg, hsl(231 100% 66% / 0.06) 0%, transparent 45%);
+      linear-gradient(135deg, hsl(231 100% 66% / 0.076) 0%, transparent 50%),
+      linear-gradient(225deg, hsl(231 100% 70% / 0.047) 0%, transparent 40%),
+      linear-gradient(315deg, hsl(231 100% 66% / 0.057) 0%, transparent 45%);
     animation: aurora-shift 30s ease-in-out infinite;
   }
 
@@ -265,8 +265,8 @@
     height: 60%;
     background: linear-gradient(
       180deg,
-      hsl(231 100% 66% / 0.1) 0%,
-      hsl(231 100% 66% / 0.05) 40%,
+      hsl(231 100% 66% / 0.095) 0%,
+      hsl(231 100% 66% / 0.047) 40%,
       transparent 100%
     );
     filter: blur(80px);
@@ -281,8 +281,8 @@
     height: 50%;
     background: linear-gradient(
       0deg,
-      hsl(231 100% 66% / 0.08) 0%,
-      hsl(231 100% 70% / 0.04) 50%,
+      hsl(231 100% 66% / 0.076) 0%,
+      hsl(231 100% 70% / 0.038) 50%,
       transparent 100%
     );
     filter: blur(100px);

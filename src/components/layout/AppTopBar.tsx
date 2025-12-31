@@ -113,7 +113,7 @@ export default function AppTopBar() {
         {/* Centered Search Bar - anchored to center of content area (adjusts with sidebar) */}
         <button
           onClick={globalSearch.open}
-          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group fixed -translate-x-1/2 top-[17px] cursor-pointer"
+          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group fixed -translate-x-1/2 -translate-y-1/2 top-[38px] cursor-pointer"
           style={{
             left: `calc((100vw + ${isSidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED}px) / 2)`,
           }}
@@ -128,7 +128,7 @@ export default function AppTopBar() {
         </button>
 
         {/* Right side icons */}
-        <div className="flex items-center gap-2.5" ref={panelRef}>
+        <div className="flex items-center gap-2.5 mt-[1px]" ref={panelRef}>
           {/* Plan/University Badge */}
           {badgeText && (
             <span className="hidden md:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">

@@ -724,7 +724,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
       >
         <div className="flex h-full w-full flex-col">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6 pl-[10px] pr-2">
+          <div className="flex items-center gap-3 mb-6 pl-[10px] pr-2 mt-[4px]">
             <Image
               src="/logo.png"
               alt="Ascentful logo"
@@ -765,7 +765,9 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 mb-4 w-full mt-2">{allSections.map(renderSection)}</nav>
+          <nav className="flex-1 space-y-2 mb-4 w-full mt-[13px]">
+            {allSections.map(renderSection)}
+          </nav>
 
           {/* Free Plan Tile near footer */}
           {isFreeUser && expanded && (

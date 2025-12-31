@@ -233,7 +233,7 @@ export default function Goals() {
 
   return (
     <motion.div className="space-y-4 min-w-0" initial="hidden" animate="visible" variants={fadeIn}>
-      <div className="w-full min-w-0 rounded-3xl bg-white p-5 shadow-sm space-y-6">
+      <div className="w-full min-w-0 rounded-3xl bg-white p-5 space-y-6 border-0 shadow-none">
         <motion.div className="flex items-center justify-between mb-4" variants={subtleUp}>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Career Goals</h1>

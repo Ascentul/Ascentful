@@ -68,10 +68,9 @@ function LayoutContent({ children }: { children: ReactNode }) {
           <AppTopBar />
           <main className="flex-1 overflow-y-auto min-w-0">
             <div className="px-4 pt-2 pb-4 md:px-6">
-              {/* Frosted glass border wrapper */}
-              <div className="rounded-[32px] p-[10px] bg-white/40 backdrop-blur-md shadow-lg">
-                {/* Content card */}
-                <div className="w-full rounded-3xl bg-white p-5 overflow-hidden">{children}</div>
+              {/* Content card */}
+              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden shadow-sm">
+                {children}
               </div>
             </div>
           </main>
