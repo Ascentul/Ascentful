@@ -64,12 +64,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main column with top bar and content */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <div className="flex flex-1 flex-col min-w-0 overflow-hidden bg-[#f0f2f5]">
           <AppTopBar />
           <main className="flex-1 overflow-y-auto min-w-0">
             <div className="px-4 pt-2 pb-4 md:px-6">
               {/* Content card */}
-              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden shadow-sm">
+              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden border border-slate-200/60 shadow-sm">
                 {children}
               </div>
             </div>

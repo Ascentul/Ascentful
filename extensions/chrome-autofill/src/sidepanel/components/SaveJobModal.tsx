@@ -133,7 +133,7 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
                 <label className="mb-1 block text-xs font-medium text-neutral-700">Job Type</label>
                 <select
                   value={formData.jobType || ''}
-                  onChange={(e) => updateField('jobType', e.target.value as JobType || undefined)}
+                  onChange={(e) => updateField('jobType', e.target.value ? (e.target.value as JobType) : undefined)}
                   className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="">Select...</option>
@@ -147,7 +147,7 @@ export function SaveJobModal({ jobData, onSave, onClose }: SaveJobModalProps) {
                 <label className="mb-1 block text-xs font-medium text-neutral-700">Remote</label>
                 <select
                   value={formData.remote || ''}
-                  onChange={(e) => updateField('remote', e.target.value as RemoteType || undefined)}
+                  onChange={(e) => updateField('remote', e.target.value ? (e.target.value as RemoteType) : undefined)}
                   className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="">Select...</option>

@@ -137,7 +137,9 @@ function observeDomChanges(): void {
           if (tag === 'main' || tag === 'article' || tag === 'section') {
             return true;
           }
-          if (node.classList?.contains('job-') || node.id?.includes('job')) {
+          // Check if any class starts with 'job-' or 'job_'
+          const hasJobClass = node.className && typeof node.className === 'string' && /\bjob[-_]/.test(node.className);
+          if (hasJobClass || node.id?.includes('job')) {
             return true;
           }
         }

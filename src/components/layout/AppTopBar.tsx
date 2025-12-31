@@ -109,7 +109,7 @@ export default function AppTopBar() {
 
   return (
     <header className="relative z-20">
-      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px] bg-transparent">
+      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px] bg-[#f0f2f5]">
         {/* Centered Search Bar - anchored to center of content area (adjusts with sidebar) */}
         <button
           onClick={globalSearch.open}

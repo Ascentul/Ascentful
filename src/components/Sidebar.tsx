@@ -717,7 +717,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
           fixed inset-y-0 left-0 md:relative md:inset-0 flex flex-col
-          bg-transparent
+          bg-[#f0f2f5]
           pl-6 pr-3 py-5 h-full overflow-y-auto no-scrollbar
           transition-transform duration-300
         `}
