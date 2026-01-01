@@ -164,6 +164,111 @@ export class LinkedInHandler extends BaseATSHandler {
       dataKey: 'website',
       priority: 6,
     },
+
+    // Address Fields
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="Address"]',
+        'input[aria-label*="Street"]',
+        'input[name*="address"]',
+        'input[name*="street"]',
+      ],
+      dataKey: 'streetAddress',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="State"]',
+        'input[aria-label*="Province"]',
+        'input[name*="state"]',
+        'select[name*="state"]',
+      ],
+      dataKey: 'state',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="Zip"]',
+        'input[aria-label*="Postal"]',
+        'input[name*="zip"]',
+        'input[name*="postal"]',
+      ],
+      dataKey: 'zipCode',
+      priority: 6,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="Country"]',
+        'input[name*="country"]',
+        'select[name*="country"]',
+      ],
+      dataKey: 'country',
+      priority: 6,
+    },
+
+    // Work Authorization
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="authorized to work"]',
+        'input[aria-label*="work authorization"]',
+        'input[name*="authorized"]',
+        'select[name*="authorized"]',
+      ],
+      dataKey: 'workAuthorization',
+      priority: 8,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="sponsorship"]',
+        'input[aria-label*="visa"]',
+        'input[name*="sponsorship"]',
+        'select[name*="sponsorship"]',
+      ],
+      dataKey: 'sponsorshipRequired',
+      priority: 8,
+    },
+
+    // Years of Experience
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="years of experience"]',
+        'input[aria-label*="experience"]',
+        'input[name*="experience"]',
+        'select[aria-label*="experience"]',
+      ],
+      dataKey: 'yearsOfExperience',
+      priority: 7,
+    },
+
+    // Salary & Availability
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="salary"]',
+        'input[aria-label*="compensation"]',
+        'input[name*="salary"]',
+      ],
+      dataKey: 'desiredSalary',
+      priority: 5,
+    },
+    {
+      fieldType: 'text',
+      selectors: [
+        'input[aria-label*="start date"]',
+        'input[aria-label*="available"]',
+        'input[name*="start"]',
+        'input[name*="availability"]',
+      ],
+      dataKey: 'availableStartDate',
+      priority: 5,
+    },
   ];
 
   /**

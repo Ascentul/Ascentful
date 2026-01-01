@@ -43,7 +43,18 @@ export default defineSchema({
     company: v.optional(v.string()),
     location: v.optional(v.string()),
     city: v.optional(v.string()),
+    state: v.optional(v.string()), // State/province for job applications
+    zip_code: v.optional(v.string()), // Postal/ZIP code
+    country: v.optional(v.string()), // Country of residence
+    street_address: v.optional(v.string()), // Full street address
     phone_number: v.optional(v.string()),
+    // Work authorization fields (commonly required on job applications)
+    work_authorization: v.optional(v.string()), // e.g., "US Citizen", "Green Card", "H1B", etc.
+    requires_sponsorship: v.optional(v.boolean()), // Will require visa sponsorship?
+    // Job preferences
+    desired_salary: v.optional(v.string()), // Expected salary/compensation
+    available_start_date: v.optional(v.string()), // When can you start?
+    years_of_experience: v.optional(v.string()), // Total years of professional experience
     website: v.optional(v.string()),
     skills: v.optional(v.string()), // Comma-separated skills
     current_position: v.optional(v.string()),

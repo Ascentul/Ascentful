@@ -58,6 +58,10 @@ export interface ExtensionProfile {
   phone?: string; // Alias for phoneNumber
   location?: string;
   city?: string;
+  state?: string; // State/province
+  zipCode?: string; // Postal/ZIP code
+  country?: string; // Country of residence
+  streetAddress?: string; // Full street address
 
   // Links
   linkedinUrl?: string;
@@ -79,6 +83,15 @@ export interface ExtensionProfile {
   skills?: string;
   industry?: string;
   experienceLevel?: string;
+  yearsOfExperience?: string; // Total years of professional experience
+
+  // Work Authorization (commonly required on job applications)
+  workAuthorization?: string; // e.g., "US Citizen", "Green Card", "H1B", etc.
+  requiresSponsorship?: boolean; // Will require visa sponsorship?
+
+  // Job Preferences
+  desiredSalary?: string; // Expected salary/compensation
+  availableStartDate?: string; // When can you start?
 
   // History Arrays (from users table)
   educationHistory: EducationHistoryItem[];
@@ -265,6 +278,16 @@ export interface JobApplication {
 
 export type ApplicationStatus = 'saved' | 'applied' | 'interview' | 'offer' | 'rejected';
 
+export type ApplicationStage =
+  | 'Prospect'
+  | 'Applied'
+  | 'Interview'
+  | 'Offer'
+  | 'Accepted'
+  | 'Rejected'
+  | 'Withdrawn'
+  | 'Archived';
+
 export type ATSPlatform =
   | 'greenhouse'
   | 'lever'
@@ -274,7 +297,15 @@ export type ATSPlatform =
   | 'taleo'
   | 'icims'
   | 'smartrecruiters'
+  | 'glassdoor'
+  | 'ziprecruiter'
+  | 'monster'
+  | 'wellfound'
+  | 'dice'
   | 'unknown';
+
+export type JobType = 'full-time' | 'part-time' | 'contract' | 'internship' | 'temporary';
+export type RemoteType = 'onsite' | 'remote' | 'hybrid';
 
 export interface CreateApplicationRequest {
   company: string;
@@ -284,6 +315,27 @@ export interface CreateApplicationRequest {
   atsPlatform?: ATSPlatform;
   resumeId?: string;
   notes?: string;
+}
+
+/**
+ * Enhanced application creation for save-job flow
+ */
+export interface SaveJobRequest {
+  company: string;
+  jobTitle: string;
+  url?: string;
+  source?: string;
+  atsPlatform?: ATSPlatform;
+  stage?: ApplicationStage;
+  location?: string;
+  salary?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  jobType?: JobType;
+  remote?: RemoteType;
+  description?: string;
+  notes?: string;
+  logoUrl?: string;
 }
 
 // ============================================
@@ -382,6 +434,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 // ============================================
 
 export type MessageType =
+  // Existing
   | 'FILL_FORM'
   | 'GET_PROFILE'
   | 'LOG_APPLICATION'
@@ -392,7 +445,25 @@ export type MessageType =
   | 'GET_SETTINGS'
   | 'UPDATE_SETTINGS'
   | 'GET_RECENT_APPLICATIONS'
-  | 'DETECT_ATS';
+  | 'DETECT_ATS'
+  // Job scraping & saving
+  | 'SCRAPE_PAGE'
+  | 'GET_PAGE_CONTEXT'
+  | 'SAVE_JOB'
+  | 'UPDATE_APPLICATION'
+  // Tasks
+  | 'GET_TASKS'
+  | 'CREATE_TASK'
+  | 'COMPLETE_TASK'
+  // Contacts
+  | 'GET_CONTACTS'
+  | 'CREATE_CONTACT'
+  | 'LINK_CONTACT'
+  // Stats
+  | 'GET_STATS'
+  // Side panel
+  | 'OPEN_SIDE_PANEL'
+  | 'PAGE_CONTEXT_UPDATED';
 
 export interface ExtensionMessage<T = unknown> {
   type: MessageType;
@@ -424,3 +495,136 @@ export const STORAGE_KEYS = {
 
 // Cache duration (1 hour)
 export const PROFILE_CACHE_DURATION = 60 * 60 * 1000;
+
+// ============================================
+// JOB SCRAPING
+// ============================================
+
+export type ScrapingSource = 'structured' | 'platform' | 'semantic' | 'manual';
+
+/**
+ * Job data scraped from a webpage
+ */
+export interface ScrapedJobData {
+  // Required fields
+  company: string;
+  jobTitle: string;
+  url: string;
+
+  // Scraping metadata
+  source: ScrapingSource;
+  confidence: number; // 0-1 confidence score
+
+  // Optional job details
+  location?: string;
+  salary?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  jobType?: JobType;
+  remote?: RemoteType;
+  description?: string;
+  postedDate?: string;
+  deadline?: string;
+  logoUrl?: string;
+
+  // Platform-specific
+  platformJobId?: string;
+  atsDetected?: ATSPlatform;
+}
+
+export type PageType = 'job_listing' | 'application_form' | 'search_results' | 'company_page' | 'unknown';
+
+/**
+ * Context about the current page
+ */
+export interface PageContext {
+  type: PageType;
+  url: string;
+  atsDetected?: ATSPlatform;
+  jobData?: ScrapedJobData;
+  formDetected: boolean;
+  scrapingConfidence: number;
+  existingApplicationId?: string; // If job already saved
+}
+
+// ============================================
+// TASKS / FOLLOW-UPS
+// ============================================
+
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskStatus = 'open' | 'done';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  dueAt: number | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  applicationId?: string;
+  applicationCompany?: string;
+  applicationJobTitle?: string;
+  contactId?: string;
+  contactName?: string;
+  createdAt: number;
+  completedAt?: number;
+}
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+  dueAt?: number;
+  priority?: TaskPriority;
+  applicationId?: string;
+  contactId?: string;
+}
+
+// ============================================
+// CONTACTS
+// ============================================
+
+export interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  title?: string; // Job title
+  position?: string; // Alias for title
+  linkedinUrl?: string;
+  notes?: string;
+  lastContactedAt?: number;
+  createdAt: number;
+}
+
+export interface CreateContactRequest {
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  position?: string;
+  linkedinUrl?: string;
+  notes?: string;
+}
+
+// ============================================
+// STATS / ANALYTICS
+// ============================================
+
+export interface ApplicationStats {
+  totalApplications: number;
+  byStage: Record<ApplicationStage, number>;
+  thisWeek: number;
+  thisMonth: number;
+  interviews: number; // Total interviews (scheduled + completed)
+  interviewsScheduled: number;
+  offersReceived: number;
+  responseRate: number; // Percentage of applications with responses
+  streak: number; // Days with at least one application
+}
+
+// ============================================
+// SIDE PANEL
+// ============================================
+
+export type SidePanelTab = 'current' | 'jobs' | 'tasks' | 'contacts' | 'stats';

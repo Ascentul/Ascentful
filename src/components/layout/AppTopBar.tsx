@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { GlobalSearch, useGlobalSearch } from '@/components/GlobalSearch';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { useSidebarOptional } from '@/contexts/SidebarContext';
+import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '@/lib/constants/sidebar';
 import { cn } from '@/lib/utils';
 
 type IconButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -44,6 +46,8 @@ export default function AppTopBar() {
   const { user: clerkUser } = useUser();
   const { impersonation, getEffectiveRole, getEffectivePlan } = useImpersonation();
   const globalSearch = useGlobalSearch();
+  const sidebarContext = useSidebarOptional();
+  const isSidebarExpanded = sidebarContext?.isExpanded ?? true;
 
   // Get effective role/plan for badge display
   const effectiveRole = getEffectiveRole();
@@ -105,11 +109,14 @@ export default function AppTopBar() {
 
   return (
     <header className="relative z-20">
-      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px]">
-        {/* Centered Search Bar - fixed position relative to viewport center */}
+      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px] bg-[#f0f2f5]">
+        {/* Centered Search Bar - anchored to center of content area (adjusts with sidebar) */}
         <button
           onClick={globalSearch.open}
-          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 group fixed left-1/2 -translate-x-1/2 top-[17px] cursor-pointer"
+          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group fixed -translate-x-1/2 -translate-y-1/2 top-[38px] cursor-pointer"
+          style={{
+            left: `calc((100vw + ${isSidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED}px) / 2)`,
+          }}
         >
           <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-500 transition-colors" />
           <span className="flex-1 text-left text-sm text-slate-400 group-hover:text-slate-500 transition-colors">
@@ -121,7 +128,7 @@ export default function AppTopBar() {
         </button>
 
         {/* Right side icons */}
-        <div className="flex items-center gap-2.5" ref={panelRef}>
+        <div className="flex items-center gap-2.5 mt-[1px]" ref={panelRef}>
           {/* Plan/University Badge */}
           {badgeText && (
             <span className="hidden md:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">

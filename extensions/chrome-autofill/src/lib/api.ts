@@ -8,6 +8,12 @@ import type {
   ExtensionProfile,
   JobApplication,
   CreateApplicationRequest,
+  SaveJobRequest,
+  ApplicationStage,
+  Task,
+  Contact,
+  ApplicationStats,
+  TaskPriority,
 } from '~/types';
 import { storage } from './storage';
 
@@ -251,6 +257,190 @@ export const api = {
         // Will retry later
       }
     }
+  },
+
+  // ============================================
+  // Job Saving (Huntr-like functionality)
+  // ============================================
+
+  /**
+   * Save a job without applying (creates application with Prospect stage)
+   */
+  async saveJob(
+    job: SaveJobRequest,
+  ): Promise<ApiResponse<{ applicationId: string }>> {
+    return apiRequest<{ applicationId: string }>(
+      '/api/extension/applications/save-job',
+      {
+        method: 'POST',
+        body: JSON.stringify(job),
+      },
+    );
+  },
+
+  /**
+   * Update an application (stage, notes, etc.)
+   */
+  async updateApplication(
+    id: string,
+    updates: { stage?: ApplicationStage; notes?: string },
+  ): Promise<ApiResponse<{ success: boolean }>> {
+    return apiRequest<{ success: boolean }>(
+      `/api/extension/applications/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      },
+    );
+  },
+
+  // ============================================
+  // Tasks
+  // ============================================
+
+  /**
+   * Get user's tasks
+   */
+  async getTasks(): Promise<ApiResponse<{ tasks: Task[] }>> {
+    return apiRequest<{ tasks: Task[] }>('/api/extension/tasks');
+  },
+
+  /**
+   * Create a new task
+   */
+  async createTask(task: {
+    title: string;
+    description?: string;
+    dueAt?: number;
+    priority?: TaskPriority;
+    applicationId: string;
+  }): Promise<ApiResponse<{ success: boolean; taskId: string }>> {
+    return apiRequest<{ success: boolean; taskId: string }>('/api/extension/tasks', {
+      method: 'POST',
+      body: JSON.stringify(task),
+    });
+  },
+
+  /**
+   * Mark a task as complete
+   */
+  async completeTask(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return apiRequest<{ success: boolean }>(
+      `/api/extension/tasks/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'done' }),
+      },
+    );
+  },
+
+  // ============================================
+  // Contacts
+  // ============================================
+
+  /**
+   * Get user's contacts
+   */
+  async getContacts(): Promise<ApiResponse<{ contacts: Contact[] }>> {
+    return apiRequest<{ contacts: Contact[] }>('/api/extension/contacts');
+  },
+
+  /**
+   * Create a new contact
+   */
+  async createContact(contact: {
+    name: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    position?: string;
+    linkedinUrl?: string;
+    notes?: string;
+    relationship?: string;
+  }): Promise<ApiResponse<{ success: boolean; contact: Contact | null }>> {
+    return apiRequest<{ success: boolean; contact: Contact | null }>('/api/extension/contacts', {
+      method: 'POST',
+      body: JSON.stringify(contact),
+    });
+  },
+
+  // ============================================
+  // Stats / Analytics
+  // ============================================
+
+  /**
+   * Get application stats summary
+   */
+  async getStats(): Promise<ApplicationStats> {
+    interface StatsResponse {
+      applications: {
+        saved: number;
+        applied: number;
+        interview: number;
+        offer: number;
+        rejected: number;
+        total: number;
+      };
+      activity: {
+        applicationsThisWeek: number;
+        activeThisWeek: number;
+        upcomingInterviews: number;
+        openTasks: number;
+        overdueTasks: number;
+        responseRate: number;
+      };
+      streak: {
+        currentStreak: number;
+        longestStreak: number;
+        totalActiveDays: number;
+      };
+    }
+
+    const result = await apiRequest<StatsResponse>('/api/extension/stats/summary');
+    if (result.success && result.data) {
+      const { applications, activity, streak } = result.data;
+      return {
+        totalApplications: applications.total,
+        byStage: {
+          Prospect: applications.saved,
+          Applied: applications.applied,
+          Interview: applications.interview,
+          Offer: applications.offer,
+          Accepted: 0, // Not tracked separately
+          Rejected: applications.rejected,
+          Withdrawn: 0, // Not tracked separately
+          Archived: 0, // Not tracked separately
+        },
+        thisWeek: activity.applicationsThisWeek,
+        thisMonth: 0, // Could be added to API if needed
+        interviews: activity.upcomingInterviews,
+        interviewsScheduled: activity.upcomingInterviews,
+        offersReceived: applications.offer,
+        responseRate: activity.responseRate,
+        streak: streak.currentStreak,
+      };
+    }
+    // Return empty stats on failure
+    return {
+      totalApplications: 0,
+      byStage: {
+        Prospect: 0,
+        Applied: 0,
+        Interview: 0,
+        Offer: 0,
+        Accepted: 0,
+        Rejected: 0,
+        Withdrawn: 0,
+        Archived: 0,
+      },
+      thisWeek: 0,
+      thisMonth: 0,
+      interviews: 0,
+      interviewsScheduled: 0,
+      offersReceived: 0,
+      responseRate: 0,
+      streak: 0,
+    };
   },
 };
 

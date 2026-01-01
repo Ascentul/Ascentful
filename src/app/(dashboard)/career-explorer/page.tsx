@@ -992,7 +992,7 @@ export default function CareerExplorerPage() {
 
   return (
     <div className="w-full">
-      <div className="w-full rounded-3xl bg-white p-5 shadow-sm space-y-6">
+      <div className="w-full rounded-3xl bg-white p-5 space-y-6 border-0 shadow-none">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>

@@ -34,7 +34,7 @@ interface ProfileStore {
  */
 export interface AutofillData {
   // Index signature for getNestedValue compatibility
-  [key: string]: string | string[] | ExtensionProfile['workHistory'] | ExtensionProfile['educationHistory'];
+  [key: string]: string | string[] | boolean | ExtensionProfile['workHistory'] | ExtensionProfile['educationHistory'];
 
   // Contact Info
   firstName: string;
@@ -44,6 +44,10 @@ export interface AutofillData {
   phone: string;
   location: string;
   city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  streetAddress: string;
 
   // Links
   linkedin: string;
@@ -54,9 +58,10 @@ export interface AutofillData {
   currentTitle: string;
   currentCompany: string;
 
-  // Skills
+  // Skills & Experience
   skills: string;
   skillsArray: string[];
+  yearsOfExperience: string;
 
   // Most Recent Education
   school: string;
@@ -73,6 +78,15 @@ export interface AutofillData {
 
   // Summary (from resume if available)
   summary: string;
+
+  // Work Authorization
+  workAuthorization: string;
+  requiresSponsorship: boolean;
+  sponsorshipRequired: string; // String version for form fields ("Yes"/"No")
+
+  // Job Preferences
+  desiredSalary: string;
+  availableStartDate: string;
 
   // Full arrays for complex forms
   workHistory: ExtensionProfile['workHistory'];
@@ -255,6 +269,10 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
       phone: profile.phoneNumber || resumeContent?.contactInfo?.phone || '',
       location: profile.location || resumeContent?.contactInfo?.location || '',
       city: profile.city || '',
+      state: profile.state || '',
+      zipCode: profile.zipCode || resumeContent?.contactInfo?.postalCode || '',
+      country: profile.country || resumeContent?.contactInfo?.country || '',
+      streetAddress: profile.streetAddress || '',
 
       // Links
       linkedin: profile.linkedinUrl || resumeContent?.contactInfo?.linkedin || '',
@@ -265,9 +283,10 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
       currentTitle: profile.currentPosition || resumeExperience?.title || '',
       currentCompany: profile.currentCompany || resumeExperience?.company || '',
 
-      // Skills
+      // Skills & Experience
       skills: skillsString || skillsArray.join(', '),
       skillsArray,
+      yearsOfExperience: profile.yearsOfExperience || '',
 
       // Most Recent Education
       school: recentEducation?.school || resumeEducation?.school || '',
@@ -284,6 +303,15 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
 
       // Summary
       summary: resumeContent?.summary || '',
+
+      // Work Authorization
+      workAuthorization: profile.workAuthorization || '',
+      requiresSponsorship: profile.requiresSponsorship ?? false,
+      sponsorshipRequired: profile.requiresSponsorship ? 'Yes' : 'No',
+
+      // Job Preferences
+      desiredSalary: profile.desiredSalary || '',
+      availableStartDate: profile.availableStartDate || '',
 
       // Full arrays for complex forms
       workHistory: profile.workHistory,

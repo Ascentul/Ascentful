@@ -537,7 +537,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
               ? 'bg-white text-slate-900 shadow-sm border-slate-200'
               : disabled
                 ? 'cursor-not-allowed text-slate-400'
-                : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                : 'text-[#576879] hover:text-slate-800 hover:bg-white/50'
           }
           `}
           onClick={
@@ -598,7 +598,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
             ${
               disabled
                 ? 'cursor-not-allowed text-slate-400'
-                : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                : 'text-[#576879] hover:text-slate-800 hover:bg-white/50'
             }
           `}
           >
@@ -628,7 +628,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
                 ? 'bg-white text-slate-900 shadow-sm border-slate-200'
                 : disabled
                   ? 'cursor-not-allowed text-slate-400'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                  : 'text-[#576879] hover:text-slate-800 hover:bg-white/50'
             }
           `}
             onClick={
@@ -667,7 +667,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
       return (
         <div key={section.id} className="space-y-1">
           <div
-            className="flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium cursor-pointer select-none transition-colors text-slate-500 hover:bg-white/50 hover:text-slate-900 min-h-[40px] px-3"
+            className="flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium cursor-pointer select-none transition-colors text-[#576879] hover:bg-white/50 hover:text-slate-800 min-h-[40px] px-3"
             role="button"
             aria-expanded={!isCollapsed}
             onClick={toggleSectionItems}
@@ -717,19 +717,20 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
           fixed inset-y-0 left-0 md:relative md:inset-0 flex flex-col
-          bg-app-bg pl-6 pr-3 py-5 h-full overflow-y-auto no-scrollbar
-          shadow-none transition-transform duration-300
+          bg-[#f0f2f5]
+          pl-6 pr-3 py-5 h-full overflow-y-auto no-scrollbar
+          transition-transform duration-300
         `}
       >
         <div className="flex h-full w-full flex-col">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6 pl-[10px] pr-2">
+          <div className="flex items-center gap-3 mb-6 pl-[10px] pr-2 mt-[4px]">
             <Image
               src="/logo.png"
               alt="Ascentful logo"
               width={28}
               height={28}
-              className="flex-shrink-0 h-7 w-7 rounded-[4px] object-contain mt-[3px]"
+              className="flex-shrink-0 h-7 w-7 rounded-[4px] object-contain"
             />
             <AnimatePresence mode="wait">
               {expanded && (
@@ -738,7 +739,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
                   animate={{ opacity: 1, width: 'auto' }}
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                  className="text-xl font-semibold text-primary-500 whitespace-nowrap overflow-hidden"
+                  className="text-[22px] font-semibold text-primary-500 whitespace-nowrap overflow-hidden leading-7"
                 >
                   Ascentful
                 </motion.h1>
@@ -764,7 +765,9 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 mb-4 w-full mt-2">{allSections.map(renderSection)}</nav>
+          <nav className="flex-1 space-y-2 mb-4 w-full mt-[13px]">
+            {allSections.map(renderSection)}
+          </nav>
 
           {/* Free Plan Tile near footer */}
           {isFreeUser && expanded && (

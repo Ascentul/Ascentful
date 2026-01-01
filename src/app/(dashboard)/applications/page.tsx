@@ -337,7 +337,7 @@ export default function ApplicationsPage() {
 
   return (
     <div className="w-full">
-      <div className="w-full rounded-3xl bg-white p-5 shadow-sm space-y-6">
+      <div className="w-full rounded-3xl bg-white p-5 space-y-6 border border-slate-200/50 shadow-sm">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

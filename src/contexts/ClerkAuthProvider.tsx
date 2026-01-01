@@ -27,11 +27,22 @@ interface UserProfile {
   company?: string;
   location?: string;
   city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  street_address?: string;
   phone_number?: string;
   website?: string;
   skills?: string;
   current_position?: string;
   current_company?: string;
+  years_of_experience?: string;
+  // Work Authorization
+  work_authorization?: string;
+  requires_sponsorship?: boolean;
+  // Job Preferences
+  desired_salary?: string;
+  available_start_date?: string;
   education?: string;
   education_history?: {
     id: string;

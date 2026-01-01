@@ -6,6 +6,7 @@ import { ReactNode, useState } from 'react';
 
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
+import { AuroraBackground } from '@/components/ui/AuroraBackground';
 import { Button } from '@/components/ui/button';
 import { SidebarProvider, useSidebarOptional } from '@/contexts/SidebarContext';
 import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
@@ -52,19 +53,23 @@ function LayoutContent({ children }: { children: ReactNode }) {
         <Sidebar isOpen={mobileSidebarOpen} onToggle={toggleMobileSidebar} />
       </div>
 
+      {/* Aurora background - fixed behind everything */}
+      <AuroraBackground />
+
       {/* Desktop & main layout */}
-      <div className="flex min-h-screen bg-[#F1F3F9]">
+      <div className="relative flex min-h-screen">
         {/* Sidebar - desktop */}
         <aside className="hidden md:sticky md:top-0 md:h-screen md:block">
           <Sidebar />
         </aside>
 
         {/* Main column with top bar and content */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <div className="flex flex-1 flex-col min-w-0 overflow-hidden bg-[#f0f2f5]">
           <AppTopBar />
           <main className="flex-1 overflow-y-auto min-w-0">
-            <div className="px-4 pb-4 md:px-6">
-              <div className="w-full rounded-3xl bg-white p-5 shadow-sm overflow-hidden">
+            <div className="px-4 pt-2 pb-4 md:px-6">
+              {/* Content card */}
+              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden border border-slate-200/60 shadow-sm">
                 {children}
               </div>
             </div>
@@ -94,9 +99,12 @@ export function Layout({ children }: LayoutProps) {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F1F3F9]">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
-      </div>
+      <>
+        <AuroraBackground />
+        <div className="relative flex h-screen items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
+        </div>
+      </>
     );
   }
 

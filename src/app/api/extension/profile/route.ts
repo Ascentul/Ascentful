@@ -93,6 +93,10 @@ export async function GET(request: NextRequest) {
       phoneNumber: user.phone_number || undefined,
       location: user.location || undefined,
       city: user.city || undefined,
+      state: user.state || undefined,
+      zipCode: user.zip_code || undefined,
+      country: user.country || undefined,
+      streetAddress: user.street_address || undefined,
 
       // Links
       linkedinUrl: user.linkedin_url || undefined,
@@ -105,6 +109,15 @@ export async function GET(request: NextRequest) {
       skills: user.skills || undefined,
       industry: user.industry || undefined,
       experienceLevel: user.experience_level || undefined,
+      yearsOfExperience: user.years_of_experience || undefined,
+
+      // Work Authorization
+      workAuthorization: user.work_authorization || undefined,
+      requiresSponsorship: user.requires_sponsorship ?? undefined,
+
+      // Job Preferences
+      desiredSalary: user.desired_salary || undefined,
+      availableStartDate: user.available_start_date || undefined,
 
       // History Arrays - transform from snake_case to camelCase
       educationHistory: (user.education_history || []).map((edu) => ({
