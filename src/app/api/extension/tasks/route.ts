@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, description, dueAt, applicationId } = validationResult.data;
+    const { title, description, dueAt, priority, applicationId } = validationResult.data;
 
     // Get Convex token for server-side mutations
     const { token: convexToken } = await requireConvexToken();
@@ -273,6 +273,7 @@ export async function POST(request: NextRequest) {
         description: title,
         notes: description,
         due_at: dueAt,
+        priority,
         type: 'follow_up',
       },
       { token: convexToken },
