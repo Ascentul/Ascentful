@@ -69,7 +69,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
           <main className="flex-1 overflow-y-auto min-w-0">
             <div className="px-4 pt-2 pb-4 md:px-6">
               {/* Content card */}
-              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden border border-slate-200/60 shadow-sm">
+              <div className="w-full rounded-[32px] bg-white p-5 overflow-hidden shadow-sm">
                 {children}
               </div>
             </div>

@@ -59,6 +59,9 @@ export const createFollowup = mutation({
     due_at: v.optional(v.number()),
     notes: v.optional(v.string()),
     type: v.optional(v.string()),
+    priority: v.optional(
+      v.union(v.literal('low'), v.literal('medium'), v.literal('high'), v.literal('urgent')),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
@@ -99,6 +102,7 @@ export const createFollowup = mutation({
 
       // Task management
       due_at: args.due_at,
+      priority: args.priority,
       status: 'open',
       version: 0, // Initialize for optimistic locking on status changes
 

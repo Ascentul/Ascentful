@@ -61,12 +61,15 @@ export default function AppTopBar() {
   const isUniversityAffiliated = viewer?.university != null;
 
   // Compute badge text - only for non-university users (university users have sidebar badge)
+  // Free plan users don't need badge here since it's shown in sidebar bottom left
   const badgeText =
     effectiveIsAdmin || isUniversityAffiliated
       ? null
       : impersonation.isImpersonating
         ? effectivePlan || effectiveRole
-        : subscription.planName || 'Free plan';
+        : subscription.isPremium
+          ? subscription.planName
+          : null;
   const [openPanel, setOpenPanel] = useState<null | 'search' | 'messages' | 'notifications'>(null);
   const [unreadMessages, setUnreadMessages] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);

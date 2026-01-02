@@ -437,10 +437,10 @@ function StageTabs({
             <button
               onClick={() => onSelectStage(index)}
               className={cn(
-                'relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap sm:w-44 border',
+                'relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap sm:w-44',
                 isActive
-                  ? 'bg-primary-100 text-primary-700 border-primary-200 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300',
+                  ? 'bg-primary-100 text-primary-700 border border-primary-200/60 shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300',
               )}
             >
               {isComplete && !isActive ? (

@@ -92,15 +92,17 @@ export function NotesEditor({
           )}
         </div>
         {initialNotes ? (
-          <p
+          <button
+            type="button"
             className={clsx(
-              'whitespace-pre-wrap text-sm text-neutral-600',
+              'w-full whitespace-pre-wrap text-left text-sm text-neutral-600',
               !disabled && 'cursor-pointer rounded-lg p-2 transition-colors hover:bg-neutral-50'
             )}
-            onClick={() => !disabled && setIsEditing(true)}
+            onClick={() => setIsEditing(true)}
+            disabled={disabled}
           >
             {initialNotes}
-          </p>
+          </button>
         ) : (
           <button
             onClick={() => !disabled && setIsEditing(true)}
