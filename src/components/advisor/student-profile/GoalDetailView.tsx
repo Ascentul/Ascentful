@@ -100,8 +100,8 @@ export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
   };
 
   const startEditing = () => {
-    setEditedStatus(goal?.status || null);
-    setEditedProgress(goal?.progress || 0);
+    setEditedStatus(goal?.status ?? null);
+    setEditedProgress(goal?.progress ?? 0);
     setIsEditing(true);
   };
 

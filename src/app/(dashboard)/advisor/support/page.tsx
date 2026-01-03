@@ -621,7 +621,7 @@ export default function AdvisorSupportPage() {
                     {filteredTickets.map((ticket) => (
                       <TableRow
                         key={String(ticket._id)}
-                        className="cursor-pointer hover:bg-gray-50"
+                        className="cursor-pointer hover:bg-muted/50"
                         onClick={() => {
                           setSelectedTicket(ticket);
                           setDetailDialogOpen(true);

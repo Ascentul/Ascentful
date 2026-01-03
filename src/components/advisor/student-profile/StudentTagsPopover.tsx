@@ -83,7 +83,10 @@ export function StudentTagsPopover({ studentId, tags }: StudentTagsPopoverProps)
     }
   };
 
-  const availablePredefinedTags = PREDEFINED_TAGS.filter((t) => !tags.includes(t));
+  // Case-insensitive filter to match handleAddTag's duplicate check
+  const availablePredefinedTags = PREDEFINED_TAGS.filter(
+    (predefined) => !tags.some((t) => t.toLowerCase() === predefined.toLowerCase()),
+  );
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">

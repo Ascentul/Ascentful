@@ -20,7 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
@@ -101,6 +101,7 @@ const StatusIcon = ({ status }: { status: string }) => {
 export default function AdvisorSessionsPage() {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Filter state
@@ -137,8 +138,10 @@ export default function AdvisorSessionsPage() {
       if (studentId) {
         setNewSession((prev) => ({ ...prev, student_id: studentId }));
       }
+      // Clear URL params to prevent dialog reopening on refresh
+      router.replace('/advisor/advising/sessions', { scroll: false });
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Queries
   const sessions = useQuery(api.advisor_sessions.getSessions, clerkUser?.id ? {} : 'skip');

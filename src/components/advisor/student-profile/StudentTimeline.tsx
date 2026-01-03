@@ -245,7 +245,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : timelineData.events.length === 0 ? (
+        ) : allEvents.length === 0 ? (
           <div className="text-center py-12">
             <Sparkles className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm font-medium text-muted-foreground">No activity yet</p>

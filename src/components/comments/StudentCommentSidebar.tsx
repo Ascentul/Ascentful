@@ -5,7 +5,6 @@ import type { Id } from 'convex/_generated/dataModel';
 import { MessageSquare, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { CommentInput } from '@/components/advisor/comments/CommentInput';
 import type {
   CommentFilter,
   CommentThread,

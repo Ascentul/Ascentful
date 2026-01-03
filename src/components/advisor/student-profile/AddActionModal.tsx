@@ -99,7 +99,14 @@ export function AddActionModal({
 
     setIsSubmitting(true);
     try {
-      const dueTimestamp = dueDate ? new Date(dueDate).getTime() : undefined;
+      // Parse date as local midnight to avoid timezone off-by-one issues
+      // (new Date("2026-01-15") interprets as UTC, which can shift the day in western timezones)
+      const dueTimestamp = dueDate
+        ? (() => {
+            const [year, month, day] = dueDate.split('-').map(Number);
+            return new Date(year, month - 1, day).getTime();
+          })()
+        : undefined;
 
       if (editingId) {
         await updateFollowUp({

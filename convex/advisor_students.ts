@@ -1069,6 +1069,8 @@ export const createStudentFollowUp = mutation({
     const universityId = requireTenant(sessionCtx);
     const now = Date.now();
 
+    const effectivePriority = args.priority ?? 'medium';
+
     const followUpId = await ctx.db.insert('follow_ups', {
       user_id: args.studentId,
       owner_id: sessionCtx.userId,
@@ -1080,7 +1082,7 @@ export const createStudentFollowUp = mutation({
       due_at: args.due_at,
       related_type: args.related_type,
       related_id: args.related_id,
-      priority: args.priority ?? 'medium',
+      priority: effectivePriority,
       status: 'open',
       created_at: now,
       updated_at: now,
@@ -1097,7 +1099,7 @@ export const createStudentFollowUp = mutation({
       newValue: {
         title: args.title,
         due_at: args.due_at,
-        priority: args.priority,
+        priority: effectivePriority,
       },
     });
 
