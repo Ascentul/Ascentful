@@ -14,7 +14,7 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -89,11 +89,15 @@ const FILTER_OPTIONS: { value: TimelineEventType | 'all'; label: string }[] = [
   { value: 'cover_letter', label: 'Cover Letters' },
   { value: 'session', label: 'Sessions' },
   { value: 'note', label: 'Notes' },
+  { value: 'comment', label: 'Comments' },
 ];
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
+
+  // Handle future timestamps (e.g., scheduled sessions)
+  if (diff < 0) return 'Upcoming';
 
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -157,6 +161,8 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
 
   const [selectedFilter, setSelectedFilter] = useState<TimelineEventType | 'all'>('all');
   const [cursor, setCursor] = useState<number | undefined>(undefined);
+  const [allEvents, setAllEvents] = useState<TimelineEvent[]>([]);
+  const prevCursorRef = useRef<number | undefined>(undefined);
 
   const filters = useMemo(() => {
     if (selectedFilter === 'all') return undefined;
@@ -176,6 +182,20 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
       : 'skip',
   );
 
+  // Accumulate events when new data arrives
+  useEffect(() => {
+    if (timelineData?.events) {
+      if (cursor === undefined) {
+        // First page or filter reset - replace all events
+        setAllEvents(timelineData.events);
+      } else if (cursor !== prevCursorRef.current) {
+        // New page loaded - append events
+        setAllEvents((prev) => [...prev, ...timelineData.events]);
+      }
+      prevCursorRef.current = cursor;
+    }
+  }, [timelineData?.events, cursor]);
+
   const handleLoadMore = useCallback(() => {
     if (timelineData?.nextCursor) {
       setCursor(timelineData.nextCursor);
@@ -184,14 +204,15 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
 
   const handleFilterChange = useCallback((filter: TimelineEventType | 'all') => {
     setSelectedFilter(filter);
-    setCursor(undefined); // Reset pagination on filter change
+    setCursor(undefined);
+    setAllEvents([]); // Reset accumulated events on filter change
   }, []);
 
   // Group events by date
   const groupedEvents = useMemo(() => {
-    if (!timelineData?.events) return new Map<string, TimelineEvent[]>();
-    return groupEventsByDate(timelineData.events);
-  }, [timelineData?.events]);
+    if (allEvents.length === 0) return new Map<string, TimelineEvent[]>();
+    return groupEventsByDate(allEvents);
+  }, [allEvents]);
 
   if (!clerkId) {
     return null;

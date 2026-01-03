@@ -114,19 +114,22 @@ export default function AdvisorSupportPage() {
   const responseEntries = useMemo(() => {
     if (!selectedTicket?.resolution) return [];
     try {
-      return selectedTicket.resolution.split(/\n\n+/).map((entry) => {
-        // Match format: [timestamp] author: message
-        const match = entry.match(/^\s*\[([^\]]+)\]\s*([^:]+):\s*([\s\S]*)$/);
-        if (match) {
-          const ts = match[1];
-          const author = match[2].trim();
-          const message = match[3].trim();
-          const parsedDate = new Date(ts);
-          const timestamp = isNaN(parsedDate.getTime()) ? ts : parsedDate.toLocaleString();
-          return { author, message, timestamp, raw: entry };
-        }
-        return { author: 'Response', message: entry.trim(), timestamp: null, raw: entry };
-      });
+      return selectedTicket.resolution
+        .split(/\n\n+/)
+        .filter(Boolean)
+        .map((entry) => {
+          // Match format: [timestamp] author: message
+          const match = entry.match(/^\s*\[([^\]]+)\]\s*([^:]+):\s*([\s\S]*)$/);
+          if (match) {
+            const ts = match[1];
+            const author = match[2].trim();
+            const message = match[3].trim();
+            const parsedDate = new Date(ts);
+            const timestamp = isNaN(parsedDate.getTime()) ? ts : parsedDate.toLocaleString();
+            return { author, message, timestamp, raw: entry };
+          }
+          return { author: 'Response', message: entry.trim(), timestamp: null, raw: entry };
+        });
     } catch {
       // Fallback: treat entire resolution as a single response blob
       return [
@@ -161,6 +164,10 @@ export default function AdvisorSupportPage() {
       const updated = tickets.find((t) => t._id === selectedTicket._id);
       if (updated) {
         setSelectedTicket(updated);
+      } else {
+        // Ticket was deleted externally - close dialog and clear state
+        setSelectedTicket(null);
+        setDetailDialogOpen(false);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -670,12 +677,12 @@ export default function AdvisorSupportPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="category">Category *</Label>
+                    <Label htmlFor="category-select">Category *</Label>
                     <Select
                       value={formData.category}
                       onValueChange={(v) => setFormData({ ...formData, category: v })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="category-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -689,14 +696,14 @@ export default function AdvisorSupportPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="priority">Priority *</Label>
+                    <Label htmlFor="priority-select">Priority *</Label>
                     <Select
                       value={formData.priority}
                       onValueChange={(v) =>
                         setFormData({ ...formData, priority: v as typeof formData.priority })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="priority-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

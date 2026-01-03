@@ -49,20 +49,6 @@ export function CommentHighlighter({
     return comments.filter((c) => c.comment_type === 'inline' && c.inline_position?.selection_text);
   }, [comments]);
 
-  // Get unique sections that have comments
-  const commentedSections = useMemo(() => {
-    const sections = new Map<string, Id<'advisor_comments'>[]>();
-
-    for (const comment of inlineComments) {
-      const sectionId = comment.inline_position?.section_id || 'general';
-      const existing = sections.get(sectionId) || [];
-      existing.push(comment._id);
-      sections.set(sectionId, existing);
-    }
-
-    return sections;
-  }, [inlineComments]);
-
   // Don't render highlights if sidebar is closed
   if (!sidebarOpen || inlineComments.length === 0) {
     return <div className={className}>{children}</div>;
@@ -193,6 +179,17 @@ export function useHighlightedText(
   comments: CommentWithAuthor[],
   activeCommentId?: Id<'advisor_comments'>,
 ) {
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const highlightComment = useCallback(
     (commentId: Id<'advisor_comments'>) => {
       const comment = comments.find((c) => c._id === commentId);
@@ -215,7 +212,11 @@ export function useHighlightedText(
             parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Briefly highlight the parent
             parent.classList.add('bg-yellow-200');
-            setTimeout(() => {
+            // Clear any existing timeout before setting a new one
+            if (highlightTimeoutRef.current) {
+              clearTimeout(highlightTimeoutRef.current);
+            }
+            highlightTimeoutRef.current = setTimeout(() => {
               parent.classList.remove('bg-yellow-200');
             }, 2000);
           }

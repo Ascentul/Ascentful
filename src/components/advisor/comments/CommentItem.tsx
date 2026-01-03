@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +44,7 @@ function groupReactions(
     const existing = grouped.get(reaction.emoji);
     if (existing) {
       existing.count++;
-      existing.userIds.push(reaction.user_id as any);
+      existing.userIds.push(reaction.user_id);
       if (reaction.user_id === currentUserId) {
         existing.hasCurrentUser = true;
       }
@@ -51,7 +52,7 @@ function groupReactions(
       grouped.set(reaction.emoji, {
         emoji: reaction.emoji,
         count: 1,
-        userIds: [reaction.user_id as any],
+        userIds: [reaction.user_id],
         hasCurrentUser: reaction.user_id === currentUserId,
       });
     }
@@ -64,8 +65,10 @@ function groupReactions(
  * Get initials from name
  */
 function getInitials(name: string): string {
+  if (!name.trim()) return '?';
   return name
     .split(' ')
+    .filter((n) => n.length > 0)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
@@ -104,7 +107,7 @@ export function CommentItem({
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.body);
-  const [showReactions, setShowReactions] = useState(false);
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
 
   const isAuthor = currentUserId === comment.author_id;
   const isAIComment = comment.author.role === 'ai_assistant';
@@ -250,23 +253,20 @@ export function CommentItem({
               </Button>
 
               {/* Reaction picker */}
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-neutral-500"
-                  onClick={() => setShowReactions(!showReactions)}
-                >
-                  😀
-                </Button>
-                {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1 flex gap-1 rounded-lg bg-white border shadow-lg p-1 z-10">
+              <Popover open={reactionPickerOpen} onOpenChange={setReactionPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-neutral-500">
+                    😀
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-1" side="top" align="start">
+                  <div className="flex gap-1">
                     {REACTION_EMOJIS.map((emoji) => (
                       <button
                         key={emoji}
                         onClick={() => {
                           onReact(emoji);
-                          setShowReactions(false);
+                          setReactionPickerOpen(false);
                         }}
                         className="p-1 hover:bg-neutral-100 rounded transition-colors"
                       >
@@ -274,8 +274,8 @@ export function CommentItem({
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Resolve/Unresolve */}
               {isAdvisor && !isAIComment && (

@@ -306,6 +306,6 @@ export type CommentFilter = 'all' | 'unresolved' | 'advisor' | 'resolved';
 export interface GroupedReaction {
   emoji: string;
   count: number;
-  userIds: Id<'users'>[];
+  userIds: string[];
   hasCurrentUser: boolean;
 }

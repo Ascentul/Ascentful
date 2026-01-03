@@ -748,7 +748,8 @@ export const getStudentTimeline = query({
 
     const universityId = requireTenant(sessionCtx);
     const limit = args.limit ?? 20;
-    const cursor = args.cursor ?? Date.now();
+    // Use Date.now() + 1 for initial call to include events at current timestamp with strict < comparison
+    const cursor = args.cursor ?? Date.now() + 1;
     const typeFilters = args.filters?.types ?? [];
     const filterByType = typeFilters.length > 0;
 
@@ -766,7 +767,7 @@ export const getStudentTimeline = query({
 
       for (const app of applications) {
         // Application created
-        if (app.created_at && app.created_at <= cursor) {
+        if (app.created_at && app.created_at < cursor) {
           events.push({
             id: `app-created-${app._id}`,
             type: 'application',
@@ -780,7 +781,7 @@ export const getStudentTimeline = query({
         }
 
         // Stage changes (if tracked)
-        if (app.stage_set_at && app.stage_set_at !== app.created_at && app.stage_set_at <= cursor) {
+        if (app.stage_set_at && app.stage_set_at !== app.created_at && app.stage_set_at < cursor) {
           events.push({
             id: `app-stage-${app._id}-${app.stage_set_at}`,
             type: 'application',
@@ -803,7 +804,7 @@ export const getStudentTimeline = query({
         .collect();
 
       for (const goal of goals) {
-        if (goal.created_at && goal.created_at <= cursor) {
+        if (goal.created_at && goal.created_at < cursor) {
           events.push({
             id: `goal-created-${goal._id}`,
             type: 'goal',
@@ -816,7 +817,7 @@ export const getStudentTimeline = query({
         }
 
         // Goal completed
-        if (goal.status === 'completed' && goal.completed_at && goal.completed_at <= cursor) {
+        if (goal.status === 'completed' && goal.completed_at && goal.completed_at < cursor) {
           events.push({
             id: `goal-completed-${goal._id}`,
             type: 'goal',
@@ -837,7 +838,7 @@ export const getStudentTimeline = query({
         .collect();
 
       for (const resume of resumes) {
-        if (resume.created_at && resume.created_at <= cursor) {
+        if (resume.created_at && resume.created_at < cursor) {
           events.push({
             id: `resume-created-${resume._id}`,
             type: 'resume',
@@ -853,7 +854,7 @@ export const getStudentTimeline = query({
         if (
           resume.updated_at &&
           resume.updated_at > resume.created_at + 60000 && // More than 1 minute after creation
-          resume.updated_at <= cursor
+          resume.updated_at < cursor
         ) {
           events.push({
             id: `resume-updated-${resume._id}-${resume.updated_at}`,
@@ -876,7 +877,7 @@ export const getStudentTimeline = query({
         .collect();
 
       for (const cl of coverLetters) {
-        if (cl.created_at && cl.created_at <= cursor) {
+        if (cl.created_at && cl.created_at < cursor) {
           events.push({
             id: `cover-letter-created-${cl._id}`,
             type: 'cover_letter',
@@ -901,7 +902,7 @@ export const getStudentTimeline = query({
 
       for (const session of sessions) {
         const sessionTime = session.scheduled_at ?? session.start_at ?? session.created_at;
-        if (sessionTime && sessionTime <= cursor) {
+        if (sessionTime && sessionTime < cursor) {
           events.push({
             id: `session-${session._id}`,
             type: 'session',
@@ -924,7 +925,7 @@ export const getStudentTimeline = query({
         .collect();
 
       for (const comment of comments) {
-        if (comment.created_at && comment.created_at <= cursor) {
+        if (comment.created_at && comment.created_at < cursor) {
           events.push({
             id: `comment-${comment._id}`,
             type: 'comment',
@@ -949,7 +950,7 @@ export const getStudentTimeline = query({
           const match = note.match(/^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]/);
           if (match) {
             const timestamp = new Date(match[1]).getTime();
-            if (timestamp <= cursor) {
+            if (timestamp < cursor) {
               events.push({
                 id: `note-${i}-${timestamp}`,
                 type: 'note',
@@ -1147,6 +1148,10 @@ export const updateStudentFollowUp = mutation({
       if (args.status === 'done') {
         updates.completed_at = now;
         updates.completed_by = sessionCtx.userId;
+      } else if (args.status === 'open') {
+        // Clear completion metadata when reopening
+        updates.completed_at = undefined;
+        updates.completed_by = undefined;
       }
     }
 
@@ -1232,7 +1237,10 @@ export const snoozeOutreach = mutation({
 
     const universityId = requireTenant(sessionCtx);
     const now = Date.now();
-    const snoozeUntil = now + args.days * 24 * 60 * 60 * 1000;
+
+    // Clamp days to reasonable range (1-90) to prevent accidental large/negative values
+    const clampedDays = Math.max(1, Math.min(90, Math.round(args.days)));
+    const snoozeUntil = now + clampedDays * 24 * 60 * 60 * 1000;
 
     await ctx.db.patch(args.studentId, {
       outreach_snoozed_until: snoozeUntil,
@@ -1248,7 +1256,7 @@ export const snoozeOutreach = mutation({
       entityId: args.studentId,
       studentId: args.studentId,
       newValue: {
-        snoozedDays: args.days,
+        snoozedDays: clampedDays,
         snoozedUntil: snoozeUntil,
       },
     });
@@ -1454,8 +1462,9 @@ export const getStudentProfileEnhanced = query({
     if (student.university_admin_notes) {
       const notes = student.university_admin_notes.split('\n\n').filter(Boolean);
       if (notes.length > 0) {
-        // Get the most recent note (first one since they're prepended)
-        const match = notes[0].match(/^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]/);
+        // Get the most recent note (last one, since new notes are appended)
+        const mostRecent = notes[notes.length - 1];
+        const match = mostRecent.match(/^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]/);
         if (match) {
           lastNoteAt = new Date(match[1]).getTime();
         }

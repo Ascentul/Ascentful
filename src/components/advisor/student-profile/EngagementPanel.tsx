@@ -102,7 +102,7 @@ export function EngagementPanel({
             <Activity className="h-4 w-4" />
             Engagement
           </div>
-          {needsOutreach && (
+          {needsOutreach && !isSnoozed && (
             <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Needs Outreach

@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
-import { Check, Plus, Tag, X } from 'lucide-react';
+import { Plus, Tag, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -35,14 +35,17 @@ export function StudentTagsPopover({ studentId, tags }: StudentTagsPopoverProps)
   const updateTags = useMutation(api.advisor_students.updateStudentTags);
 
   const handleAddTag = async (tag: string) => {
-    if (!clerkId || tags.includes(tag) || tags.length >= MAX_TAGS) return;
+    const normalizedTag = tag.trim();
+    // Case-insensitive duplicate check to prevent "First-gen" and "first-gen" both being added
+    const isDuplicate = tags.some((t) => t.toLowerCase() === normalizedTag.toLowerCase());
+    if (!clerkId || isDuplicate || tags.length >= MAX_TAGS) return;
 
     setIsUpdating(true);
     try {
       await updateTags({
         clerkId,
         studentId,
-        tags: [...tags, tag.trim().slice(0, MAX_TAG_LENGTH)],
+        tags: [...tags, normalizedTag.slice(0, MAX_TAG_LENGTH)],
       });
       setCustomTag('');
       toast.success(`Added tag: ${tag}`);
@@ -90,6 +93,8 @@ export function StudentTagsPopover({ studentId, tags }: StudentTagsPopoverProps)
           key={tag}
           className="gap-1 text-xs cursor-pointer bg-neutral-900 text-white hover:bg-neutral-800"
           onClick={() => handleRemoveTag(tag)}
+          role="button"
+          aria-label={`Remove tag: ${tag}`}
         >
           <Tag className="h-3 w-3" />
           {tag}
@@ -122,11 +127,7 @@ export function StudentTagsPopover({ studentId, tags }: StudentTagsPopoverProps)
                       onClick={() => handleAddTag(tag)}
                       disabled={isUpdating}
                     >
-                      {tags.includes(tag) ? (
-                        <Check className="h-3 w-3 mr-1" />
-                      ) : (
-                        <Plus className="h-3 w-3 mr-1" />
-                      )}
+                      <Plus className="h-3 w-3 mr-1" />
                       {tag}
                     </Button>
                   ))}

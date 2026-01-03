@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface FollowUp {
@@ -54,6 +55,7 @@ interface FollowUp {
 export function StudentAdvisorActionsCard() {
   const { user } = useUser();
   const clerkId = user?.id;
+  const { toast } = useToast();
 
   const [selectedAction, setSelectedAction] = useState<FollowUp | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -66,7 +68,7 @@ export function StudentAdvisorActionsCard() {
   const completeFollowUp = useMutation(api.students.completeMyFollowUp);
 
   // Check if user is a university student
-  const userProfile = useQuery(api.users.getUserByClerkId, clerkId ? { clerkId } : 'skip') as any;
+  const userProfile = useQuery(api.users.getUserByClerkId, clerkId ? { clerkId } : 'skip');
 
   const isUniversityStudent =
     userProfile?.university_id && (userProfile?.role === 'student' || userProfile?.role === 'user');
@@ -114,8 +116,14 @@ export function StudentAdvisorActionsCard() {
         followUpId: selectedAction._id,
       });
       setSelectedAction(null);
+      toast({ title: 'Action marked as complete' });
     } catch (error) {
       console.error('Failed to complete action:', error);
+      toast({
+        title: 'Failed to complete action',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsCompleting(false);
     }

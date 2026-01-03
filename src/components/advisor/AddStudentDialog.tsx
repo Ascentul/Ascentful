@@ -91,6 +91,7 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
     if (name) {
       return name
         .split(' ')
+        .filter((n) => n.length > 0)
         .map((n) => n[0])
         .join('')
         .toUpperCase()

@@ -23,7 +23,6 @@ import { Separator } from '@/components/ui/separator';
 interface ProjectDetailViewProps {
   projectId: Id<'projects'>;
   studentId: Id<'users'>;
-  onClose: () => void;
 }
 
 function formatDate(timestamp?: number | null): string {
@@ -35,7 +34,7 @@ function formatDate(timestamp?: number | null): string {
   });
 }
 
-export function ProjectDetailView({ projectId, studentId, onClose }: ProjectDetailViewProps) {
+export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 
@@ -98,13 +97,9 @@ export function ProjectDetailView({ projectId, studentId, onClose }: ProjectDeta
       <Separator />
 
       {/* Project image */}
-      {(project.image_url || project.image_storage_id) && (
+      {project.image_url && (
         <div className="rounded-lg overflow-hidden border">
-          <img
-            src={project.image_url || ''}
-            alt={project.title}
-            className="w-full h-40 object-cover"
-          />
+          <img src={project.image_url} alt={project.title} className="w-full h-40 object-cover" />
         </div>
       )}
 

@@ -187,7 +187,10 @@ export function StudentCommentSidebar({
       {/* Bottom info for students */}
       {totalCount === 0 && !isLoading && (
         <div className="p-4 border-t bg-neutral-50 text-center text-sm text-neutral-500 shrink-0">
-          <p>Submit your resume for review to receive advisor feedback.</p>
+          <p>
+            Submit your {targetType === 'resume' ? 'resume' : 'cover letter'} for review to receive
+            advisor feedback.
+          </p>
         </div>
       )}
     </div>

@@ -32,11 +32,9 @@ import { AddActionModal } from './AddActionModal';
 
 interface NextActionsPanelProps {
   studentId: Id<'users'>;
-  onAddAction?: (prefillTitle: string) => void;
 }
 
 function formatDueDate(timestamp: number): string {
-  const now = new Date();
   const due = new Date(timestamp);
   const diff = timestamp - Date.now();
   const days = Math.ceil(diff / 86400000);
@@ -77,7 +75,7 @@ const QUICK_ADD_PRESETS = [
   { label: 'Interview prep', title: 'Interview prep plan' },
 ];
 
-export function NextActionsPanel({ studentId, onAddAction }: NextActionsPanelProps) {
+export function NextActionsPanel({ studentId }: NextActionsPanelProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 
@@ -132,13 +130,6 @@ export function NextActionsPanel({ studentId, onAddAction }: NextActionsPanelPro
       setPrefillTitle(undefined);
     }
   };
-
-  // Expose the openAddModal function via onAddAction callback
-  // This allows parent components to trigger the modal with a prefilled title
-  if (onAddAction) {
-    // This is a bit of a hack, but it works for passing the callback up
-    // The parent can call onAddAction('title') to open the modal
-  }
 
   if (!clerkId) return null;
 

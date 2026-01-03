@@ -592,7 +592,27 @@ export default function AdvisorSessionsPage() {
           </div>
 
           {/* Create Session Dialog */}
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <Dialog
+            open={createDialogOpen}
+            onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                // Reset form when dialog closes to avoid stale data
+                setNewSession({
+                  student_id: '',
+                  title: '',
+                  session_type: 'general_advising',
+                  date: '',
+                  time: '',
+                  duration_minutes: '60',
+                  location: '',
+                  meeting_url: '',
+                  notes: '',
+                  visibility: 'advisor_only',
+                });
+              }
+            }}
+          >
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Schedule New Session</DialogTitle>

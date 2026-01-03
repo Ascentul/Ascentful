@@ -62,6 +62,9 @@ export function useStudentComments(options: UseStudentCommentsOptions): UseStude
   const { user } = useUser();
   const clerkId = user?.id ?? '';
 
+  // Get current user's Convex ID for studentId parameter
+  const currentUser = useQuery(api.users.getUserByClerkId, clerkId ? { clerkId } : 'skip');
+
   // Build query args based on target type
   const queryArgs = useMemo(() => {
     const baseArgs = {
@@ -98,14 +101,11 @@ export function useStudentComments(options: UseStudentCommentsOptions): UseStude
   const replyToComment = useCallback(
     async (parentId: Id<'advisor_comments'>, body: string) => {
       if (!clerkId) throw new Error('Not authenticated');
-
-      // Find the student ID from the comment's artifact owner
-      // For students, they can only comment on their own artifacts
-      // The backend will validate this
+      if (!currentUser?._id) throw new Error('User profile not loaded');
 
       await createCommentMutation({
         clerkId,
-        studentId: undefined as any, // Backend will determine from artifact
+        studentId: currentUser._id,
         targetType: options.targetType,
         commentType: 'general', // Replies don't have inline position
         body,
@@ -116,7 +116,14 @@ export function useStudentComments(options: UseStudentCommentsOptions): UseStude
         parentId,
       });
     },
-    [clerkId, createCommentMutation, options.targetType, options.resumeId, options.coverLetterId],
+    [
+      clerkId,
+      currentUser?._id,
+      createCommentMutation,
+      options.targetType,
+      options.resumeId,
+      options.coverLetterId,
+    ],
   );
 
   // Toggle reaction on a comment

@@ -27,7 +27,6 @@ import { Slider } from '@/components/ui/slider';
 interface GoalDetailViewProps {
   goalId: Id<'goals'>;
   studentId: Id<'users'>;
-  onClose: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -52,7 +51,7 @@ function formatDate(timestamp?: number | null): string {
   });
 }
 
-export function GoalDetailView({ goalId, studentId, onClose }: GoalDetailViewProps) {
+export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 

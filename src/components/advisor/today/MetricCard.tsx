@@ -47,8 +47,8 @@ export function MetricCard({
     return (
       <Card className={cn('py-5 px-5 border transition-colors', variantStyles.default)}>
         <div className="flex items-center gap-3">
-          <div className="h-5 w-5 rounded bg-slate-200 animate-pulse" />
-          <div className="h-5 w-8 bg-slate-200 rounded animate-pulse" />
+          <div className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
+          <div className="h-7 w-8 bg-slate-200 rounded animate-pulse" />
           <div className="h-4 w-20 bg-slate-200 rounded animate-pulse" />
         </div>
       </Card>

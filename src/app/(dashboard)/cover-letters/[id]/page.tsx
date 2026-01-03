@@ -82,10 +82,7 @@ export default function CoverLetterDetailPage() {
   );
 
   // Check if user is a university student (has advisor feedback available)
-  const userProfileData = useQuery(
-    api.users.getUserByClerkId,
-    clerkId ? { clerkId } : 'skip',
-  ) as any;
+  const userProfileData = useQuery(api.users.getUserByClerkId, clerkId ? { clerkId } : 'skip');
   const isUniversityStudent =
     userProfileData?.university_id &&
     (userProfileData?.role === 'student' || userProfileData?.role === 'user');

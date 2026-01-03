@@ -143,13 +143,8 @@ export default function ResumeEditorPage() {
   );
 
   // Check if user is a university student (has advisor feedback available)
-  const currentUserProfile = useQuery(
-    api.users.getUserByClerkId,
-    clerkId ? { clerkId } : 'skip',
-  ) as any;
   const isUniversityStudent =
-    currentUserProfile?.university_id &&
-    (currentUserProfile?.role === 'student' || currentUserProfile?.role === 'user');
+    userProfile?.university_id && (userProfile?.role === 'student' || userProfile?.role === 'user');
   const hasComments = commentCount > 0;
 
   // Hydrate local state when data loads

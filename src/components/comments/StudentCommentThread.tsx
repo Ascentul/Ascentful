@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 /**
@@ -42,7 +43,7 @@ function groupReactions(
     const existing = grouped.get(reaction.emoji);
     if (existing) {
       existing.count++;
-      existing.userIds.push(reaction.user_id as any);
+      existing.userIds.push(reaction.user_id);
       if (reaction.user_id === currentUserId) {
         existing.hasCurrentUser = true;
       }
@@ -50,7 +51,7 @@ function groupReactions(
       grouped.set(reaction.emoji, {
         emoji: reaction.emoji,
         count: 1,
-        userIds: [reaction.user_id as any],
+        userIds: [reaction.user_id],
         hasCurrentUser: reaction.user_id === currentUserId,
       });
     }
@@ -63,8 +64,10 @@ function groupReactions(
  * Get initials from name
  */
 function getInitials(name: string): string {
+  if (!name.trim()) return '?';
   return name
     .split(' ')
+    .filter((n) => n.length > 0)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
@@ -231,7 +234,7 @@ function StudentCommentItem({
   onReply,
   onReact,
 }: StudentCommentItemProps) {
-  const [showReactions, setShowReactions] = useState(false);
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
 
   const isAIComment = comment.author.role === 'ai_assistant';
   const isResolved = comment.status === 'resolved';
@@ -346,36 +349,45 @@ function StudentCommentItem({
             </Button>
 
             {/* Reaction picker */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-neutral-500"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowReactions(!showReactions);
-                }}
-              >
-                😀
-              </Button>
-              {showReactions && (
-                <div className="absolute bottom-full left-0 mb-1 flex gap-1 rounded-lg bg-white border shadow-lg p-1 z-10">
+            <Popover open={reactionPickerOpen} onOpenChange={setReactionPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-neutral-500"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  😀
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1" side="top" align="start">
+                <div className="flex gap-1" role="group" aria-label="Reaction emojis">
                   {REACTION_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
+                      type="button"
+                      aria-label={`React with ${emoji}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onReact(comment._id, emoji);
-                        setShowReactions(false);
+                        setReactionPickerOpen(false);
                       }}
-                      className="p-1 hover:bg-neutral-100 rounded transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onReact(comment._id, emoji);
+                          setReactionPickerOpen(false);
+                        }
+                      }}
+                      className="p-1 hover:bg-neutral-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1"
                     >
                       {emoji}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>

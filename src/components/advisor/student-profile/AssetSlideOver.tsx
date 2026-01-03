@@ -83,31 +83,24 @@ export function AssetSlideOver({ selectedAsset, studentId, onClose }: AssetSlide
                 />
               )}
               {selectedAsset.type === 'goal' && (
-                <GoalDetailView
-                  goalId={selectedAsset.id as Id<'goals'>}
-                  studentId={studentId}
-                  onClose={onClose}
-                />
+                <GoalDetailView goalId={selectedAsset.id as Id<'goals'>} studentId={studentId} />
               )}
               {selectedAsset.type === 'resume' && (
                 <ResumeDetailView
                   resumeId={selectedAsset.id as Id<'resumes'>}
                   studentId={studentId}
-                  onClose={onClose}
                 />
               )}
               {selectedAsset.type === 'cover_letter' && (
                 <CoverLetterDetailView
                   coverLetterId={selectedAsset.id as Id<'cover_letters'>}
                   studentId={studentId}
-                  onClose={onClose}
                 />
               )}
               {selectedAsset.type === 'project' && (
                 <ProjectDetailView
                   projectId={selectedAsset.id as Id<'projects'>}
                   studentId={studentId}
-                  onClose={onClose}
                 />
               )}
             </div>

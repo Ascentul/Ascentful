@@ -461,6 +461,14 @@ function StudentProfileContent() {
                             key={app._id}
                             className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => setSelectedAsset({ type: 'application', id: app._id })}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedAsset({ type: 'application', id: app._id });
+                              }
+                            }}
                           >
                             <div>
                               <p className="font-medium">{app.company}</p>
@@ -507,6 +515,14 @@ function StudentProfileContent() {
                             key={goal._id}
                             className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => setSelectedAsset({ type: 'goal', id: goal._id })}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedAsset({ type: 'goal', id: goal._id });
+                              }
+                            }}
                           >
                             <div>
                               <p className="font-medium">{goal.title}</p>
@@ -554,6 +570,14 @@ function StudentProfileContent() {
                               key={resume._id}
                               className="flex items-center justify-between p-2 border rounded-lg text-sm hover:bg-muted/50 transition-colors cursor-pointer"
                               onClick={() => setSelectedAsset({ type: 'resume', id: resume._id })}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setSelectedAsset({ type: 'resume', id: resume._id });
+                                }
+                              }}
                             >
                               <span className="truncate flex-1">
                                 {resume.title || 'Untitled Resume'}
@@ -593,6 +617,14 @@ function StudentProfileContent() {
                               onClick={() =>
                                 setSelectedAsset({ type: 'cover_letter', id: letter._id })
                               }
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setSelectedAsset({ type: 'cover_letter', id: letter._id });
+                                }
+                              }}
                             >
                               <span className="truncate flex-1">
                                 {letter.name || letter.company_name || 'Untitled'}
@@ -632,6 +664,14 @@ function StudentProfileContent() {
                               key={project._id}
                               className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                               onClick={() => setSelectedAsset({ type: 'project', id: project._id })}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setSelectedAsset({ type: 'project', id: project._id });
+                                }
+                              }}
                             >
                               <div className="flex items-center justify-between">
                                 <p className="font-medium">{project.title}</p>

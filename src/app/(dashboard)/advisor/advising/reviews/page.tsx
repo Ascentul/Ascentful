@@ -39,28 +39,28 @@ export default function AdvisorReviewsPage() {
 
             {/* Stats */}
             <div className="grid gap-4 md:grid-cols-4">
-              <Card className="py-5 px-5">
+              <Card className="py-5 px-5" aria-label="Waiting reviews">
                 <div className="flex items-center gap-3">
                   <p className="text-xl font-semibold leading-none">{stats?.waiting ?? '-'}</p>
                   <p className="text-xs text-muted-foreground">Waiting</p>
                 </div>
               </Card>
 
-              <Card className="py-5 px-5">
+              <Card className="py-5 px-5" aria-label="In progress reviews">
                 <div className="flex items-center gap-3">
                   <p className="text-xl font-semibold leading-none">{stats?.inProgress ?? '-'}</p>
                   <p className="text-xs text-muted-foreground">In Progress</p>
                 </div>
               </Card>
 
-              <Card className="py-5 px-5">
+              <Card className="py-5 px-5" aria-label="Completed reviews">
                 <div className="flex items-center gap-3">
                   <p className="text-xl font-semibold leading-none">{stats?.completed ?? '-'}</p>
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
               </Card>
 
-              <Card className="py-5 px-5">
+              <Card className="py-5 px-5" aria-label="Urgent reviews">
                 <div className="flex items-center gap-3">
                   <p className="text-xl font-semibold leading-none text-red-600">
                     {stats?.urgent ?? '-'}

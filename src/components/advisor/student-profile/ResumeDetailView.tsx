@@ -26,7 +26,6 @@ import { Separator } from '@/components/ui/separator';
 interface ResumeDetailViewProps {
   resumeId: Id<'resumes'>;
   studentId: Id<'users'>;
-  onClose: () => void;
 }
 
 interface ResumeContent {
@@ -84,7 +83,7 @@ function formatDate(timestamp?: number | null): string {
   });
 }
 
-export function ResumeDetailView({ resumeId, studentId, onClose }: ResumeDetailViewProps) {
+export function ResumeDetailView({ resumeId, studentId }: ResumeDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 
@@ -156,12 +155,12 @@ export function ResumeDetailView({ resumeId, studentId, onClose }: ResumeDetailV
       <div className="flex flex-wrap gap-2">
         {resume.source && (
           <Badge variant="secondary" className="text-xs">
-            {resume.source.replace('_', ' ')}
+            {resume.source.replace(/_/g, ' ')}
           </Badge>
         )}
         {resume.intent && (
           <Badge variant="outline" className="text-xs">
-            {resume.intent.replace('_', ' ')}
+            {resume.intent.replace(/_/g, ' ')}
           </Badge>
         )}
         <Badge variant={resume.visibility === 'public' ? 'default' : 'outline'} className="text-xs">

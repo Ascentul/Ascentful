@@ -15,7 +15,6 @@ import { Separator } from '@/components/ui/separator';
 interface CoverLetterDetailViewProps {
   coverLetterId: Id<'cover_letters'>;
   studentId: Id<'users'>;
-  onClose: () => void;
 }
 
 function formatDate(timestamp?: number | null): string {
@@ -27,11 +26,7 @@ function formatDate(timestamp?: number | null): string {
   });
 }
 
-export function CoverLetterDetailView({
-  coverLetterId,
-  studentId,
-  onClose,
-}: CoverLetterDetailViewProps) {
+export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 
@@ -126,7 +121,7 @@ export function CoverLetterDetailView({
       {/* Source badge */}
       {coverLetter.source && (
         <Badge variant="secondary" className="text-xs">
-          {coverLetter.source.replace('_', ' ')}
+          {coverLetter.source.replace(/_/g, ' ')}
         </Badge>
       )}
 
