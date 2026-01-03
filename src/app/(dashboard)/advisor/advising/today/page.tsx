@@ -162,133 +162,137 @@ export default function AdvisorTodayPage() {
 
   return (
     <AdvisorGate requiredFlag="advisor.advising">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Today</h1>
-            <p className="text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/advisor/advising/sessions?action=new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Schedule Session
-              </Button>
-            </Link>
-            <Link href="/advisor/advising/calendar">
-              <Button variant="outline">
-                <Calendar className="h-4 w-4 mr-2" />
-                View Calendar
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Clickable Metric Cards */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-          <MetricCard
-            label="Total Sessions"
-            value={stats.totalSessions}
-            icon={Calendar}
-            variant="default"
-            onClick={handleTotalClick}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Completed"
-            value={stats.completedSessions}
-            icon={CheckCircle2}
-            variant="success"
-            onClick={handleCompletedClick}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Upcoming"
-            value={stats.upcomingSessions}
-            icon={Clock}
-            variant="default"
-            onClick={handleUpcomingClick}
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Overdue Follow-ups"
-            value={stats.overdueFollowUps}
-            icon={AlertCircle}
-            variant={stats.overdueFollowUps > 0 ? 'danger' : 'default'}
-            onClick={handleOverdueClick}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Two-Column Layout */}
-        <div className="grid gap-6 lg:grid-cols-5">
-          {/* Left Column: Today's Schedule (wider) */}
-          <div className="lg:col-span-3 space-y-4" ref={scheduleRef}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Today's Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-32 bg-slate-100 rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : !todayData?.sessions || todayData.sessions.length === 0 ? (
-                  <div className="border rounded-lg p-12 text-center">
-                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-4">No sessions scheduled for today</p>
-                    <Link href="/advisor/advising/sessions?action=new">
-                      <Button variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Schedule Session
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {todayData.sessions.map((session) => (
-                      <EnhancedSessionCard
-                        key={session._id}
-                        session={session}
-                        onAddNote={handleAddNote}
-                        onAddFollowUp={handleAddFollowUp}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+      <div className="w-full">
+        <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Today</h1>
+              <p className="text-muted-foreground mt-1">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/advisor/advising/sessions?action=new">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Schedule Session
+                </Button>
+              </Link>
+              <Link href="/advisor/advising/calendar">
+                <Button variant="outline">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  View Calendar
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          {/* Right Column: Panels */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Follow-ups Panel */}
-            <div ref={followUpsRef}>
-              <FollowUpPanel
-                followUps={followUps}
-                activeTab={followUpTab}
-                onTabChange={setFollowUpTab}
-                onComplete={handleCompleteFollowUp}
-                onSnooze={handleSnoozeFollowUp}
+          {/* Clickable Metric Cards */}
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <MetricCard
+              label="Total Sessions"
+              value={stats.totalSessions}
+              icon={Calendar}
+              variant="default"
+              onClick={handleTotalClick}
+              isLoading={isLoading}
+            />
+            <MetricCard
+              label="Completed"
+              value={stats.completedSessions}
+              icon={CheckCircle2}
+              variant="success"
+              onClick={handleCompletedClick}
+              isLoading={isLoading}
+            />
+            <MetricCard
+              label="Upcoming"
+              value={stats.upcomingSessions}
+              icon={Clock}
+              variant="default"
+              onClick={handleUpcomingClick}
+              isLoading={isLoading}
+            />
+            <MetricCard
+              label="Overdue Follow-ups"
+              value={stats.overdueFollowUps}
+              icon={AlertCircle}
+              variant={stats.overdueFollowUps > 0 ? 'danger' : 'default'}
+              onClick={handleOverdueClick}
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* Two-Column Layout */}
+          <div className="grid gap-6 lg:grid-cols-5">
+            {/* Left Column: Today's Schedule (wider) */}
+            <div className="lg:col-span-3 space-y-4" ref={scheduleRef}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Today's Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-32 bg-slate-100 rounded-lg animate-pulse" />
+                      ))}
+                    </div>
+                  ) : !todayData?.sessions || todayData.sessions.length === 0 ? (
+                    <div className="border rounded-lg p-12 text-center">
+                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">No sessions scheduled for today</p>
+                      <Link href="/advisor/advising/sessions?action=new">
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Schedule Session
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {todayData.sessions.map((session) => (
+                        <EnhancedSessionCard
+                          key={session._id}
+                          session={session}
+                          onAddNote={handleAddNote}
+                          onAddFollowUp={handleAddFollowUp}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column: Panels */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Follow-ups Panel */}
+              <div ref={followUpsRef}>
+                <FollowUpPanel
+                  followUps={followUps}
+                  activeTab={followUpTab}
+                  onTabChange={setFollowUpTab}
+                  onComplete={handleCompleteFollowUp}
+                  onSnooze={handleSnoozeFollowUp}
+                  isLoading={isLoading}
+                />
+              </div>
+
+              {/* Coming Up Panel */}
+              <ComingUpPanel days={todayData?.comingUp ?? []} isLoading={isLoading} />
+
+              {/* Documentation Panel */}
+              <DocumentationPanel
+                sessions={todayData?.documentation ?? []}
+                onAddNote={handleAddNote}
                 isLoading={isLoading}
               />
             </div>
-
-            {/* Coming Up Panel */}
-            <ComingUpPanel days={todayData?.comingUp ?? []} isLoading={isLoading} />
-
-            {/* Documentation Panel */}
-            <DocumentationPanel
-              sessions={todayData?.documentation ?? []}
-              onAddNote={handleAddNote}
-              isLoading={isLoading}
-            />
           </div>
         </div>
 

@@ -448,13 +448,21 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
-  // Always ensure the currently active section is expanded when route changes
+  // Ensure the currently active section is expanded and others are collapsed when route changes
   useEffect(() => {
     const activeId = getActiveSectionId();
     if (!activeId) return;
     setCollapsedSections((prev) => {
-      if (prev && prev[activeId] === false) return prev;
-      const next = { ...prev, [activeId]: false };
+      // Collapse all sections with items, then expand only the active one
+      const next: Record<string, boolean> = {};
+      for (const s of allSections) {
+        if (s.items && s.items.length > 0) {
+          next[s.id] = s.id !== activeId; // collapsed = true, unless this is the active section
+        }
+      }
+      // Only update if there's actually a change
+      const hasChange = Object.keys(next).some((key) => prev[key] !== next[key]);
+      if (!hasChange) return prev;
       try {
         localStorage.setItem('sidebarCollapsedSections', JSON.stringify(next));
       } catch {}

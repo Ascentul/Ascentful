@@ -33,64 +33,56 @@ export default function AdvisorReviewsPage() {
   return (
     <ErrorBoundary>
       <AdvisorGate requiredFlag="advisor.advising">
-        <div className="container mx-auto p-6 space-y-6">
-          <PageHeader title="Reviews" description="Review student resumes and cover letters" />
+        <div className="w-full">
+          <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+            <PageHeader title="Reviews" description="Review student resumes and cover letters" />
 
-          {/* Stats */}
-          <div className="grid gap-4 md:grid-cols-4">
+            {/* Stats */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none">{stats?.waiting ?? '-'}</p>
+                  <p className="text-xs text-muted-foreground">Waiting</p>
+                </div>
+              </Card>
+
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none">{stats?.inProgress ?? '-'}</p>
+                  <p className="text-xs text-muted-foreground">In Progress</p>
+                </div>
+              </Card>
+
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none">{stats?.completed ?? '-'}</p>
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                </div>
+              </Card>
+
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none text-red-600">
+                    {stats?.urgent ?? '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Urgent</p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Review Queue */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Waiting</CardTitle>
-                <Clock className="h-4 w-4 text-orange-500" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileEdit className="h-5 w-5" />
+                  Review Queue
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.waiting ?? '-'}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-                <FileEdit className="h-4 w-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.inProgress ?? '-'}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.completed ?? '-'}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Urgent</CardTitle>
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">{stats?.urgent ?? '-'}</div>
+                <ReviewQueue reviews={reviews || []} isLoading={reviews === undefined} />
               </CardContent>
             </Card>
           </div>
-
-          {/* Review Queue */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileEdit className="h-5 w-5" />
-                Review Queue
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ReviewQueue reviews={reviews || []} isLoading={reviews === undefined} />
-            </CardContent>
-          </Card>
         </div>
       </AdvisorGate>
     </ErrorBoundary>

@@ -45,13 +45,11 @@ export function MetricCard({
 }: MetricCardProps) {
   if (isLoading) {
     return (
-      <Card className={cn('p-4 border transition-colors', variantStyles.default)}>
+      <Card className={cn('py-5 px-5 border transition-colors', variantStyles.default)}>
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
-          <div className="space-y-2">
-            <div className="h-4 w-16 bg-slate-200 rounded animate-pulse" />
-            <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
-          </div>
+          <div className="h-5 w-5 rounded bg-slate-200 animate-pulse" />
+          <div className="h-5 w-8 bg-slate-200 rounded animate-pulse" />
+          <div className="h-4 w-20 bg-slate-200 rounded animate-pulse" />
         </div>
       </Card>
     );
@@ -60,7 +58,7 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        'p-4 border transition-all',
+        'py-5 px-5 border transition-all',
         variantStyles[variant],
         onClick && 'cursor-pointer hover:shadow-md hover:scale-[1.02]',
       )}
@@ -79,18 +77,9 @@ export function MetricCard({
       }
     >
       <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            'flex items-center justify-center h-10 w-10 rounded-full',
-            variant === 'default' ? 'bg-slate-100' : `bg-white/50`,
-          )}
-        >
-          <Icon className={cn('h-5 w-5', iconVariantStyles[variant])} />
-        </div>
-        <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-xs font-medium opacity-80">{label}</p>
-        </div>
+        <Icon className={cn('h-4 w-4 flex-shrink-0', iconVariantStyles[variant])} />
+        <p className="text-xl font-semibold leading-none">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </Card>
   );

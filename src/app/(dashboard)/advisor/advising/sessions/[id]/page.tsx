@@ -147,197 +147,199 @@ export default function SessionDetailPage() {
   return (
     <ErrorBoundary>
       <AdvisorGate requiredFlag="advisor.advising">
-        <div className="container mx-auto p-6 space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold tracking-tight">{session.title}</h1>
-                  <Badge variant={STATUS_VARIANTS[session.status || 'scheduled']}>
-                    {session.status || 'scheduled'}
-                  </Badge>
+        <div className="w-full">
+          <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold tracking-tight">{session.title}</h1>
+                    <Badge variant={STATUS_VARIANTS[session.status || 'scheduled']}>
+                      {session.status || 'scheduled'}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {SESSION_TYPE_LABELS[session.session_type || ''] || session.session_type}
+                  </p>
                 </div>
-                <p className="text-muted-foreground">
-                  {SESSION_TYPE_LABELS[session.session_type || ''] || session.session_type}
-                </p>
               </div>
             </div>
-          </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Main Content - Session Editor */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Edit Session</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {clerkUser?.id && (
-                    <SessionEditor
-                      session={{
-                        _id: session._id,
-                        student_id: session.student_id,
-                        title: session.title || '',
-                        session_type: session.session_type || 'general_advising',
-                        start_at: session.start_at || Date.now(),
-                        duration_minutes: session.duration_minutes || 60,
-                        location: session.location,
-                        meeting_url: session.meeting_url,
-                        notes: session.notes,
-                        visibility: session.visibility || 'advisor_only',
-                        status: session.status,
-                        version: session.version || 1,
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Main Content - Session Editor */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Edit Session</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {clerkUser?.id && (
+                      <SessionEditor
+                        session={{
+                          _id: session._id,
+                          student_id: session.student_id,
+                          title: session.title || '',
+                          session_type: session.session_type || 'general_advising',
+                          start_at: session.start_at || Date.now(),
+                          duration_minutes: session.duration_minutes || 60,
+                          location: session.location,
+                          meeting_url: session.meeting_url,
+                          notes: session.notes,
+                          visibility: session.visibility || 'advisor_only',
+                          status: session.status,
+                          version: session.version || 1,
+                        }}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
 
-            {/* Sidebar - Session Info */}
-            <div className="space-y-6">
-              {/* Student Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Student
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {student ? (
-                    <div className="space-y-2">
-                      <p className="font-medium">{student.name}</p>
-                      {student.email && (
-                        <p className="text-sm text-muted-foreground">{student.email}</p>
-                      )}
-                      <Button variant="outline" size="sm" asChild className="w-full mt-2">
-                        <Link href={`/advisor/students/${student._id}`}>View Profile</Link>
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Student not found</p>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Sidebar - Session Info */}
+              <div className="space-y-6">
+                {/* Student Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Student
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {student ? (
+                      <div className="space-y-2">
+                        <p className="font-medium">{student.name}</p>
+                        {student.email && (
+                          <p className="text-sm text-muted-foreground">{student.email}</p>
+                        )}
+                        <Button variant="outline" size="sm" asChild className="w-full mt-2">
+                          <Link href={`/advisor/students/${student._id}`}>View Profile</Link>
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Student not found</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-              {/* Session Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Session Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Date & Time */}
-                  {sessionDate ? (
+                {/* Session Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Session Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Date & Time */}
+                    {sessionDate ? (
+                      <div className="flex items-start gap-3">
+                        <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">
+                            {format(new Date(sessionDate), 'EEEE, MMMM d, yyyy')}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(sessionDate), 'h:mm a')}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Date not scheduled</p>
+                    )}
+
+                    {/* Duration */}
                     <div className="flex items-start gap-3">
-                      <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{session.duration_minutes || 60} minutes</p>
+                        <p className="text-sm text-muted-foreground">Duration</p>
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    {session.location && (
+                      <div className="flex items-start gap-3">
+                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{session.location}</p>
+                          <p className="text-sm text-muted-foreground">Location</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Meeting URL */}
+                    {session.meeting_url && isValidHttpUrl(session.meeting_url) && (
+                      <div className="flex items-start gap-3">
+                        <Video className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <a
+                            href={session.meeting_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            Join Meeting
+                          </a>
+                          <p className="text-sm text-muted-foreground">Virtual Meeting</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Visibility */}
+                    <div className="flex items-start gap-3">
+                      {session.visibility === 'shared' ? (
+                        <Eye className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      )}
                       <div>
                         <p className="font-medium">
-                          {format(new Date(sessionDate), 'EEEE, MMMM d, yyyy')}
+                          {session.visibility === 'shared' ? 'Shared' : 'Advisor Only'}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(sessionDate), 'h:mm a')}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Visibility</p>
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Date not scheduled</p>
-                  )}
+                  </CardContent>
+                </Card>
 
-                  {/* Duration */}
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{session.duration_minutes || 60} minutes</p>
-                      <p className="text-sm text-muted-foreground">Duration</p>
-                    </div>
-                  </div>
+                {/* Comments */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Comments</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CommentButton
+                      targetType="session"
+                      targetId={session._id}
+                      studentId={session.student_id}
+                      section="general"
+                    />
+                  </CardContent>
+                </Card>
 
-                  {/* Location */}
-                  {session.location && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{session.location}</p>
-                        <p className="text-sm text-muted-foreground">Location</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Meeting URL */}
-                  {session.meeting_url && isValidHttpUrl(session.meeting_url) && (
-                    <div className="flex items-start gap-3">
-                      <Video className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div>
-                        <a
-                          href={session.meeting_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-blue-600 hover:underline"
-                        >
-                          Join Meeting
-                        </a>
-                        <p className="text-sm text-muted-foreground">Virtual Meeting</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Visibility */}
-                  <div className="flex items-start gap-3">
-                    {session.visibility === 'shared' ? (
-                      <Eye className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    ) : (
-                      <EyeOff className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="font-medium">
-                        {session.visibility === 'shared' ? 'Shared' : 'Advisor Only'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Visibility</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Comments */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Comments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CommentButton
-                    targetType="session"
-                    targetId={session._id}
-                    studentId={session.student_id}
-                    section="general"
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button variant="outline" size="sm" asChild className="w-full">
-                    <Link href="/advisor/advising/sessions">
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Sessions
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild className="w-full">
-                    <Link href="/advisor/advising/calendar">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      View Calendar
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <Link href="/advisor/advising/sessions">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Sessions
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <Link href="/advisor/advising/calendar">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        View Calendar
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </div>

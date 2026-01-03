@@ -387,4 +387,34 @@
       background: rgb(248 250 252 / 0.95);
     }
   }
+
+  /* Gradient border - visible at bottom, fades to invisible at top */
+  .gradient-border-bottom {
+    position: relative;
+    background: white;
+    border-radius: 1.5rem; /* rounded-3xl */
+  }
+
+  .gradient-border-bottom::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 40%,
+      rgb(226 232 240 / 0.5) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
 }

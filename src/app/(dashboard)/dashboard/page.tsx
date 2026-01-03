@@ -15,6 +15,7 @@ import { ExtensionPromo } from '@/components/ExtensionPromo';
 import { InterviewsAndFollowUpsCard } from '@/components/InterviewsAndFollowUpsCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { OnboardingGuard } from '@/components/OnboardingGuard';
+import { StudentAdvisorActionsCard } from '@/components/StudentAdvisorActionsCard';
 import { TodaysRecommendations } from '@/components/TodaysRecommendations';
 import { UpcomingSection } from '@/components/UpcomingSection';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
@@ -205,6 +206,11 @@ export default function DashboardPage() {
         {/* Extension Promo - dismissible banner */}
         <motion.div variants={cardAnimation}>
           <ExtensionPromo />
+        </motion.div>
+
+        {/* Advisor Actions - only shows for university students with assigned actions */}
+        <motion.div variants={cardAnimation}>
+          <StudentAdvisorActionsCard />
         </motion.div>
 
         {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}

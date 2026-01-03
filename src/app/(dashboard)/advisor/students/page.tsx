@@ -3,13 +3,15 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
-import { Users } from 'lucide-react';
+import { UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { AddStudentDialog } from '@/components/advisor/AddStudentDialog';
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
 import { StudentFilters } from '@/components/advisor/StudentFilters';
 import { StudentsTable } from '@/components/advisor/StudentsTable';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function AdvisorStudentsPageContent() {
@@ -23,6 +25,9 @@ function AdvisorStudentsPageContent() {
   const [selectedMajor, setSelectedMajor] = useState('all');
   const [selectedGradYear, setSelectedGradYear] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Add Student dialog state
+  const [addStudentDialogOpen, setAddStudentDialogOpen] = useState(false);
 
   // Extract unique majors and grad years from data
   const { majors, gradYears } = useMemo(() => {
@@ -90,41 +95,50 @@ function AdvisorStudentsPageContent() {
 
   return (
     <AdvisorGate requiredFlag="advisor.students">
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Students</h1>
-            <p className="text-muted-foreground mt-1">Manage your student caseload</p>
+      <div className="w-full">
+        <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">My Students</h1>
+              <p className="text-muted-foreground mt-1">Manage your student caseload</p>
+            </div>
+            <Button onClick={() => setAddStudentDialogOpen(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Student
+            </Button>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Student Caseload
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filters */}
+              <StudentFilters
+                selectedMajor={selectedMajor}
+                selectedGradYear={selectedGradYear}
+                selectedStatus={selectedStatus}
+                onMajorChange={setSelectedMajor}
+                onGradYearChange={setSelectedGradYear}
+                onStatusChange={setSelectedStatus}
+                onClearFilters={handleClearFilters}
+                majors={majors}
+                gradYears={gradYears}
+                hasActiveFilters={hasActiveFilters}
+              />
+
+              {/* Table */}
+              <StudentsTable students={filteredStudents} isLoading={caseloadData === undefined} />
+            </CardContent>
+          </Card>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Student Caseload
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Filters */}
-            <StudentFilters
-              selectedMajor={selectedMajor}
-              selectedGradYear={selectedGradYear}
-              selectedStatus={selectedStatus}
-              onMajorChange={setSelectedMajor}
-              onGradYearChange={setSelectedGradYear}
-              onStatusChange={setSelectedStatus}
-              onClearFilters={handleClearFilters}
-              majors={majors}
-              gradYears={gradYears}
-              hasActiveFilters={hasActiveFilters}
-            />
-
-            {/* Table */}
-            <StudentsTable students={filteredStudents} isLoading={caseloadData === undefined} />
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Add Student Dialog */}
+      <AddStudentDialog open={addStudentDialogOpen} onOpenChange={setAddStudentDialogOpen} />
     </AdvisorGate>
   );
 }

@@ -31,7 +31,7 @@ import {
 import React from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -294,23 +294,14 @@ function MetricCard({
 }: MetricCardProps) {
   // Only apply interactive props when both clickable=true AND onClick handler exists
   const isInteractive = clickable && onClick;
-  const cardProps = isInteractive
-    ? {
-        onClick,
-        className:
-          'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]',
-        role: 'button',
-        tabIndex: 0,
-        'aria-label': `Filter by ${title.toLowerCase()}`,
-      }
-    : {};
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Card
-            {...cardProps}
+            className={`py-5 px-5 ${isInteractive ? 'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+            onClick={isInteractive ? onClick : undefined}
             onKeyDown={
               isInteractive
                 ? (e: React.KeyboardEvent) => {
@@ -321,14 +312,15 @@ function MetricCard({
                   }
                 : undefined
             }
+            role={isInteractive ? 'button' : undefined}
+            tabIndex={isInteractive ? 0 : undefined}
+            aria-label={isInteractive ? `Filter by ${title.toLowerCase()}` : undefined}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <div className="flex items-center gap-3">
               {icon}
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${valueClassName}`}>{value}</div>
-            </CardContent>
+              <p className={`text-xl font-semibold leading-none ${valueClassName}`}>{value}</p>
+              <p className="text-xs text-muted-foreground">{title}</p>
+            </div>
           </Card>
         </TooltipTrigger>
         {description && (
@@ -361,11 +353,6 @@ interface NeedActionMetricProps {
 function NeedActionMetric({ value, breakdown, onClick, onClickReason }: NeedActionMetricProps) {
   const hasIssues = typeof value === 'number' && value > 0;
 
-  const handleReasonClick = (e: React.MouseEvent, reason: NeedActionReason) => {
-    e.stopPropagation();
-    onClickReason?.(reason);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.key === 'Enter' || e.key === ' ') && onClick) {
       e.preventDefault();
@@ -373,104 +360,94 @@ function NeedActionMetric({ value, breakdown, onClick, onClickReason }: NeedActi
     }
   };
 
-  const handleReasonKeyDown = (e: React.KeyboardEvent, reason: NeedActionReason) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      e.stopPropagation();
-      onClickReason?.(reason);
-    }
-  };
-
-  // Avoid nested interactive elements: when breakdown has clickable reasons, card shouldn't be a button
-  const hasClickableBreakdown = breakdown && hasIssues && onClickReason;
-  const isCardClickable = onClick && !hasClickableBreakdown;
-
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Card
-            className={`${hasIssues ? 'border-orange-200 bg-orange-50/50' : ''} ${isCardClickable ? 'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
-            onClick={isCardClickable ? onClick : undefined}
-            onKeyDown={isCardClickable ? handleKeyDown : undefined}
-            role={isCardClickable ? 'button' : undefined}
-            tabIndex={isCardClickable ? 0 : undefined}
-            aria-label={isCardClickable ? 'Filter applications needing action' : undefined}
+            className={`py-5 px-5 ${hasIssues ? 'border-orange-200 bg-orange-50/50' : ''} ${onClick ? 'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+            onClick={onClick}
+            onKeyDown={onClick ? handleKeyDown : undefined}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            aria-label={onClick ? 'Filter applications needing action' : undefined}
           >
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Need Action</CardTitle>
-                <AlertCircle className="h-4 w-4 text-orange-500" aria-hidden="true" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${hasIssues ? 'text-orange-600' : ''}`}>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" aria-hidden="true" />
+              <p
+                className={`text-xl font-semibold leading-none ${hasIssues ? 'text-orange-600' : ''}`}
+              >
                 {value}
-              </div>
-              {breakdown && hasIssues && (
-                <div className="mt-2 space-y-1 text-xs">
-                  {breakdown.overdue > 0 && (
-                    <button
-                      className="flex w-full justify-between items-center rounded px-1 py-0.5 hover:bg-red-100 transition-colors text-left"
-                      onClick={(e) => handleReasonClick(e, 'overdue')}
-                      onKeyDown={(e) => handleReasonKeyDown(e, 'overdue')}
-                      aria-label="Filter by overdue applications"
-                    >
-                      <span className="text-muted-foreground">Overdue:</span>
-                      <span className="font-semibold text-red-600">{breakdown.overdue}</span>
-                    </button>
-                  )}
-                  {breakdown.due_soon > 0 && (
-                    <button
-                      className="flex w-full justify-between items-center rounded px-1 py-0.5 hover:bg-orange-100 transition-colors text-left"
-                      onClick={(e) => handleReasonClick(e, 'due_soon')}
-                      onKeyDown={(e) => handleReasonKeyDown(e, 'due_soon')}
-                      aria-label="Filter by applications due soon"
-                    >
-                      <span className="text-muted-foreground">Due soon:</span>
-                      <span className="font-semibold text-orange-600">{breakdown.due_soon}</span>
-                    </button>
-                  )}
-                  {breakdown.no_next_step > 0 && (
-                    <button
-                      className="flex w-full justify-between items-center rounded px-1 py-0.5 hover:bg-blue-100 transition-colors text-left"
-                      onClick={(e) => handleReasonClick(e, 'no_next_step')}
-                      onKeyDown={(e) => handleReasonKeyDown(e, 'no_next_step')}
-                      aria-label="Filter by applications with no next step"
-                    >
-                      <span className="text-muted-foreground">No next step:</span>
-                      <span className="font-semibold">{breakdown.no_next_step}</span>
-                    </button>
-                  )}
-                  {breakdown.stale > 0 && (
-                    <button
-                      className="flex w-full justify-between items-center rounded px-1 py-0.5 hover:bg-gray-100 transition-colors text-left"
-                      onClick={(e) => handleReasonClick(e, 'stale')}
-                      onKeyDown={(e) => handleReasonKeyDown(e, 'stale')}
-                      aria-label="Filter by stale applications"
-                    >
-                      <span className="text-muted-foreground">Stale:</span>
-                      <span className="font-semibold">{breakdown.stale}</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </CardContent>
+              </p>
+              <p className="text-xs text-muted-foreground">Need Action</p>
+            </div>
           </Card>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <p className="font-semibold">Applications needing attention</p>
-          <ul className="mt-2 space-y-1 text-xs">
-            <li>• No next step defined</li>
-            <li>• Overdue tasks</li>
-            <li>• Due within 3 days</li>
-            <li>• No activity in 14+ days</li>
-          </ul>
-          <p className="text-xs text-muted-foreground mt-2">
-            {onClickReason
-              ? 'Click total to filter all, or click individual reasons'
-              : 'Click to filter and triage'}
-          </p>
+          <p className="font-semibold mb-2">Applications needing attention</p>
+          {breakdown && hasIssues ? (
+            <div className="space-y-1.5">
+              {breakdown.overdue > 0 && (
+                <button
+                  className="flex w-full justify-between items-center rounded px-2 py-1 hover:bg-red-100 transition-colors text-left text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClickReason?.('overdue');
+                  }}
+                  aria-label="Filter by overdue applications"
+                >
+                  <span>Overdue</span>
+                  <span className="font-semibold text-red-600">{breakdown.overdue}</span>
+                </button>
+              )}
+              {breakdown.due_soon > 0 && (
+                <button
+                  className="flex w-full justify-between items-center rounded px-2 py-1 hover:bg-orange-100 transition-colors text-left text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClickReason?.('due_soon');
+                  }}
+                  aria-label="Filter by applications due soon"
+                >
+                  <span>Due soon</span>
+                  <span className="font-semibold text-orange-600">{breakdown.due_soon}</span>
+                </button>
+              )}
+              {breakdown.no_next_step > 0 && (
+                <button
+                  className="flex w-full justify-between items-center rounded px-2 py-1 hover:bg-blue-100 transition-colors text-left text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClickReason?.('no_next_step');
+                  }}
+                  aria-label="Filter by applications with no next step"
+                >
+                  <span>No next step</span>
+                  <span className="font-semibold">{breakdown.no_next_step}</span>
+                </button>
+              )}
+              {breakdown.stale > 0 && (
+                <button
+                  className="flex w-full justify-between items-center rounded px-2 py-1 hover:bg-gray-100 transition-colors text-left text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClickReason?.('stale');
+                  }}
+                  aria-label="Filter by stale applications"
+                >
+                  <span>Stale (14+ days)</span>
+                  <span className="font-semibold">{breakdown.stale}</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No issues needing attention</p>
+          )}
+          {onClick && (
+            <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+              Click card to filter all, or click a category above
+            </p>
+          )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -455,483 +455,487 @@ export default function AdvisorSupportPage() {
 
   return (
     <AdvisorGate requiredFlag="advisor.support">
-      <div className="container mx-auto px-4 py-8 max-w-7xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1
-              className="text-3xl font-bold tracking-tight flex items-center gap-2"
-              style={{ color: '#0C29AB' }}
-            >
-              <HelpCircle className="h-7 w-7" />
-              Support Tickets
-            </h1>
-            <p className="text-muted-foreground">Submit and track your support requests</p>
+      <div className="w-full">
+        <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1
+                className="text-3xl font-bold tracking-tight flex items-center gap-2"
+                style={{ color: '#0C29AB' }}
+              >
+                <HelpCircle className="h-7 w-7" />
+                Support Tickets
+              </h1>
+              <p className="text-muted-foreground">Submit and track your support requests</p>
+            </div>
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Ticket
+            </Button>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Ticket
-          </Button>
-        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{tickets.length}</div>
-            </CardContent>
-          </Card>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{tickets.length}</div>
+              </CardContent>
+            </Card>
 
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Open</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {tickets.filter((t) => t.status === 'open').length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">
+                  {tickets.filter((t) => t.status === 'in_progress').length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Resolved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {tickets.filter((t) => t.status === 'resolved').length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters and Search */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Open</CardTitle>
+            <CardHeader>
+              <CardTitle>My Tickets</CardTitle>
+              <CardDescription>View and manage your support tickets</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {tickets.filter((t) => t.status === 'open').length}
+            <CardContent className="space-y-4">
+              {/* Tabs for status filter */}
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="open">Open</TabsTrigger>
+                  <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+                  <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                  <TabsTrigger value="closed">Closed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {/* Search and filters */}
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <label htmlFor="ticket-search" className="sr-only">
+                      Search tickets
+                    </label>
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="ticket-search"
+                      placeholder="Search tickets..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                    <SelectItem value="billing">Billing</SelectItem>
+                    <SelectItem value="feature_request">Feature Request</SelectItem>
+                    <SelectItem value="bug_report">Bug Report</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Tickets Table */}
+              {filteredTickets.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No tickets found</p>
+                  <Button
+                    onClick={() => setCreateDialogOpen(true)}
+                    variant="outline"
+                    className="mt-4"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create your first ticket
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTickets.map((ticket) => (
+                      <TableRow
+                        key={String(ticket._id)}
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedTicket(ticket);
+                          setDetailDialogOpen(true);
+                        }}
+                      >
+                        <TableCell className="font-medium">{ticket.subject}</TableCell>
+                        <TableCell className="capitalize">
+                          {ticket.category.replace(/_/g, ' ')}
+                        </TableCell>
+                        <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
+                        <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(ticket.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTicket(ticket);
+                              setDetailDialogOpen(true);
+                            }}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">
-                {tickets.filter((t) => t.status === 'in_progress').length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {tickets.filter((t) => t.status === 'resolved').length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters and Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle>My Tickets</CardTitle>
-            <CardDescription>View and manage your support tickets</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Tabs for status filter */}
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="open">Open</TabsTrigger>
-                <TabsTrigger value="in_progress">In Progress</TabsTrigger>
-                <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                <TabsTrigger value="closed">Closed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* Search and filters */}
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <label htmlFor="ticket-search" className="sr-only">
-                    Search tickets
-                  </label>
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {/* Create Ticket Dialog */}
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Support Ticket</DialogTitle>
+                <DialogDescription>Submit a new support request</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="subject">Subject *</Label>
                   <Input
-                    id="ticket-search"
-                    placeholder="Search tickets..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    id="subject"
+                    placeholder="Brief description of the issue"
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="category">Category *</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(v) => setFormData({ ...formData, category: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="billing">Billing</SelectItem>
+                        <SelectItem value="feature_request">Feature Request</SelectItem>
+                        <SelectItem value="bug_report">Bug Report</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="priority">Priority *</Label>
+                    <Select
+                      value={formData.priority}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, priority: v as typeof formData.priority })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Provide detailed information about your issue..."
+                    rows={6}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
               </div>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="technical">Technical</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="feature_request">Feature Request</SelectItem>
-                  <SelectItem value="bug_report">Bug Report</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tickets Table */}
-            {filteredTickets.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground">No tickets found</p>
-                <Button
-                  onClick={() => setCreateDialogOpen(true)}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create your first ticket
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Cancel
                 </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTickets.map((ticket) => (
-                    <TableRow
-                      key={String(ticket._id)}
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => {
-                        setSelectedTicket(ticket);
-                        setDetailDialogOpen(true);
-                      }}
-                    >
-                      <TableCell className="font-medium">{ticket.subject}</TableCell>
-                      <TableCell className="capitalize">
-                        {ticket.category.replace(/_/g, ' ')}
-                      </TableCell>
-                      <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
-                      <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(ticket.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedTicket(ticket);
-                            setDetailDialogOpen(true);
-                          }}
-                        >
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                <Button onClick={handleCreateTicket} disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Submit Ticket
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-        {/* Create Ticket Dialog */}
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Support Ticket</DialogTitle>
-              <DialogDescription>Submit a new support request</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="subject">Subject *</Label>
-                <Input
-                  id="subject"
-                  placeholder="Brief description of the issue"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                />
-              </div>
+          {/* Ticket Detail Dialog */}
+          <Dialog
+            open={detailDialogOpen}
+            onOpenChange={(open) => {
+              setDetailDialogOpen(open);
+              if (!open) setResponseText('');
+            }}
+          >
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+              {selectedTicket && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      {selectedTicket.subject}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Ticket #{String(selectedTicket._id).slice(-6)}
+                    </DialogDescription>
+                  </DialogHeader>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(v) => setFormData({ ...formData, category: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="technical">Technical</SelectItem>
-                      <SelectItem value="billing">Billing</SelectItem>
-                      <SelectItem value="feature_request">Feature Request</SelectItem>
-                      <SelectItem value="bug_report">Bug Report</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="priority">Priority *</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, priority: v as typeof formData.priority })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Provide detailed information about your issue..."
-                  rows={6}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateTicket} disabled={isCreating}>
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit Ticket
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Ticket Detail Dialog */}
-        <Dialog
-          open={detailDialogOpen}
-          onOpenChange={(open) => {
-            setDetailDialogOpen(open);
-            if (!open) setResponseText('');
-          }}
-        >
-          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-            {selectedTicket && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {selectedTicket.subject}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Ticket #{String(selectedTicket._id).slice(-6)}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                  {/* Ticket Info */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Status</Label>
-                      <div className="mt-1 flex items-center gap-2">
-                        {getStatusBadge(selectedTicket.status)}
-                        <Select
-                          value={selectedTicket.status}
-                          onValueChange={(value) =>
-                            handleUpdateStatus(
-                              selectedTicket._id,
-                              value as 'open' | 'in_progress' | 'resolved' | 'closed',
-                            )
-                          }
-                        >
-                          <SelectTrigger className="w-[140px] h-8 text-xs">
-                            <SelectValue placeholder="Change status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="open">Open</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="resolved">Resolved</SelectItem>
-                            <SelectItem value="closed">Closed</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  <div className="space-y-4">
+                    {/* Ticket Info */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Status</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          {getStatusBadge(selectedTicket.status)}
+                          <Select
+                            value={selectedTicket.status}
+                            onValueChange={(value) =>
+                              handleUpdateStatus(
+                                selectedTicket._id,
+                                value as 'open' | 'in_progress' | 'resolved' | 'closed',
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-[140px] h-8 text-xs">
+                              <SelectValue placeholder="Change status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="open">Open</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="resolved">Resolved</SelectItem>
+                              <SelectItem value="closed">Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Priority</Label>
+                        <div className="mt-1">{getPriorityBadge(selectedTicket.priority)}</div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Category</Label>
+                        <div className="mt-1 capitalize">
+                          {selectedTicket.category.replace(/_/g, ' ')}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Created</Label>
+                        <div className="mt-1">
+                          {new Date(selectedTicket.created_at).toLocaleString()}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Priority</Label>
-                      <div className="mt-1">{getPriorityBadge(selectedTicket.priority)}</div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Category</Label>
-                      <div className="mt-1 capitalize">
-                        {selectedTicket.category.replace(/_/g, ' ')}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Created</Label>
-                      <div className="mt-1">
-                        {new Date(selectedTicket.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Description */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Description</Label>
-                    <Card className="mt-2">
-                      <CardContent className="pt-4">
-                        <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Add Response */}
-                  {responseEntries.length > 0 && (
+                    {/* Description */}
                     <div>
-                      <Label className="text-xs text-muted-foreground">Responses</Label>
+                      <Label className="text-xs text-muted-foreground">Description</Label>
                       <Card className="mt-2">
-                        <CardContent className="pt-4 space-y-3">
-                          {responseEntries.map((entry, idx) => (
-                            <div
-                              key={idx}
-                              className="text-sm border-b last:border-b-0 pb-2 last:pb-0 border-gray-200"
-                            >
-                              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                                <span className="font-medium text-gray-900">{entry.author}</span>
-                                {entry.timestamp && <span>{entry.timestamp}</span>}
-                              </div>
-                              <div className="whitespace-pre-wrap text-gray-800">
-                                {entry.message}
-                              </div>
-                            </div>
-                          ))}
+                        <CardContent className="pt-4">
+                          <p className="text-sm whitespace-pre-wrap">
+                            {selectedTicket.description}
+                          </p>
                         </CardContent>
                       </Card>
                     </div>
-                  )}
 
-                  <div>
-                    <Label htmlFor="response-textarea" className="text-xs text-muted-foreground">
-                      Add Response
-                    </Label>
-                    <div className="mt-2 flex gap-2">
-                      <Textarea
-                        id="response-textarea"
-                        placeholder="Type your response..."
-                        value={responseText}
-                        onChange={(e) => setResponseText(e.target.value)}
-                        rows={3}
-                        className="flex-1"
-                        disabled={isSubmittingResponse}
-                      />
+                    {/* Add Response */}
+                    {responseEntries.length > 0 && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Responses</Label>
+                        <Card className="mt-2">
+                          <CardContent className="pt-4 space-y-3">
+                            {responseEntries.map((entry, idx) => (
+                              <div
+                                key={idx}
+                                className="text-sm border-b last:border-b-0 pb-2 last:pb-0 border-gray-200"
+                              >
+                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                  <span className="font-medium text-gray-900">{entry.author}</span>
+                                  {entry.timestamp && <span>{entry.timestamp}</span>}
+                                </div>
+                                <div className="whitespace-pre-wrap text-gray-800">
+                                  {entry.message}
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="response-textarea" className="text-xs text-muted-foreground">
+                        Add Response
+                      </Label>
+                      <div className="mt-2 flex gap-2">
+                        <Textarea
+                          id="response-textarea"
+                          placeholder="Type your response..."
+                          value={responseText}
+                          onChange={(e) => setResponseText(e.target.value)}
+                          rows={3}
+                          className="flex-1"
+                          disabled={isSubmittingResponse}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleAddResponse}
+                        disabled={!responseText.trim() || isSubmittingResponse}
+                        className="mt-2"
+                        size="sm"
+                      >
+                        {isSubmittingResponse ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Response
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={handleAddResponse}
-                      disabled={!responseText.trim() || isSubmittingResponse}
-                      className="mt-2"
-                      size="sm"
-                    >
-                      {isSubmittingResponse ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Response
-                        </>
-                      )}
-                    </Button>
                   </div>
-                </div>
 
-                {/* Dialog Footer with Delete Button */}
-                <DialogFooter className="flex justify-between sm:justify-between">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteTicket(selectedTicket._id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Ticket
-                  </Button>
-                  <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
-                    Close
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+                  {/* Dialog Footer with Delete Button */}
+                  <DialogFooter className="flex justify-between sm:justify-between">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteTicket(selectedTicket._id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Ticket
+                    </Button>
+                    <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Support Ticket</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete this ticket? This action cannot be undone and the
-                ticket will be permanently removed from the system.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() => {
-                  setDeleteDialogOpen(false);
-                  setTicketToDelete(null);
-                }}
-              >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDeleteTicket}
-                disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete Ticket'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Support Ticket</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this ticket? This action cannot be undone and the
+                  ticket will be permanently removed from the system.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setTicketToDelete(null);
+                  }}
+                >
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={confirmDeleteTicket}
+                  disabled={isDeleting}
+                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Ticket'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </AdvisorGate>
   );
