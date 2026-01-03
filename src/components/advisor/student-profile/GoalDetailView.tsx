@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
+import { formatDateWithFallback } from '@/lib/date-utils';
 
 interface GoalDetailViewProps {
   goalId: Id<'goals'>;
@@ -40,15 +41,6 @@ const STATUS_OPTIONS = [
 
 function getStatusColor(status: string): string {
   return STATUS_OPTIONS.find((s) => s.value === status)?.color || 'bg-slate-100 text-slate-700';
-}
-
-function formatDate(timestamp?: number | null): string {
-  if (!timestamp) return 'Not set';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
@@ -129,7 +121,7 @@ export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
     );
   }
 
-  const currentStatus = isEditing && editedStatus ? editedStatus : goal.status;
+  const currentStatus = isEditing && editedStatus !== null ? editedStatus : goal.status;
   const currentProgress = isEditing && editedProgress !== null ? editedProgress : goal.progress;
 
   return (
@@ -237,14 +229,14 @@ export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
             <Calendar className="h-3 w-3" />
             Target Date
           </Label>
-          <p className="text-sm">{formatDate(goal.target_date)}</p>
+          <p className="text-sm">{formatDateWithFallback(goal.target_date)}</p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" />
             Created
           </Label>
-          <p className="text-sm">{formatDate(goal.created_at)}</p>
+          <p className="text-sm">{formatDateWithFallback(goal.created_at)}</p>
         </div>
         {goal.completed_at && (
           <div className="space-y-1">
@@ -252,7 +244,7 @@ export function GoalDetailView({ goalId, studentId }: GoalDetailViewProps) {
               <CheckCircle2 className="h-3 w-3" />
               Completed
             </Label>
-            <p className="text-sm">{formatDate(goal.completed_at)}</p>
+            <p className="text-sm">{formatDateWithFallback(goal.completed_at)}</p>
           </div>
         )}
       </div>

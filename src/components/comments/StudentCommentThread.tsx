@@ -10,8 +10,8 @@ import type {
   CommentThread,
   CommentVisibility,
   CommentWithAuthor,
-  GroupedReaction,
 } from '@/components/advisor/comments/types';
+import { getInitials, groupReactions, REACTION_EMOJIS } from '@/components/advisor/comments/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,57 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-
-/**
- * Common reaction emojis
- */
-const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '🤔', '👀'];
-
-/**
- * Group reactions by emoji for display
- */
-function groupReactions(
-  reactions: Array<{ user_id: string; emoji: string; created_at: number }> | undefined,
-  currentUserId: string,
-): GroupedReaction[] {
-  if (!reactions || reactions.length === 0) return [];
-
-  const grouped = new Map<string, GroupedReaction>();
-
-  for (const reaction of reactions) {
-    const existing = grouped.get(reaction.emoji);
-    if (existing) {
-      existing.count++;
-      existing.userIds.push(reaction.user_id);
-      if (reaction.user_id === currentUserId) {
-        existing.hasCurrentUser = true;
-      }
-    } else {
-      grouped.set(reaction.emoji, {
-        emoji: reaction.emoji,
-        count: 1,
-        userIds: [reaction.user_id],
-        hasCurrentUser: reaction.user_id === currentUserId,
-      });
-    }
-  }
-
-  return Array.from(grouped.values());
-}
-
-/**
- * Get initials from name
- */
-function getInitials(name: string): string {
-  if (!name.trim()) return '?';
-  return name
-    .split(' ')
-    .filter((n) => n.length > 0)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 /**
  * Props for StudentCommentThread

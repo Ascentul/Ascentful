@@ -19,19 +19,11 @@ import { CommentButton } from '@/components/advisor/comments/CommentButton';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { formatDateWithFallback } from '@/lib/date-utils';
 
 interface ProjectDetailViewProps {
   projectId: Id<'projects'>;
   studentId: Id<'users'>;
-}
-
-function formatDate(timestamp?: number | null): string {
-  if (!timestamp) return 'Not set';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewProps) {
@@ -128,7 +120,7 @@ export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewPro
             <Calendar className="h-3 w-3" />
             Start Date
           </Label>
-          <p className="text-sm">{formatDate(project.start_date)}</p>
+          <p className="text-sm">{formatDateWithFallback(project.start_date)}</p>
         </div>
         {project.end_date && (
           <div className="space-y-1">
@@ -136,7 +128,7 @@ export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewPro
               <Calendar className="h-3 w-3" />
               End Date
             </Label>
-            <p className="text-sm">{formatDate(project.end_date)}</p>
+            <p className="text-sm">{formatDateWithFallback(project.end_date)}</p>
           </div>
         )}
       </div>
@@ -209,8 +201,8 @@ export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewPro
 
       {/* Timestamps */}
       <div className="text-xs text-muted-foreground pt-4 border-t">
-        <p>Created: {formatDate(project.created_at)}</p>
-        <p>Updated: {formatDate(project.updated_at)}</p>
+        <p>Created: {formatDateWithFallback(project.created_at)}</p>
+        <p>Updated: {formatDateWithFallback(project.updated_at)}</p>
       </div>
     </div>
   );

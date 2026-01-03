@@ -11,19 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { formatDateWithFallback } from '@/lib/date-utils';
 
 interface CoverLetterDetailViewProps {
   coverLetterId: Id<'cover_letters'>;
   studentId: Id<'users'>;
-}
-
-function formatDate(timestamp?: number | null): string {
-  if (!timestamp) return 'Not set';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterDetailViewProps) {
@@ -71,7 +63,7 @@ export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterD
           <div>
             <h3 className="font-semibold text-lg">{coverLetter.name}</h3>
             <p className="text-sm text-muted-foreground">
-              Last updated: {formatDate(coverLetter.updated_at)}
+              Last updated: {formatDateWithFallback(coverLetter.updated_at)}
             </p>
           </div>
         </div>
@@ -108,7 +100,7 @@ export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterD
             <Calendar className="h-3 w-3" />
             Created
           </Label>
-          <p className="text-sm">{formatDate(coverLetter.created_at)}</p>
+          <p className="text-sm">{formatDateWithFallback(coverLetter.created_at)}</p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Template</Label>

@@ -79,7 +79,6 @@ export function AssetSlideOver({ selectedAsset, studentId, onClose }: AssetSlide
                 <ApplicationDetailView
                   applicationId={selectedAsset.id as Id<'applications'>}
                   studentId={studentId}
-                  onClose={onClose}
                 />
               )}
               {selectedAsset.type === 'goal' && (

@@ -174,3 +174,19 @@ export const formatShortDate = (
     return '';
   }
 };
+
+/**
+ * Format a date for display with fallback text (e.g., "Dec 15, 2024" or "Not set")
+ * Used in advisor detail views where null dates need explicit fallback text
+ */
+export const formatDateWithFallback = (
+  timestamp: number | null | undefined,
+  fallback = 'Not set',
+): string => {
+  if (!timestamp) return fallback;
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};

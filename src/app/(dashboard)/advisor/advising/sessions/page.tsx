@@ -128,21 +128,6 @@ export default function AdvisorSessionsPage() {
     visibility: 'advisor_only',
   });
 
-  // Open create dialog if ?action=new is in URL, and pre-fill studentId if provided
-  useEffect(() => {
-    const action = searchParams.get('action');
-    const studentId = searchParams.get('studentId');
-
-    if (action === 'new') {
-      setCreateDialogOpen(true);
-      if (studentId) {
-        setNewSession((prev) => ({ ...prev, student_id: studentId }));
-      }
-      // Clear URL params to prevent dialog reopening on refresh
-      router.replace('/advisor/advising/sessions', { scroll: false });
-    }
-  }, [searchParams, router]);
-
   // Queries
   const sessions = useQuery(api.advisor_sessions.getSessions, clerkUser?.id ? {} : 'skip');
 
@@ -150,6 +135,27 @@ export default function AdvisorSessionsPage() {
     api.advisor_students.getMyCaseload,
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
   );
+
+  // Open create dialog if ?action=new is in URL, and pre-fill studentId if provided
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const studentId = searchParams.get('studentId');
+
+    // Wait for caseload to load before processing URL params with studentId
+    if (action === 'new' && studentId && caseload === undefined) {
+      return; // Wait for caseload to load
+    }
+
+    if (action === 'new') {
+      setCreateDialogOpen(true);
+      // Only pre-fill if studentId is in advisor's caseload
+      if (studentId && caseload?.some((s) => s._id === studentId)) {
+        setNewSession((prev) => ({ ...prev, student_id: studentId }));
+      }
+      // Clear URL params to prevent dialog reopening on refresh
+      router.replace('/advisor/advising/sessions', { scroll: false });
+    }
+  }, [searchParams, router, caseload]);
 
   // Mutations
   const createSession = useMutation(api.advisor_sessions_mutations.createSession);
@@ -661,7 +667,7 @@ export default function AdvisorSessionsPage() {
                     value={newSession.session_type}
                     onValueChange={(v) => setNewSession({ ...newSession, session_type: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -703,7 +709,7 @@ export default function AdvisorSessionsPage() {
                     value={newSession.duration_minutes}
                     onValueChange={(v) => setNewSession({ ...newSession, duration_minutes: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="duration">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -749,7 +755,7 @@ export default function AdvisorSessionsPage() {
                     value={newSession.visibility}
                     onValueChange={(v) => setNewSession({ ...newSession, visibility: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="visibility">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

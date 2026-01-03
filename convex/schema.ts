@@ -143,7 +143,7 @@ export default defineSchema({
     last_login_at: v.optional(v.number()), // Timestamp of last login (for activeUsers30d metric)
     // Advisor engagement tracking
     outreach_snoozed_until: v.optional(v.number()), // Timestamp when "needs outreach" snooze expires
-    advisor_tags: v.optional(v.array(v.string())), // Max 5 internal tags (e.g., "At-risk", "International")
+    advisor_tags: v.optional(v.array(v.string())), // Max 5 tags, enforced in updateStudentTags mutation (e.g., "At-risk", "International")
     created_at: v.number(),
     updated_at: v.number(),
   })

@@ -323,7 +323,6 @@ function StudentProfileContent() {
             />
             <EngagementPanel
               studentId={studentId}
-              lastActiveAt={engagement.lastActiveAt}
               needsOutreach={engagement.needsOutreach}
               outreachSnoozedUntil={engagement.outreachSnoozedUntil}
               inactivityDays={engagement.inactivityDays}

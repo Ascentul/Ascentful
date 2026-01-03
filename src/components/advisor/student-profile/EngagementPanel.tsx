@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface EngagementPanelProps {
   studentId: Id<'users'>;
-  lastActiveAt?: number;
   needsOutreach: boolean;
   outreachSnoozedUntil?: number;
   inactivityDays?: number;
@@ -29,7 +28,6 @@ function formatDate(timestamp: number): string {
 
 export function EngagementPanel({
   studentId,
-  lastActiveAt,
   needsOutreach,
   outreachSnoozedUntil,
   inactivityDays = 0,

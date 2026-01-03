@@ -120,8 +120,12 @@ export function AddStudentDialog({ open, onOpenChange }: AddStudentDialogProps) 
 
         {/* Search Input */}
         <div className="relative">
+          <label htmlFor="student-search" className="sr-only">
+            Search students
+          </label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            id="student-search"
             placeholder="Search by name, email, or major..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

@@ -208,6 +208,17 @@ export default function AdvisorSupportPage() {
     return filtered;
   }, [tickets, activeTab, priorityFilter, categoryFilter, searchQuery]);
 
+  // Memoize ticket stats to avoid repeated array iterations
+  const ticketStats = useMemo(() => {
+    if (!tickets) return { total: 0, open: 0, inProgress: 0, resolved: 0 };
+    return {
+      total: tickets.length,
+      open: tickets.filter((t) => t.status === 'open').length,
+      inProgress: tickets.filter((t) => t.status === 'in_progress').length,
+      resolved: tickets.filter((t) => t.status === 'resolved').length,
+    };
+  }, [tickets]);
+
   // Handle create ticket
   const handleCreateTicket = async () => {
     if (!clerkUser?.id || !formData.subject || !formData.description) {
@@ -489,7 +500,7 @@ export default function AdvisorSupportPage() {
                 <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{tickets.length}</div>
+                <div className="text-2xl font-bold">{ticketStats.total}</div>
               </CardContent>
             </Card>
 
@@ -498,9 +509,7 @@ export default function AdvisorSupportPage() {
                 <CardTitle className="text-sm font-medium">Open</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {tickets.filter((t) => t.status === 'open').length}
-                </div>
+                <div className="text-2xl font-bold text-blue-600">{ticketStats.open}</div>
               </CardContent>
             </Card>
 
@@ -509,9 +518,7 @@ export default function AdvisorSupportPage() {
                 <CardTitle className="text-sm font-medium">In Progress</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {tickets.filter((t) => t.status === 'in_progress').length}
-                </div>
+                <div className="text-2xl font-bold text-amber-600">{ticketStats.inProgress}</div>
               </CardContent>
             </Card>
 
@@ -520,9 +527,7 @@ export default function AdvisorSupportPage() {
                 <CardTitle className="text-sm font-medium">Resolved</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {tickets.filter((t) => t.status === 'resolved').length}
-                </div>
+                <div className="text-2xl font-bold text-green-600">{ticketStats.resolved}</div>
               </CardContent>
             </Card>
           </div>

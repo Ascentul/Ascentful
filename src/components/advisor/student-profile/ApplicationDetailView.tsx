@@ -32,11 +32,11 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateWithFallback } from '@/lib/date-utils';
 
 interface ApplicationDetailViewProps {
   applicationId: Id<'applications'>;
   studentId: Id<'users'>;
-  onClose: () => void;
 }
 
 const STAGE_OPTIONS = [
@@ -54,20 +54,7 @@ function getStageColor(stage: string): string {
   return STAGE_OPTIONS.find((s) => s.value === stage)?.color || 'bg-slate-100 text-slate-700';
 }
 
-function formatDate(timestamp?: number | null): string {
-  if (!timestamp) return 'Not set';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-export function ApplicationDetailView({
-  applicationId,
-  studentId,
-  onClose,
-}: ApplicationDetailViewProps) {
+export function ApplicationDetailView({ applicationId, studentId }: ApplicationDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
 
@@ -249,7 +236,7 @@ export function ApplicationDetailView({
             <Calendar className="h-3 w-3" />
             Applied Date
           </Label>
-          <p className="text-sm">{formatDate(application.applied_at)}</p>
+          <p className="text-sm">{formatDateWithFallback(application.applied_at)}</p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -257,7 +244,7 @@ export function ApplicationDetailView({
             Last Updated
           </Label>
           <p className="text-sm">
-            {formatDate(application.stage_set_at || application.updated_at)}
+            {formatDateWithFallback(application.stage_set_at || application.updated_at)}
           </p>
         </div>
       </div>
@@ -337,7 +324,7 @@ export function ApplicationDetailView({
               <p className="text-sm">{application.next_step}</p>
               {application.due_date && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Due: {formatDate(application.due_date)}
+                  Due: {formatDateWithFallback(application.due_date)}
                 </p>
               )}
             </div>

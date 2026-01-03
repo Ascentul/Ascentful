@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { formatDateWithFallback } from '@/lib/date-utils';
 
 interface ResumeDetailViewProps {
   resumeId: Id<'resumes'>;
@@ -74,15 +75,6 @@ interface ResumeContent {
   }>;
 }
 
-function formatDate(timestamp?: number | null): string {
-  if (!timestamp) return 'Not set';
-  return new Date(timestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 export function ResumeDetailView({ resumeId, studentId }: ResumeDetailViewProps) {
   const { user } = useUser();
   const clerkId = user?.id;
@@ -130,7 +122,7 @@ export function ResumeDetailView({ resumeId, studentId }: ResumeDetailViewProps)
           <div>
             <h3 className="font-semibold text-lg">{resume.title}</h3>
             <p className="text-sm text-muted-foreground">
-              Last updated: {formatDate(resume.updated_at)}
+              Last updated: {formatDateWithFallback(resume.updated_at)}
             </p>
           </div>
         </div>
