@@ -132,6 +132,18 @@ export function isStudentRole(role: string | undefined | null): boolean {
   return !!role && (STUDENT_COUNTABLE_ROLES as readonly string[]).includes(role);
 }
 
+/**
+ * Check if a user is a university-affiliated student.
+ * This is the hard constraint for Student Advisor Hub access.
+ * Requires BOTH: role === 'student' AND valid university_id.
+ */
+export function isUniversityStudent(
+  role: string | undefined | null,
+  universityId: string | undefined | null,
+): boolean {
+  return role === 'student' && !!universityId;
+}
+
 // =============================================================================
 // Goal Status Constants (for API validation)
 // =============================================================================
