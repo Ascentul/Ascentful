@@ -42,8 +42,6 @@ export function CommentHighlighter({
   sidebarOpen = false,
   className,
 }: CommentHighlighterProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
   // Filter to only inline comments with position data
   const inlineComments = useMemo(() => {
     return comments.filter((c) => c.comment_type === 'inline' && c.inline_position?.selection_text);
@@ -55,7 +53,7 @@ export function CommentHighlighter({
   }
 
   return (
-    <div className={cn('relative', className)} ref={containerRef}>
+    <div className={cn('relative', className)}>
       {children}
 
       {/* Floating indicators for commented sections */}

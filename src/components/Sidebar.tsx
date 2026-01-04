@@ -470,8 +470,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
       } catch {}
       return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, allSections, getActiveSectionId]);
 
   const handleLogout = useCallback(async () => {
     try {

@@ -145,10 +145,10 @@ export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterD
 
       {/* Actions */}
       <div className="flex gap-2 pt-4">
-        <Button variant="outline" className="flex-1" disabled>
+        <Button variant="outline" className="flex-1" disabled title="Coming soon">
           Request Review
         </Button>
-        <Button variant="outline" className="flex-1" disabled>
+        <Button variant="outline" className="flex-1" disabled title="Coming soon">
           Add to Review Queue
         </Button>
       </div>

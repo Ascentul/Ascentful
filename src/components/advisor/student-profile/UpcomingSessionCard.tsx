@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { isValidHttpUrl } from '@/lib/utils';
 
 interface UpcomingSession {
   _id: Id<'advisor_sessions'>;
@@ -144,7 +145,7 @@ export function UpcomingSessionCard({ session, studentId, onAddAction }: Upcomin
         )}
 
         {/* Meeting URL */}
-        {session.meeting_url && (
+        {session.meeting_url && isValidHttpUrl(session.meeting_url) && (
           <div className="flex items-center gap-2 text-sm">
             <Video className="h-4 w-4 text-muted-foreground" />
             <a

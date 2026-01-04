@@ -91,7 +91,11 @@ export function ProjectDetailView({ projectId, studentId }: ProjectDetailViewPro
       {/* Project image */}
       {project.image_url && (
         <div className="rounded-lg overflow-hidden border">
-          <img src={project.image_url} alt={project.title} className="w-full h-40 object-cover" />
+          <img
+            src={project.image_url}
+            alt={project.title || 'Project image'}
+            className="w-full h-40 object-cover"
+          />
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import type { Id } from 'convex/_generated/dataModel';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckCircle, ChevronDown, ChevronUp, MoreHorizontal, Reply, Sparkles } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronUp, Reply, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 import { CommentInput } from '@/components/advisor/comments/CommentInput';
@@ -70,6 +70,9 @@ export function StudentCommentThread({
     try {
       await onReply(thread.root._id, body);
       setIsReplying(false);
+    } catch (error) {
+      // Keep reply input open on failure so user can retry
+      console.error('Failed to submit reply:', error);
     } finally {
       setIsSubmitting(false);
     }
