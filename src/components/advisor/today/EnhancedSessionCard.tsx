@@ -60,7 +60,7 @@ interface EnhancedSession {
 interface EnhancedSessionCardProps {
   session: EnhancedSession;
   onAddNote?: (sessionId: Id<'advisor_sessions'>) => void;
-  onAddFollowUp?: (studentId: Id<'users'>) => void;
+  onAddFollowUp?: (studentId: Id<'users'>, sessionTitle?: string) => void;
 }
 
 const sessionTypeLabels: Record<string, string> = {
@@ -236,7 +236,7 @@ export function EnhancedSessionCard({
             variant="ghost"
             size="sm"
             className="h-7 text-xs gap-1"
-            onClick={() => onAddFollowUp?.(session.student_id)}
+            onClick={() => onAddFollowUp?.(session.student_id, session.title)}
           >
             <MessageSquare className="h-3 w-3" />
             Follow-up

@@ -3,8 +3,10 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
-import { useQuery } from 'convex/react';
-import { Building2, Calendar, FileText, Loader2, Send } from 'lucide-react';
+import { useMutation, useQuery } from 'convex/react';
+import { Building2, Calendar, CheckCircle, FileText, Loader2, Plus, Send } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { CommentButton } from '@/components/advisor/comments/CommentButton';
 import { Badge } from '@/components/ui/badge';
@@ -22,11 +24,40 @@ export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterD
   const { user } = useUser();
   const clerkId = user?.id;
 
+  const [isAddingToQueue, setIsAddingToQueue] = useState(false);
+
   // Fetch cover letter details
   const coverLetter = useQuery(
     api.advisor_students.getStudentCoverLetter,
     clerkId ? { clerkId, studentId, coverLetterId } : 'skip',
   );
+
+  // Check if this cover letter already has a pending review
+  const existingReview = useQuery(
+    api.advisor_reviews.getReviewForAsset,
+    clerkId ? { clerkId, coverLetterId } : 'skip',
+  );
+
+  const createReview = useMutation(api.advisor_reviews.createReview);
+
+  const handleAddToQueue = async () => {
+    if (!clerkId) return;
+
+    setIsAddingToQueue(true);
+    try {
+      await createReview({
+        clerkId,
+        studentId,
+        assetType: 'cover_letter',
+        coverLetterId,
+      });
+      toast.success('Cover letter added to review queue');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add to review queue');
+    } finally {
+      setIsAddingToQueue(false);
+    }
+  };
 
   if (!clerkId) {
     return (
@@ -145,12 +176,34 @@ export function CoverLetterDetailView({ coverLetterId, studentId }: CoverLetterD
 
       {/* Actions */}
       <div className="flex gap-2 pt-4">
-        <Button variant="outline" className="flex-1" disabled title="Coming soon">
-          Request Review
-        </Button>
-        <Button variant="outline" className="flex-1" disabled title="Coming soon">
-          Add to Review Queue
-        </Button>
+        {existingReview ? (
+          <div className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {existingReview.status === 'approved'
+                ? 'Review Approved'
+                : existingReview.status === 'in_review'
+                  ? 'Under Review'
+                  : existingReview.status === 'needs_edits'
+                    ? 'Needs Edits'
+                    : 'In Review Queue'}
+            </span>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={handleAddToQueue}
+            disabled={isAddingToQueue}
+          >
+            {isAddingToQueue ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4 mr-2" />
+            )}
+            Add to Review Queue
+          </Button>
+        )}
       </div>
     </div>
   );

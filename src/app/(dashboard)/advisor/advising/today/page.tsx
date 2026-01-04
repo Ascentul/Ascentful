@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
+import { AddActionModal } from '@/components/advisor/student-profile/AddActionModal';
 // New components
 import {
   ComingUpPanel,
@@ -51,6 +52,13 @@ export default function AdvisorTodayPage() {
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [snoozeFollowUpId, setSnoozeFollowUpId] = useState<Id<'follow_ups'> | null>(null);
   const [snoozeFollowUpTitle, setSnoozeFollowUpTitle] = useState<string | undefined>(undefined);
+
+  // State for add follow-up modal
+  const [addFollowUpOpen, setAddFollowUpOpen] = useState(false);
+  const [addFollowUpStudentId, setAddFollowUpStudentId] = useState<Id<'users'> | null>(null);
+  const [addFollowUpPrefillTitle, setAddFollowUpPrefillTitle] = useState<string | undefined>(
+    undefined,
+  );
 
   // Refs for scroll targets
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -138,12 +146,17 @@ export default function AdvisorTodayPage() {
     router.push(`/advisor/advising/sessions/${sessionId}?edit=notes`);
   };
 
-  const handleAddFollowUp = (_studentId: Id<'users'>) => {
-    // TODO: Implement student detail page with follow-up creation
-    toast({
-      title: 'Coming soon',
-      description: 'Student follow-up creation will be available in a future update.',
-    });
+  const handleAddFollowUp = (studentId: Id<'users'>, sessionTitle?: string) => {
+    setAddFollowUpStudentId(studentId);
+    setAddFollowUpPrefillTitle(sessionTitle ? `Follow-up: ${sessionTitle}` : undefined);
+    setAddFollowUpOpen(true);
+  };
+
+  const handleFollowUpSuccess = () => {
+    setAddFollowUpOpen(false);
+    setAddFollowUpStudentId(null);
+    setAddFollowUpPrefillTitle(undefined);
+    toast({ title: 'Follow-up created successfully' });
   };
 
   // Default empty data for loading states
@@ -304,6 +317,17 @@ export default function AdvisorTodayPage() {
           followUpTitle={snoozeFollowUpTitle}
           onSnooze={handleSnoozeConfirm}
         />
+
+        {/* Add Follow-up Modal */}
+        {addFollowUpStudentId && (
+          <AddActionModal
+            open={addFollowUpOpen}
+            onOpenChange={setAddFollowUpOpen}
+            studentId={addFollowUpStudentId}
+            prefillTitle={addFollowUpPrefillTitle}
+            onSuccess={handleFollowUpSuccess}
+          />
+        )}
       </div>
     </AdvisorGate>
   );

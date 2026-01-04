@@ -238,6 +238,12 @@ export const fixStudentUniversityIds = internalMutation({
 
       const targetUniversityId = args.targetUniversityId || assignment.university_id;
 
+      // Skip if no valid university_id available
+      if (!targetUniversityId) {
+        issues.push(`No university_id available for student ${student._id}`);
+        continue;
+      }
+
       // Fix if missing or mismatched
       if (student.university_id !== targetUniversityId) {
         await ctx.db.patch(student._id, {

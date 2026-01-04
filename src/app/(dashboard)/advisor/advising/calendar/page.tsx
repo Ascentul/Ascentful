@@ -13,7 +13,7 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Plus, TrendingUp, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Download, Plus, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -91,25 +91,23 @@ export default function AdvisorCalendarPage() {
               <p className="text-muted-foreground mt-1">Manage your advising schedule</p>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const url = `/api/advisor/calendar/export?startDate=${startDate}&endDate=${endDate}`;
+                  window.open(url, '_blank');
+                }}
+                disabled={!sessions || sessions.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export .ics
+              </Button>
               <Link href="/advisor/advising/sessions?action=new">
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Schedule Session
                 </Button>
               </Link>
-              {/* FEATURE INCOMPLETE: Calendar export to .ics format
-               * Implementation plan:
-               * 1. Install ical-generator package (npm install ical-generator)
-               * 2. Create API route: /api/advisor/calendar/export
-               * 3. Generate ICS from sessions array with VEVENT components
-               * 4. Return as downloadable file with content-type: text/calendar
-               * 5. Uncomment button and add onClick handler
-               *
-               * Example:
-               * const calendar = ical({ name: 'Advisor Sessions' })
-               * sessions.forEach(s => calendar.createEvent({ start: new Date(s.start_at), ... }))
-               * return new Response(calendar.toString(), { headers: { 'Content-Type': 'text/calendar' } })
-               */}
             </div>
           </div>
 
