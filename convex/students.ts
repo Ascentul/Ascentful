@@ -1965,5 +1965,164 @@ export const updateStudentProfile = mutation({
   },
 });
 
+/**
+ * Get follow-ups/action items assigned to the current student
+ *
+ * This query allows students to see action items created by their advisors.
+ * Unlike the advisor query, this does NOT filter by created_by_id since
+ * students should see all follow-ups assigned to them regardless of which
+ * advisor created them.
+ *
+ * Args:
+ * - clerkId: Clerk ID of the student
+ *
+ * Returns: Array of follow-ups with enriched data (overdue status, creator info)
+ *
+ * Authorization:
+ * - Only students can call this query
+ * - Only returns follow-ups where user_id matches the student
+ * - Only returns advisor-created follow-ups (not self-created ones)
+ */
+export const getMyFollowUps = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Verify authenticated identity
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+    if (identity.subject !== args.clerkId) {
+      throw new Error('Unauthorized: Identity mismatch');
+    }
+
+    // Get the student user
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      return [];
+    }
+
+    // Verify user is a student (includes legacy "user" role with university_id)
+    const isStudent = user.role === 'student' || (user.role === 'user' && user.university_id);
+    if (!isStudent || !user.university_id) {
+      return [];
+    }
+
+    const now = Date.now();
+
+    // Get follow-ups assigned to this student that were created by advisors
+    const followUps = await ctx.db
+      .query('follow_ups')
+      .withIndex('by_user_university', (q) =>
+        q.eq('user_id', user._id).eq('university_id', user.university_id),
+      )
+      .filter((q) => q.eq(q.field('created_by_type'), 'advisor'))
+      .collect();
+
+    // Fetch creator info for each follow-up
+    const creatorIds = [...new Set(followUps.map((f) => f.created_by_id).filter(Boolean))];
+    const creatorMap = new Map<string, { name: string; role: string }>();
+
+    for (const creatorId of creatorIds) {
+      if (creatorId) {
+        const creator = await ctx.db.get(creatorId);
+        if (creator) {
+          creatorMap.set(creatorId.toString(), {
+            name: creator.name || 'Advisor',
+            role: creator.role,
+          });
+        }
+      }
+    }
+
+    // Enrich with overdue status and creator info
+    const enrichedFollowUps = followUps.map((f) => ({
+      ...f,
+      isOverdue: f.due_at ? f.due_at < now && f.status === 'open' : false,
+      creator: f.created_by_id ? creatorMap.get(f.created_by_id.toString()) : null,
+    }));
+
+    // Sort: open first, then by due date ascending
+    enrichedFollowUps.sort((a, b) => {
+      // Open items first
+      if (a.status !== b.status) {
+        return a.status === 'open' ? -1 : 1;
+      }
+      // Then by due date (items without due date at end)
+      const aDue = a.due_at ?? Infinity;
+      const bDue = b.due_at ?? Infinity;
+      return aDue - bDue;
+    });
+
+    return enrichedFollowUps;
+  },
+});
+
+/**
+ * Mark a follow-up as complete (student action)
+ *
+ * Students can mark follow-ups assigned to them as complete.
+ *
+ * Args:
+ * - clerkId: Clerk ID of the student
+ * - followUpId: ID of the follow-up to mark complete
+ *
+ * Authorization:
+ * - Only the student who owns the follow-up can mark it complete
+ */
+export const completeMyFollowUp = mutation({
+  args: {
+    clerkId: v.string(),
+    followUpId: v.id('follow_ups'),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Verify authenticated identity
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+    if (identity.subject !== args.clerkId) {
+      throw new Error('Unauthorized: Identity mismatch');
+    }
+
+    // Get the student user
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Get the follow-up
+    const followUp = await ctx.db.get(args.followUpId);
+    if (!followUp) {
+      throw new Error('Follow-up not found');
+    }
+
+    // Verify the student owns this follow-up
+    if (followUp.user_id !== user._id) {
+      throw new Error('Unauthorized: This follow-up does not belong to you');
+    }
+
+    // Mark as complete
+    await ctx.db.patch(args.followUpId, {
+      status: 'done',
+      completed_at: now,
+      updated_at: now,
+    });
+
+    return { success: true };
+  },
+});
+
 // Re-export from students_all for backward compatibility
 export * from './students_all';

@@ -185,6 +185,58 @@ export const getReview = query({
 });
 
 /**
+ * Get review status for a specific asset (resume or cover letter)
+ * Returns the most recent non-archived review for the asset
+ */
+export const getReviewForAsset = query({
+  args: {
+    clerkId: v.string(),
+    resumeId: v.optional(v.id('resumes')),
+    coverLetterId: v.optional(v.id('cover_letters')),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx, args.clerkId);
+    requireAdvisorRole(sessionCtx);
+    const universityId = requireTenant(sessionCtx);
+
+    // Find review by asset ID
+    let review = null;
+
+    if (args.resumeId) {
+      const reviews = await ctx.db
+        .query('advisor_reviews')
+        .withIndex('by_resume', (q) => q.eq('resume_id', args.resumeId))
+        .collect();
+      // Filter by university and get most recent review
+      review = reviews
+        .filter((r) => r.university_id === universityId)
+        .sort((a, b) => b.created_at - a.created_at)[0];
+    } else if (args.coverLetterId) {
+      const reviews = await ctx.db
+        .query('advisor_reviews')
+        .withIndex('by_cover_letter', (q) => q.eq('cover_letter_id', args.coverLetterId))
+        .collect();
+      // Filter by university and get most recent review
+      review = reviews
+        .filter((r) => r.university_id === universityId)
+        .sort((a, b) => b.created_at - a.created_at)[0];
+    }
+
+    if (!review) {
+      return null;
+    }
+
+    // Return basic status info
+    return {
+      _id: review._id,
+      status: review.status,
+      created_at: review.created_at,
+      updated_at: review.updated_at,
+    };
+  },
+});
+
+/**
  * Create new review request
  */
 export const createReview = mutation({

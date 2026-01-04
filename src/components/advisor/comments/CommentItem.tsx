@@ -23,59 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
-import type { CommentItemProps, GroupedReaction } from './types';
-
-/**
- * Group reactions by emoji for display
- */
-function groupReactions(
-  reactions: Array<{ user_id: string; emoji: string; created_at: number }> | undefined,
-  currentUserId: string,
-): GroupedReaction[] {
-  if (!reactions || reactions.length === 0) return [];
-
-  const grouped = new Map<string, GroupedReaction>();
-
-  for (const reaction of reactions) {
-    const existing = grouped.get(reaction.emoji);
-    if (existing) {
-      existing.count++;
-      existing.userIds.push(reaction.user_id as any);
-      if (reaction.user_id === currentUserId) {
-        existing.hasCurrentUser = true;
-      }
-    } else {
-      grouped.set(reaction.emoji, {
-        emoji: reaction.emoji,
-        count: 1,
-        userIds: [reaction.user_id as any],
-        hasCurrentUser: reaction.user_id === currentUserId,
-      });
-    }
-  }
-
-  return Array.from(grouped.values());
-}
-
-/**
- * Get initials from name
- */
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-/**
- * Common reaction emojis
- */
-const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '🤔', '👀'];
+import type { CommentItemProps } from './types';
+import { getInitials, groupReactions, REACTION_EMOJIS } from './utils';
 
 /**
  * CommentItem Component
@@ -104,7 +57,7 @@ export function CommentItem({
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.body);
-  const [showReactions, setShowReactions] = useState(false);
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
 
   const isAuthor = currentUserId === comment.author_id;
   const isAIComment = comment.author.role === 'ai_assistant';
@@ -250,23 +203,22 @@ export function CommentItem({
               </Button>
 
               {/* Reaction picker */}
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-neutral-500"
-                  onClick={() => setShowReactions(!showReactions)}
-                >
-                  😀
-                </Button>
-                {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1 flex gap-1 rounded-lg bg-white border shadow-lg p-1 z-10">
+              <Popover open={reactionPickerOpen} onOpenChange={setReactionPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-neutral-500">
+                    😀
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-1" side="top" align="start">
+                  <div className="flex gap-1">
                     {REACTION_EMOJIS.map((emoji) => (
                       <button
                         key={emoji}
+                        type="button"
+                        aria-label={`React with ${emoji}`}
                         onClick={() => {
                           onReact(emoji);
-                          setShowReactions(false);
+                          setReactionPickerOpen(false);
                         }}
                         className="p-1 hover:bg-neutral-100 rounded transition-colors"
                       >
@@ -274,8 +226,8 @@ export function CommentItem({
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Resolve/Unresolve */}
               {isAdvisor && !isAIComment && (

@@ -2,11 +2,13 @@
 
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
+import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import {
   ArrowLeft,
   Download,
   Loader2,
+  MessageSquare,
   Plus,
   Save,
   Trash2,
@@ -16,6 +18,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
+import { StudentCommentSidebar } from '@/components/comments';
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 import {
   AlertDialog,
@@ -32,6 +35,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useStudentCommentCounts } from '@/hooks/useStudentComments';
 import { generateResumePDF } from '@/lib/resume-pdf-generator';
 
 interface ContactInfo {
@@ -128,6 +132,20 @@ export default function ResumeEditorPage() {
   const { toast } = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // Comment sidebar state
+  const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
+
+  // Get comment counts for this resume (for showing feedback button)
+  const { total: commentCount, unresolved: unresolvedCommentCount } = useStudentCommentCounts(
+    'resume',
+    !isNewResume && resume?._id ? (resume._id as Id<'resumes'>) : undefined,
+  );
+
+  // Check if user is a university student (has advisor feedback available)
+  const isUniversityStudent =
+    userProfile?.university_id && (userProfile?.role === 'student' || userProfile?.role === 'user');
+  const hasComments = commentCount > 0;
 
   // Hydrate local state when data loads
   useEffect(() => {
@@ -504,535 +522,590 @@ export default function ResumeEditorPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => router.push('/resumes')}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">
-            {isNewResume ? 'Create Resume' : 'Edit Resume'}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={importFromProfile}
-            disabled={importing || !userProfile}
-          >
-            {importing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <UploadIcon className="h-4 w-4 mr-2" />
-            )}
-            Import from Career Profile
-          </Button>
-          {!isNewResume && (
-            <>
+    <div className="flex h-full">
+      {/* Main content */}
+      <div className={`flex-1 overflow-auto ${commentSidebarOpen ? 'pr-0' : ''}`}>
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={() => router.push('/resumes')}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
+              <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">
+                {isNewResume ? 'Create Resume' : 'Edit Resume'}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Feedback button - only show for university students with comments */}
+              {!isNewResume && isUniversityStudent && hasComments && (
+                <Button
+                  variant={commentSidebarOpen ? 'secondary' : 'outline'}
+                  onClick={() => setCommentSidebarOpen(!commentSidebarOpen)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Feedback
+                  <span
+                    className={`ml-1 rounded-full px-1.5 text-xs ${
+                      unresolvedCommentCount > 0
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-neutral-100 text-neutral-600'
+                    }`}
+                  >
+                    {unresolvedCommentCount > 0 ? unresolvedCommentCount : commentCount}
+                  </span>
+                </Button>
+              )}
               <Button
-                variant="destructive"
-                onClick={() => setConfirmOpen(true)}
-                disabled={!resume || deleting}
+                variant="outline"
+                onClick={importFromProfile}
+                disabled={importing || !userProfile}
               >
-                {deleting ? (
+                {importing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
-                )}{' '}
-                Delete
+                  <UploadIcon className="h-4 w-4 mr-2" />
+                )}
+                Import from Career Profile
               </Button>
-              <Button variant="outline" onClick={exportPdf} disabled={!resume}>
-                <Download className="h-4 w-4 mr-2" /> Export PDF
+              {!isNewResume && (
+                <>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={!resume || deleting}
+                  >
+                    {deleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}{' '}
+                    Delete
+                  </Button>
+                  <Button variant="outline" onClick={exportPdf} disabled={!resume}>
+                    <Download className="h-4 w-4 mr-2" /> Export PDF
+                  </Button>
+                </>
+              )}
+              <Button onClick={doSave} disabled={saving || !clerkId}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {isNewResume ? 'Save Resume' : 'Save'}
               </Button>
-            </>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : resume === null ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Resume not found</CardTitle>
+              </CardHeader>
+            </Card>
+          ) : (
+            <div className="grid gap-6">
+              {/* Basic Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Basic Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Resume Title</label>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., Software Engineer Resume"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contact Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contact Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Full Name</label>
+                      <Input
+                        value={contactInfo.name}
+                        onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Email</label>
+                      <Input
+                        type="email"
+                        value={contactInfo.email}
+                        onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
+                        placeholder="john@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone</label>
+                      <Input
+                        value={contactInfo.phone}
+                        onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Location</label>
+                      <Input
+                        value={contactInfo.location}
+                        onChange={(e) =>
+                          setContactInfo({ ...contactInfo, location: e.target.value })
+                        }
+                        placeholder="San Francisco, CA"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">LinkedIn</label>
+                      <Input
+                        value={contactInfo.linkedin}
+                        onChange={(e) =>
+                          setContactInfo({ ...contactInfo, linkedin: e.target.value })
+                        }
+                        placeholder="linkedin.com/in/johndoe"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">GitHub</label>
+                      <Input
+                        value={contactInfo.github}
+                        onChange={(e) => setContactInfo({ ...contactInfo, github: e.target.value })}
+                        placeholder="github.com/johndoe"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium mb-1">Website</label>
+                      <Input
+                        value={contactInfo.website}
+                        onChange={(e) =>
+                          setContactInfo({ ...contactInfo, website: e.target.value })
+                        }
+                        placeholder="johndoe.com"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Professional Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Professional Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    rows={5}
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    placeholder="Write a compelling summary of your professional experience and career goals..."
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Skills */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Skills</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <label className="block text-sm font-medium mb-2">Skills (comma separated)</label>
+                  <Input
+                    value={skillsText}
+                    onChange={(e) => setSkillsText(e.target.value)}
+                    placeholder="React, TypeScript, Node.js, Python, AWS"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Work Experience */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Work Experience</CardTitle>
+                  <Button onClick={addExperience} size="sm">
+                    <Plus className="h-4 w-4 mr-2" /> Add Experience
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {experience.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No experience added yet. Click "Add Experience" to get started.
+                    </p>
+                  ) : (
+                    experience.map((exp, idx) => (
+                      <div key={exp.id} className="border rounded-lg p-4 space-y-4 relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeExperience(exp.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Job Title</label>
+                            <Input
+                              value={exp.title}
+                              onChange={(e) => updateExperience(exp.id, 'title', e.target.value)}
+                              placeholder="Software Engineer"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Company</label>
+                            <Input
+                              value={exp.company}
+                              onChange={(e) => updateExperience(exp.id, 'company', e.target.value)}
+                              placeholder="Tech Corp"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Location</label>
+                            <Input
+                              value={exp.location}
+                              onChange={(e) => updateExperience(exp.id, 'location', e.target.value)}
+                              placeholder="San Francisco, CA"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={exp.current}
+                              onChange={(e) =>
+                                updateExperience(exp.id, 'current', e.target.checked)
+                              }
+                              className="h-4 w-4"
+                            />
+                            <label className="text-sm font-medium">Current Position</label>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Start Date</label>
+                            <Input
+                              value={exp.startDate}
+                              onChange={(e) =>
+                                updateExperience(exp.id, 'startDate', e.target.value)
+                              }
+                              placeholder="Jan 2020"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">End Date</label>
+                            <Input
+                              value={exp.endDate}
+                              onChange={(e) => updateExperience(exp.id, 'endDate', e.target.value)}
+                              placeholder="Dec 2023"
+                              disabled={exp.current}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Responsibilities & Achievements
+                          </label>
+                          <Textarea
+                            rows={4}
+                            value={exp.description}
+                            onChange={(e) =>
+                              updateExperience(exp.id, 'description', e.target.value)
+                            }
+                            placeholder="• Led development of key features&#10;• Improved performance by 40%&#10;• Mentored junior developers"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Education */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Education</CardTitle>
+                  <Button onClick={addEducation} size="sm">
+                    <Plus className="h-4 w-4 mr-2" /> Add Education
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {education.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No education added yet. Click "Add Education" to get started.
+                    </p>
+                  ) : (
+                    education.map((edu, idx) => (
+                      <div key={edu.id} className="border rounded-lg p-4 space-y-4 relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeEducation(edu.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              School/University
+                            </label>
+                            <Input
+                              value={edu.school}
+                              onChange={(e) => updateEducation(edu.id, 'school', e.target.value)}
+                              placeholder="Stanford University"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Degree</label>
+                            <Input
+                              value={edu.degree}
+                              onChange={(e) => updateEducation(edu.id, 'degree', e.target.value)}
+                              placeholder="Bachelor of Science"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Major/Field of Study
+                            </label>
+                            <Input
+                              value={edu.field}
+                              onChange={(e) => updateEducation(edu.id, 'field', e.target.value)}
+                              placeholder="Computer Science"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Location</label>
+                            <Input
+                              value={edu.location}
+                              onChange={(e) => updateEducation(edu.id, 'location', e.target.value)}
+                              placeholder="Stanford, CA"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Start Year</label>
+                            <Input
+                              value={edu.startYear}
+                              onChange={(e) => updateEducation(edu.id, 'startYear', e.target.value)}
+                              placeholder="2016"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">End Year</label>
+                            <Input
+                              value={edu.endYear}
+                              onChange={(e) => updateEducation(edu.id, 'endYear', e.target.value)}
+                              placeholder="2020"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">GPA (optional)</label>
+                            <Input
+                              value={edu.gpa}
+                              onChange={(e) => updateEducation(edu.id, 'gpa', e.target.value)}
+                              placeholder="3.8/4.0"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Honors (optional)
+                            </label>
+                            <Input
+                              value={edu.honors}
+                              onChange={(e) => updateEducation(edu.id, 'honors', e.target.value)}
+                              placeholder="Cum Laude, Dean's List"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Projects */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Projects</CardTitle>
+                  <Button onClick={addProject} size="sm">
+                    <Plus className="h-4 w-4 mr-2" /> Add Project
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {projects.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No projects added yet. Click "Add Project" to get started.
+                    </p>
+                  ) : (
+                    projects.map((proj, idx) => (
+                      <div key={proj.id} className="border rounded-lg p-4 space-y-4 relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeProject(proj.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Project Name</label>
+                            <Input
+                              value={proj.name}
+                              onChange={(e) => updateProject(proj.id, 'name', e.target.value)}
+                              placeholder="E-commerce Platform"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Role</label>
+                            <Input
+                              value={proj.role}
+                              onChange={(e) => updateProject(proj.id, 'role', e.target.value)}
+                              placeholder="Lead Developer"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Technologies</label>
+                            <Input
+                              value={proj.technologies}
+                              onChange={(e) =>
+                                updateProject(proj.id, 'technologies', e.target.value)
+                              }
+                              placeholder="React, Node.js, MongoDB"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">URL (optional)</label>
+                            <Input
+                              value={proj.url}
+                              onChange={(e) => updateProject(proj.id, 'url', e.target.value)}
+                              placeholder="https://project-demo.com"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Description</label>
+                          <Textarea
+                            rows={3}
+                            value={proj.description}
+                            onChange={(e) => updateProject(proj.id, 'description', e.target.value)}
+                            placeholder="Built a full-stack e-commerce platform serving 10k+ users..."
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Achievements */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Achievements & Awards</CardTitle>
+                  <Button onClick={addAchievement} size="sm">
+                    <Plus className="h-4 w-4 mr-2" /> Add Achievement
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {achievements.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No achievements added yet. Click "Add Achievement" to get started.
+                    </p>
+                  ) : (
+                    achievements.map((ach, idx) => (
+                      <div key={ach.id} className="border rounded-lg p-4 space-y-4 relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeAchievement(ach.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Achievement Title
+                            </label>
+                            <Input
+                              value={ach.title}
+                              onChange={(e) => updateAchievement(ach.id, 'title', e.target.value)}
+                              placeholder="Employee of the Year"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Date</label>
+                            <Input
+                              value={ach.date}
+                              onChange={(e) => updateAchievement(ach.id, 'date', e.target.value)}
+                              placeholder="2023"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Description</label>
+                          <Textarea
+                            rows={2}
+                            value={ach.description}
+                            onChange={(e) =>
+                              updateAchievement(ach.id, 'description', e.target.value)
+                            }
+                            placeholder="Recognized for exceptional performance..."
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
-          <Button onClick={doSave} disabled={saving || !clerkId}>
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            {isNewResume ? 'Save Resume' : 'Save'}
-          </Button>
+
+          {/* Confirm Delete Dialog */}
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete resume?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete this resume.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={doDelete}
+                  disabled={deleting}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      ) : resume === null ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resume not found</CardTitle>
-          </CardHeader>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {/* Basic Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Resume Title</label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Software Engineer Resume"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contact Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Full Name</label>
-                  <Input
-                    value={contactInfo.name}
-                    onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <Input
-                    type="email"
-                    value={contactInfo.email}
-                    onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-                    placeholder="john@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Phone</label>
-                  <Input
-                    value={contactInfo.phone}
-                    onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Location</label>
-                  <Input
-                    value={contactInfo.location}
-                    onChange={(e) => setContactInfo({ ...contactInfo, location: e.target.value })}
-                    placeholder="San Francisco, CA"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">LinkedIn</label>
-                  <Input
-                    value={contactInfo.linkedin}
-                    onChange={(e) => setContactInfo({ ...contactInfo, linkedin: e.target.value })}
-                    placeholder="linkedin.com/in/johndoe"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">GitHub</label>
-                  <Input
-                    value={contactInfo.github}
-                    onChange={(e) => setContactInfo({ ...contactInfo, github: e.target.value })}
-                    placeholder="github.com/johndoe"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Website</label>
-                  <Input
-                    value={contactInfo.website}
-                    onChange={(e) => setContactInfo({ ...contactInfo, website: e.target.value })}
-                    placeholder="johndoe.com"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Professional Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Professional Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                rows={5}
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                placeholder="Write a compelling summary of your professional experience and career goals..."
-              />
-            </CardContent>
-          </Card>
-
-          {/* Skills */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <label className="block text-sm font-medium mb-2">Skills (comma separated)</label>
-              <Input
-                value={skillsText}
-                onChange={(e) => setSkillsText(e.target.value)}
-                placeholder="React, TypeScript, Node.js, Python, AWS"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Work Experience */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Work Experience</CardTitle>
-              <Button onClick={addExperience} size="sm">
-                <Plus className="h-4 w-4 mr-2" /> Add Experience
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {experience.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No experience added yet. Click "Add Experience" to get started.
-                </p>
-              ) : (
-                experience.map((exp, idx) => (
-                  <div key={exp.id} className="border rounded-lg p-4 space-y-4 relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeExperience(exp.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Job Title</label>
-                        <Input
-                          value={exp.title}
-                          onChange={(e) => updateExperience(exp.id, 'title', e.target.value)}
-                          placeholder="Software Engineer"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Company</label>
-                        <Input
-                          value={exp.company}
-                          onChange={(e) => updateExperience(exp.id, 'company', e.target.value)}
-                          placeholder="Tech Corp"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Location</label>
-                        <Input
-                          value={exp.location}
-                          onChange={(e) => updateExperience(exp.id, 'location', e.target.value)}
-                          placeholder="San Francisco, CA"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={exp.current}
-                          onChange={(e) => updateExperience(exp.id, 'current', e.target.checked)}
-                          className="h-4 w-4"
-                        />
-                        <label className="text-sm font-medium">Current Position</label>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Start Date</label>
-                        <Input
-                          value={exp.startDate}
-                          onChange={(e) => updateExperience(exp.id, 'startDate', e.target.value)}
-                          placeholder="Jan 2020"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">End Date</label>
-                        <Input
-                          value={exp.endDate}
-                          onChange={(e) => updateExperience(exp.id, 'endDate', e.target.value)}
-                          placeholder="Dec 2023"
-                          disabled={exp.current}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Responsibilities & Achievements
-                      </label>
-                      <Textarea
-                        rows={4}
-                        value={exp.description}
-                        onChange={(e) => updateExperience(exp.id, 'description', e.target.value)}
-                        placeholder="• Led development of key features&#10;• Improved performance by 40%&#10;• Mentored junior developers"
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Education */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Education</CardTitle>
-              <Button onClick={addEducation} size="sm">
-                <Plus className="h-4 w-4 mr-2" /> Add Education
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {education.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No education added yet. Click "Add Education" to get started.
-                </p>
-              ) : (
-                education.map((edu, idx) => (
-                  <div key={edu.id} className="border rounded-lg p-4 space-y-4 relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeEducation(edu.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">School/University</label>
-                        <Input
-                          value={edu.school}
-                          onChange={(e) => updateEducation(edu.id, 'school', e.target.value)}
-                          placeholder="Stanford University"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Degree</label>
-                        <Input
-                          value={edu.degree}
-                          onChange={(e) => updateEducation(edu.id, 'degree', e.target.value)}
-                          placeholder="Bachelor of Science"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Major/Field of Study
-                        </label>
-                        <Input
-                          value={edu.field}
-                          onChange={(e) => updateEducation(edu.id, 'field', e.target.value)}
-                          placeholder="Computer Science"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Location</label>
-                        <Input
-                          value={edu.location}
-                          onChange={(e) => updateEducation(edu.id, 'location', e.target.value)}
-                          placeholder="Stanford, CA"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Start Year</label>
-                        <Input
-                          value={edu.startYear}
-                          onChange={(e) => updateEducation(edu.id, 'startYear', e.target.value)}
-                          placeholder="2016"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">End Year</label>
-                        <Input
-                          value={edu.endYear}
-                          onChange={(e) => updateEducation(edu.id, 'endYear', e.target.value)}
-                          placeholder="2020"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">GPA (optional)</label>
-                        <Input
-                          value={edu.gpa}
-                          onChange={(e) => updateEducation(edu.id, 'gpa', e.target.value)}
-                          placeholder="3.8/4.0"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Honors (optional)</label>
-                        <Input
-                          value={edu.honors}
-                          onChange={(e) => updateEducation(edu.id, 'honors', e.target.value)}
-                          placeholder="Cum Laude, Dean's List"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Projects */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Projects</CardTitle>
-              <Button onClick={addProject} size="sm">
-                <Plus className="h-4 w-4 mr-2" /> Add Project
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {projects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No projects added yet. Click "Add Project" to get started.
-                </p>
-              ) : (
-                projects.map((proj, idx) => (
-                  <div key={proj.id} className="border rounded-lg p-4 space-y-4 relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeProject(proj.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Project Name</label>
-                        <Input
-                          value={proj.name}
-                          onChange={(e) => updateProject(proj.id, 'name', e.target.value)}
-                          placeholder="E-commerce Platform"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Role</label>
-                        <Input
-                          value={proj.role}
-                          onChange={(e) => updateProject(proj.id, 'role', e.target.value)}
-                          placeholder="Lead Developer"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Technologies</label>
-                        <Input
-                          value={proj.technologies}
-                          onChange={(e) => updateProject(proj.id, 'technologies', e.target.value)}
-                          placeholder="React, Node.js, MongoDB"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">URL (optional)</label>
-                        <Input
-                          value={proj.url}
-                          onChange={(e) => updateProject(proj.id, 'url', e.target.value)}
-                          placeholder="https://project-demo.com"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Description</label>
-                      <Textarea
-                        rows={3}
-                        value={proj.description}
-                        onChange={(e) => updateProject(proj.id, 'description', e.target.value)}
-                        placeholder="Built a full-stack e-commerce platform serving 10k+ users..."
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Achievements */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Achievements & Awards</CardTitle>
-              <Button onClick={addAchievement} size="sm">
-                <Plus className="h-4 w-4 mr-2" /> Add Achievement
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {achievements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No achievements added yet. Click "Add Achievement" to get started.
-                </p>
-              ) : (
-                achievements.map((ach, idx) => (
-                  <div key={ach.id} className="border rounded-lg p-4 space-y-4 relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeAchievement(ach.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Achievement Title</label>
-                        <Input
-                          value={ach.title}
-                          onChange={(e) => updateAchievement(ach.id, 'title', e.target.value)}
-                          placeholder="Employee of the Year"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Date</label>
-                        <Input
-                          value={ach.date}
-                          onChange={(e) => updateAchievement(ach.id, 'date', e.target.value)}
-                          placeholder="2023"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Description</label>
-                      <Textarea
-                        rows={2}
-                        value={ach.description}
-                        onChange={(e) => updateAchievement(ach.id, 'description', e.target.value)}
-                        placeholder="Recognized for exceptional performance..."
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      {/* Comment Sidebar - for viewing advisor feedback */}
+      {commentSidebarOpen && resume?._id && (
+        <StudentCommentSidebar
+          targetType="resume"
+          targetId={resume._id as Id<'resumes'>}
+          onClose={() => setCommentSidebarOpen(false)}
+        />
       )}
-
-      {/* Confirm Delete Dialog */}
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete resume?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this resume.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={doDelete}
-              disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
@@ -101,6 +101,7 @@ const StatusIcon = ({ status }: { status: string }) => {
 export default function AdvisorSessionsPage() {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Filter state
@@ -112,13 +113,6 @@ export default function AdvisorSessionsPage() {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-
-  // Open create dialog if ?action=new is in URL
-  useEffect(() => {
-    if (searchParams.get('action') === 'new') {
-      setCreateDialogOpen(true);
-    }
-  }, [searchParams]);
 
   // New session form state
   const [newSession, setNewSession] = useState({
@@ -141,6 +135,27 @@ export default function AdvisorSessionsPage() {
     api.advisor_students.getMyCaseload,
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
   );
+
+  // Open create dialog if ?action=new is in URL, and pre-fill studentId if provided
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const studentId = searchParams.get('studentId');
+
+    // Wait for caseload to load before processing URL params with studentId
+    if (action === 'new' && studentId && caseload === undefined) {
+      return; // Wait for caseload to load
+    }
+
+    if (action === 'new') {
+      setCreateDialogOpen(true);
+      // Only pre-fill if studentId is in advisor's caseload
+      if (studentId && caseload?.some((s) => s._id === studentId)) {
+        setNewSession((prev) => ({ ...prev, student_id: studentId }));
+      }
+      // Clear URL params to prevent dialog reopening on refresh
+      router.replace('/advisor/advising/sessions', { scroll: false });
+    }
+  }, [searchParams, router, caseload]);
 
   // Mutations
   const createSession = useMutation(api.advisor_sessions_mutations.createSession);
@@ -335,441 +350,455 @@ export default function AdvisorSessionsPage() {
   return (
     <ErrorBoundary>
       <AdvisorGate requiredFlag="advisor.advising">
-        <div className="container mx-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-              <p className="text-muted-foreground mt-1">Track and manage advising sessions</p>
+        <div className="w-full">
+          <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
+                <p className="text-muted-foreground mt-1">Track and manage advising sessions</p>
+              </div>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Session
+              </Button>
             </div>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Session
-            </Button>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">Total Sessions</p>
+                </div>
+              </Card>
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none text-blue-600">
+                    {stats.scheduled}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Scheduled</p>
+                </div>
+              </Card>
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none text-green-600">
+                    {stats.completed}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                </div>
+              </Card>
+              <Card className="py-5 px-5">
+                <div className="flex items-center gap-3">
+                  <p className="text-xl font-semibold leading-none text-gray-500">
+                    {stats.cancelled}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Cancelled/No-Show</p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Filters */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-wrap gap-4">
+                  {/* Search */}
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="relative">
+                      <label htmlFor="session-search" className="sr-only">
+                        Search sessions
+                      </label>
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="session-search"
+                        placeholder="Search sessions..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <Select
+                    value={dateRange}
+                    onValueChange={(v) => setDateRange(v as 'all' | 'past' | 'upcoming' | 'today')}
+                  >
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Date range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="past">Past</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Status Filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="no_show">No-Show</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Student Filter */}
+                  <Select value={studentFilter} onValueChange={setStudentFilter}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="All Students" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Students</SelectItem>
+                      {caseload?.map((student) => (
+                        <SelectItem key={student._id} value={student._id}>
+                          {student.name || student.email || 'Unknown Student'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sessions Table */}
+            <Card>
+              <CardContent className="pt-6">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredSessions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-lg font-medium">No sessions found</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {sessions?.length === 0
+                        ? "You haven't scheduled any advising sessions yet"
+                        : 'No sessions match your current filters'}
+                    </p>
+                    <Button onClick={() => setCreateDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Schedule Session
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSessions.map((session) => {
+                        const student = studentMap.get(session.student_id);
+                        const sessionDate = session.scheduled_at ?? session.start_at;
+
+                        return (
+                          <TableRow key={session._id}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {format(new Date(sessionDate), 'MMM d, yyyy')}
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                  {format(new Date(sessionDate), 'h:mm a')}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span>{student?.name || 'Unknown'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-[200px] truncate" title={session.title}>
+                                {session.title}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">
+                                {SESSION_TYPE_LABELS[session.session_type || ''] ||
+                                  session.session_type}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground">
+                                {session.duration_minutes || 60} min
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={STATUS_VARIANTS[session.status || 'scheduled']}
+                                className="gap-1"
+                              >
+                                <StatusIcon status={session.status || 'scheduled'} />
+                                {session.status || 'scheduled'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <span className="sr-only">Session actions</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/advisor/advising/sessions/${session._id}`}>
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  {session.meeting_url && isValidHttpUrl(session.meeting_url) && (
+                                    <DropdownMenuItem asChild>
+                                      <a
+                                        href={session.meeting_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <Video className="h-4 w-4 mr-2" />
+                                        Join Meeting
+                                      </a>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {session.status === 'scheduled' && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() => handleCancelSession(session._id)}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Cancel Session
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Sessions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.total}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Scheduled
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.scheduled}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Completed
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Cancelled/No-Show
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-500">{stats.cancelled}</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Create Session Dialog */}
+          <Dialog
+            open={createDialogOpen}
+            onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                // Reset form when dialog closes to avoid stale data
+                setNewSession({
+                  student_id: '',
+                  title: '',
+                  session_type: 'general_advising',
+                  date: '',
+                  time: '',
+                  duration_minutes: '60',
+                  location: '',
+                  meeting_url: '',
+                  notes: '',
+                  visibility: 'advisor_only',
+                });
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Schedule New Session</DialogTitle>
+                <DialogDescription>Create a new advising session with a student</DialogDescription>
+              </DialogHeader>
 
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap gap-4">
-                {/* Search */}
-                <div className="flex-1 min-w-[200px]">
-                  <div className="relative">
-                    <label htmlFor="session-search" className="sr-only">
-                      Search sessions
-                    </label>
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="grid gap-4 py-4">
+                {/* Student Selection */}
+                <div className="grid gap-2">
+                  <Label htmlFor="student">Student *</Label>
+                  <Select
+                    value={newSession.student_id}
+                    onValueChange={(v) => setNewSession({ ...newSession, student_id: v })}
+                  >
+                    <SelectTrigger id="student">
+                      <SelectValue placeholder="Select a student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {caseload?.map((student) => (
+                        <SelectItem key={student._id} value={student._id}>
+                          {student.name || student.email || 'Unknown Student'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Title */}
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Session Title *</Label>
+                  <Input
+                    id="title"
+                    value={newSession.title}
+                    onChange={(e) => setNewSession({ ...newSession, title: e.target.value })}
+                    placeholder="e.g., Career Planning Discussion"
+                  />
+                </div>
+
+                {/* Session Type */}
+                <div className="grid gap-2">
+                  <Label htmlFor="type">Session Type</Label>
+                  <Select
+                    value={newSession.session_type}
+                    onValueChange={(v) => setNewSession({ ...newSession, session_type: v })}
+                  >
+                    <SelectTrigger id="type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SESSION_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date and Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="date">Date *</Label>
                     <Input
-                      id="session-search"
-                      placeholder="Search sessions..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
+                      id="date"
+                      type="date"
+                      value={newSession.date}
+                      onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="time">Time *</Label>
+                    <Input
+                      id="time"
+                      type="time"
+                      value={newSession.time}
+                      onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
                     />
                   </div>
                 </div>
 
-                {/* Date Range */}
-                <Select
-                  value={dateRange}
-                  onValueChange={(v) => setDateRange(v as 'all' | 'past' | 'upcoming' | 'today')}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Date range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="past">Past</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Duration */}
+                <div className="grid gap-2">
+                  <Label htmlFor="duration">Duration (minutes)</Label>
+                  <Select
+                    value={newSession.duration_minutes}
+                    onValueChange={(v) => setNewSession({ ...newSession, duration_minutes: v })}
+                  >
+                    <SelectTrigger id="duration">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="45">45 minutes</SelectItem>
+                      <SelectItem value="60">60 minutes</SelectItem>
+                      <SelectItem value="90">90 minutes</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                {/* Status Filter */}
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="no_show">No-Show</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Location and Meeting URL */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={newSession.location}
+                      onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
+                      placeholder="e.g., Room 305"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="meeting_url">Meeting URL</Label>
+                    <Input
+                      id="meeting_url"
+                      type="url"
+                      value={newSession.meeting_url}
+                      onChange={(e) =>
+                        setNewSession({ ...newSession, meeting_url: e.target.value })
+                      }
+                      placeholder="https://zoom.us/..."
+                    />
+                  </div>
+                </div>
 
-                {/* Student Filter */}
-                <Select value={studentFilter} onValueChange={setStudentFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="All Students" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Students</SelectItem>
-                    {caseload?.map((student) => (
-                      <SelectItem key={student._id} value={student._id}>
-                        {student.name || student.email || 'Unknown Student'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Visibility */}
+                <div className="grid gap-2">
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <Select
+                    value={newSession.visibility}
+                    onValueChange={(v) => setNewSession({ ...newSession, visibility: v })}
+                  >
+                    <SelectTrigger id="visibility">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="advisor_only">Advisor Only</SelectItem>
+                      <SelectItem value="shared">Shared with Student</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Notes */}
+                <div className="grid gap-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={newSession.notes}
+                    onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
+                    placeholder="Add any preparation notes..."
+                    rows={3}
+                  />
+                </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Sessions Table */}
-          <Card>
-            <CardContent className="pt-6">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredSessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                  <p className="text-lg font-medium">No sessions found</p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {sessions?.length === 0
-                      ? "You haven't scheduled any advising sessions yet"
-                      : 'No sessions match your current filters'}
-                  </p>
-                  <Button onClick={() => setCreateDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Schedule Session
-                  </Button>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSessions.map((session) => {
-                      const student = studentMap.get(session.student_id);
-                      const sessionDate = session.scheduled_at ?? session.start_at;
-
-                      return (
-                        <TableRow key={session._id}>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {format(new Date(sessionDate), 'MMM d, yyyy')}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                {format(new Date(sessionDate), 'h:mm a')}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              <span>{student?.name || 'Unknown'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[200px] truncate" title={session.title}>
-                              {session.title}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm">
-                              {SESSION_TYPE_LABELS[session.session_type || ''] ||
-                                session.session_type}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm text-muted-foreground">
-                              {session.duration_minutes || 60} min
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={STATUS_VARIANTS[session.status || 'scheduled']}
-                              className="gap-1"
-                            >
-                              <StatusIcon status={session.status || 'scheduled'} />
-                              {session.status || 'scheduled'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <span className="sr-only">Session actions</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/advisor/advising/sessions/${session._id}`}>
-                                    <ExternalLink className="h-4 w-4 mr-2" />
-                                    View Details
-                                  </Link>
-                                </DropdownMenuItem>
-                                {session.meeting_url && isValidHttpUrl(session.meeting_url) && (
-                                  <DropdownMenuItem asChild>
-                                    <a
-                                      href={session.meeting_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <Video className="h-4 w-4 mr-2" />
-                                      Join Meeting
-                                    </a>
-                                  </DropdownMenuItem>
-                                )}
-                                {session.status === 'scheduled' && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive"
-                                      onClick={() => handleCancelSession(session._id)}
-                                    >
-                                      <XCircle className="h-4 w-4 mr-2" />
-                                      Cancel Session
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateSession} disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Session
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {/* Create Session Dialog */}
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Schedule New Session</DialogTitle>
-              <DialogDescription>Create a new advising session with a student</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              {/* Student Selection */}
-              <div className="grid gap-2">
-                <Label htmlFor="student">Student *</Label>
-                <Select
-                  value={newSession.student_id}
-                  onValueChange={(v) => setNewSession({ ...newSession, student_id: v })}
-                >
-                  <SelectTrigger id="student">
-                    <SelectValue placeholder="Select a student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {caseload?.map((student) => (
-                      <SelectItem key={student._id} value={student._id}>
-                        {student.name || student.email || 'Unknown Student'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Title */}
-              <div className="grid gap-2">
-                <Label htmlFor="title">Session Title *</Label>
-                <Input
-                  id="title"
-                  value={newSession.title}
-                  onChange={(e) => setNewSession({ ...newSession, title: e.target.value })}
-                  placeholder="e.g., Career Planning Discussion"
-                />
-              </div>
-
-              {/* Session Type */}
-              <div className="grid gap-2">
-                <Label htmlFor="type">Session Type</Label>
-                <Select
-                  value={newSession.session_type}
-                  onValueChange={(v) => setNewSession({ ...newSession, session_type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SESSION_TYPE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Date and Time */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date">Date *</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={newSession.date}
-                    onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="time">Time *</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    value={newSession.time}
-                    onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Duration */}
-              <div className="grid gap-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Select
-                  value={newSession.duration_minutes}
-                  onValueChange={(v) => setNewSession({ ...newSession, duration_minutes: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 minutes</SelectItem>
-                    <SelectItem value="30">30 minutes</SelectItem>
-                    <SelectItem value="45">45 minutes</SelectItem>
-                    <SelectItem value="60">60 minutes</SelectItem>
-                    <SelectItem value="90">90 minutes</SelectItem>
-                    <SelectItem value="120">2 hours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Location and Meeting URL */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={newSession.location}
-                    onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
-                    placeholder="e.g., Room 305"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="meeting_url">Meeting URL</Label>
-                  <Input
-                    id="meeting_url"
-                    type="url"
-                    value={newSession.meeting_url}
-                    onChange={(e) => setNewSession({ ...newSession, meeting_url: e.target.value })}
-                    placeholder="https://zoom.us/..."
-                  />
-                </div>
-              </div>
-
-              {/* Visibility */}
-              <div className="grid gap-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select
-                  value={newSession.visibility}
-                  onValueChange={(v) => setNewSession({ ...newSession, visibility: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="advisor_only">Advisor Only</SelectItem>
-                    <SelectItem value="shared">Shared with Student</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Notes */}
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={newSession.notes}
-                  onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
-                  placeholder="Add any preparation notes..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateSession} disabled={isCreating}>
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Session
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </AdvisorGate>
     </ErrorBoundary>
   );

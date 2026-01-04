@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, GraduationCap, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -222,7 +223,12 @@ export function StudentsTable({ students, isLoading }: StudentsTableProps) {
                     >
                       <td className="px-4 py-3 align-middle">
                         <div>
-                          <div className="font-medium">{student.name}</div>
+                          <Link
+                            href={`/advisor/students/${student._id}`}
+                            className="font-medium hover:text-primary hover:underline transition-colors"
+                          >
+                            {student.name}
+                          </Link>
                           <div className="text-xs text-muted-foreground break-words">
                             {student.email}
                           </div>
@@ -272,13 +278,8 @@ export function StudentsTable({ students, isLoading }: StudentsTableProps) {
                       </td>
                       <td className="px-4 py-3 align-middle hidden sm:table-cell">{statusBadge}</td>
                       <td className="px-4 py-3 align-middle text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled
-                          title="Student profile page coming soon"
-                        >
-                          View Profile
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/advisor/students/${student._id}`}>View Profile</Link>
                         </Button>
                       </td>
                     </tr>

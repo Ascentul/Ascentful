@@ -84,11 +84,11 @@ export default function AdvisorDashboardPage() {
 
   return (
     <AdvisorGate>
-      <div className="min-h-screen bg-slate-50/50">
-        {/* Needs Attention Today - Top Strip */}
-        <NeedsAttentionStrip data={needsAttention} isLoading={needsAttention === undefined} />
+      <div className="w-full">
+        <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+          {/* Needs Attention Today - Top Strip */}
+          <NeedsAttentionStrip data={needsAttention} isLoading={needsAttention === undefined} />
 
-        <div className="container mx-auto p-6 space-y-6">
           {/* Header with Quick Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

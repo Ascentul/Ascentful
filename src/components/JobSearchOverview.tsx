@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { formatInterviewDate } from '@/lib/date-utils';
 import { calculateFunnelStats } from '@/lib/journey';
 import { cn } from '@/lib/utils';
 
@@ -74,32 +75,6 @@ function FunnelBar({ stats }: FunnelBarProps) {
       })}
     </div>
   );
-}
-
-function formatInterviewDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const isToday = date.toDateString() === now.toDateString();
-  const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-  const time = date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-  if (isToday) return `Today at ${time}`;
-  if (isTomorrow) return `Tomorrow at ${time}`;
-
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 export function JobSearchOverview() {

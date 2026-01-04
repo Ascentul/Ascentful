@@ -13,7 +13,7 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Plus, TrendingUp, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Download, Plus, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -83,100 +83,94 @@ export default function AdvisorCalendarPage() {
 
   return (
     <AdvisorGate requiredFlag="advisor.advising">
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
-            <p className="text-muted-foreground mt-1">Manage your advising schedule</p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/advisor/advising/sessions?action=new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Schedule Session
-              </Button>
-            </Link>
-            {/* FEATURE INCOMPLETE: Calendar export to .ics format
-             * Implementation plan:
-             * 1. Install ical-generator package (npm install ical-generator)
-             * 2. Create API route: /api/advisor/calendar/export
-             * 3. Generate ICS from sessions array with VEVENT components
-             * 4. Return as downloadable file with content-type: text/calendar
-             * 5. Uncomment button and add onClick handler
-             *
-             * Example:
-             * const calendar = ical({ name: 'Advisor Sessions' })
-             * sessions.forEach(s => calendar.createEvent({ start: new Date(s.start_at), ... }))
-             * return new Response(calendar.toString(), { headers: { 'Content-Type': 'text/calendar' } })
-             */}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalSessions ?? '-'}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats?.totalHours !== undefined ? `${stats.totalHours}h` : '-'}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Unique Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.uniqueStudents ?? '-'}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming Sessions</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.upcomingSessions ?? '-'}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Calendar */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
-                Advising Calendar
-              </CardTitle>
+      <div className="w-full">
+        <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+              <p className="text-muted-foreground mt-1">Manage your advising schedule</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            <CalendarView
-              sessions={normalizedSessions}
-              followUps={normalizedFollowUps}
-              isLoading={isLoading}
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-            />
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const url = `/api/advisor/calendar/export?startDate=${startDate}&endDate=${endDate}`;
+                  window.open(url, '_blank');
+                }}
+                disabled={!sessions || sessions.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export .ics
+              </Button>
+              <Link href="/advisor/advising/sessions?action=new">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Schedule Session
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="py-5 px-5">
+              <div className="flex items-center gap-3">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-xl font-semibold leading-none">{stats?.totalSessions ?? '-'}</p>
+                <p className="text-xs text-muted-foreground">Total Sessions</p>
+              </div>
+            </Card>
+
+            <Card className="py-5 px-5">
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-xl font-semibold leading-none">
+                  {stats?.totalHours !== undefined ? `${stats.totalHours}h` : '-'}
+                </p>
+                <p className="text-xs text-muted-foreground">Total Hours</p>
+              </div>
+            </Card>
+
+            <Card className="py-5 px-5">
+              <div className="flex items-center gap-3">
+                <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-xl font-semibold leading-none">{stats?.uniqueStudents ?? '-'}</p>
+                <p className="text-xs text-muted-foreground">Unique Students</p>
+              </div>
+            </Card>
+
+            <Card className="py-5 px-5">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-xl font-semibold leading-none">
+                  {stats?.upcomingSessions ?? '-'}
+                </p>
+                <p className="text-xs text-muted-foreground">Upcoming Sessions</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Calendar */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5" />
+                  Advising Calendar
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CalendarView
+                sessions={normalizedSessions}
+                followUps={normalizedFollowUps}
+                isLoading={isLoading}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AdvisorGate>
   );

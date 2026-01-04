@@ -348,134 +348,136 @@ export default function AdvisorApplicationsPage() {
           </div>
         }
       >
-        <div className="container mx-auto p-6 space-y-6">
-          {/* Loading State */}
-          {applications === undefined && <ApplicationsLoadingSkeleton viewMode={viewMode} />}
+        <div className="w-full">
+          <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
+            {/* Loading State */}
+            {applications === undefined && <ApplicationsLoadingSkeleton viewMode={viewMode} />}
 
-          {/* Only show UI when data is loaded */}
-          {applications !== undefined && (
-            <>
-              {/* Header with Metrics */}
-              <ApplicationsHeader
-                stats={stats}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                scope={scope}
-                onScopeChange={setScope}
-                canViewAllStudents={userRole === 'university_admin' || userRole === 'super_admin'}
-                searchQuery={filterHook.filters.search}
-                onSearchChange={filterHook.setSearch}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
-                hasActiveFilters={filterHook.hasActiveFilters}
-                onFilterByActive={handleFilterByActive}
-                onFilterByOffers={handleFilterByOffers}
-                onFilterByAccepted={handleFilterByAccepted}
-                onFilterByNeedAction={handleFilterByNeedAction}
-                onFilterByNeedActionReason={handleFilterByNeedActionReason}
-              />
-
-              {/* Quick Filter Pills (shown when there are need-action apps) */}
-              <QuickFilterPills
-                stats={stats}
-                activeReason={filterHook.filters.needActionReason}
-                onFilterByReason={handleFilterByNeedActionReason}
-              />
-
-              {/* Compact Filter Bar for Inbox Mode */}
-              <CompactFilterBar
-                needsAction={filterHook.filters.needsAction}
-                selectedStages={filterHook.filters.stages}
-                timeWindow={filterHook.filters.timeWindow}
-                scope={scope}
-                onNeedsActionChange={filterHook.setNeedsAction}
-                onStagesChange={filterHook.setStages}
-                onTimeWindowChange={filterHook.setTimeWindow}
-                onScopeChange={setScope}
-                onOpenAdvancedFilters={() => setShowFilters(true)}
-                canViewAllStudents={userRole === 'university_admin' || userRole === 'super_admin'}
-                hasActiveFilters={filterHook.hasActiveFilters}
-              />
-
-              {/* Active Filter Chips */}
-              <ActiveFiltersChips
-                filters={filterHook.filters}
-                onRemoveStage={(stage) => {
-                  filterHook.setStages(filterHook.filters.stages.filter((s) => s !== stage));
-                }}
-                onRemoveCohort={(cohort) => {
-                  filterHook.setCohorts(filterHook.filters.cohorts.filter((c) => c !== cohort));
-                }}
-                onRemoveNeedsAction={() => filterHook.setNeedsAction(false)}
-                onRemoveNeedActionReason={() => filterHook.setNeedActionReason(undefined)}
-                onRemoveActiveOnly={() => filterHook.setActiveOnly(false)}
-                onRemoveTimeWindow={() => filterHook.setTimeWindow('all')}
-                onClearAll={filterHook.clearFilters}
-              />
-
-              {/* Advanced Filters Panel (Collapsible) */}
-              {showFilters && (
-                <AdvancedFiltersPanel
-                  filters={filterHook.filters}
-                  availableCohorts={availableCohorts}
-                  onToggleStage={filterHook.toggleStage}
-                  onSetStages={filterHook.setStages}
-                  onToggleCohort={filterHook.toggleCohort}
-                  onSetActiveOnly={filterHook.setActiveOnly}
-                  onClearFilters={filterHook.clearFilters}
-                  onSetDateRange={filterHook.setAppliedDateRange}
+            {/* Only show UI when data is loaded */}
+            {applications !== undefined && (
+              <>
+                {/* Header with Metrics */}
+                <ApplicationsHeader
+                  stats={stats}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  scope={scope}
+                  onScopeChange={setScope}
+                  canViewAllStudents={userRole === 'university_admin' || userRole === 'super_admin'}
+                  searchQuery={filterHook.filters.search}
+                  onSearchChange={filterHook.setSearch}
+                  showFilters={showFilters}
+                  onToggleFilters={() => setShowFilters(!showFilters)}
+                  hasActiveFilters={filterHook.hasActiveFilters}
+                  onFilterByActive={handleFilterByActive}
+                  onFilterByOffers={handleFilterByOffers}
+                  onFilterByAccepted={handleFilterByAccepted}
+                  onFilterByNeedAction={handleFilterByNeedAction}
+                  onFilterByNeedActionReason={handleFilterByNeedActionReason}
                 />
-              )}
-            </>
-          )}
 
-          {/* Main Content */}
-          {applications !== undefined && (
-            <Card>
-              <CardContent className="p-6">
-                {/* Empty State: No Applications */}
-                {isEmpty && (
-                  <EmptyState
-                    type="no-apps"
-                    onViewAllStudents={() => {
-                      router.push('/advisor/advising/students');
-                    }}
+                {/* Quick Filter Pills (shown when there are need-action apps) */}
+                <QuickFilterPills
+                  stats={stats}
+                  activeReason={filterHook.filters.needActionReason}
+                  onFilterByReason={handleFilterByNeedActionReason}
+                />
+
+                {/* Compact Filter Bar for Inbox Mode */}
+                <CompactFilterBar
+                  needsAction={filterHook.filters.needsAction}
+                  selectedStages={filterHook.filters.stages}
+                  timeWindow={filterHook.filters.timeWindow}
+                  scope={scope}
+                  onNeedsActionChange={filterHook.setNeedsAction}
+                  onStagesChange={filterHook.setStages}
+                  onTimeWindowChange={filterHook.setTimeWindow}
+                  onScopeChange={setScope}
+                  onOpenAdvancedFilters={() => setShowFilters(true)}
+                  canViewAllStudents={userRole === 'university_admin' || userRole === 'super_admin'}
+                  hasActiveFilters={filterHook.hasActiveFilters}
+                />
+
+                {/* Active Filter Chips */}
+                <ActiveFiltersChips
+                  filters={filterHook.filters}
+                  onRemoveStage={(stage) => {
+                    filterHook.setStages(filterHook.filters.stages.filter((s) => s !== stage));
+                  }}
+                  onRemoveCohort={(cohort) => {
+                    filterHook.setCohorts(filterHook.filters.cohorts.filter((c) => c !== cohort));
+                  }}
+                  onRemoveNeedsAction={() => filterHook.setNeedsAction(false)}
+                  onRemoveNeedActionReason={() => filterHook.setNeedActionReason(undefined)}
+                  onRemoveActiveOnly={() => filterHook.setActiveOnly(false)}
+                  onRemoveTimeWindow={() => filterHook.setTimeWindow('all')}
+                  onClearAll={filterHook.clearFilters}
+                />
+
+                {/* Advanced Filters Panel (Collapsible) */}
+                {showFilters && (
+                  <AdvancedFiltersPanel
+                    filters={filterHook.filters}
+                    availableCohorts={availableCohorts}
+                    onToggleStage={filterHook.toggleStage}
+                    onSetStages={filterHook.setStages}
+                    onToggleCohort={filterHook.toggleCohort}
+                    onSetActiveOnly={filterHook.setActiveOnly}
+                    onClearFilters={filterHook.clearFilters}
+                    onSetDateRange={filterHook.setAppliedDateRange}
                   />
                 )}
+              </>
+            )}
 
-                {/* Empty State: No Action Needed (Positive!) */}
-                {!isEmpty && hasNoActionNeeded && <EmptyState type="no-action-needed" />}
+            {/* Main Content */}
+            {applications !== undefined && (
+              <Card>
+                <CardContent className="p-6">
+                  {/* Empty State: No Applications */}
+                  {isEmpty && (
+                    <EmptyState
+                      type="no-apps"
+                      onViewAllStudents={() => {
+                        router.push('/advisor/advising/students');
+                      }}
+                    />
+                  )}
 
-                {/* Empty State: No Results from Filters */}
-                {!isEmpty && hasNoResults && !hasNoActionNeeded && (
-                  <EmptyState type="no-results" onClearFilters={filterHook.clearFilters} />
-                )}
+                  {/* Empty State: No Action Needed (Positive!) */}
+                  {!isEmpty && hasNoActionNeeded && <EmptyState type="no-action-needed" />}
 
-                {/* Kanban View */}
-                {!isEmpty && !hasNoResults && viewMode === 'kanban' && (
-                  <ApplicationKanbanEnhanced
-                    applications={filteredApplications}
-                    isLoading={false}
-                    clerkId={clerkId}
-                    onRefresh={() => {
-                      // Convex will automatically refetch when data changes
-                      // No manual refresh needed
-                    }}
-                  />
-                )}
+                  {/* Empty State: No Results from Filters */}
+                  {!isEmpty && hasNoResults && !hasNoActionNeeded && (
+                    <EmptyState type="no-results" onClearFilters={filterHook.clearFilters} />
+                  )}
 
-                {/* Table View */}
-                {!isEmpty && !hasNoResults && viewMode === 'table' && (
-                  <ApplicationTableEnhanced
-                    applications={filteredApplications}
-                    isLoading={false}
-                    clerkId={clerkId}
-                    selectionHook={selectionHook}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  {/* Kanban View */}
+                  {!isEmpty && !hasNoResults && viewMode === 'kanban' && (
+                    <ApplicationKanbanEnhanced
+                      applications={filteredApplications}
+                      isLoading={false}
+                      clerkId={clerkId}
+                      onRefresh={() => {
+                        // Convex will automatically refetch when data changes
+                        // No manual refresh needed
+                      }}
+                    />
+                  )}
+
+                  {/* Table View */}
+                  {!isEmpty && !hasNoResults && viewMode === 'table' && (
+                    <ApplicationTableEnhanced
+                      applications={filteredApplications}
+                      isLoading={false}
+                      clerkId={clerkId}
+                      selectionHook={selectionHook}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
 
         {/* Bulk Action Bar (Floating) */}

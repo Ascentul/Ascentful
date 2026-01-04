@@ -105,7 +105,7 @@ function LoadingChip() {
 export function NeedsAttentionStrip({ data, isLoading }: NeedsAttentionStripProps) {
   if (isLoading) {
     return (
-      <div className="border-b bg-slate-50/50">
+      <div className="border-b">
         <div className="px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -133,7 +133,7 @@ export function NeedsAttentionStrip({ data, isLoading }: NeedsAttentionStripProp
   // Don't show the strip if there's nothing needing attention
   if (totalAttentionItems === 0) {
     return (
-      <div className="border-b bg-green-50/50">
+      <div className="border-b">
         <div className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-green-500" />
@@ -147,7 +147,7 @@ export function NeedsAttentionStrip({ data, isLoading }: NeedsAttentionStripProp
   }
 
   return (
-    <div className="border-b bg-slate-50/50">
+    <div className="border-b">
       <div className="px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="h-4 w-4 text-amber-600" />

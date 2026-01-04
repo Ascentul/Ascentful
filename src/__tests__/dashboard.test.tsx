@@ -92,6 +92,16 @@ jest.mock('@/components/UpcomingSection', () => ({
   UpcomingSection: () => <div data-testid="upcoming-section">Upcoming Section</div>,
 }));
 
+jest.mock('@/components/StudentAdvisorActionsCard', () => ({
+  StudentAdvisorActionsCard: () => (
+    <div data-testid="student-advisor-actions">Student Advisor Actions</div>
+  ),
+}));
+
+jest.mock('@/components/ExtensionPromo', () => ({
+  ExtensionPromo: () => <div data-testid="extension-promo">Extension Promo</div>,
+}));
+
 jest.mock('@/components/CareerTimeline', () => ({
   CareerTimeline: () => <div data-testid="career-timeline">Career Timeline</div>,
 }));
