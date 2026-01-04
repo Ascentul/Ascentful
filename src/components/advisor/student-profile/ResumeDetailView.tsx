@@ -218,7 +218,7 @@ export function ResumeDetailView({ resumeId, studentId }: ResumeDetailViewProps)
                     <p className="font-medium text-sm">{exp.title}</p>
                     <p className="text-sm text-muted-foreground">{exp.company}</p>
                     <p className="text-xs text-muted-foreground">
-                      {exp.start_date} - {exp.current ? 'Present' : exp.end_date}
+                      {exp.start_date || 'N/A'} - {exp.current ? 'Present' : exp.end_date || 'N/A'}
                       {exp.location && ` • ${exp.location}`}
                     </p>
                     {exp.bullets && exp.bullets.length > 0 && (
@@ -254,7 +254,7 @@ export function ResumeDetailView({ resumeId, studentId }: ResumeDetailViewProps)
                       {edu.field && ` in ${edu.field}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {edu.start_date} - {edu.end_date}
+                      {edu.start_date || 'N/A'} - {edu.end_date || 'N/A'}
                       {edu.gpa && ` • GPA: ${edu.gpa}`}
                     </p>
                   </div>

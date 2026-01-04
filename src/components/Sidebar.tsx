@@ -460,8 +460,10 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
           next[s.id] = s.id !== activeId; // collapsed = true, unless this is the active section
         }
       }
-      // Only update if there's actually a change
-      const hasChange = Object.keys(next).some((key) => prev[key] !== next[key]);
+      // Only update if there's actually a change (check both additions/modifications and removals)
+      const hasChange =
+        Object.keys(next).some((key) => prev[key] !== next[key]) ||
+        Object.keys(prev).some((key) => !(key in next));
       if (!hasChange) return prev;
       try {
         localStorage.setItem('sidebarCollapsedSections', JSON.stringify(next));

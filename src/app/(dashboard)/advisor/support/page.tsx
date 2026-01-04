@@ -208,15 +208,19 @@ export default function AdvisorSupportPage() {
     return filtered;
   }, [tickets, activeTab, priorityFilter, categoryFilter, searchQuery]);
 
-  // Memoize ticket stats to avoid repeated array iterations
+  // Memoize ticket stats with single-pass calculation
   const ticketStats = useMemo(() => {
     if (!tickets) return { total: 0, open: 0, inProgress: 0, resolved: 0 };
-    return {
-      total: tickets.length,
-      open: tickets.filter((t) => t.status === 'open').length,
-      inProgress: tickets.filter((t) => t.status === 'in_progress').length,
-      resolved: tickets.filter((t) => t.status === 'resolved').length,
-    };
+    return tickets.reduce(
+      (acc, t) => {
+        acc.total++;
+        if (t.status === 'open') acc.open++;
+        else if (t.status === 'in_progress') acc.inProgress++;
+        else if (t.status === 'resolved') acc.resolved++;
+        return acc;
+      },
+      { total: 0, open: 0, inProgress: 0, resolved: 0 },
+    );
   }, [tickets]);
 
   // Handle create ticket
@@ -837,9 +841,9 @@ export default function AdvisorSupportPage() {
                         <Label className="text-xs text-muted-foreground">Responses</Label>
                         <Card className="mt-2">
                           <CardContent className="pt-4 space-y-3">
-                            {responseEntries.map((entry, idx) => (
+                            {responseEntries.map((entry) => (
                               <div
-                                key={idx}
+                                key={entry.raw}
                                 className="text-sm border-b last:border-b-0 pb-2 last:pb-0 border-gray-200"
                               >
                                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">

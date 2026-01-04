@@ -104,7 +104,7 @@ export default function CoverLetterDetailPage() {
     try {
       await updateCoverLetter({
         clerkId,
-        coverLetterId: id as any,
+        coverLetterId: id as Id<'cover_letters'>,
         updates: {
           name,
           job_title: jobTitle,

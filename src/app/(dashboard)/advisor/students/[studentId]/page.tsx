@@ -140,8 +140,11 @@ function StudentProfileContent() {
         .map((note) => {
           const match = note.match(/^\[(.+?)\]\s*([^:]+):\s*([\s\S]*)$/);
           if (match) {
+            const parsedTimestamp = new Date(match[1]).getTime();
+            // Fallback to current time if date parsing fails
+            const timestamp = isNaN(parsedTimestamp) ? Date.now() : parsedTimestamp;
             return {
-              timestamp: new Date(match[1]).getTime(),
+              timestamp,
               author: match[2].trim(),
               content: match[3].trim(),
             };

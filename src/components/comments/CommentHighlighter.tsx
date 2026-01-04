@@ -150,7 +150,7 @@ function SectionIndicator({
       className={cn(
         'pointer-events-auto inline-flex items-center justify-center',
         'w-5 h-5 rounded-full text-xs font-medium transition-all',
-        'shadow-sm border',
+        'shadow-sm border focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1',
         isActive
           ? 'bg-primary-500 text-white border-primary-600 scale-110'
           : unresolvedCount > 0
