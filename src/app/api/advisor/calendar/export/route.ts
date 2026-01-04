@@ -104,13 +104,16 @@ export async function GET(request: Request) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
 
-    // Default to current month if no dates provided
+    // Default to current month if no dates provided (with NaN validation)
     const now = new Date();
-    const startDate = startDateParam
-      ? parseInt(startDateParam, 10)
+    const parsedStart = startDateParam ? parseInt(startDateParam, 10) : NaN;
+    const parsedEnd = endDateParam ? parseInt(endDateParam, 10) : NaN;
+
+    const startDate = !isNaN(parsedStart)
+      ? parsedStart
       : new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const endDate = endDateParam
-      ? parseInt(endDateParam, 10)
+    const endDate = !isNaN(parsedEnd)
+      ? parsedEnd
       : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
 
     // Fetch sessions from Convex
