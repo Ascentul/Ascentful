@@ -88,9 +88,32 @@ export const sendMessage = mutation({
       sender_type: 'student',
       session_id: sessionId,
       review_id: reviewId,
-      read_by_student_at: now, // Mark as read by sender
       created_at: now,
     });
+
+    // Update student's last read pointer to current time (they sent the message, so they've "read" it)
+    const existingState = await ctx.db
+      .query('advisor_conversation_state')
+      .withIndex('by_conversation', (q) =>
+        q.eq('student_user_id', userId).eq('advisor_user_id', advisor.advisorId),
+      )
+      .unique();
+
+    if (existingState) {
+      await ctx.db.patch(existingState._id, {
+        student_last_read_at: now,
+        updated_at: now,
+      });
+    } else {
+      await ctx.db.insert('advisor_conversation_state', {
+        university_id: universityId,
+        student_user_id: userId,
+        advisor_user_id: advisor.advisorId,
+        student_last_read_at: now,
+        created_at: now,
+        updated_at: now,
+      });
+    }
 
     return { messageId };
   },

@@ -99,22 +99,22 @@ function StudentActionsContent() {
           </TabsList>
 
           <TabsContent value="open" className="mt-6">
-            {isLoading ? (
+            {isLoading || !clerkId ? (
               <LoadingState />
             ) : actionItems?.length === 0 ? (
               <EmptyState type="open" />
             ) : (
-              <ActionItemsList items={actionItems ?? []} clerkId={clerkId!} />
+              <ActionItemsList items={actionItems ?? []} clerkId={clerkId} />
             )}
           </TabsContent>
 
           <TabsContent value="done" className="mt-6">
-            {isLoading ? (
+            {isLoading || !clerkId ? (
               <LoadingState />
             ) : actionItems?.length === 0 ? (
               <EmptyState type="done" />
             ) : (
-              <ActionItemsList items={actionItems ?? []} clerkId={clerkId!} />
+              <ActionItemsList items={actionItems ?? []} clerkId={clerkId} />
             )}
           </TabsContent>
         </Tabs>

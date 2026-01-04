@@ -44,6 +44,7 @@ function StudentMessagesContent() {
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [hasMarkedRead, setHasMarkedRead] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isLoading = messages === undefined || advisor === undefined;
@@ -51,10 +52,14 @@ function StudentMessagesContent() {
 
   // Mark messages as read when viewing
   useEffect(() => {
-    if (clerkId && messages && messages.some((m) => !m.isRead)) {
-      markAsRead({ clerkId }).catch(console.error);
+    if (clerkId && messages && !hasMarkedRead && messages.some((m) => !m.isRead)) {
+      setHasMarkedRead(true);
+      markAsRead({ clerkId }).catch((err) => {
+        console.error(err);
+        setHasMarkedRead(false); // Allow retry on error
+      });
     }
-  }, [clerkId, messages, markAsRead]);
+  }, [clerkId, messages, markAsRead, hasMarkedRead]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

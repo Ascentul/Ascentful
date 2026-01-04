@@ -2698,6 +2698,8 @@ export default defineSchema({
   // ============================================================================
 
   // Real-time messaging between students and advisors
+  // NOTE: Read tracking uses advisor_conversation_state table (last-read-pointer pattern)
+  // which is more efficient than per-message read tracking for high-volume conversations
   advisor_messages: defineTable({
     university_id: v.id('universities'),
     student_user_id: v.id('users'),
@@ -2708,9 +2710,6 @@ export default defineSchema({
     // Message content
     body: v.string(),
     sender_type: v.union(v.literal('student'), v.literal('advisor')),
-    // Read tracking
-    read_by_student_at: v.optional(v.number()),
-    read_by_advisor_at: v.optional(v.number()),
     // Timestamps
     created_at: v.number(),
   })

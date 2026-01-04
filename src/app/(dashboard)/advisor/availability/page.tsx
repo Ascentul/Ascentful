@@ -306,6 +306,7 @@ function SlotBadge({ slot }: { slot: AvailabilitySlot }) {
         disabled={isToggling}
         className="p-0.5 hover:bg-white/50 rounded"
         title={slot.is_active ? 'Disable' : 'Enable'}
+        aria-label={slot.is_active ? 'Disable slot' : 'Enable slot'}
       >
         {isToggling ? (
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -320,6 +321,7 @@ function SlotBadge({ slot }: { slot: AvailabilitySlot }) {
         disabled={isDeleting}
         className="p-0.5 hover:bg-red-100 rounded text-red-600"
         title="Delete"
+        aria-label="Delete slot"
       >
         {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
       </button>

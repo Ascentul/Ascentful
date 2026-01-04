@@ -76,12 +76,27 @@ function NewReviewRequestContent() {
 
     // Validation
     if (assetType === 'resume' && !selectedResumeId) {
+      toast({
+        title: 'Selection Required',
+        description: 'Please select a resume to submit for review.',
+        variant: 'destructive',
+      });
       return;
     }
     if (assetType === 'cover_letter' && !selectedCoverLetterId) {
+      toast({
+        title: 'Selection Required',
+        description: 'Please select a cover letter to submit for review.',
+        variant: 'destructive',
+      });
       return;
     }
     if (assetType === 'other' && !documentUrl.trim()) {
+      toast({
+        title: 'URL Required',
+        description: 'Please provide a link to your document.',
+        variant: 'destructive',
+      });
       return;
     }
 
