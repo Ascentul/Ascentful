@@ -105,10 +105,14 @@ function SessionDetailContent() {
       ? startDate.getTime() + session.duration_minutes * 60 * 1000
       : startDate.getTime() + 60 * 60 * 1000; // Default 1 hour if no duration
 
-  // Add 15 min buffer after session ends to allow for sessions running over
+  // Allow joining 15 min before start and 15 min after end (for sessions running over)
+  const joinableFrom = startDate.getTime() - 15 * 60 * 1000;
   const joinableUntil = sessionEndTime + 15 * 60 * 1000;
   const isJoinable =
-    now < joinableUntil && session.status !== 'cancelled' && session.status !== 'completed';
+    now >= joinableFrom &&
+    now < joinableUntil &&
+    session.status !== 'cancelled' &&
+    session.status !== 'completed';
   const isPast = now > sessionEndTime;
 
   const formatDate = (date: Date) => {

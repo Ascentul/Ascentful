@@ -89,22 +89,22 @@ function ResourcesContent() {
           </TabsList>
 
           <TabsContent value="all" className="mt-6">
-            {isLoading ? (
+            {isLoading || !clerkId ? (
               <LoadingState />
             ) : filteredResources?.length === 0 ? (
               <EmptyState type="all" />
             ) : (
-              <ResourcesGrid resources={filteredResources ?? []} clerkId={clerkId!} />
+              <ResourcesGrid resources={filteredResources ?? []} clerkId={clerkId} />
             )}
           </TabsContent>
 
           <TabsContent value="pinned" className="mt-6">
-            {isLoading ? (
+            {isLoading || !clerkId ? (
               <LoadingState />
             ) : filteredResources?.length === 0 ? (
               <EmptyState type="pinned" />
             ) : (
-              <ResourcesGrid resources={filteredResources ?? []} clerkId={clerkId!} />
+              <ResourcesGrid resources={filteredResources ?? []} clerkId={clerkId} />
             )}
           </TabsContent>
         </Tabs>
