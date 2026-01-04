@@ -226,7 +226,7 @@ export function ApplicationKanbanEnhanced({
                     </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 max-h-[600px] overflow-y-auto scrollbar-thin">
+                <CardContent className="space-y-3 max-h-[600px] overflow-y-auto no-scrollbar">
                   {stageApps.length === 0 ? (
                     <div className="text-center py-8 text-sm text-muted-foreground">
                       No applications

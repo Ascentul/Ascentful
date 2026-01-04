@@ -70,7 +70,7 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { useSidebarOptional } from '@/contexts/SidebarContext';
 import { useToast } from '@/hooks/use-toast';
-import { hasUniversityAdminAccess } from '@/lib/constants/roles';
+import { hasUniversityAdminAccess, isUniversityStudent } from '@/lib/constants/roles';
 import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '@/lib/constants/sidebar';
 
 // Sidebar section types
@@ -382,6 +382,12 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   // Check if user is advisor (supports impersonation)
   const effectiveIsAdvisor = useMemo(() => effectiveRole === 'advisor', [effectiveRole]);
 
+  // Check if user is a university student (for Student Advisor Hub access)
+  const effectiveIsUniversityStudent = useMemo(
+    () => isUniversityStudent(effectiveRole, viewer?.university?.universityId),
+    [effectiveRole, viewer?.university?.universityId],
+  );
+
   // Determine which sections to show based on effective role (supports impersonation)
   const allSections: SidebarSection[] = useMemo(() => {
     if (effectiveIsAdvisor) {
@@ -391,12 +397,29 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
     } else if (effectiveIsAdmin) {
       return adminSections;
     } else {
+      // Regular user or student - show standard sections
+      // For university students, add the "My Advisor" section after Goals
+      if (effectiveIsUniversityStudent) {
+        // Insert "My Advisor" section after Goals
+        const goalsIndex = sidebarSections.findIndex((s) => s.id === 'goals');
+        const sectionsWithAdvisor = [...sidebarSections];
+        // Defensive: if goals section not found, append at end instead of inserting at index 0
+        const insertIndex = goalsIndex === -1 ? sectionsWithAdvisor.length : goalsIndex + 1;
+        sectionsWithAdvisor.splice(insertIndex, 0, {
+          id: 'student-advisor',
+          title: 'My Advisor',
+          icon: <GraduationCap className="h-5 w-5" />,
+          href: '/student/advisor',
+        });
+        return sectionsWithAdvisor;
+      }
       return sidebarSections;
     }
   }, [
     effectiveIsAdvisor,
     effectiveIsUniAdmin,
     effectiveIsAdmin,
+    effectiveIsUniversityStudent,
     advisorSections,
     universitySections,
     adminSections,

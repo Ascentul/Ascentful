@@ -2692,4 +2692,178 @@ export default defineSchema({
     // Visibility filtering (for student view)
     .index('by_resume_visibility', ['resume_id', 'visibility', 'status'])
     .index('by_student_visibility', ['student_id', 'visibility', 'status']),
+
+  // ============================================================================
+  // STUDENT ADVISOR HUB TABLES
+  // ============================================================================
+
+  // Real-time messaging between students and advisors
+  // NOTE: Read tracking uses advisor_conversation_state table (last-read-pointer pattern)
+  // which is more efficient than per-message read tracking for high-volume conversations
+  advisor_messages: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    advisor_user_id: v.id('users'),
+    // Optional context linking
+    session_id: v.optional(v.id('advisor_sessions')),
+    review_id: v.optional(v.id('advisor_reviews')),
+    // Message content
+    body: v.string(),
+    sender_type: v.union(v.literal('student'), v.literal('advisor')),
+    // Timestamps
+    created_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_student', ['student_user_id', 'created_at'])
+    .index('by_advisor', ['advisor_user_id', 'created_at'])
+    .index('by_conversation', ['student_user_id', 'advisor_user_id', 'created_at']),
+
+  // Student-initiated review requests for documents
+  student_review_requests: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    advisor_user_id: v.optional(v.id('users')), // Assigned advisor (may be auto-assigned)
+    // Asset reference (one of these should be set)
+    asset_type: v.union(v.literal('resume'), v.literal('cover_letter'), v.literal('other')),
+    resume_id: v.optional(v.id('resumes')),
+    cover_letter_id: v.optional(v.id('cover_letters')),
+    document_url: v.optional(v.string()), // For 'other' type uploads
+    // Student notes
+    student_note: v.optional(v.string()),
+    // Workflow status
+    status: v.union(
+      v.literal('draft'), // Student started but not submitted
+      v.literal('submitted'), // Student submitted, awaiting advisor
+      v.literal('in_review'), // Advisor is reviewing
+      v.literal('feedback_ready'), // Advisor has provided feedback
+      v.literal('revision_requested'), // Advisor requested changes
+      v.literal('complete'), // Review cycle complete
+      v.literal('cancelled'), // Student cancelled the request
+    ),
+    // Timestamps
+    created_at: v.number(),
+    submitted_at: v.optional(v.number()),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_student', ['student_user_id', 'status'])
+    .index('by_advisor', ['advisor_user_id', 'status']),
+
+  // Shared resources from advisors to students
+  advisor_resources: defineTable({
+    university_id: v.id('universities'),
+    advisor_user_id: v.id('users'),
+    title: v.string(),
+    description: v.optional(v.string()),
+    url: v.string(),
+    tags: v.optional(v.array(v.string())),
+    // Visibility (default: all students in university)
+    visibility: v.optional(v.union(v.literal('all'), v.literal('assigned_students'))),
+    created_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_advisor', ['advisor_user_id']),
+
+  // Student pinned resources (personal bookmarks)
+  student_pinned_resources: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    resource_id: v.id('advisor_resources'),
+    pinned_at: v.number(),
+  })
+    .index('by_student', ['student_user_id'])
+    .index('by_resource', ['resource_id']),
+
+  // Advisor weekly availability schedule
+  advisor_availability: defineTable({
+    university_id: v.id('universities'),
+    advisor_user_id: v.id('users'),
+    // Schedule
+    day_of_week: v.number(), // 0-6 (Sunday-Saturday)
+    start_time: v.string(), // "09:00" 24hr format
+    end_time: v.string(), // "17:00"
+    slot_duration_minutes: v.number(), // 30, 45, 60
+    // Timezone (IANA timezone string, e.g., "America/New_York")
+    timezone: v.optional(v.string()),
+    // Status
+    is_active: v.boolean(),
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_advisor', ['advisor_user_id', 'is_active'])
+    .index('by_university', ['university_id']),
+
+  // Student session booking requests
+  session_bookings: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    advisor_user_id: v.id('users'),
+    // Links to created session after confirmation
+    session_id: v.optional(v.id('advisor_sessions')),
+    // Requested time slot
+    requested_start: v.number(), // timestamp
+    requested_end: v.number(), // timestamp
+    // Session details
+    session_type: v.union(
+      v.literal('career_planning'),
+      v.literal('resume_review'),
+      v.literal('mock_interview'),
+      v.literal('application_strategy'),
+      v.literal('general_advising'),
+      v.literal('other'),
+    ),
+    student_note: v.optional(v.string()),
+    // Workflow status
+    status: v.union(
+      v.literal('pending'), // Student submitted, awaiting advisor
+      v.literal('confirmed'), // Advisor confirmed, session created
+      v.literal('declined'), // Advisor declined
+      v.literal('cancelled'), // Either party cancelled
+      v.literal('completed'), // Session completed
+    ),
+    decline_reason: v.optional(v.string()),
+    cancelled_by: v.optional(v.union(v.literal('student'), v.literal('advisor'))),
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_student', ['student_user_id', 'status'])
+    .index('by_advisor', ['advisor_user_id', 'status'])
+    .index('by_time', ['advisor_user_id', 'requested_start'])
+    .index('by_advisor_status_time', ['advisor_user_id', 'status', 'requested_start']),
+
+  // Student sharing and notification preferences
+  student_advisor_settings: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    // Sharing preferences (what advisor can see)
+    share_career_profile: v.boolean(),
+    share_applications: v.boolean(),
+    share_goals: v.boolean(),
+    share_documents: v.boolean(),
+    // Notification preferences
+    notification_preference: v.union(v.literal('instant'), v.literal('daily'), v.literal('off')),
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_student', ['student_user_id']),
+
+  // Conversation read state - tracks "last read" pointers for messaging
+  // This is more efficient than per-message read tracking for high-volume conversations
+  advisor_conversation_state: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    advisor_user_id: v.id('users'),
+    // Read pointers - timestamp of last message read by each party
+    // Messages with created_at > this value are considered unread
+    student_last_read_at: v.optional(v.number()),
+    advisor_last_read_at: v.optional(v.number()),
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_student', ['student_user_id'])
+    .index('by_advisor', ['advisor_user_id'])
+    .index('by_conversation', ['student_user_id', 'advisor_user_id']),
 });

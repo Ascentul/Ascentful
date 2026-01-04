@@ -121,7 +121,7 @@ export function ApplicationKanban({
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 max-h-[600px] overflow-y-auto">
+                <CardContent className="space-y-3 max-h-[600px] overflow-y-auto no-scrollbar">
                   {applications.length === 0 ? (
                     <div className="text-center py-8 text-sm text-muted-foreground">
                       No applications
