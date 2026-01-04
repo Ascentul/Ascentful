@@ -57,7 +57,12 @@ function StudentReviewsContent() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link href="/student/advisor">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              aria-label="Back to advisor hub"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>

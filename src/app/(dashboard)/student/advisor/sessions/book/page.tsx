@@ -51,6 +51,101 @@ const SESSION_TYPES = [
   { value: 'other', label: 'Other' },
 ] as const;
 
+// Get browser's timezone
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'America/New_York'; // Fallback
+  }
+}
+
+// Get short timezone label (e.g., "ET", "PT")
+function getShortTimezoneLabel(tz: string): string {
+  const labels: Record<string, string> = {
+    'America/New_York': 'ET',
+    'America/Chicago': 'CT',
+    'America/Denver': 'MT',
+    'America/Los_Angeles': 'PT',
+    'America/Anchorage': 'AKT',
+    'Pacific/Honolulu': 'HST',
+    'America/Phoenix': 'AZ',
+    UTC: 'UTC',
+  };
+  return labels[tz] || tz.split('/').pop() || tz;
+}
+
+/**
+ * Get timezone offset in minutes for a given timezone at a specific date.
+ * Returns the offset from UTC (positive = ahead, negative = behind).
+ */
+function getTimezoneOffsetMinutes(timezone: string, date: Date): number {
+  // Create a formatter for the target timezone
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const tzYear = parseInt(parts.find((p) => p.type === 'year')?.value || '0');
+  const tzMonth = parseInt(parts.find((p) => p.type === 'month')?.value || '0') - 1;
+  const tzDay = parseInt(parts.find((p) => p.type === 'day')?.value || '0');
+  const tzHour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0');
+  const tzMinute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0');
+
+  // Create a UTC date with those values
+  const tzDate = Date.UTC(tzYear, tzMonth, tzDay, tzHour, tzMinute);
+
+  // The difference gives us the offset
+  return Math.round((tzDate - date.getTime()) / 60000);
+}
+
+/**
+ * Create a Date object for a specific time in a specific timezone on a given day.
+ * The result is in local time but represents the correct UTC moment.
+ */
+function createDateInTimezone(
+  timeStr: string,
+  baseDate: Date,
+  sourceTimezone: string | undefined,
+): Date {
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  // If no source timezone specified, use local time
+  if (!sourceTimezone) {
+    const result = new Date(baseDate);
+    result.setHours(hour, minute, 0, 0);
+    return result;
+  }
+
+  // Create a reference date at noon UTC to calculate offset
+  const refDate = new Date(
+    Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0),
+  );
+
+  // Get offset for both timezones
+  const sourceOffset = getTimezoneOffsetMinutes(sourceTimezone, refDate);
+  const localTimezone = getBrowserTimezone();
+  const localOffset = getTimezoneOffsetMinutes(localTimezone, refDate);
+
+  // Calculate the difference
+  const offsetDiff = localOffset - sourceOffset;
+
+  // Create the date in local time, adjusted for the timezone difference
+  const result = new Date(baseDate);
+  result.setHours(hour, minute, 0, 0);
+
+  // Adjust by the offset difference
+  result.setMinutes(result.getMinutes() + offsetDiff);
+
+  return result;
+}
+
 type SessionType = (typeof SESSION_TYPES)[number]['value'];
 
 export default function BookSessionPage() {
@@ -135,6 +230,15 @@ function BookSessionContent() {
     return endOfWeek < today;
   };
 
+  // Get the student's local timezone
+  const studentTimezone = getBrowserTimezone();
+
+  // Get the advisor's timezone from availability (use first slot's timezone as they should be consistent)
+  const advisorTimezone = availability?.find((a) => a.timezone)?.timezone;
+
+  // Check if timezone conversion is needed (different timezones)
+  const needsTimezoneConversion = advisorTimezone && advisorTimezone !== studentTimezone;
+
   // Generate available time slots for a day
   const getSlotsForDay = (date: Date) => {
     if (!availability) return [];
@@ -148,16 +252,23 @@ function BookSessionContent() {
     const now = Date.now();
 
     dayAvailability.forEach((avail) => {
+      const duration = avail.slot_duration_minutes || 30;
+
+      // Parse start and end times
       const [startHour, startMin] = avail.start_time.split(':').map(Number);
       const [endHour, endMin] = avail.end_time.split(':').map(Number);
-      const duration = avail.slot_duration_minutes || 30;
+
+      // Skip invalid time entries
+      if ([startHour, startMin, endHour, endMin].some(isNaN)) return;
 
       let currentHour = startHour;
       let currentMin = startMin;
 
       while (currentHour < endHour || (currentHour === endHour && currentMin < endMin)) {
-        const slotStart = new Date(date);
-        slotStart.setHours(currentHour, currentMin, 0, 0);
+        const currentTimeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+
+        // Convert from advisor's timezone to student's local timezone
+        const slotStart = createDateInTimezone(currentTimeStr, date, avail.timezone);
 
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
@@ -313,10 +424,21 @@ function BookSessionContent() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <CalendarDays className="h-5 w-5" />
-                    Select a Time
-                  </CardTitle>
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5" />
+                      Select a Time
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1 mt-1">
+                      <Clock className="h-3 w-3" />
+                      Times shown in your timezone ({getShortTimezoneLabel(studentTimezone)})
+                      {needsTimezoneConversion && (
+                        <span className="text-xs text-muted-foreground">
+                          • Advisor is in {getShortTimezoneLabel(advisorTimezone || '')}
+                        </span>
+                      )}
+                    </CardDescription>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"

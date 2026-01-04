@@ -76,6 +76,34 @@ const DURATION_OPTIONS = [
   { value: 120, label: '2 hours' },
 ];
 
+// Common US timezones (can be expanded for international support)
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+  { value: 'America/Phoenix', label: 'Arizona (No DST)' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+// Get browser's timezone
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'America/New_York'; // Fallback
+  }
+}
+
+// Find matching timezone option or return the raw timezone
+function getTimezoneLabel(tz: string | undefined): string {
+  if (!tz) return 'Not set';
+  const option = TIMEZONE_OPTIONS.find((o) => o.value === tz);
+  return option?.label || tz;
+}
+
 export default function AvailabilityPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
@@ -183,6 +211,7 @@ interface AvailabilitySlot {
   start_time: string;
   end_time: string;
   slot_duration_minutes: number;
+  timezone?: string;
   is_active: boolean;
 }
 
@@ -267,6 +296,11 @@ function SlotBadge({ slot }: { slot: AvailabilitySlot }) {
         {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
       </span>
       <span className="text-xs opacity-70">({slot.slot_duration_minutes}m)</span>
+      {slot.timezone && (
+        <span className="text-xs opacity-60" title={slot.timezone}>
+          {getTimezoneLabel(slot.timezone)}
+        </span>
+      )}
       <button
         onClick={handleToggle}
         disabled={isToggling}
@@ -302,6 +336,7 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [duration, setDuration] = useState<string>('30');
+  const [timezone, setTimezone] = useState<string>(getBrowserTimezone());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -324,6 +359,7 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
         startTime,
         endTime,
         slotDurationMinutes: parseInt(duration),
+        timezone,
       });
       onClose();
     } catch (err) {
@@ -410,6 +446,25 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
           </Select>
           <p className="text-xs text-muted-foreground">
             Students will book sessions of this duration from your available time
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Timezone</Label>
+          <Select value={timezone} onValueChange={setTimezone}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONE_OPTIONS.map((tz) => (
+                <SelectItem key={tz.value} value={tz.value}>
+                  {tz.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Times will be shown to students in their local timezone
           </p>
         </div>
 

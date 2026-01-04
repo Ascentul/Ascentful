@@ -403,7 +403,9 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         // Insert "My Advisor" section after Goals
         const goalsIndex = sidebarSections.findIndex((s) => s.id === 'goals');
         const sectionsWithAdvisor = [...sidebarSections];
-        sectionsWithAdvisor.splice(goalsIndex + 1, 0, {
+        // Defensive: if goals section not found, append at end instead of inserting at index 0
+        const insertIndex = goalsIndex === -1 ? sectionsWithAdvisor.length : goalsIndex + 1;
+        sectionsWithAdvisor.splice(insertIndex, 0, {
           id: 'student-advisor',
           title: 'My Advisor',
           icon: <GraduationCap className="h-5 w-5" />,

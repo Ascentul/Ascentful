@@ -2771,7 +2771,9 @@ export default defineSchema({
     student_user_id: v.id('users'),
     resource_id: v.id('advisor_resources'),
     pinned_at: v.number(),
-  }).index('by_student', ['student_user_id']),
+  })
+    .index('by_student', ['student_user_id'])
+    .index('by_resource', ['resource_id']),
 
   // Advisor weekly availability schedule
   advisor_availability: defineTable({
@@ -2782,6 +2784,8 @@ export default defineSchema({
     start_time: v.string(), // "09:00" 24hr format
     end_time: v.string(), // "17:00"
     slot_duration_minutes: v.number(), // 30, 45, 60
+    // Timezone (IANA timezone string, e.g., "America/New_York")
+    timezone: v.optional(v.string()),
     // Status
     is_active: v.boolean(),
     // Timestamps
@@ -2827,7 +2831,8 @@ export default defineSchema({
   })
     .index('by_student', ['student_user_id', 'status'])
     .index('by_advisor', ['advisor_user_id', 'status'])
-    .index('by_time', ['advisor_user_id', 'requested_start']),
+    .index('by_time', ['advisor_user_id', 'requested_start'])
+    .index('by_advisor_status_time', ['advisor_user_id', 'status', 'requested_start']),
 
   // Student sharing and notification preferences
   student_advisor_settings: defineTable({
@@ -2844,4 +2849,22 @@ export default defineSchema({
     created_at: v.number(),
     updated_at: v.number(),
   }).index('by_student', ['student_user_id']),
+
+  // Conversation read state - tracks "last read" pointers for messaging
+  // This is more efficient than per-message read tracking for high-volume conversations
+  advisor_conversation_state: defineTable({
+    university_id: v.id('universities'),
+    student_user_id: v.id('users'),
+    advisor_user_id: v.id('users'),
+    // Read pointers - timestamp of last message read by each party
+    // Messages with created_at > this value are considered unread
+    student_last_read_at: v.optional(v.number()),
+    advisor_last_read_at: v.optional(v.number()),
+    // Timestamps
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_student', ['student_user_id'])
+    .index('by_advisor', ['advisor_user_id'])
+    .index('by_conversation', ['student_user_id', 'advisor_user_id']),
 });

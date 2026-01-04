@@ -98,6 +98,7 @@ export const sendMessage = mutation({
 
 /**
  * Mark all messages from advisor as read.
+ * Uses a "last read pointer" pattern for O(1) writes instead of patching each message.
  */
 export const markMessagesAsRead = mutation({
   args: {
@@ -108,31 +109,38 @@ export const markMessagesAsRead = mutation({
 
     const advisor = await getStudentAdvisor(ctx, userId, universityId);
     if (!advisor) {
-      return { updated: 0 };
+      return { success: false };
     }
-
-    // Get unread messages from advisor
-    const unreadMessages = await ctx.db
-      .query('advisor_messages')
-      .withIndex('by_student', (q) => q.eq('student_user_id', userId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('sender_type'), 'advisor'),
-          q.eq(q.field('read_by_student_at'), undefined),
-        ),
-      )
-      .collect();
 
     const now = Date.now();
 
-    // Mark each as read
-    for (const msg of unreadMessages) {
-      await ctx.db.patch(msg._id, {
-        read_by_student_at: now,
+    // Find or create conversation state
+    const existingState = await ctx.db
+      .query('advisor_conversation_state')
+      .withIndex('by_conversation', (q) =>
+        q.eq('student_user_id', userId).eq('advisor_user_id', advisor.advisorId),
+      )
+      .unique();
+
+    if (existingState) {
+      // Update the read pointer
+      await ctx.db.patch(existingState._id, {
+        student_last_read_at: now,
+        updated_at: now,
+      });
+    } else {
+      // Create new conversation state
+      await ctx.db.insert('advisor_conversation_state', {
+        university_id: universityId,
+        student_user_id: userId,
+        advisor_user_id: advisor.advisorId,
+        student_last_read_at: now,
+        created_at: now,
+        updated_at: now,
       });
     }
 
-    return { updated: unreadMessages.length };
+    return { success: true };
   },
 });
 

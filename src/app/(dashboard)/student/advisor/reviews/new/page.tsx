@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
 
 type AssetType = 'resume' | 'cover_letter' | 'other';
 
@@ -99,6 +100,11 @@ function NewReviewRequestContent() {
       setSubmitSuccess(true);
     } catch (error) {
       console.error('Failed to create review request:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit review request. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }

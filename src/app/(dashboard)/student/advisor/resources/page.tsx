@@ -22,7 +22,7 @@ import {
   Tag,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { StudentUniversityGate } from '@/components/StudentUniversityGate';
 import { Badge } from '@/components/ui/badge';
@@ -140,6 +140,16 @@ function ResourcesGrid({ resources, clerkId }: { resources: Resource[]; clerkId:
 function ResourceCard({ resource, clerkId }: { resource: Resource; clerkId: string }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const pinResource = useMutation(api.student_advisor_hub_mutations.pinResource);
   const unpinResource = useMutation(api.student_advisor_hub_mutations.unpinResource);
@@ -149,6 +159,10 @@ function ResourceCard({ resource, clerkId }: { resource: Resource; clerkId: stri
 
     setIsUpdating(true);
     setError(null);
+    // Clear any existing timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
     try {
       if (resource.isPinned) {
         await unpinResource({ clerkId, resourceId: resource._id });
@@ -159,7 +173,7 @@ function ResourceCard({ resource, clerkId }: { resource: Resource; clerkId: stri
       console.error('Failed to toggle pin:', err);
       setError(resource.isPinned ? 'Failed to unpin' : 'Failed to pin');
       // Auto-clear error after 3 seconds
-      setTimeout(() => setError(null), 3000);
+      errorTimeoutRef.current = setTimeout(() => setError(null), 3000);
     } finally {
       setIsUpdating(false);
     }

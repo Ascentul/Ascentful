@@ -41,6 +41,7 @@ export const getMyAvailability = query({
       start_time: slot.start_time,
       end_time: slot.end_time,
       slot_duration_minutes: slot.slot_duration_minutes,
+      timezone: slot.timezone,
       is_active: slot.is_active,
     }));
   },
@@ -158,8 +159,9 @@ export const addAvailabilitySlot = mutation({
     startTime: TIME_STRING,
     endTime: TIME_STRING,
     slotDurationMinutes: v.number(),
+    timezone: v.optional(v.string()),
   },
-  handler: async (ctx, { dayOfWeek, startTime, endTime, slotDurationMinutes }) => {
+  handler: async (ctx, { dayOfWeek, startTime, endTime, slotDurationMinutes, timezone }) => {
     const user = await getCurrentUser(ctx);
 
     // Validate day of week
@@ -218,6 +220,7 @@ export const addAvailabilitySlot = mutation({
       start_time: startTime,
       end_time: endTime,
       slot_duration_minutes: slotDurationMinutes,
+      timezone: timezone,
       is_active: true,
       created_at: now,
       updated_at: now,
@@ -387,6 +390,62 @@ export const confirmBooking = mutation({
       throw new ConvexError({
         code: 'INVALID_STATE',
         message: 'Only pending bookings can be confirmed',
+      });
+    }
+
+    // Check for overlapping confirmed bookings
+    const existingBookings = await ctx.db
+      .query('session_bookings')
+      .withIndex('by_advisor', (q) =>
+        q.eq('advisor_user_id', user.userId).eq('status', 'confirmed'),
+      )
+      .collect();
+
+    const hasBookingOverlap = existingBookings.some((existing) => {
+      // Skip the current booking being confirmed
+      if (existing._id === bookingId) return false;
+      // Check if time ranges overlap
+      return (
+        (booking.requested_start >= existing.requested_start &&
+          booking.requested_start < existing.requested_end) ||
+        (booking.requested_end > existing.requested_start &&
+          booking.requested_end <= existing.requested_end) ||
+        (booking.requested_start <= existing.requested_start &&
+          booking.requested_end >= existing.requested_end)
+      );
+    });
+
+    if (hasBookingOverlap) {
+      throw new ConvexError({
+        code: 'INVALID_STATE',
+        message: 'This time slot conflicts with an existing booking',
+      });
+    }
+
+    // Also check for existing scheduled sessions
+    const existingSessions = await ctx.db
+      .query('advisor_sessions')
+      .withIndex('by_advisor', (q) => q.eq('advisor_id', user.userId))
+      .filter((q) =>
+        q.and(q.neq(q.field('status'), 'cancelled'), q.neq(q.field('status'), 'no_show')),
+      )
+      .collect();
+
+    const hasSessionOverlap = existingSessions.some((session) => {
+      const sessionEnd =
+        session.end_at ?? session.start_at + (session.duration_minutes ?? 60) * 60 * 1000;
+      // Check if time ranges overlap
+      return (
+        (booking.requested_start >= session.start_at && booking.requested_start < sessionEnd) ||
+        (booking.requested_end > session.start_at && booking.requested_end <= sessionEnd) ||
+        (booking.requested_start <= session.start_at && booking.requested_end >= sessionEnd)
+      );
+    });
+
+    if (hasSessionOverlap) {
+      throw new ConvexError({
+        code: 'INVALID_STATE',
+        message: 'This time slot conflicts with an existing session',
       });
     }
 

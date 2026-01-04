@@ -277,6 +277,7 @@ export const getMySessionDetail = query({
 
 /**
  * Get messages between student and their advisor.
+ * Uses "last read pointer" pattern to compute isRead status efficiently.
  */
 export const getMyMessages = query({
   args: {
@@ -292,6 +293,16 @@ export const getMyMessages = query({
       return [];
     }
 
+    // Get conversation state for read pointer
+    const conversationState = await ctx.db
+      .query('advisor_conversation_state')
+      .withIndex('by_conversation', (q) =>
+        q.eq('student_user_id', userId).eq('advisor_user_id', advisor.advisorId),
+      )
+      .unique();
+
+    const studentLastReadAt = conversationState?.student_last_read_at ?? 0;
+
     // Get messages in conversation
     const messages = await ctx.db
       .query('advisor_messages')
@@ -306,7 +317,8 @@ export const getMyMessages = query({
       body: msg.body,
       sender_type: msg.sender_type,
       created_at: msg.created_at,
-      isRead: msg.sender_type === 'student' || !!msg.read_by_student_at,
+      // Message is read if: sent by student OR created before the read pointer
+      isRead: msg.sender_type === 'student' || msg.created_at <= studentLastReadAt,
       session_id: msg.session_id,
       review_id: msg.review_id,
     }));
@@ -315,6 +327,7 @@ export const getMyMessages = query({
 
 /**
  * Get count of unread messages.
+ * Uses "last read pointer" pattern for efficient unread detection.
  */
 export const getUnreadMessageCount = query({
   args: {
@@ -328,18 +341,31 @@ export const getUnreadMessageCount = query({
       return 0;
     }
 
-    const unread = await ctx.db
+    // Get conversation state for read pointer
+    const conversationState = await ctx.db
+      .query('advisor_conversation_state')
+      .withIndex('by_conversation', (q) =>
+        q.eq('student_user_id', userId).eq('advisor_user_id', advisor.advisorId),
+      )
+      .unique();
+
+    const studentLastReadAt = conversationState?.student_last_read_at ?? 0;
+
+    // Count messages from advisor that are newer than the read pointer
+    const unreadMessages = await ctx.db
       .query('advisor_messages')
-      .withIndex('by_student', (q) => q.eq('student_user_id', userId))
+      .withIndex('by_conversation', (q) =>
+        q.eq('student_user_id', userId).eq('advisor_user_id', advisor.advisorId),
+      )
       .filter((q) =>
         q.and(
           q.eq(q.field('sender_type'), 'advisor'),
-          q.eq(q.field('read_by_student_at'), undefined),
+          q.gt(q.field('created_at'), studentLastReadAt),
         ),
       )
       .collect();
 
-    return unread.length;
+    return unreadMessages.length;
   },
 });
 
@@ -641,6 +667,7 @@ export const getAdvisorAvailability = query({
       start_time: slot.start_time,
       end_time: slot.end_time,
       slot_duration_minutes: slot.slot_duration_minutes,
+      timezone: slot.timezone,
     }));
   },
 });
