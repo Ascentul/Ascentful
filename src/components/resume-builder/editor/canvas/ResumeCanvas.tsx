@@ -1097,12 +1097,37 @@ function ExperienceEntry({
   onDelete?: () => void;
   canDelete?: boolean;
 }) {
-  const bullets = parseBulletPoints(experience.description || '');
+  // Use keyContributions if available, otherwise parse from description
+  const hasKeyContributions = experience.keyContributions && experience.keyContributions.length > 0;
+  const allBullets: string[] = hasKeyContributions
+    ? (experience.keyContributions ?? [])
+    : parseBulletPoints(experience.description || '');
+
+  // Split: first item = summary (paragraph), rest = accomplishments (bullets)
+  const displaySummary = experience.summary || (allBullets.length > 0 ? allBullets[0] : '');
+  const displayBullets: string[] = experience.summary
+    ? allBullets // If summary exists separately, all bullets are accomplishments
+    : allBullets.slice(1); // Otherwise, first bullet became summary
 
   const handleBulletsChange = (newBullets: string[]) => {
+    // If using keyContributions, update that field
+    if (hasKeyContributions || experience.keyContributions !== undefined) {
+      onChange({
+        ...experience,
+        keyContributions: newBullets,
+      });
+    } else {
+      onChange({
+        ...experience,
+        description: bulletPointsToDescription(newBullets),
+      });
+    }
+  };
+
+  const handleSummaryChange = (newSummary: string) => {
     onChange({
       ...experience,
-      description: bulletPointsToDescription(newBullets),
+      summary: newSummary,
     });
   };
 
@@ -1171,23 +1196,53 @@ function ExperienceEntry({
       {experience.location && (
         <div className="text-[10pt] text-slate-500 mb-1">{experience.location}</div>
       )}
-      <div className="mt-2 text-[11pt]">
-        <BulletEditable
-          spanId={`experience-${experience.id}-bullets`}
-          bullets={bullets.length > 0 ? bullets : ['']}
-          onChange={handleBulletsChange}
-          suggestions={suggestions}
-          coachEnabled={coachEnabled}
-          isMissing={bulletIsMissing}
-          placeholder={
-            bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
-          }
-          editorMode={editorMode}
-          aiSuggestions={aiSuggestions}
-          focusedSuggestionId={focusedSuggestionId}
-          onTrackChangeClick={onTrackChangeClick}
-        />
-      </div>
+      {/* Summary/Overview - rendered as paragraph */}
+      {displaySummary && (
+        <p className="mt-2 text-[11pt] text-slate-700 leading-relaxed">{displaySummary}</p>
+      )}
+      {/* Accomplishments label + bullets */}
+      {displayBullets.length > 0 && (
+        <div className="mt-2 text-[11pt]">
+          <div className="text-[10pt] font-semibold text-slate-500 italic mb-1">
+            Accomplishments:
+          </div>
+          <BulletEditable
+            spanId={`experience-${experience.id}-bullets`}
+            bullets={displayBullets}
+            onChange={handleBulletsChange}
+            suggestions={suggestions}
+            coachEnabled={coachEnabled}
+            isMissing={bulletIsMissing}
+            placeholder={
+              bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
+            }
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
+          />
+        </div>
+      )}
+      {/* Fallback: show bullets without label if no summary and no displayBullets */}
+      {!displaySummary && displayBullets.length === 0 && allBullets.length > 0 && (
+        <div className="mt-2 text-[11pt]">
+          <BulletEditable
+            spanId={`experience-${experience.id}-bullets`}
+            bullets={allBullets}
+            onChange={handleBulletsChange}
+            suggestions={suggestions}
+            coachEnabled={coachEnabled}
+            isMissing={bulletIsMissing}
+            placeholder={
+              bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
+            }
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
+          />
+        </div>
+      )}
     </div>
   );
 }

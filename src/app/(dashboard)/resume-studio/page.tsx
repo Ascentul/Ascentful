@@ -460,9 +460,134 @@ export default function ResumeStudioPage() {
 
       const { data: parsedData, warning } = await parseResponse.json();
 
+      // Debug: Log parsed experience data
+      if (process.env.NODE_ENV === 'development' && parsedData.experience?.length > 0) {
+        console.log(
+          '[Resume Import] Parsed experience data:',
+          parsedData.experience.map(
+            (exp: {
+              title?: string;
+              company?: string;
+              summary?: string;
+              keyContributions?: string[];
+            }) => ({
+              title: exp.title,
+              company: exp.company,
+              hasSummary: !!exp.summary,
+              summaryPreview: exp.summary?.substring(0, 50),
+              keyContributionsCount: exp.keyContributions?.length || 0,
+              keyContributionsPreview: exp.keyContributions?.slice(0, 2),
+            }),
+          ),
+        );
+      }
+
       const resumeTitle = parsedData.personalInfo?.name
         ? `${parsedData.personalInfo.name}'s Resume`
         : `Imported Resume - ${file.name.replace('.pdf', '')}`;
+
+      // Transform parsed experiences to include required id and description fields
+      const transformedExperiences = (parsedData.experience || []).map(
+        (exp: {
+          title?: string;
+          company?: string;
+          location?: string;
+          startDate?: string;
+          endDate?: string;
+          current?: boolean;
+          summary?: string;
+          keyContributions?: string[];
+          description?: string;
+        }) => {
+          // Build description from summary and keyContributions if description is missing
+          let description = exp.description || '';
+          if (!description && (exp.summary || exp.keyContributions?.length)) {
+            const parts: string[] = [];
+            if (exp.summary) parts.push(exp.summary);
+            if (exp.keyContributions?.length) {
+              parts.push(exp.keyContributions.map((c) => `• ${c}`).join('\n'));
+            }
+            description = parts.join('\n\n');
+          }
+          const transformed = {
+            id: `exp-${crypto.randomUUID()}`,
+            title: exp.title || '',
+            company: exp.company || '',
+            location: exp.location || '',
+            startDate: exp.startDate || '',
+            endDate: exp.endDate || '',
+            current: exp.current || false,
+            description,
+            summary: exp.summary,
+            keyContributions: exp.keyContributions,
+          };
+
+          // Debug: Log transformed experience
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Resume Import] Transformed experience:', {
+              title: transformed.title,
+              company: transformed.company,
+              descriptionLength: transformed.description.length,
+              descriptionPreview: transformed.description.substring(0, 100),
+            });
+          }
+
+          return transformed;
+        },
+      );
+
+      // Transform education entries to include id
+      const transformedEducation = (parsedData.education || []).map(
+        (edu: {
+          degree?: string;
+          field?: string;
+          school?: string;
+          location?: string;
+          startYear?: string;
+          endYear?: string;
+          graduationYear?: string;
+          gpa?: string;
+          honors?: string;
+        }) => ({
+          id: `edu-${crypto.randomUUID()}`,
+          degree: edu.degree || '',
+          field: edu.field || '',
+          school: edu.school || '',
+          location: edu.location || '',
+          startYear: edu.startYear || '',
+          endYear: edu.endYear || edu.graduationYear || '',
+          gpa: edu.gpa || '',
+          honors: edu.honors || '',
+        }),
+      );
+
+      // Transform projects to include id
+      const transformedProjects = (parsedData.projects || []).map(
+        (proj: {
+          name?: string;
+          role?: string;
+          technologies?: string;
+          description?: string;
+          url?: string;
+        }) => ({
+          id: `proj-${crypto.randomUUID()}`,
+          name: proj.name || '',
+          role: proj.role || '',
+          technologies: proj.technologies || '',
+          description: proj.description || '',
+          url: proj.url || '',
+        }),
+      );
+
+      // Transform achievements to include id
+      const transformedAchievements = (parsedData.achievements || []).map(
+        (ach: { title?: string; description?: string; date?: string }) => ({
+          id: `ach-${crypto.randomUUID()}`,
+          title: ach.title || '',
+          description: ach.description || '',
+          date: ach.date || '',
+        }),
+      );
 
       await createResumeMutation({
         clerkId,
@@ -471,10 +596,10 @@ export default function ResumeStudioPage() {
           contactInfo: parsedData.personalInfo,
           summary: parsedData.summary || '',
           skills: parsedData.skills || [],
-          experiences: parsedData.experience || [],
-          education: parsedData.education || [],
-          projects: parsedData.projects || [],
-          achievements: parsedData.achievements || [],
+          experiences: transformedExperiences,
+          education: transformedEducation,
+          projects: transformedProjects,
+          achievements: transformedAchievements,
         },
         visibility: 'private',
         source: 'pdf_upload',

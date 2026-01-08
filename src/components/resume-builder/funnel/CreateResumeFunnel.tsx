@@ -120,16 +120,45 @@ export function CreateResumeFunnel({
               .map((s: string) => s.trim())
               .filter(Boolean)
           : [],
-        experience: (profile.work_history || []).map((job, index: number) => ({
-          id: `exp-${index}`,
-          title: job.role || '',
-          company: job.company || '',
-          location: job.location || '',
-          startDate: job.start_date || '',
-          endDate: job.is_current ? 'Present' : job.end_date || '',
-          current: job.is_current || false,
-          description: job.summary || '',
-        })),
+        experience: (profile.work_history || []).map((job, index: number) => {
+          // Parse the job summary to extract overview and bullet points
+          const jobSummary = job.summary || '';
+          const lines = jobSummary.split('\n');
+          const summaryLines: string[] = [];
+          const bullets: string[] = [];
+          let foundBullet = false;
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            // Check if line starts with a bullet character
+            if (/^[•\-\*]/.test(trimmed)) {
+              foundBullet = true;
+              const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
+              if (cleanBullet) {
+                bullets.push(cleanBullet);
+              }
+            } else if (!foundBullet && trimmed) {
+              summaryLines.push(trimmed);
+            } else if (foundBullet && trimmed) {
+              bullets.push(trimmed);
+            }
+          }
+
+          return {
+            id: `exp-${index}`,
+            title: job.role || '',
+            company: job.company || '',
+            location: job.location || '',
+            startDate: job.start_date || '',
+            endDate: job.is_current ? 'Present' : job.end_date || '',
+            current: job.is_current || false,
+            // Keep description for backward compatibility
+            description: jobSummary,
+            // New structured fields
+            summary: summaryLines.join(' '),
+            keyContributions: bullets,
+          };
+        }),
         education: (profile.education_history || []).map((edu, index: number) => ({
           id: `edu-${index}`,
           school: edu.school || '',

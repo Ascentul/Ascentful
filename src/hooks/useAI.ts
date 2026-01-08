@@ -239,10 +239,15 @@ export function useJDAnalysis() {
   const analyzeJD = useCallback(async (jobDescription: string, url?: string) => {
     setState({ data: null, loading: true, error: null });
 
-    const result = await callAPI<JDAnalysisResponse>('/api/ai/analyze-jd', {
-      jobDescription,
-      url,
-    });
+    // JD analysis with lightweight prompt should be fast
+    const result = await callAPI<JDAnalysisResponse>(
+      '/api/ai/analyze-jd',
+      {
+        jobDescription,
+        url,
+      },
+      60000, // 60 second timeout (30s per attempt × 2 retries)
+    );
 
     if (result.success && result.data) {
       setState({ data: result.data, loading: false, error: null });

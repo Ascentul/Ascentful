@@ -1,6 +1,7 @@
 'use client';
 
-import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Minus, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Experience } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
@@ -15,15 +16,129 @@ interface ExperienceSectionProps {
   isGenerating?: boolean;
 }
 
+/**
+ * Always use structured format for all experiences.
+ * This ensures consistent UI across the app.
+ */
+function isStructuredFormat(_exp: Experience): boolean {
+  // Always show structured mode - Role Overview + Key Accomplishments
+  return true;
+}
+
+/**
+ * Parses a freeform description into summary and keyContributions
+ * - First paragraph (before bullet points) becomes summary
+ * - Lines starting with •, -, * become keyContributions
+ */
+function parseDescriptionToStructured(description: string): {
+  summary: string;
+  keyContributions: string[];
+} {
+  if (!description.trim()) {
+    return { summary: '', keyContributions: [] };
+  }
+
+  const lines = description.split('\n');
+  const summaryLines: string[] = [];
+  const bullets: string[] = [];
+  let foundBullet = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Check if line starts with a bullet character
+    if (/^[•\-\*]/.test(trimmed)) {
+      foundBullet = true;
+      // Clean the bullet and add to keyContributions
+      const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
+      if (cleanBullet) {
+        bullets.push(cleanBullet);
+      }
+    } else if (!foundBullet && trimmed) {
+      // Before we see any bullets, collect as summary
+      summaryLines.push(trimmed);
+    } else if (foundBullet && trimmed) {
+      // After bullets start, if we see non-bullet text, treat it as continuation
+      // or additional bullet (user typed without bullet char)
+      bullets.push(trimmed);
+    }
+  }
+
+  return {
+    summary: summaryLines.join(' '),
+    keyContributions: bullets,
+  };
+}
+
+/**
+ * Converts structured format back to description for backward compatibility
+ */
+function structuredToDescription(summary: string, keyContributions: string[]): string {
+  const parts: string[] = [];
+  if (summary?.trim()) {
+    parts.push(summary.trim());
+  }
+  if (keyContributions && keyContributions.length > 0) {
+    if (parts.length > 0) parts.push(''); // Add blank line between summary and bullets
+    for (const bullet of keyContributions) {
+      if (bullet.trim()) {
+        parts.push(`• ${bullet.trim()}`);
+      }
+    }
+  }
+  return parts.join('\n');
+}
+
 export function ExperienceSection({
   experiences,
   onChange,
   onGenerateBullets,
   isGenerating,
 }: ExperienceSectionProps) {
+  // Track if we've auto-parsed experiences to avoid infinite loops
+  const autoParseRef = useRef<Set<string>>(new Set());
+
+  // Auto-parse description into structured fields when both summary and keyContributions are empty
+  // This handles imported resumes that only have description populated
+  useEffect(() => {
+    const experiencesToUpdate: Experience[] = [];
+
+    for (const exp of experiences) {
+      // Skip if we've already processed this experience
+      if (autoParseRef.current.has(exp.id)) continue;
+
+      // Check if structured fields are empty but description has content
+      const hasEmptyStructured =
+        !exp.summary && (!exp.keyContributions || exp.keyContributions.length === 0);
+      const hasDescription = exp.description && exp.description.trim().length > 0;
+
+      if (hasEmptyStructured && hasDescription) {
+        // Parse description into structured fields
+        const { summary, keyContributions } = parseDescriptionToStructured(exp.description);
+        if (summary || keyContributions.length > 0) {
+          experiencesToUpdate.push({
+            ...exp,
+            summary,
+            keyContributions,
+          });
+          autoParseRef.current.add(exp.id);
+        }
+      }
+    }
+
+    // Update experiences if any were parsed
+    if (experiencesToUpdate.length > 0) {
+      const updatedExperiences = experiences.map((exp) => {
+        const updated = experiencesToUpdate.find((u) => u.id === exp.id);
+        return updated || exp;
+      });
+      onChange(updatedExperiences);
+    }
+  }, [experiences, onChange]);
+
   const handleAdd = () => {
+    const id = `exp-${crypto.randomUUID()}`;
     const newExperience: Experience = {
-      id: `exp-${crypto.randomUUID()}`,
+      id,
       title: '',
       company: '',
       location: '',
@@ -31,17 +146,52 @@ export function ExperienceSection({
       endDate: '',
       current: false,
       description: '',
+      summary: '',
+      keyContributions: [],
     };
     onChange([...experiences, newExperience]);
   };
 
   const handleUpdate = (index: number, updates: Partial<Experience>) => {
-    const updated = experiences.map((exp, i) => (i === index ? { ...exp, ...updates } : exp));
+    const updated = experiences.map((exp, i) => {
+      if (i !== index) return exp;
+      const newExp = { ...exp, ...updates };
+
+      // Keep description in sync with structured fields for backward compatibility
+      if (updates.summary !== undefined || updates.keyContributions !== undefined) {
+        newExp.description = structuredToDescription(
+          updates.summary ?? exp.summary ?? '',
+          updates.keyContributions ?? exp.keyContributions ?? [],
+        );
+      }
+
+      return newExp;
+    });
     onChange(updated);
   };
 
   const handleDelete = (index: number) => {
     onChange(experiences.filter((_, i) => i !== index));
+  };
+
+  const handleAddBullet = (index: number) => {
+    const exp = experiences[index];
+    const currentBullets = exp.keyContributions || [];
+    handleUpdate(index, { keyContributions: [...currentBullets, ''] });
+  };
+
+  const handleUpdateBullet = (expIndex: number, bulletIndex: number, value: string) => {
+    const exp = experiences[expIndex];
+    const currentBullets = [...(exp.keyContributions || [])];
+    currentBullets[bulletIndex] = value;
+    handleUpdate(expIndex, { keyContributions: currentBullets });
+  };
+
+  const handleRemoveBullet = (expIndex: number, bulletIndex: number) => {
+    const exp = experiences[expIndex];
+    const currentBullets = [...(exp.keyContributions || [])];
+    currentBullets.splice(bulletIndex, 1);
+    handleUpdate(expIndex, { keyContributions: currentBullets });
   };
 
   if (experiences.length === 0) {
@@ -161,14 +311,32 @@ export function ExperienceSection({
             </label>
           </div>
 
+          {/* Role Overview / Summary */}
+          <div>
+            <label htmlFor={`summary-${exp.id}`} className="text-sm font-medium text-slate-700">
+              Role Overview
+            </label>
+            <p className="text-xs text-slate-500 mb-1">
+              Brief paragraph about your role, scope, and value delivered (2-3 sentences)
+            </p>
+            <Textarea
+              id={`summary-${exp.id}`}
+              value={exp.summary || ''}
+              onChange={(e) => handleUpdate(index, { summary: e.target.value })}
+              placeholder="Led a team of 5 engineers to deliver critical features for the company's flagship product. Responsible for architecture decisions, code reviews, and mentoring junior developers."
+              className="min-h-[80px] text-sm"
+            />
+          </div>
+
+          {/* Key Accomplishments */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label
-                htmlFor={`description-${exp.id}`}
-                className="text-sm font-medium text-slate-700"
-              >
-                Description & Achievements
-              </label>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Accomplishments</label>
+                <p className="text-xs text-slate-500">
+                  Specific achievements with metrics and impact
+                </p>
+              </div>
               {onGenerateBullets && (
                 <Button
                   variant="outline"
@@ -182,18 +350,39 @@ export function ExperienceSection({
                 </Button>
               )}
             </div>
-            <Textarea
-              id={`description-${exp.id}`}
-              value={exp.description}
-              onChange={(e) => handleUpdate(index, { description: e.target.value })}
-              placeholder="• Led development of new features serving 10K+ users
-• Improved page load times by 40% through optimization
-• Mentored 2 junior developers"
-              className="min-h-[120px] font-mono text-sm"
-            />
-            <p className="text-xs text-slate-400 mt-1">
-              Use bullet points (•) to list your key achievements
-            </p>
+
+            <div className="space-y-2">
+              {(exp.keyContributions || []).map((bullet, bulletIndex) => (
+                <div key={bulletIndex} className="flex items-start gap-2">
+                  <span className="text-slate-400 mt-2.5 text-sm">•</span>
+                  <Input
+                    value={bullet}
+                    onChange={(e) => handleUpdateBullet(index, bulletIndex, e.target.value)}
+                    placeholder="Increased revenue by 25% through implementing new checkout flow"
+                    className="flex-1 text-sm"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveBullet(index, bulletIndex)}
+                    className="h-9 w-9 text-slate-400 hover:text-red-500 shrink-0"
+                    aria-label="Remove bullet"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleAddBullet(index)}
+                className="gap-1.5 text-slate-600"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Bullet
+              </Button>
+            </div>
           </div>
         </div>
       ))}

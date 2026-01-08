@@ -577,7 +577,7 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
         </section>
       )}
 
-      {/* Certifications Section */}
+      {/* Certifications Section - Compact inline layout */}
       {certifications && certifications.length > 0 && (
         <section style={{ marginTop: '16px', marginBottom: '16px' }}>
           <h2
@@ -592,56 +592,18 @@ export const ResumeDocument: React.FC<ResumeDocumentProps> = ({ data, className 
           >
             Certifications
           </h2>
-          {certifications.map((cert, index) => (
-            <div key={cert.id} style={{ marginTop: index > 0 ? '12px' : '0' }}>
-              {/* Certification Name and Date */}
-              <div
-                className="flex justify-between items-baseline gap-2"
-                style={{ marginBottom: '4px' }}
-              >
-                <span
-                  style={{ fontSize: FONT_SIZES.company, fontWeight: 700, color: COLORS.BLACK }}
-                >
-                  {cert.name}
-                </span>
-                <span
-                  style={{
-                    fontSize: FONT_SIZES.small,
-                    color: COLORS.LIGHT_GRAY,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {cert.date}
-                  {cert.expirationDate && ` - ${cert.expirationDate}`}
-                </span>
-              </div>
-
-              {/* Issuer */}
-              <div style={{ fontSize: FONT_SIZES.body, color: COLORS.GRAY }}>{cert.issuer}</div>
-
-              {/* Credential ID and URL */}
-              {(cert.credentialId || cert.url) && (
-                <div
-                  style={{ fontSize: FONT_SIZES.small, color: COLORS.LIGHT_GRAY, marginTop: '4px' }}
-                >
-                  {cert.credentialId && <span>Credential ID: {cert.credentialId}</span>}
-                  {cert.credentialId && cert.url && /^https?:\/\//i.test(cert.url) && (
-                    <span> · </span>
-                  )}
-                  {cert.url && /^https?:\/\//i.test(cert.url) && (
-                    <a
-                      href={cert.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: COLORS.PRIMARY_ACCENT, textDecoration: 'underline' }}
-                    >
-                      View Certificate
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          <div style={{ fontSize: FONT_SIZES.body, lineHeight: '1.5' }}>
+            {certifications.map((cert, index) => (
+              <span key={cert.id}>
+                <span style={{ fontWeight: 600, color: COLORS.BLACK }}>{cert.name}</span>
+                {cert.issuer && <span style={{ color: COLORS.GRAY }}> — {cert.issuer}</span>}
+                {cert.date && <span style={{ color: COLORS.LIGHT_GRAY }}> ({cert.date})</span>}
+                {index < certifications.length - 1 && (
+                  <span style={{ color: COLORS.LIGHT_GRAY }}> · </span>
+                )}
+              </span>
+            ))}
+          </div>
         </section>
       )}
     </div>

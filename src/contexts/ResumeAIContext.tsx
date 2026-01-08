@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
@@ -29,6 +30,13 @@ import {
   generateMissingContentSuggestions,
   prioritizeAndDedupe,
 } from '@/lib/ai/suggestion-generator';
+import {
+  computeResumeDiff,
+  type OptimizedResumeResponse,
+  optimizedToResumeData,
+  type ResumeDiff,
+} from '@/lib/resume/optimizedToResumeData';
+import { resumeDataToText } from '@/lib/resume/resumeToText';
 import { calculateEnhancedScore } from '@/lib/resume-score';
 import type {
   GroupedSuggestions,
@@ -98,6 +106,24 @@ function createLegacyMapper(dismissedIds: Set<string>) {
 // TYPES
 // ============================================================================
 
+// Analysis result from /api/resumes/analyze (the working API)
+export interface JobAnalysisResult {
+  score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  suggestions: string[];
+  strengthHighlights?: string[];
+}
+
+// Simple match score for when only the numeric score is available (e.g., from /api/resumes/analyze)
+export interface SimpleMatchScore {
+  matchScore: number;
+}
+
+// Match score can be either the full AI response or just the numeric score
+export type MatchScore = MatchScoreResponse | SimpleMatchScore;
+
 export type AIAssistMode = 'onboarding' | 'active' | 'strategy';
 
 interface ResumeAIState {
@@ -112,16 +138,24 @@ interface ResumeAIState {
   suggestionsError: string | null;
   dismissedSuggestionIds: Set<string>;
 
-  // JD Analysis
+  // JD Analysis (legacy - uses broken /api/ai/analyze-jd)
   jobDescription: string;
   jdAnalysis: JDAnalysisResponse | null;
   jdLoading: boolean;
   jdError: string | null;
 
-  // Match Score
-  matchScore: MatchScoreResponse | null;
+  // Match Score (can be full AI response or simple score from /api/resumes/analyze)
+  matchScore: MatchScore | null;
   matchLoading: boolean;
   matchError: string | null;
+
+  // Job Analysis (working - uses /api/resumes/analyze)
+  jobAnalysisResult: JobAnalysisResult | null;
+
+  // Optimized Resume (from /api/resumes/optimize)
+  optimizedResume: ResumeData | null;
+  optimizeLoading: boolean;
+  resumeDiff: ResumeDiff | null;
 
   // AI Assist Panel Mode
   assistMode: AIAssistMode;
@@ -152,13 +186,18 @@ type ResumeAIAction =
   | { type: 'SET_JD_ANALYSIS'; payload: JDAnalysisResponse | null }
   | { type: 'SET_JD_LOADING'; payload: boolean }
   | { type: 'SET_JD_ERROR'; payload: string | null }
-  | { type: 'SET_MATCH_SCORE'; payload: MatchScoreResponse | null }
+  | { type: 'SET_MATCH_SCORE'; payload: MatchScore | null }
   | { type: 'SET_MATCH_LOADING'; payload: boolean }
   | { type: 'SET_MATCH_ERROR'; payload: string | null }
   | { type: 'SET_ASSIST_MODE'; payload: AIAssistMode }
   | { type: 'SHOW_INLINE_TOOLBAR'; payload: ResumeAIState['inlineToolbarTarget'] }
   | { type: 'HIDE_INLINE_TOOLBAR' }
-  | { type: 'SET_USING_FALLBACK'; payload: boolean };
+  | { type: 'SET_USING_FALLBACK'; payload: boolean }
+  | { type: 'SET_JOB_ANALYSIS_RESULT'; payload: JobAnalysisResult | null }
+  | { type: 'SET_OPTIMIZED_RESUME'; payload: ResumeData | null }
+  | { type: 'SET_OPTIMIZE_LOADING'; payload: boolean }
+  | { type: 'SET_RESUME_DIFF'; payload: ResumeDiff | null }
+  | { type: 'CLEAR_OPTIMIZED_RESUME' };
 
 interface ResumeAIStateValue extends ResumeAIState {
   // Resume data reference
@@ -198,6 +237,10 @@ interface ResumeAIActionsValue {
       targetKeywords?: string[];
     },
   ) => Promise<{ rewrittenBullet: string } | null>;
+  // New: Working optimize flow
+  optimizeForJob: () => Promise<void>;
+  applyOptimizedResume: () => void;
+  discardOptimizedResume: () => void;
 }
 
 // ============================================================================
@@ -219,6 +262,11 @@ const initialState: ResumeAIState = {
   matchScore: null,
   matchLoading: false,
   matchError: null,
+  // New working job analysis
+  jobAnalysisResult: null,
+  optimizedResume: null,
+  optimizeLoading: false,
+  resumeDiff: null,
   assistMode: 'active',
   inlineToolbarTarget: null,
   usingFallback: false,
@@ -279,6 +327,16 @@ function resumeAIReducer(state: ResumeAIState, action: ResumeAIAction): ResumeAI
       return { ...state, inlineToolbarTarget: null };
     case 'SET_USING_FALLBACK':
       return { ...state, usingFallback: action.payload };
+    case 'SET_JOB_ANALYSIS_RESULT':
+      return { ...state, jobAnalysisResult: action.payload };
+    case 'SET_OPTIMIZED_RESUME':
+      return { ...state, optimizedResume: action.payload };
+    case 'SET_OPTIMIZE_LOADING':
+      return { ...state, optimizeLoading: action.payload };
+    case 'SET_RESUME_DIFF':
+      return { ...state, resumeDiff: action.payload };
+    case 'CLEAR_OPTIMIZED_RESUME':
+      return { ...state, optimizedResume: null, resumeDiff: null };
     default:
       return state;
   }
@@ -621,7 +679,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     [matchHook],
   );
 
-  // Analyze Job Description
+  // Analyze Job Description - NOW USES WORKING /api/resumes/analyze
   const analyzeJobDescription = useCallback(
     async (jd: string) => {
       if (!enabled || !jd.trim()) return;
@@ -632,17 +690,33 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       // Clear previous analysis/match so UI doesn't show stale data
       dispatch({ type: 'SET_JD_ANALYSIS', payload: null });
       dispatch({ type: 'SET_MATCH_SCORE', payload: null });
+      dispatch({ type: 'SET_JOB_ANALYSIS_RESULT', payload: null });
+      dispatch({ type: 'CLEAR_OPTIMIZED_RESUME' });
 
       try {
-        const result = await jdHook.analyzeJD(jd);
+        // Convert current resume to text for the API
+        const resumeText = resumeDataToText(resumeDataRef.current);
 
-        if (result.success && result.data) {
-          dispatch({ type: 'SET_JD_ANALYSIS', payload: result.data });
-          // Automatically calculate match score after JD analysis
-          await refreshMatchScoreInternal(result.data);
-        } else {
-          dispatch({ type: 'SET_JD_ERROR', payload: result.error || 'Failed to analyze JD' });
+        // Call the working /api/resumes/analyze endpoint
+        const response = await fetch('/api/resumes/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeText, jobDescription: jd }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Analysis failed (${response.status})`);
         }
+
+        const result: JobAnalysisResult = await response.json();
+        dispatch({ type: 'SET_JOB_ANALYSIS_RESULT', payload: result });
+
+        // Set match score from the analysis result (simple score, not full MatchScoreResponse)
+        dispatch({
+          type: 'SET_MATCH_SCORE',
+          payload: { matchScore: result.score },
+        });
       } catch (error) {
         dispatch({
           type: 'SET_JD_ERROR',
@@ -652,8 +726,68 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
         dispatch({ type: 'SET_JD_LOADING', payload: false });
       }
     },
-    [enabled, jdHook, refreshMatchScoreInternal],
+    [enabled],
   );
+
+  // Optimize resume for the job using /api/resumes/optimize
+  const optimizeForJob = useCallback(async () => {
+    if (!enabled || !state.jobDescription || !state.jobAnalysisResult) return;
+
+    dispatch({ type: 'SET_OPTIMIZE_LOADING', payload: true });
+    dispatch({ type: 'SET_JD_ERROR', payload: null });
+
+    try {
+      const resumeText = resumeDataToText(resumeDataRef.current);
+
+      const response = await fetch('/api/resumes/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalResumeText: resumeText,
+          analysisRecommendations: state.jobAnalysisResult,
+          jobDescription: state.jobDescription,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Optimization failed (${response.status})`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.resume) {
+        // Convert optimized response to ResumeData format
+        const optimizedData = optimizedToResumeData(result.resume, resumeDataRef.current);
+        dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optimizedData });
+
+        // Compute diff to show what changed
+        const diff = computeResumeDiff(resumeDataRef.current, optimizedData);
+        dispatch({ type: 'SET_RESUME_DIFF', payload: diff });
+      } else {
+        throw new Error('Invalid optimization response');
+      }
+    } catch (error) {
+      dispatch({
+        type: 'SET_JD_ERROR',
+        payload: error instanceof Error ? error.message : 'Optimization failed',
+      });
+    } finally {
+      dispatch({ type: 'SET_OPTIMIZE_LOADING', payload: false });
+    }
+  }, [enabled, state.jobDescription, state.jobAnalysisResult]);
+
+  // Apply optimized resume - caller must handle updating the actual resume data
+  const applyOptimizedResume = useCallback(() => {
+    // The actual update is handled by the parent component that has setResumeData
+    // This just clears the optimized state
+    dispatch({ type: 'CLEAR_OPTIMIZED_RESUME' });
+  }, []);
+
+  // Discard optimized resume
+  const discardOptimizedResume = useCallback(() => {
+    dispatch({ type: 'CLEAR_OPTIMIZED_RESUME' });
+  }, []);
 
   // Public match score refresh
   const refreshMatchScore = useCallback(async () => {
@@ -813,6 +947,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     state.suggestionsLoading ||
     state.jdLoading ||
     state.matchLoading ||
+    state.optimizeLoading ||
     rewriteHook.loading;
 
   const stateValue = useMemo<ResumeAIStateValue>(
@@ -849,6 +984,9 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       showInlineToolbar,
       hideInlineToolbar,
       rewriteBullet,
+      optimizeForJob,
+      applyOptimizedResume,
+      discardOptimizedResume,
     }),
     [
       refreshScore,
@@ -861,6 +999,9 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       setAssistMode,
       showInlineToolbar,
       hideInlineToolbar,
+      optimizeForJob,
+      applyOptimizedResume,
+      discardOptimizedResume,
       rewriteBullet,
     ],
   );

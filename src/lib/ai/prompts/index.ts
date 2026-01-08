@@ -727,7 +727,9 @@ export const REWRITE_SYSTEM_PROMPT = `${MASTER_SYSTEM_PROMPT}
 
 ${BULLET_REWRITE_PROMPT}`;
 
-export const JD_ANALYSIS_SYSTEM_PROMPT = `${MASTER_SYSTEM_PROMPT}
+// JD Analysis uses a lightweight prompt - no need for the full MASTER_SYSTEM_PROMPT
+// This significantly reduces token count and speeds up the response
+export const JD_ANALYSIS_SYSTEM_PROMPT = `You are a job description parser. Extract structured information from job postings accurately and concisely.
 
 ${JD_ANALYSIS_PROMPT}`;
 

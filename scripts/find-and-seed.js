@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+/**
+ * Find user by email and seed sample applications
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// Load .env.local
+const envPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  const content = fs.readFileSync(envPath, 'utf8');
+  for (const line of content.split(/\r?\n/)) {
+    if (!line || line.startsWith('#')) continue;
+    const idx = line.indexOf('=');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    let val = line.slice(idx + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
+
+const { ConvexHttpClient } = require('convex/browser');
+
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+if (!CONVEX_URL) {
+  console.error('Error: NEXT_PUBLIC_CONVEX_URL not found in environment');
+  process.exit(1);
+}
+const client = new ConvexHttpClient(CONVEX_URL);
+
+// Sample applications to seed
+const sampleApplications = [
+  { company: "Google", job_title: "Software Engineer", status: "saved" },
+  { company: "Meta", job_title: "Frontend Developer", status: "saved" },
+  { company: "Apple", job_title: "iOS Developer", status: "saved" },
+  { company: "Netflix", job_title: "Senior Engineer", status: "saved" },
+  { company: "Microsoft", job_title: "Full Stack Developer", status: "applied" },
+  { company: "Amazon", job_title: "SDE II", status: "applied" },
+  { company: "Stripe", job_title: "Backend Engineer", status: "applied" },
+  { company: "Airbnb", job_title: "Software Engineer", status: "applied" },
+  { company: "Uber", job_title: "Mobile Developer", status: "applied" },
+  { company: "Spotify", job_title: "Data Engineer", status: "interview" },
+  { company: "Twitter", job_title: "Backend Developer", status: "interview" },
+  { company: "LinkedIn", job_title: "Software Engineer", status: "interview" },
+  { company: "Salesforce", job_title: "Platform Engineer", status: "offer" },
+];
+
+async function findClerkUser(email) {
+  if (!process.env.CLERK_SECRET_KEY) {
+    throw new Error('CLERK_SECRET_KEY not found in environment');
+  }
+
+  const url = new URL('https://api.clerk.com/v1/users');
+  url.searchParams.set('email_address', email);
+  const res = await fetch(url.toString(), {
+    headers: { 'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Clerk API error: ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data[0] : (data.data ? data.data[0] : null);
+}
+
+async function seedApplications(clerkId) {
+  console.log(`\nSeeding ${sampleApplications.length} sample applications...\n`);
+
+  const { api } = require('../convex/_generated/api');
+
+  for (const app of sampleApplications) {
+    try {
+      await client.mutation(api.applications.createApplication, {
+        clerkId,
+        company: app.company,
+        job_title: app.job_title,
+        status: app.status,
+        source: "Job Board",
+        notes: `Sample application for ${app.company} - ${app.job_title}`,
+      });
+      console.log(`✅ Created: ${app.company} - ${app.job_title} (${app.status})`);
+    } catch (error) {
+      console.error(`❌ Failed to create ${app.company}: ${error.message}`);
+    }
+  }
+
+  console.log("\n✨ Done seeding sample applications!");
+}
+
+async function main() {
+  const email = process.argv[2];
+  if (!email) {
+    console.error('Usage: node scripts/find-and-seed.js <email>');
+    process.exit(1);
+  }
+
+  console.log(`Looking up user: ${email}`);
+  const user = await findClerkUser(email);
+
+  if (!user) {
+    console.error('User not found in Clerk');
+    process.exit(1);
+  }
+
+  console.log(`Found user: ${user.id}`);
+  await seedApplications(user.id);
+}
+
+main().catch(console.error);

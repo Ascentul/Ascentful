@@ -102,7 +102,13 @@ function getMatchLevelColor(matchScore: number): string {
 }
 
 export function ScoreCard({ score, aiScore, loading, matchScore }: ScoreCardProps) {
-  if (loading) {
+  // Determine which score source to use
+  const hasAIScore = aiScore !== undefined && aiScore !== null;
+  const hasLegacyScore = score !== null;
+  const hasAnyScore = hasAIScore || hasLegacyScore;
+
+  // Only show skeleton when loading AND no existing score to display
+  if (loading && !hasAnyScore) {
     return (
       <div className="p-4 border-b border-slate-200">
         <div className="animate-pulse">
@@ -118,11 +124,7 @@ export function ScoreCard({ score, aiScore, loading, matchScore }: ScoreCardProp
     );
   }
 
-  // Determine which score source to use
-  const hasAIScore = aiScore !== undefined && aiScore !== null;
-  const hasLegacyScore = score !== null;
-
-  if (!hasAIScore && !hasLegacyScore) {
+  if (!hasAnyScore) {
     return (
       <div className="p-4 border-b border-slate-200">
         <div className="text-center text-slate-500 text-sm">Add content to see your score</div>
@@ -146,11 +148,17 @@ export function ScoreCard({ score, aiScore, loading, matchScore }: ScoreCardProp
       )}
 
       {/* Overall score */}
-      <div className="text-center mb-4">
+      <div className={cn('text-center mb-4', loading && 'opacity-60')}>
         {hasAIScore && (
           <div className="flex items-center justify-center gap-1 text-xs text-primary-500 mb-1">
-            <Sparkles className="h-3 w-3" />
-            <span>AI-Powered</span>
+            <Sparkles className={cn('h-3 w-3', loading && 'animate-pulse')} />
+            <span>{loading ? 'Updating...' : 'AI-Powered'}</span>
+          </div>
+        )}
+        {!hasAIScore && loading && (
+          <div className="flex items-center justify-center gap-1 text-xs text-primary-500 mb-1">
+            <Sparkles className="h-3 w-3 animate-pulse" />
+            <span>Analyzing...</span>
           </div>
         )}
         <div className={cn('text-4xl font-bold', getScoreColorClass(overallScore))}>

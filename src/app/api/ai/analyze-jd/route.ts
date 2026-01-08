@@ -10,7 +10,7 @@ import { JDAnalysisResponseSchema } from '@/lib/ai/schemas';
 import { evaluate } from '@/lib/ai-evaluation';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 60; // 1 minute should be plenty with lightweight prompt
 
 export async function POST(request: Request) {
   try {
@@ -34,16 +34,24 @@ export async function POST(request: Request) {
     // Build the user prompt
     const userPrompt = buildJDAnalysisUserPrompt(jobDescription, url);
 
-    // Call AI with PRO tier for complex analysis
+    // Call AI with STANDARD tier (gpt-5-mini) - lightweight prompt for fast response
     const result = await callAI(JD_ANALYSIS_SYSTEM_PROMPT, userPrompt, JDAnalysisResponseSchema, {
-      tier: 'pro',
+      tier: 'standard',
       maxRetries: 2,
-      temperature: 0.2,
+      maxTokens: 4096, // Enough for JD analysis response
+      timeoutMs: 30000, // 30 second timeout per attempt
     });
 
     if (!result.success) {
-      console.error('AI JD analysis failed:', result.error || 'Unknown error');
-      return NextResponse.json({ error: 'Failed to analyze job description' }, { status: 500 });
+      const errorMessage = result.error || 'Unknown error';
+      console.error('AI JD analysis failed:', errorMessage);
+      // Pass through a sanitized error message to the client
+      const clientError = errorMessage.includes('API key')
+        ? 'AI service configuration error'
+        : errorMessage.includes('timeout') || errorMessage.includes('timed out')
+          ? 'Analysis timed out. Please try again with a shorter job description.'
+          : 'Failed to analyze job description. Please try again.';
+      return NextResponse.json({ error: clientError, details: errorMessage }, { status: 500 });
     }
 
     // Evaluate AI-generated content for safety

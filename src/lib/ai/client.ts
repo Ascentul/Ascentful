@@ -13,12 +13,27 @@ const openai = process.env.OPENAI_API_KEY
 export type ModelTier = 'pro' | 'standard' | 'mini';
 
 const MODEL_MAP = {
-  pro: 'gpt-5.2-pro',
-  standard: 'gpt-5.2',
-  mini: 'gpt-5.2-chat-latest',
+  pro: 'gpt-5',
+  standard: 'gpt-5-mini',
+  mini: 'gpt-5-nano',
 } as const;
 
-// Temperature defaults by tier
+// GPT-5 temperature support varies by version:
+// - GPT-5.0 (gpt-5, gpt-5-mini, gpt-5-nano): Does NOT support temperature
+// - GPT-5.1, GPT-5.2: Supports temperature when reasoning_effort is "none"
+// For simplicity, we disable temperature for base GPT-5.0 models only
+const GPT5_NO_TEMPERATURE_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
+const supportsTemperature = (model: string): boolean => {
+  // Base GPT-5.0 models don't support temperature
+  if (GPT5_NO_TEMPERATURE_MODELS.includes(model)) {
+    return false;
+  }
+  // GPT-5.1+ models (e.g., gpt-5.1, gpt-5.2-mini) support temperature with reasoning_effort=none
+  // All other models (GPT-4, etc.) support temperature
+  return true;
+};
+
+// Temperature defaults by tier (only used for non-GPT-5 models)
 const TEMPERATURE_DEFAULTS: Record<ModelTier, number> = {
   pro: 0.2, // More deterministic for complex analysis
   standard: 0.4, // Balanced for creative rewriting
@@ -38,7 +53,7 @@ export interface AICallOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
-  timeoutMs?: number;
+  timeoutMs?: number; // Default: 120000ms (2 minutes)
 }
 
 export interface AICallResult<T> {
@@ -124,7 +139,7 @@ export async function callAI<T>(
     temperature = TEMPERATURE_DEFAULTS[tier],
     maxTokens = MAX_TOKENS_DEFAULTS[tier],
     jsonMode = true,
-    timeoutMs = 60000,
+    timeoutMs = 120000, // 2 minute default for complex AI operations
   } = options;
 
   if (!openai) {
@@ -143,8 +158,9 @@ export async function callAI<T>(
       const response = await openai.chat.completions.create(
         {
           model,
-          max_tokens: maxTokens,
-          temperature,
+          max_completion_tokens: maxTokens,
+          // Only include temperature for models that support it
+          ...(supportsTemperature(model) && { temperature }),
           ...(jsonMode && { response_format: { type: 'json_object' as const } }),
           messages: [
             { role: 'system', content: systemPrompt },
@@ -156,9 +172,29 @@ export async function callAI<T>(
         },
       );
 
-      const textContent = response.choices[0]?.message?.content;
+      const choice = response.choices[0];
+      const textContent = choice?.message?.content;
+
+      // Check for various failure modes
+      if (!choice) {
+        throw new Error('No choices in response');
+      }
+
+      // Check for refusals (model declined to respond)
+      const refusal = (choice.message as { refusal?: string })?.refusal;
+      if (refusal) {
+        throw new Error(`Model refused: ${refusal}`);
+      }
+
+      // Check finish reason
+      if (choice.finish_reason === 'length') {
+        console.warn('Response was cut off due to max_tokens limit');
+      }
+
       if (!textContent) {
-        throw new Error('No text content in response');
+        throw new Error(
+          `No text content in response (finish_reason: ${choice.finish_reason || 'unknown'})`,
+        );
       }
 
       const jsonString = extractJSON(textContent);
@@ -178,12 +214,17 @@ export async function callAI<T>(
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'Unknown error';
 
-      // Log for debugging
+      // Log detailed error info for debugging
       console.error(`AI call attempt ${attempt}/${maxRetries} failed:`, lastError);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
+      }
 
-      // Exponential backoff before retry
+      // Exponential backoff before retry (2s, 4s, 8s...)
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+        const backoffMs = Math.pow(2, attempt) * 1000;
+        console.log(`Retrying in ${backoffMs}ms...`);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
   }
@@ -218,7 +259,7 @@ export async function callAIText(
     maxRetries = 3,
     temperature = TEMPERATURE_DEFAULTS[tier],
     maxTokens = MAX_TOKENS_DEFAULTS[tier],
-    timeoutMs = 60000,
+    timeoutMs = 120000, // 2 minute default for complex AI operations
   } = options;
 
   if (!openai) {
@@ -237,8 +278,9 @@ export async function callAIText(
       const response = await openai.chat.completions.create(
         {
           model,
-          max_tokens: maxTokens,
-          temperature,
+          max_completion_tokens: maxTokens,
+          // Only include temperature for models that support it
+          ...(supportsTemperature(model) && { temperature }),
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

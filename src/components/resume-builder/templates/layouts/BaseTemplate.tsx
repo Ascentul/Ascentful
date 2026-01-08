@@ -8,6 +8,50 @@ import { formatDateRange, parseDescription } from '@/lib/resume-utils';
 import type { FontPairingId, TemplateLayoutConfig } from '../types';
 import { FONT_PAIRINGS } from '../types';
 
+/**
+ * Parses a freeform description into summary and keyContributions
+ * - First paragraph (before bullet points) becomes summary
+ * - Lines starting with •, -, * become keyContributions
+ */
+function parseDescriptionToStructured(description: string): {
+  summary: string;
+  keyContributions: string[];
+} {
+  if (!description?.trim()) {
+    return { summary: '', keyContributions: [] };
+  }
+
+  const lines = description.split('\n');
+  const summaryLines: string[] = [];
+  const bullets: string[] = [];
+  let foundBullet = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Check if line starts with a bullet character
+    if (/^[•\-\*]/.test(trimmed)) {
+      foundBullet = true;
+      // Clean the bullet and add to keyContributions
+      const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
+      if (cleanBullet) {
+        bullets.push(cleanBullet);
+      }
+    } else if (!foundBullet && trimmed) {
+      // Before we see any bullets, collect as summary
+      summaryLines.push(trimmed);
+    } else if (foundBullet && trimmed) {
+      // After bullets start, if we see non-bullet text, treat it as continuation
+      // or additional bullet (user typed without bullet char)
+      bullets.push(trimmed);
+    }
+  }
+
+  return {
+    summary: summaryLines.join(' '),
+    keyContributions: bullets,
+  };
+}
+
 // ============================================================================
 // Base Template Primitives
 // Shared components used by all template layouts
@@ -140,8 +184,37 @@ interface ExperienceItemProps extends BaseProps {
 
 export function ExperienceItem({ experience, config, isFirst = false }: ExperienceItemProps) {
   const fonts = getFontStyles(config.fontPairing);
-  const bullets = parseDescription(experience.description);
   const spacing = config.density === 'comfortable' ? '12px' : '8px';
+
+  // Check if using structured format (summary + keyContributions)
+  const hasStructuredData =
+    experience.summary || (experience.keyContributions && experience.keyContributions.length > 0);
+
+  // If no structured data, parse description into summary + bullets
+  // This handles legacy data that only has description field populated
+  const parsedFromDescription =
+    !hasStructuredData && experience.description
+      ? parseDescriptionToStructured(experience.description)
+      : null;
+
+  // Use structured fields if available, otherwise use parsed description
+  let displaySummary = experience.summary || parsedFromDescription?.summary || '';
+  let displayBullets = experience.keyContributions?.length
+    ? experience.keyContributions
+    : parsedFromDescription?.keyContributions || [];
+
+  // If summary is empty but we have bullets, use the first bullet as the summary
+  // This handles cases where the AI put all content in keyContributions
+  if (!displaySummary && displayBullets.length > 0) {
+    displaySummary = displayBullets[0];
+    displayBullets = displayBullets.slice(1);
+  }
+
+  // Legacy fallback: if parsing found nothing useful, use old parseDescription for raw bullets
+  const legacyBullets =
+    !displaySummary && displayBullets.length === 0 && experience.description
+      ? parseDescription(experience.description)
+      : [];
 
   return (
     <div style={{ marginTop: isFirst ? 0 : spacing }}>
@@ -192,28 +265,60 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
         {experience.title}
       </div>
 
-      {/* Summary (new format) */}
-      {experience.summary && (
+      {/* Summary/Overview - rendered as paragraph */}
+      {displaySummary && (
         <p
           style={{
             fontFamily: fonts.body,
             fontSize: '11pt',
             marginTop: '4px',
-            marginBottom: '4px',
+            marginBottom: '8px',
+            lineHeight: '1.4',
+            color: '#2D3748',
           }}
         >
-          {experience.summary}
+          {displaySummary}
         </p>
       )}
 
-      {/* Key Contributions (new format) */}
-      {experience.keyContributions && experience.keyContributions.length > 0 && (
-        <BulletList items={experience.keyContributions} config={config} />
+      {/* Accomplishments Header + Bullets */}
+      {displayBullets.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '10pt',
+              fontWeight: 600,
+              color: '#718096',
+              fontStyle: 'italic',
+              marginTop: displaySummary ? '4px' : '0',
+              marginBottom: '4px',
+            }}
+          >
+            Accomplishments:
+          </div>
+          <BulletList items={displayBullets} config={config} />
+        </>
       )}
 
-      {/* Description Bullets (fallback) */}
-      {!experience.summary && !experience.keyContributions && bullets.length > 0 && (
-        <BulletList items={bullets} config={config} />
+      {/* Legacy fallback for truly unstructured data - also show Accomplishments label */}
+      {legacyBullets.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '10pt',
+              fontWeight: 600,
+              color: '#718096',
+              fontStyle: 'italic',
+              marginTop: '0',
+              marginBottom: '4px',
+            }}
+          >
+            Accomplishments:
+          </div>
+          <BulletList items={legacyBullets} config={config} />
+        </>
       )}
     </div>
   );
