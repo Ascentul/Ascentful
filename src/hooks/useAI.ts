@@ -247,7 +247,7 @@ export function useJDAnalysis() {
         jobDescription,
         url,
       },
-      60000, // Frontend timeout: must exceed backend max duration (30s timeout × 2 retries)
+      80000, // Frontend timeout: must exceed backend maxDuration (75s) with buffer
     );
 
     if (result.success && result.data) {

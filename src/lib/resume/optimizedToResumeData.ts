@@ -68,10 +68,10 @@ export interface OptimizedResumeResponse {
 }
 
 /**
- * Generate a simple unique ID for new items
+ * Generate a unique ID for new items
  */
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return crypto.randomUUID();
 }
 
 /**

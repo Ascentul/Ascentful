@@ -4,6 +4,7 @@
  */
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { parseDescriptionToStructured } from '@/lib/resume-utils';
 
 export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: boolean }): string {
   const parts: string[] = [];
@@ -17,15 +18,15 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
     const contactDetails: string[] = [];
     if (includeContactPII && email) contactDetails.push(email);
     if (includeContactPII && phone) contactDetails.push(phone);
-    if (location) contactDetails.push(location);
+    if (includeContactPII && location) contactDetails.push(location);
     if (contactDetails.length > 0) {
       parts.push(contactDetails.join(' | '));
     }
 
     const links: string[] = [];
-    if (linkedin) links.push(`LinkedIn: ${linkedin}`);
-    if (github) links.push(`GitHub: ${github}`);
-    if (website) links.push(`Website: ${website}`);
+    if (includeContactPII && linkedin) links.push(`LinkedIn: ${linkedin}`);
+    if (includeContactPII && github) links.push(`GitHub: ${github}`);
+    if (includeContactPII && website) links.push(`Website: ${website}`);
     if (links.length > 0) {
       parts.push(links.join(' | '));
     }
@@ -78,14 +79,11 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
       const hasStructuredContent =
         exp.summary || (exp.keyContributions && exp.keyContributions.length > 0);
       if (exp.description && !hasStructuredContent) {
-        // Split by newlines to handle bullet points
-        const bullets = exp.description.split('\n').filter((line) => line.trim());
-        for (const bullet of bullets) {
-          // Add bullet if not already present
-          const cleanBullet = bullet.replace(/^[\s•\-\*]+/, '').trim();
-          if (cleanBullet) {
-            parts.push(`• ${cleanBullet}`);
-          }
+        // Parse legacy description to properly handle "paragraph + bullets" formats
+        const parsed = parseDescriptionToStructured(exp.description);
+        if (parsed.summary) parts.push(parsed.summary);
+        for (const contribution of parsed.keyContributions) {
+          parts.push(`• ${contribution}`);
         }
       }
     }

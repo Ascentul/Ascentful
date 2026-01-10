@@ -1097,9 +1097,9 @@ function ExperienceEntry({
   onDelete?: () => void;
   canDelete?: boolean;
 }) {
-  // Use keyContributions if available, otherwise parse from description
-  const hasKeyContributions = experience.keyContributions && experience.keyContributions.length > 0;
-  const allBullets: string[] = hasKeyContributions
+  // Use keyContributions if present (even if empty), otherwise parse from description
+  const usesKeyContributions = experience.keyContributions !== undefined;
+  const allBullets: string[] = usesKeyContributions
     ? (experience.keyContributions ?? [])
     : parseBulletPoints(experience.description || '');
 
@@ -1110,11 +1110,12 @@ function ExperienceEntry({
   const handleBulletsChange = (newBullets: string[]) => {
     const nextAllBullets = newBullets;
 
-    // If using keyContributions, update that field
-    if (hasKeyContributions || experience.keyContributions !== undefined) {
+    // If using keyContributions, update that field (and keep legacy description in sync)
+    if (usesKeyContributions) {
       onChange({
         ...experience,
         keyContributions: nextAllBullets,
+        description: bulletPointsToDescription(nextAllBullets),
       });
     } else {
       onChange({
@@ -1193,11 +1194,13 @@ function ExperienceEntry({
         <p className="mt-2 text-[11pt] text-slate-700 leading-relaxed">{displaySummary}</p>
       )}
       {/* Accomplishments label + bullets */}
-      {displayBullets.length > 0 && (
+      {(displayBullets.length > 0 || bulletIsMissing || editorMode === 'editor') && (
         <div className="mt-2 text-[11pt]">
-          <div className="text-[10pt] font-semibold text-slate-500 italic mb-1">
-            Accomplishments:
-          </div>
+          {displayBullets.length > 0 && (
+            <div className="text-[10pt] font-semibold text-slate-500 italic mb-1">
+              Accomplishments:
+            </div>
+          )}
           <BulletEditable
             spanId={`experience-${experience.id}-bullets`}
             bullets={displayBullets}

@@ -45,6 +45,7 @@ export function parseDescription(description: string | string[]): string[] {
  * Parses a freeform description into structured summary and key contributions
  * - Text before any bullet points becomes the summary
  * - Lines starting with •, -, * become key contributions
+ * - Inline bullets (e.g., "Summary • bullet1 • bullet2") are normalized to line-start format
  * - Non-bullet text after bullets is treated as additional contributions (legacy migration)
  *
  * @param description - The freeform description text to parse
@@ -58,7 +59,9 @@ export function parseDescriptionToStructured(description: string): {
     return { summary: '', keyContributions: [] };
   }
 
-  const lines = description.split('\n');
+  // Normalize inline bullets into newline-start bullets to support legacy "… • … • …" strings
+  const normalized = description.replace(/•/g, '\n•');
+  const lines = normalized.split('\n');
   const summaryLines: string[] = [];
   const bullets: string[] = [];
   let foundBullet = false;
@@ -84,7 +87,8 @@ export function parseDescriptionToStructured(description: string): {
   }
 
   return {
-    summary: summaryLines.join(' '),
+    // Preserve original line breaks (closer to true round-trip behavior)
+    summary: summaryLines.join('\n'),
     keyContributions: bullets,
   };
 }

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     let res = await fetch(url, { headers, cache: 'no-store' });
 
     if (!res.ok) {
-      let raw = await res.text();
+      const raw = await res.text();
       const looksHtml = /<html[\s\S]*>/i.test(raw);
       // Retry once with safer defaults if HTML error or 400
       if (res.status === 400 || looksHtml) {
@@ -88,11 +88,6 @@ export async function POST(request: NextRequest) {
         if (retryRes.ok) {
           res = retryRes;
         } else {
-          raw = await retryRes.text();
-          let parsedRetry: any = null;
-          try {
-            parsedRetry = JSON.parse(raw);
-          } catch {}
           const meta: Record<string, any> = {
             country,
             page,
@@ -115,10 +110,6 @@ export async function POST(request: NextRequest) {
           );
         }
       } else {
-        let parsed: any = null;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {}
         const meta: Record<string, any> = {
           country,
           page,

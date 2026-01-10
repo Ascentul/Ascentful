@@ -143,8 +143,8 @@ export function CreateResumeFunnel({
             keyContributions,
           };
         }),
-        education: (profile.education_history || []).map((edu, index: number) => ({
-          id: `edu-${index}`,
+        education: (profile.education_history || []).map((edu) => ({
+          id: `edu-${crypto.randomUUID()}`,
           school: edu.school || '',
           degree: edu.degree || '',
           field: edu.field_of_study || '',
@@ -152,16 +152,16 @@ export function CreateResumeFunnel({
           startYear: edu.start_year || '',
           endYear: edu.is_current ? 'Present' : edu.end_year || '',
         })),
-        projects: (profile.projects || []).map((proj, index: number) => ({
-          id: `proj-${index}`,
+        projects: (profile.projects || []).map((proj) => ({
+          id: `proj-${crypto.randomUUID()}`,
           name: proj.title || '',
           role: proj.role || '',
           description: proj.description || '',
           technologies: (proj.technologies || []).join(', '),
           url: proj.url || '',
         })),
-        achievements: (profile.achievements_history || []).map((ach, index: number) => ({
-          id: `ach-${index}`,
+        achievements: (profile.achievements_history || []).map((ach) => ({
+          id: `ach-${crypto.randomUUID()}`,
           title: ach.title || '',
           description: ach.description || '',
           date: ach.date || '',

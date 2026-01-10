@@ -765,7 +765,9 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
         const diff = computeResumeDiff(originalResume, optimizedData);
         dispatch({ type: 'SET_RESUME_DIFF', payload: diff });
       } else {
-        throw new Error('Invalid optimization response');
+        throw new Error(
+          `Invalid optimization response: ${!result.success ? 'success=false' : 'missing resume data'}`,
+        );
       }
     } catch (error) {
       dispatch({
