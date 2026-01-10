@@ -480,7 +480,7 @@ export default function ResumeStudioPage() {
         }) => {
           // Build description from summary and keyContributions if description is missing
           let description = exp.description || '';
-          if (!description && (exp.summary || exp.keyContributions?.length)) {
+          if (!description.trim() && (exp.summary || exp.keyContributions?.length)) {
             description = structuredToDescription(exp.summary || '', exp.keyContributions || []);
           }
           return {

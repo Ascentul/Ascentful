@@ -5,8 +5,9 @@
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
 
-export function resumeDataToText(data: ResumeData): string {
+export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: boolean }): string {
   const parts: string[] = [];
+  const includeContactPII = opts?.includeContactPII ?? false;
 
   // Contact Info
   if (data.contactInfo) {
@@ -14,8 +15,8 @@ export function resumeDataToText(data: ResumeData): string {
     if (name) parts.push(name);
 
     const contactDetails: string[] = [];
-    if (email) contactDetails.push(email);
-    if (phone) contactDetails.push(phone);
+    if (includeContactPII && email) contactDetails.push(email);
+    if (includeContactPII && phone) contactDetails.push(phone);
     if (location) contactDetails.push(location);
     if (contactDetails.length > 0) {
       parts.push(contactDetails.join(' | '));
@@ -51,7 +52,9 @@ export function resumeDataToText(data: ResumeData): string {
 
       const dateRange = exp.current
         ? `${exp.startDate} - Present`
-        : `${exp.startDate} - ${exp.endDate}`;
+        : exp.endDate
+          ? `${exp.startDate} - ${exp.endDate}`
+          : exp.startDate;
       parts.push(dateRange);
 
       // Include summary if available (new format)

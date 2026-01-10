@@ -43,13 +43,22 @@ async function findClerkUser(email) {
   }
 
   const url = new URL('https://api.clerk.com/v1/users');
-  url.searchParams.set('email_address', email);
+  url.searchParams.set('email_address[]', email);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const res = await fetch(url.toString(), {
-    headers: { 'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}` },
-  });
+    signal: controller.signal,
+    headers: {
+      'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      'Accept': 'application/json',
+    },
+  }).finally(() => clearTimeout(timeout));
 
   if (!res.ok) {
-    throw new Error(`Clerk API error: ${res.status} ${res.statusText}`);
+    const body = await res.text().catch(() => '');
+    throw new Error(
+      `Clerk API error: ${res.status} ${res.statusText}${body ? ` - ${body.slice(0, 500)}` : ''}`
+    );
   }
 
   const data = await res.json();
@@ -61,6 +70,9 @@ async function seedApplications(clerkId) {
 
   const { api } = require('../convex/_generated/api');
 
+  let failures = 0;
+  // Note: This does not check for duplicates - running multiple times will create duplicate records
+  // For idempotent seeding, consider querying existing applications before creating
   for (const app of sampleApplications) {
     try {
       await client.mutation(api.applications.createApplication, {
@@ -73,14 +85,27 @@ async function seedApplications(clerkId) {
       });
       console.log(`✅ Created: ${app.company} - ${app.job_title} (${app.status})`);
     } catch (error) {
+      failures += 1;
       console.error(`❌ Failed to create ${app.company}: ${error.message}`);
     }
   }
 
   console.log("\n✨ Done seeding sample applications!");
+
+  if (failures > 0) {
+    console.error(`\n⚠️  ${failures} application(s) failed to seed`);
+    process.exitCode = 1;
+  }
 }
 
 async function main() {
+  // Hard guard: prevent running in production/CI environments
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.CI) {
+    console.error('❌ Refusing to run seed script in production/CI environments.');
+    console.error('This script logs PII and is intended for local development only.');
+    process.exit(1);
+  }
+
   const email = process.argv[2];
   if (!email) {
     console.error('Usage: node scripts/find-and-seed.js <email>');

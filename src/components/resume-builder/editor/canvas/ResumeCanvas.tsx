@@ -1103,15 +1103,12 @@ function ExperienceEntry({
     ? (experience.keyContributions ?? [])
     : parseBulletPoints(experience.description || '');
 
-  // Split: first item = summary (paragraph), rest = accomplishments (bullets)
-  // Track if summary is derived from first bullet (not a separate field)
-  const summaryFromBullets = !experience.summary && allBullets.length > 0;
-  const displaySummary = experience.summary || (summaryFromBullets ? allBullets[0] : '');
-  const displayBullets: string[] = summaryFromBullets ? allBullets.slice(1) : allBullets;
+  // Only show summary when experience.summary explicitly exists
+  const displaySummary = experience.summary?.trim() ? experience.summary : '';
+  const displayBullets: string[] = allBullets;
 
   const handleBulletsChange = (newBullets: string[]) => {
-    // If summary came from first bullet, prepend it back to preserve it
-    const nextAllBullets = summaryFromBullets ? [displaySummary, ...newBullets] : newBullets;
+    const nextAllBullets = newBullets;
 
     // If using keyContributions, update that field
     if (hasKeyContributions || experience.keyContributions !== undefined) {

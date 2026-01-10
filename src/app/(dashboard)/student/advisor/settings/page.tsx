@@ -136,8 +136,6 @@ function SettingsContent() {
       });
       setSaveSuccess(true);
       setHasChanges(false);
-      // Reset initialization flag so settings can be reloaded if user navigates away and back
-      hasInitialized.current = false;
     } catch (error) {
       console.error('Failed to save settings:', error);
       setSaveError(true);

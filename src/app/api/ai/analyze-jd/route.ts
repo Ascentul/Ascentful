@@ -10,7 +10,7 @@ import { JDAnalysisResponseSchema } from '@/lib/ai/schemas';
 import { evaluate } from '@/lib/ai-evaluation';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 1 minute should be plenty with lightweight prompt
+export const maxDuration = 75; // Buffer for retries (2 × 30s timeout) + response processing
 
 export async function POST(request: Request) {
   try {
@@ -46,11 +46,12 @@ export async function POST(request: Request) {
       const errorMessage = result.error || 'Unknown error';
       console.error('AI JD analysis failed:', errorMessage);
       // Return sanitized error message to the client
-      const clientError = errorMessage.includes('API key')
-        ? 'AI service configuration error'
-        : errorMessage.includes('timeout') || errorMessage.includes('timed out')
-          ? 'Analysis timed out. Please try again with a shorter job description.'
-          : 'Failed to analyze job description. Please try again.';
+      const clientError =
+        errorMessage.includes('API key') || errorMessage.includes('configuration')
+          ? 'Service temporarily unavailable. Please try again later.'
+          : errorMessage.includes('timeout') || errorMessage.includes('timed out')
+            ? 'Analysis timed out. Please try again with a shorter job description.'
+            : 'Failed to analyze job description. Please try again.';
       return NextResponse.json({ error: clientError }, { status: 500 });
     }
 

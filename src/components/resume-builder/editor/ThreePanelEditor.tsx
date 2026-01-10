@@ -1046,10 +1046,19 @@ function ThreePanelEditorInner({
       onUpdateProjects(optimizedResume.projects);
     }
     if (optimizedResume.contactInfo) {
+      const allowed: (keyof ContactInfo)[] = [
+        'name',
+        'email',
+        'phone',
+        'location',
+        'linkedin',
+        'github',
+        'website',
+      ];
       // Update contact info fields individually
       Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
         // Allow empty strings to clear fields, but skip undefined
-        if (value !== undefined) {
+        if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
           onUpdateContactInfo(field as keyof ContactInfo, value);
         }
       });
@@ -1533,18 +1542,20 @@ function ThreePanelEditorInner({
             </span>
           )}
 
-          {matchScore && (
+          {typeof (matchScore?.matchScore ?? jobAnalysisResult?.score) === 'number' && (
             <span
               className={cn(
                 'flex items-center gap-1',
-                matchScore.matchScore >= 80
+                (matchScore?.matchScore ?? jobAnalysisResult!.score) >= 80
                   ? 'text-green-600'
-                  : matchScore.matchScore >= 60
+                  : (matchScore?.matchScore ?? jobAnalysisResult!.score) >= 60
                     ? 'text-amber-600'
                     : 'text-red-500',
               )}
             >
-              <span className="font-medium">{matchScore.matchScore}%</span>
+              <span className="font-medium">
+                {matchScore?.matchScore ?? jobAnalysisResult!.score}%
+              </span>
               <span className="text-slate-400">match</span>
             </span>
           )}

@@ -105,8 +105,12 @@ export function structuredToDescription(summary: string, keyContributions: strin
   if (keyContributions && keyContributions.length > 0) {
     if (parts.length > 0) parts.push(''); // Add blank line between summary and bullets
     for (const bullet of keyContributions) {
-      if (bullet.trim()) {
-        parts.push(`• ${bullet.trim()}`);
+      const cleaned = bullet
+        .trim()
+        .replace(/^[•\-*]\s*/, '')
+        .trim();
+      if (cleaned) {
+        parts.push(`• ${cleaned}`);
       }
     }
   }

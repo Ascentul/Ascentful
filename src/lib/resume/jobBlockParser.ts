@@ -431,7 +431,7 @@ export function extractJobBlocks(text: string): JobBlock[] {
     // Get preview (first 200 chars of content after header)
     const contentStart = blockLines.findIndex((l) => l.trim().length > 0);
     const preview = blockLines
-      .slice(contentStart, contentStart + 5)
+      .slice(Math.max(contentStart + 1, 0), contentStart + 6)
       .join(' ')
       .substring(0, 200)
       .trim();

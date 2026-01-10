@@ -208,6 +208,9 @@ export const JDAnalysisResponseSchema = z.object({
         min: z.number().optional().default(0),
         max: z.number().nullable().optional().default(null),
       })
+      .refine((data) => data.max === null || data.max >= data.min, {
+        message: 'max must be greater than or equal to min',
+      })
       .optional()
       .default({ min: 0, max: null }),
   }),

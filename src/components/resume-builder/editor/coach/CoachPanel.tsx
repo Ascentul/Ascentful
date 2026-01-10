@@ -141,10 +141,10 @@ function TailorTabContent({
             <button
               type="button"
               onClick={onAnalyzeJD}
-              disabled={jdLoading || !jobDescription}
+              disabled={jdLoading || !jobDescription?.trim()}
               className={cn(
                 'w-full text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2',
-                jdLoading || !jobDescription
+                jdLoading || !jobDescription?.trim()
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'bg-primary-500 text-white hover:bg-primary-600',
               )}

@@ -826,7 +826,7 @@ function validateParsedResume(parsed: ParsedResume, groundTruth: GroundTruth): V
   // Count certifications
   const actualCerts = parsed.certifications?.length || 0;
 
-  // Validation 1: Check bullet count (allow 10% tolerance for edge cases)
+  // Validation 1: Check bullet count (allow 15% tolerance for edge cases)
   const bulletThreshold = Math.floor(groundTruth.experienceBullets * 0.85);
   if (actualBullets < bulletThreshold && groundTruth.experienceBullets > 0) {
     errors.push(
@@ -1444,6 +1444,7 @@ Please fix these issues. Make sure to capture ALL content.
             ],
             response_format: { type: 'json_object' },
             // Note: GPT-5 does not support temperature parameter
+            // Note: Using max_tokens (OpenAI SDK types don't yet include max_output_tokens for GPT-5)
             max_tokens: 16000, // Increased to ensure all content is captured
           });
 
@@ -1463,13 +1464,31 @@ Please fix these issues. Make sure to capture ALL content.
           }
 
           const jobBlockExperience = parseExperienceFromJobBlocks(groundTruth.jobBlocks);
-          if (jobBlockExperience.length > 0) {
+          // Only use job-block experience if it has more entries/bullets than AI output
+          // This allows AI retries to fix experience-related validation errors
+          const aiExperienceBullets = (parsedData.experience || []).reduce(
+            (sum, exp) => sum + (exp.keyContributions?.length || 0),
+            0,
+          );
+          const jobBlockBullets = jobBlockExperience.reduce(
+            (sum, exp) => sum + (exp.keyContributions?.length || 0),
+            0,
+          );
+          if (
+            jobBlockExperience.length > 0 &&
+            (jobBlockExperience.length > (parsedData.experience?.length || 0) ||
+              jobBlockBullets > aiExperienceBullets)
+          ) {
             parsedData.experience = jobBlockExperience;
-            log.debug('Experience rebuilt from job blocks', {
+            log.debug('Experience rebuilt from job blocks (higher quality)', {
               event: 'experience.job_blocks',
               extra: {
                 jobBlocksCount: groundTruth.jobBlocks.length,
                 experienceCount: jobBlockExperience.length,
+                aiEntries: parsedData.experience?.length || 0,
+                jobBlockEntries: jobBlockExperience.length,
+                aiBullets: aiExperienceBullets,
+                jobBlockBullets,
               },
             });
           }

@@ -730,11 +730,14 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
   const optimizeForJob = useCallback(async () => {
     if (!enabled || !state.jobDescription || !state.jobAnalysisResult) return;
 
+    // Capture resume data at start to avoid race conditions
+    const originalResume = resumeDataRef.current;
+
     dispatch({ type: 'SET_OPTIMIZE_LOADING', payload: true });
-    dispatch({ type: 'SET_JD_ERROR', payload: null });
+    dispatch({ type: 'SET_OPTIMIZE_ERROR', payload: null });
 
     try {
-      const resumeText = resumeDataToText(resumeDataRef.current);
+      const resumeText = resumeDataToText(originalResume);
 
       const response = await fetch('/api/resumes/optimize', {
         method: 'POST',
@@ -755,11 +758,11 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
 
       if (result.success && result.resume) {
         // Convert optimized response to ResumeData format
-        const optimizedData = optimizedToResumeData(result.resume, resumeDataRef.current);
+        const optimizedData = optimizedToResumeData(result.resume, originalResume);
         dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optimizedData });
 
         // Compute diff to show what changed
-        const diff = computeResumeDiff(resumeDataRef.current, optimizedData);
+        const diff = computeResumeDiff(originalResume, optimizedData);
         dispatch({ type: 'SET_RESUME_DIFF', payload: diff });
       } else {
         throw new Error('Invalid optimization response');

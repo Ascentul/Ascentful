@@ -18,22 +18,7 @@ const MODEL_MAP = {
   mini: 'gpt-5-nano',
 } as const;
 
-// GPT-5 temperature support varies by version:
-// - GPT-5.0 (gpt-5, gpt-5-mini, gpt-5-nano): Does NOT support temperature
-// - GPT-5.1, GPT-5.2: Supports temperature when reasoning_effort is "none"
-// For simplicity, we disable temperature for base GPT-5.0 models only
-const GPT5_NO_TEMPERATURE_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
-const supportsTemperature = (model: string): boolean => {
-  // Base GPT-5.0 models don't support temperature
-  if (GPT5_NO_TEMPERATURE_MODELS.includes(model)) {
-    return false;
-  }
-  // GPT-5.1+ models (e.g., gpt-5.1, gpt-5.2-mini) support temperature with reasoning_effort=none
-  // All other models (GPT-4, etc.) support temperature
-  return true;
-};
-
-// Temperature defaults by tier (only used for non-GPT-5 models)
+// Temperature defaults by tier
 const TEMPERATURE_DEFAULTS: Record<ModelTier, number> = {
   pro: 0.2, // More deterministic for complex analysis
   standard: 0.4, // Balanced for creative rewriting
@@ -159,8 +144,7 @@ export async function callAI<T>(
         {
           model,
           max_completion_tokens: maxTokens,
-          // Only include temperature for models that support it
-          ...(supportsTemperature(model) && { temperature }),
+          temperature,
           ...(jsonMode && { response_format: { type: 'json_object' as const } }),
           messages: [
             { role: 'system', content: systemPrompt },
@@ -279,8 +263,7 @@ export async function callAIText(
         {
           model,
           max_completion_tokens: maxTokens,
-          // Only include temperature for models that support it
-          ...(supportsTemperature(model) && { temperature }),
+          temperature,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
