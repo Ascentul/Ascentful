@@ -22,7 +22,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -103,8 +103,8 @@ function getTimezoneOptionsWithBrowser(): typeof TIMEZONE_OPTIONS {
   const hasMatch = TIMEZONE_OPTIONS.some((o) => o.value === browserTz);
   if (hasMatch) return TIMEZONE_OPTIONS;
 
-  // Add browser timezone to the end of the list
-  return [...TIMEZONE_OPTIONS, { value: browserTz, label: browserTz }];
+  // Add browser timezone to the end of the list with a clearer label
+  return [...TIMEZONE_OPTIONS, { value: browserTz, label: `Local Time (${browserTz})` }];
 }
 
 // Find matching timezone option or return the raw timezone
@@ -352,8 +352,8 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Ensure browser timezone is available in dropdown
-  const timezoneOptions = getTimezoneOptionsWithBrowser();
+  // Ensure browser timezone is available in dropdown (memoized)
+  const timezoneOptions = useMemo(() => getTimezoneOptionsWithBrowser(), []);
 
   const addSlot = useMutation(api.advisor_availability.addAvailabilitySlot);
 

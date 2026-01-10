@@ -17,7 +17,24 @@ import { FONT_PAIRINGS } from '../types';
 // Shared components used by all template layouts
 // ============================================================================
 
-// Pattern to detect action verb bullets (hoisted to avoid per-render compilation)
+// ============================================================================
+// Heuristic Constants for Bullet-to-Summary Promotion
+// These thresholds may need tuning based on real-world resume data
+// ============================================================================
+
+/**
+ * Minimum character length for a bullet to be considered for promotion to summary.
+ * Bullets shorter than this are assumed to be achievement-style bullets, not descriptive summaries.
+ */
+const MIN_SUMMARY_LENGTH = 60;
+
+/**
+ * Pattern to detect action verb bullets (hoisted to avoid per-render compilation).
+ * Bullets starting with these verbs are assumed to be accomplishments, not role descriptions.
+ *
+ * Note: This list will likely need expansion as we encounter more resume patterns.
+ * Common additions might include: Facilitated, Collaborated, Streamlined, Mentored, etc.
+ */
 const ACTION_VERB_PATTERN =
   /^(Led|Managed|Developed|Built|Created|Implemented|Designed|Launched|Delivered|Achieved|Increased|Reduced|Improved|Optimized|Coordinated|Executed|Analyzed|Conducted|Oversaw|Spearheaded|Initiated|Established|Directed)\b/i;
 
@@ -169,13 +186,13 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
     : parsedFromDescription?.keyContributions || [];
 
   // If summary is empty but we have bullets, consider using the first bullet as the summary
-  // Only promote if it looks like a descriptive summary (>60 chars, doesn't start with action verb)
+  // Only promote if it looks like a descriptive summary (see MIN_SUMMARY_LENGTH threshold)
   // This handles cases where the AI put all content in keyContributions
   if (!displaySummary && displayBullets.length > 0) {
     const firstBullet = displayBullets[0];
 
     // Promote to summary if it's long and doesn't start with action verb (likely descriptive)
-    if (firstBullet.length > 60 && !ACTION_VERB_PATTERN.test(firstBullet)) {
+    if (firstBullet.length > MIN_SUMMARY_LENGTH && !ACTION_VERB_PATTERN.test(firstBullet)) {
       displaySummary = firstBullet;
       displayBullets = displayBullets.slice(1);
     }

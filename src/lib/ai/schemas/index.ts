@@ -184,7 +184,7 @@ export const JDAnalysisResponseSchema = z.object({
       .transform((v) => {
         const result = v || 'Unknown Company';
         if (!v) {
-          logger.warn('AI extraction used default', {
+          logger.debug('AI extraction used default', {
             feature: 'ai-coach',
             event: 'ai.extraction.default_applied',
             extra: { field: 'company', default: 'Unknown Company' },
@@ -200,7 +200,7 @@ export const JDAnalysisResponseSchema = z.object({
       .transform((v) => {
         const result = v || 'Unknown Title';
         if (!v) {
-          logger.warn('AI extraction used default', {
+          logger.debug('AI extraction used default', {
             feature: 'ai-coach',
             event: 'ai.extraction.default_applied',
             extra: { field: 'title', default: 'Unknown Title' },
@@ -222,7 +222,7 @@ export const JDAnalysisResponseSchema = z.object({
       .transform((v) => {
         const result = v || 'Not specified';
         if (!v) {
-          logger.warn('AI extraction used default', {
+          logger.debug('AI extraction used default', {
             feature: 'ai-coach',
             event: 'ai.extraction.default_applied',
             extra: { field: 'location', default: 'Not specified' },

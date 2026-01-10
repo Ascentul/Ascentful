@@ -96,6 +96,7 @@ interface ThreePanelEditorProps {
   onUpdateSkills: (skills: string[]) => void;
   onUpdateAchievements?: (achievements: Achievement[]) => void;
   onUpdateCertifications?: (certifications: Certification[]) => void;
+  onBatchUpdate?: (updates: Partial<ResumeData>) => void;
   onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
   onTemplateChange: (templateId: TemplateId) => void;
@@ -128,6 +129,7 @@ function ThreePanelEditorInner({
   onUpdateSkills,
   onUpdateAchievements,
   onUpdateCertifications,
+  onBatchUpdate,
   onSetSectionOrder,
   onToggleSection,
   onTemplateChange,
@@ -1025,49 +1027,107 @@ function ThreePanelEditorInner({
     [dismissAISuggestion],
   );
 
-  // Handle applying optimized resume
+  /**
+   * Handle applying optimized resume from AI.
+   *
+   * Uses batch update mechanism (if available) to apply all changes atomically,
+   * avoiding multiple re-renders, save operations, and undo stack entries.
+   *
+   * Without batching: 6+ discrete state updates → 6+ saves, 6+ re-renders
+   * With batching: 1 atomic state update → 1 save, 1 re-render
+   */
   const handleApplyOptimized = useCallback(() => {
     if (!optimizedResume) return;
 
-    // Update all resume sections with optimized data
-    if (optimizedResume.summary !== undefined) {
-      onUpdateSummary(optimizedResume.summary || '');
-    }
-    if (optimizedResume.skills) {
-      onUpdateSkills(optimizedResume.skills);
-    }
-    if (optimizedResume.experience) {
-      onUpdateExperience(optimizedResume.experience);
-    }
-    if (optimizedResume.education) {
-      onUpdateEducation(optimizedResume.education);
-    }
-    if (optimizedResume.projects) {
-      onUpdateProjects(optimizedResume.projects);
-    }
-    if (optimizedResume.contactInfo) {
-      const allowed: (keyof ContactInfo)[] = [
-        'name',
-        'email',
-        'phone',
-        'location',
-        'linkedin',
-        'github',
-        'website',
-      ];
-      // Update contact info fields individually
-      Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
-        // Allow empty strings to clear fields, but skip undefined
-        if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
-          onUpdateContactInfo(field as keyof ContactInfo, value);
+    // Use batch update if available for atomic state change
+    if (onBatchUpdate) {
+      // Build the batch update object
+      const batchUpdates: Partial<ResumeData> = {};
+
+      if (optimizedResume.summary !== undefined) {
+        batchUpdates.summary = optimizedResume.summary || '';
+      }
+      if (optimizedResume.skills) {
+        batchUpdates.skills = optimizedResume.skills;
+      }
+      if (optimizedResume.experience) {
+        batchUpdates.experience = optimizedResume.experience;
+      }
+      if (optimizedResume.education) {
+        batchUpdates.education = optimizedResume.education;
+      }
+      if (optimizedResume.projects) {
+        batchUpdates.projects = optimizedResume.projects;
+      }
+      if (optimizedResume.contactInfo) {
+        const allowed: (keyof ContactInfo)[] = [
+          'name',
+          'email',
+          'phone',
+          'location',
+          'linkedin',
+          'github',
+          'website',
+        ];
+        // Filter and merge contact info
+        const filteredContactInfo: Partial<ContactInfo> = {};
+        Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
+          if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
+            // eslint-disable-next-line security/detect-object-injection
+            filteredContactInfo[field as keyof ContactInfo] = value;
+          }
+        });
+        if (Object.keys(filteredContactInfo).length > 0) {
+          batchUpdates.contactInfo = {
+            ...resumeData.contactInfo,
+            ...filteredContactInfo,
+          };
         }
-      });
+      }
+
+      // Apply all changes atomically
+      onBatchUpdate(batchUpdates);
+    } else {
+      // Fallback: use individual updates for backward compatibility
+      if (optimizedResume.summary !== undefined) {
+        onUpdateSummary(optimizedResume.summary || '');
+      }
+      if (optimizedResume.skills) {
+        onUpdateSkills(optimizedResume.skills);
+      }
+      if (optimizedResume.experience) {
+        onUpdateExperience(optimizedResume.experience);
+      }
+      if (optimizedResume.education) {
+        onUpdateEducation(optimizedResume.education);
+      }
+      if (optimizedResume.projects) {
+        onUpdateProjects(optimizedResume.projects);
+      }
+      if (optimizedResume.contactInfo) {
+        const allowed: (keyof ContactInfo)[] = [
+          'name',
+          'email',
+          'phone',
+          'location',
+          'linkedin',
+          'github',
+          'website',
+        ];
+        Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
+          if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
+            onUpdateContactInfo(field as keyof ContactInfo, value);
+          }
+        });
+      }
     }
 
     // Clear the optimized state
     applyOptimizedResume();
   }, [
     optimizedResume,
+    resumeData.contactInfo,
+    onBatchUpdate,
     onUpdateSummary,
     onUpdateSkills,
     onUpdateExperience,

@@ -757,6 +757,11 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       const result = await response.json();
 
       if (result.success && result.resume) {
+        // Validate that resume has expected structure
+        if (typeof result.resume !== 'object' || result.resume === null) {
+          throw new Error('Invalid resume format in optimization response');
+        }
+
         // Convert optimized response to ResumeData format
         const optimizedData = optimizedToResumeData(result.resume, originalResume);
         dispatch({ type: 'SET_OPTIMIZED_RESUME', payload: optimizedData });
@@ -792,6 +797,12 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
    * The actual application logic is in the parent component (e.g., ThreePanelEditor)
    * because it has access to the resume state setters.
    *
+   * Note: This function has the same implementation as `discardOptimizedResume`
+   * (both clear the optimized state), but maintains a separate API for semantic
+   * clarity. The name communicates user intent: "apply" = success/completion,
+   * "discard" = rejection/cancellation. This separation improves code readability
+   * and allows for divergent behavior in the future (e.g., analytics tracking).
+   *
    * @example
    * ```typescript
    * const { optimizedResume, applyOptimizedResume } = useResumeAIActions();
@@ -818,6 +829,12 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
    *
    * Use this when the user rejects the AI optimization or wants to
    * keep their current resume unchanged.
+   *
+   * Note: This function has the same implementation as `applyOptimizedResume`
+   * (both clear the optimized state), but maintains a separate API for semantic
+   * clarity. The name communicates user intent: "discard" = rejection/cancellation,
+   * "apply" = success/completion. This separation improves code readability and
+   * allows for divergent behavior in the future (e.g., analytics tracking).
    *
    * @example
    * ```typescript

@@ -395,10 +395,12 @@ function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
       // Parse description into structured format
       const parsed = parseDescriptionToStructured(exp.description);
 
+      // Always mark as processed to avoid repeated retries
+      autoParsedRef.current.add(exp.id);
+
       // Only apply if we got meaningful data
       if (!parsed.summary && parsed.keyContributions.length === 0) return exp;
 
-      autoParsedRef.current.add(exp.id);
       changed = true;
       return { ...exp, summary: parsed.summary, keyContributions: parsed.keyContributions };
     });

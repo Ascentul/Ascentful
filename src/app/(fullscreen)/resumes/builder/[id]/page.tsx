@@ -301,6 +301,25 @@ export default function ResumeBuilderPage() {
     markDirty();
   };
 
+  /**
+   * Batch update handler for applying multiple resume changes atomically.
+   * Use this when applying AI optimizations or bulk edits to avoid multiple
+   * re-renders, save operations, and undo stack entries.
+   *
+   * @example
+   * ```typescript
+   * handleBatchUpdate({
+   *   summary: "New summary",
+   *   experience: [...],
+   *   skills: [...]
+   * });
+   * ```
+   */
+  const handleBatchUpdate = useCallback((updates: Partial<ResumeData>) => {
+    setResumeData((prev) => ({ ...prev, ...updates }));
+    markDirty();
+  }, []);
+
   // Close handler
   const handleClose = async () => {
     // Cancel any pending autosave
@@ -417,6 +436,7 @@ export default function ResumeBuilderPage() {
       onUpdateSkills={handleUpdateSkills}
       onUpdateAchievements={handleUpdateAchievements}
       onUpdateCertifications={handleUpdateCertifications}
+      onBatchUpdate={handleBatchUpdate}
       onSetSectionOrder={handleSetSectionOrder}
       onToggleSection={handleToggleSection}
       onTemplateChange={handleTemplateChange}

@@ -13,7 +13,7 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
   // Contact Info
   if (data.contactInfo) {
     const { name, email, phone, location, linkedin, github, website } = data.contactInfo;
-    if (name) parts.push(name);
+    if (includeContactPII && name) parts.push(name);
 
     const contactDetails: string[] = [];
     if (includeContactPII && email) contactDetails.push(email);
@@ -55,12 +55,18 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
       parts.push(`${exp.title} at ${exp.company}`);
       if (exp.location) parts.push(exp.location);
 
+      const start = exp.startDate ?? '';
+      const end = exp.endDate ?? '';
       const dateRange = exp.current
-        ? `${exp.startDate} - Present`
-        : exp.endDate
-          ? `${exp.startDate} - ${exp.endDate}`
-          : exp.startDate;
-      parts.push(dateRange);
+        ? start
+          ? `${start} - Present`
+          : 'Present'
+        : end
+          ? start
+            ? `${start} - ${end}`
+            : end
+          : start;
+      if (dateRange) parts.push(dateRange);
 
       // Include summary if available (new format)
       if (exp.summary) {

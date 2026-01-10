@@ -47,7 +47,7 @@ function StudentSessionsContent() {
     clerkId ? { clerkId, filter: 'pending' } : 'skip',
   );
 
-  const isLoading = sessions === undefined || !clerkId;
+  const isLoading = sessions === undefined;
   const hasPendingBookings = (bookings?.length ?? 0) > 0;
 
   return (
@@ -127,8 +127,25 @@ function StudentSessionsContent() {
 // Sessions List Component
 // ============================================================================
 
-// Use Convex-generated type from getMySessions query return
-type Session = Awaited<ReturnType<typeof api.student_advisor_hub.getMySessions>>[number];
+// Manual type definition matching the Convex query return shape
+type Session = {
+  _id: any;
+  title: string;
+  start_at: number;
+  end_at?: number;
+  session_type?:
+    | 'career_planning'
+    | 'resume_review'
+    | 'mock_interview'
+    | 'application_strategy'
+    | 'general_advising'
+    | 'other';
+  status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  location?: string;
+  meeting_url?: string;
+  duration_minutes?: number;
+  created_at: number;
+};
 
 function SessionsList({ sessions, type }: { sessions: Session[]; type: 'upcoming' | 'past' }) {
   return (
