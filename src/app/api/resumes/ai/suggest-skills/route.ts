@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.success || !result.data) {
       console.error('AI skill suggestions failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to generate skill suggestions', details: result.error },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: 'Failed to generate skill suggestions' }, { status: 500 });
     }
 
     const evaluation = await evaluate({

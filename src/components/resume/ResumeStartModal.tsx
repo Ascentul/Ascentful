@@ -7,6 +7,7 @@ import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { CreateResumeFunnel } from '@/components/resume-builder/funnel';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { structuredToDescription } from '@/lib/resume-utils';
 
 interface ResumeStartModalProps {
   open: boolean;
@@ -126,10 +127,56 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
             },
             summary: parsedData.summary || '',
             skills: parsedData.skills || [],
-            experience: parsedData.experience || [],
-            education: parsedData.education || [],
-            projects: parsedData.projects || [],
-            achievements: parsedData.achievements || [],
+            experience: (parsedData.experience || []).map((exp: any) => ({
+              id: `exp-${crypto.randomUUID()}`,
+              title: exp.title || '',
+              company: exp.company || '',
+              location: exp.location || '',
+              startDate: exp.startDate || '',
+              endDate: exp.endDate || '',
+              current: exp.current || false,
+              // Generate description from summary + keyContributions for backward compat
+              description: structuredToDescription(exp.summary || '', exp.keyContributions || []),
+              // Preserve structured fields
+              summary: exp.summary || '',
+              keyContributions: exp.keyContributions || [],
+            })),
+            education: (parsedData.education || []).map((edu: any) => ({
+              id: `edu-${crypto.randomUUID()}`,
+              school: edu.school || '',
+              degree: edu.degree || '',
+              field: edu.field || '',
+              location: edu.location || '',
+              startYear: edu.startYear || '',
+              endYear: edu.endYear || edu.graduationYear || '',
+              gpa: edu.gpa,
+              honors: edu.honors,
+            })),
+            projects: (parsedData.projects || []).map((proj: any) => ({
+              id: `proj-${crypto.randomUUID()}`,
+              name: proj.name || proj.title || '',
+              role: proj.role || '',
+              description: proj.description || '',
+              technologies: Array.isArray(proj.technologies)
+                ? proj.technologies.join(', ')
+                : proj.technologies || '',
+              url: proj.url || '',
+            })),
+            achievements: (parsedData.achievements || []).map((ach: any) => ({
+              id: `ach-${crypto.randomUUID()}`,
+              title: ach.title || '',
+              description: ach.description || '',
+              date: ach.date || '',
+            })),
+            certifications: (parsedData.certifications || []).map((cert: any) => ({
+              id: `cert-${crypto.randomUUID()}`,
+              name: cert.name || '',
+              issuer: cert.issuer || '',
+              date: cert.date || '',
+              expirationDate: cert.expirationDate || '',
+              credentialId: cert.credentialId || '',
+              url: cert.url || '',
+            })),
           });
         } else {
           setUploadedContent(null);

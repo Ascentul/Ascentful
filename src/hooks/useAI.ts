@@ -239,10 +239,16 @@ export function useJDAnalysis() {
   const analyzeJD = useCallback(async (jobDescription: string, url?: string) => {
     setState({ data: null, loading: true, error: null });
 
-    const result = await callAPI<JDAnalysisResponse>('/api/ai/analyze-jd', {
-      jobDescription,
-      url,
-    });
+    // JD analysis: allow sufficient time for backend AI call + retries
+    // Backend performs actual retries (configured with maxRetries: 2, timeoutMs: 30000)
+    const result = await callAPI<JDAnalysisResponse>(
+      '/api/ai/analyze-jd',
+      {
+        jobDescription,
+        url,
+      },
+      80000, // Frontend timeout: must exceed backend maxDuration (75s) with buffer
+    );
 
     if (result.success && result.data) {
       setState({ data: result.data, loading: false, error: null });

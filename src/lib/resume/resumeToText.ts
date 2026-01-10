@@ -1,0 +1,158 @@
+/**
+ * Converts ResumeData object to plain text format
+ * Used for AI APIs that expect plain text input
+ */
+
+import type { ResumeData } from '@/components/resume/ResumeDocument';
+import { parseDescriptionToStructured } from '@/lib/resume-utils';
+
+export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: boolean }): string {
+  const parts: string[] = [];
+  const includeContactPII = opts?.includeContactPII ?? false;
+
+  // Contact Info
+  if (data.contactInfo) {
+    const { name, email, phone, location, linkedin, github, website } = data.contactInfo;
+    if (includeContactPII && name) parts.push(name);
+
+    const contactDetails: string[] = [];
+    if (includeContactPII && email) contactDetails.push(email);
+    if (includeContactPII && phone) contactDetails.push(phone);
+    if (includeContactPII && location) contactDetails.push(location);
+    if (contactDetails.length > 0) {
+      parts.push(contactDetails.join(' | '));
+    }
+
+    const links: string[] = [];
+    if (includeContactPII && linkedin) links.push(`LinkedIn: ${linkedin}`);
+    if (includeContactPII && github) links.push(`GitHub: ${github}`);
+    if (includeContactPII && website) links.push(`Website: ${website}`);
+    if (links.length > 0) {
+      parts.push(links.join(' | '));
+    }
+  }
+
+  // Summary
+  if (data.summary) {
+    parts.push('');
+    parts.push('PROFESSIONAL SUMMARY');
+    parts.push(data.summary);
+  }
+
+  // Skills
+  if (data.skills && data.skills.length > 0) {
+    parts.push('');
+    parts.push('SKILLS');
+    parts.push(data.skills.join(', '));
+  }
+
+  // Experience
+  if (data.experience && data.experience.length > 0) {
+    parts.push('');
+    parts.push('EXPERIENCE');
+    for (const exp of data.experience) {
+      parts.push('');
+      parts.push(`${exp.title} at ${exp.company}`);
+      if (exp.location) parts.push(exp.location);
+
+      const start = exp.startDate ?? '';
+      const end = exp.endDate ?? '';
+      const dateRange = exp.current
+        ? start
+          ? `${start} - Present`
+          : 'Present'
+        : end
+          ? start
+            ? `${start} - ${end}`
+            : end
+          : start;
+      if (dateRange) parts.push(dateRange);
+
+      // Include summary if available (new format)
+      if (exp.summary) {
+        parts.push(exp.summary);
+      }
+
+      // Include key contributions if available (new format)
+      if (exp.keyContributions && exp.keyContributions.length > 0) {
+        for (const contribution of exp.keyContributions) {
+          parts.push(`• ${contribution}`);
+        }
+      }
+
+      // Include description only if no structured fields exist (legacy format)
+      // When both exist, structured fields take precedence to avoid duplicate content
+      const hasStructuredContent =
+        exp.summary || (exp.keyContributions && exp.keyContributions.length > 0);
+      if (exp.description && !hasStructuredContent) {
+        // Parse legacy description to properly handle "paragraph + bullets" formats
+        const parsed = parseDescriptionToStructured(exp.description);
+        if (parsed.summary) parts.push(parsed.summary);
+        for (const contribution of parsed.keyContributions) {
+          parts.push(`• ${contribution}`);
+        }
+      }
+    }
+  }
+
+  // Education
+  if (data.education && data.education.length > 0) {
+    parts.push('');
+    parts.push('EDUCATION');
+    for (const edu of data.education) {
+      const degreeField = edu.field ? `${edu.degree} in ${edu.field}` : edu.degree;
+      parts.push('');
+      parts.push(degreeField);
+      parts.push(edu.school);
+      if (edu.location) parts.push(edu.location);
+
+      const year = edu.endYear || edu.startYear;
+      if (year) parts.push(year);
+
+      if (edu.gpa) parts.push(`GPA: ${edu.gpa}`);
+      if (edu.honors) parts.push(edu.honors);
+    }
+  }
+
+  // Projects
+  if (data.projects && data.projects.length > 0) {
+    parts.push('');
+    parts.push('PROJECTS');
+    for (const project of data.projects) {
+      parts.push('');
+      parts.push(project.name);
+      if (project.role) parts.push(project.role);
+      if (project.description) parts.push(project.description);
+      if (project.technologies) parts.push(`Technologies: ${project.technologies}`);
+      if (project.url) parts.push(`URL: ${project.url}`);
+    }
+  }
+
+  // Achievements
+  if (data.achievements && data.achievements.length > 0) {
+    parts.push('');
+    parts.push('ACHIEVEMENTS');
+    for (const achievement of data.achievements) {
+      parts.push('');
+      parts.push(achievement.title);
+      if (achievement.date) parts.push(achievement.date);
+      if (achievement.description) parts.push(achievement.description);
+    }
+  }
+
+  // Certifications
+  if (data.certifications && data.certifications.length > 0) {
+    parts.push('');
+    parts.push('CERTIFICATIONS');
+    for (const cert of data.certifications) {
+      parts.push('');
+      parts.push(cert.name);
+      if (cert.issuer) parts.push(`Issued by: ${cert.issuer}`);
+      if (cert.date) parts.push(`Date: ${cert.date}`);
+      if (cert.expirationDate) parts.push(`Expires: ${cert.expirationDate}`);
+      if (cert.credentialId) parts.push(`Credential ID: ${cert.credentialId}`);
+    }
+  }
+
+  return parts.join('\n');
+}

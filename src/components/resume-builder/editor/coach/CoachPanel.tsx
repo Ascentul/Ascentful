@@ -1,8 +1,21 @@
 'use client';
 
-import { FileText, Lightbulb, RefreshCw, Sparkles, X } from 'lucide-react';
+import {
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Lightbulb,
+  RefreshCw,
+  Sparkles,
+  X,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { JobAnalysisResult } from '@/contexts/ResumeAIContext';
 import type { ScoreResponse, Suggestion as AISuggestion } from '@/lib/ai/schemas';
 import { cn } from '@/lib/utils';
 import type { GroupedSuggestions, ResumeScore, TopFix } from '@/types/resume-editor';
@@ -13,6 +26,369 @@ import { TopFixesList } from './TopFixesList';
 
 // Tab types for the coach panel
 type CoachTab = 'tips' | 'tailor';
+
+// ============================================================================
+// TAILOR TAB CONTENT COMPONENT
+// ============================================================================
+
+interface TailorTabContentProps {
+  jobDescription?: string;
+  onJobDescriptionChange?: (jd: string) => void;
+  targetJobTitle?: string;
+  onTargetJobTitleChange?: (title: string) => void;
+  onAnalyzeJD?: () => void;
+  jdLoading?: boolean;
+  jdError?: string | null;
+  matchScore?: number | null;
+  jobAnalysisResult?: JobAnalysisResult | null;
+  onOptimizeResume?: () => void;
+  optimizeLoading?: boolean;
+  hasOptimizedResume?: boolean;
+  onApplyOptimized?: () => void;
+  onDiscardOptimized?: () => void;
+}
+
+function TailorTabContent({
+  jobDescription,
+  onJobDescriptionChange,
+  targetJobTitle,
+  onTargetJobTitleChange,
+  onAnalyzeJD,
+  jdLoading,
+  jdError,
+  matchScore,
+  jobAnalysisResult,
+  onOptimizeResume,
+  optimizeLoading,
+  hasOptimizedResume,
+  onApplyOptimized,
+  onDiscardOptimized,
+}: TailorTabContentProps) {
+  const [showStrengths, setShowStrengths] = useState(true);
+  const [showGaps, setShowGaps] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  const hasJDSupport = onJobDescriptionChange !== undefined;
+  const hasAnalysis = jobAnalysisResult !== null && jobAnalysisResult !== undefined;
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-primary-50">
+          <FileText className="h-5 w-5 text-primary-500" />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-slate-900">Job Description</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Paste a job description to get tailored suggestions and match score
+          </p>
+        </div>
+      </div>
+
+      {/* JD Input */}
+      {hasJDSupport && (
+        <div className="space-y-3">
+          {/* Optional Job Title Field */}
+          {onTargetJobTitleChange && (
+            <div>
+              <label
+                htmlFor="target-job-title"
+                className="block text-xs font-medium text-slate-600 mb-1"
+              >
+                Target Job Title <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="target-job-title"
+                type="text"
+                value={targetJobTitle || ''}
+                onChange={(e) => onTargetJobTitleChange(e.target.value)}
+                placeholder="e.g. Senior Software Engineer"
+                className={cn(
+                  'w-full text-xs px-3 py-2 rounded-lg border',
+                  'border-slate-200 focus:border-primary-400 focus:ring-1 focus:ring-primary-400',
+                  'placeholder:text-slate-400',
+                )}
+              />
+            </div>
+          )}
+
+          <div className="relative">
+            <textarea
+              value={jobDescription || ''}
+              onChange={(e) => onJobDescriptionChange?.(e.target.value)}
+              placeholder="Paste job description here..."
+              className={cn(
+                'w-full h-32 text-xs p-3 rounded-lg border resize-none',
+                'border-slate-200 focus:border-primary-400 focus:ring-1 focus:ring-primary-400',
+                'placeholder:text-slate-400',
+              )}
+            />
+            {jobDescription && (
+              <button
+                type="button"
+                onClick={() => onJobDescriptionChange?.('')}
+                className="absolute top-2 right-2 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                aria-label="Clear job description"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Analyze button */}
+          {onAnalyzeJD && (
+            <button
+              type="button"
+              onClick={onAnalyzeJD}
+              disabled={jdLoading || !jobDescription?.trim()}
+              className={cn(
+                'w-full text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2',
+                jdLoading || !jobDescription?.trim()
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-primary-500 text-white hover:bg-primary-600',
+              )}
+            >
+              <Sparkles className="h-4 w-4" />
+              {jdLoading ? 'Analyzing...' : 'Analyze & Match'}
+            </button>
+          )}
+
+          {/* Error display */}
+          {jdError && !jdLoading && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-100">
+              <p className="text-xs text-red-600 font-medium">Analysis failed</p>
+              <p className="text-xs text-red-500 mt-1">{jdError}</p>
+              <p className="text-xs text-red-400 mt-2">
+                Please try again. If the issue persists, try with a shorter job description.
+              </p>
+            </div>
+          )}
+
+          {/* Match score display when JD is analyzed */}
+          {matchScore !== undefined && matchScore !== null && (
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-600">Match Score</span>
+                <span
+                  className={cn(
+                    'text-lg font-bold',
+                    matchScore >= 80
+                      ? 'text-green-600'
+                      : matchScore >= 60
+                        ? 'text-amber-600'
+                        : 'text-red-500',
+                  )}
+                >
+                  {matchScore}%
+                </span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-500',
+                    matchScore >= 80
+                      ? 'bg-green-500'
+                      : matchScore >= 60
+                        ? 'bg-amber-500'
+                        : 'bg-red-500',
+                  )}
+                  style={{ width: `${Math.min(100, Math.max(0, matchScore))}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                {matchScore >= 80
+                  ? 'Excellent match! Your resume aligns well with this role.'
+                  : matchScore >= 60
+                    ? 'Good match. Consider optimizing your resume.'
+                    : 'Needs improvement. Let AI optimize your resume for this role.'}
+              </p>
+            </div>
+          )}
+
+          {/* Analysis Results */}
+          {hasAnalysis && (
+            <div className="space-y-3">
+              {/* Strengths Section */}
+              {jobAnalysisResult.strengths && jobAnalysisResult.strengths.length > 0 && (
+                <div className="rounded-lg border border-green-100 bg-green-50/50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowStrengths(!showStrengths)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-green-100/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-xs font-medium text-green-800">
+                        Strengths ({jobAnalysisResult.strengths.length})
+                      </span>
+                    </div>
+                    {showStrengths ? (
+                      <ChevronUp className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-green-600" />
+                    )}
+                  </button>
+                  {showStrengths && (
+                    <div className="px-3 pb-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {jobAnalysisResult.strengths.map((strength, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded"
+                          >
+                            <Check className="h-3 w-3" />
+                            {strength}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Gaps Section */}
+              {jobAnalysisResult.gaps && jobAnalysisResult.gaps.length > 0 && (
+                <div className="rounded-lg border border-amber-100 bg-amber-50/50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowGaps(!showGaps)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-amber-100/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-amber-600" />
+                      <span className="text-xs font-medium text-amber-800">
+                        Missing Keywords ({jobAnalysisResult.gaps.length})
+                      </span>
+                    </div>
+                    {showGaps ? (
+                      <ChevronUp className="h-4 w-4 text-amber-600" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-amber-600" />
+                    )}
+                  </button>
+                  {showGaps && (
+                    <div className="px-3 pb-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {jobAnalysisResult.gaps.map((gap, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded"
+                          >
+                            {gap}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Suggestions Section */}
+              {jobAnalysisResult.suggestions && jobAnalysisResult.suggestions.length > 0 && (
+                <div className="rounded-lg border border-blue-100 bg-blue-50/50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-blue-100/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Lightbulb className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-medium text-blue-800">
+                        Suggestions ({jobAnalysisResult.suggestions.length})
+                      </span>
+                    </div>
+                    {showSuggestions ? (
+                      <ChevronUp className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-blue-600" />
+                    )}
+                  </button>
+                  {showSuggestions && (
+                    <div className="px-3 pb-3 space-y-2">
+                      {jobAnalysisResult.suggestions.map((suggestion, idx) => (
+                        <p key={idx} className="text-xs text-blue-700">
+                          • {suggestion}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Optimize Resume Button */}
+              {onOptimizeResume && !hasOptimizedResume && (
+                <button
+                  type="button"
+                  onClick={onOptimizeResume}
+                  disabled={optimizeLoading}
+                  className={cn(
+                    'w-full text-sm font-medium px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2',
+                    optimizeLoading
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 shadow-sm',
+                  )}
+                >
+                  <Zap className="h-4 w-4" />
+                  {optimizeLoading ? 'Optimizing Resume...' : 'Optimize Resume for This Job'}
+                </button>
+              )}
+
+              {/* Apply/Discard Optimized Resume */}
+              {hasOptimizedResume && onApplyOptimized && onDiscardOptimized && (
+                <div className="p-3 rounded-lg bg-primary-50 border border-primary-100 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-primary-600" />
+                    <span className="text-sm font-medium text-primary-800">Resume Optimized!</span>
+                  </div>
+                  <p className="text-xs text-primary-700">
+                    Your resume has been optimized for this job. Review the changes in the preview
+                    and choose to apply or discard them.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={onApplyOptimized}
+                      className="flex-1 text-sm font-medium px-3 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="h-4 w-4" />
+                      Apply Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onDiscardOptimized}
+                      className="flex-1 text-sm font-medium px-3 py-2 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <X className="h-4 w-4" />
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!jobDescription && (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-slate-400" />
+              </div>
+              <p className="text-sm text-slate-500">No job description added yet</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Paste a job posting to get AI-powered tailoring suggestions
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// COACH PANEL MAIN COMPONENT
+// ============================================================================
 
 interface CoachPanelProps {
   // Legacy score props
@@ -35,8 +411,21 @@ interface CoachPanelProps {
   // JD input props
   jobDescription?: string;
   onJobDescriptionChange?: (jd: string) => void;
+  targetJobTitle?: string;
+  onTargetJobTitleChange?: (title: string) => void;
   onAnalyzeJD?: () => void;
   jdLoading?: boolean;
+  jdError?: string | null;
+
+  // New: Working job analysis result (from /api/resumes/analyze)
+  jobAnalysisResult?: JobAnalysisResult | null;
+
+  // New: Optimize flow
+  onOptimizeResume?: () => void;
+  optimizeLoading?: boolean;
+  hasOptimizedResume?: boolean;
+  onApplyOptimized?: () => void;
+  onDiscardOptimized?: () => void;
 
   // Bidirectional linking - when a track change is clicked on canvas, this is set
   focusedSuggestionId?: string | null;
@@ -66,8 +455,19 @@ export function CoachPanel({
   // JD props
   jobDescription,
   onJobDescriptionChange,
+  targetJobTitle,
+  onTargetJobTitleChange,
   onAnalyzeJD,
   jdLoading,
+  jdError,
+  // New working analysis result
+  jobAnalysisResult,
+  // Optimize flow
+  onOptimizeResume,
+  optimizeLoading,
+  hasOptimizedResume,
+  onApplyOptimized,
+  onDiscardOptimized,
   // Bidirectional linking
   focusedSuggestionId,
   onSuggestionSelect,
@@ -335,120 +735,22 @@ export function CoachPanel({
           </>
         ) : (
           /* Tailor with AI tab content */
-          <div className="p-4 space-y-4">
-            {/* Header */}
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-primary-50">
-                <FileText className="h-5 w-5 text-primary-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-slate-900">Job Description</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Paste a job description to get tailored suggestions and match score
-                </p>
-              </div>
-            </div>
-
-            {/* JD Input */}
-            {hasJDSupport && (
-              <div className="space-y-3">
-                <div className="relative">
-                  <textarea
-                    value={jobDescription || ''}
-                    onChange={(e) => onJobDescriptionChange?.(e.target.value)}
-                    placeholder="Paste job description here..."
-                    className={cn(
-                      'w-full h-40 text-xs p-3 rounded-lg border resize-none',
-                      'border-slate-200 focus:border-primary-400 focus:ring-1 focus:ring-primary-400',
-                      'placeholder:text-slate-400',
-                    )}
-                  />
-                  {jobDescription && (
-                    <button
-                      type="button"
-                      onClick={() => onJobDescriptionChange?.('')}
-                      className="absolute top-2 right-2 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-                      aria-label="Clear job description"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Analyze button */}
-                {onAnalyzeJD && (
-                  <button
-                    type="button"
-                    onClick={onAnalyzeJD}
-                    disabled={jdLoading || !jobDescription}
-                    className={cn(
-                      'w-full text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2',
-                      jdLoading || !jobDescription
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'bg-primary-500 text-white hover:bg-primary-600',
-                    )}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {jdLoading ? 'Analyzing...' : 'Analyze & Match'}
-                  </button>
-                )}
-
-                {/* Match score display when JD is analyzed */}
-                {matchScore !== undefined && matchScore !== null && (
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-600">Match Score</span>
-                      <span
-                        className={cn(
-                          'text-lg font-bold',
-                          matchScore >= 80
-                            ? 'text-green-600'
-                            : matchScore >= 60
-                              ? 'text-amber-600'
-                              : 'text-red-500',
-                        )}
-                      >
-                        {matchScore}%
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          'h-full rounded-full transition-all duration-500',
-                          matchScore >= 80
-                            ? 'bg-green-500'
-                            : matchScore >= 60
-                              ? 'bg-amber-500'
-                              : 'bg-red-500',
-                        )}
-                        style={{ width: `${matchScore}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                      {matchScore >= 80
-                        ? 'Excellent match! Your resume aligns well with this role.'
-                        : matchScore >= 60
-                          ? 'Good match. Consider adding more relevant keywords.'
-                          : 'Needs improvement. Review the suggestions to better match this role.'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {!jobDescription && (
-                  <div className="text-center py-6">
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-500">No job description added yet</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Paste a job posting to get AI-powered tailoring suggestions
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <TailorTabContent
+            jobDescription={jobDescription}
+            onJobDescriptionChange={onJobDescriptionChange}
+            targetJobTitle={targetJobTitle}
+            onTargetJobTitleChange={onTargetJobTitleChange}
+            onAnalyzeJD={onAnalyzeJD}
+            jdLoading={jdLoading}
+            jdError={jdError}
+            matchScore={matchScore}
+            jobAnalysisResult={jobAnalysisResult}
+            onOptimizeResume={onOptimizeResume}
+            optimizeLoading={optimizeLoading}
+            hasOptimizedResume={hasOptimizedResume}
+            onApplyOptimized={onApplyOptimized}
+            onDiscardOptimized={onDiscardOptimized}
+          />
         )}
       </div>
 

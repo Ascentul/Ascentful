@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     let res = await fetch(url, { headers, cache: 'no-store' });
 
     if (!res.ok) {
-      let raw = await res.text();
+      const raw = await res.text();
       const looksHtml = /<html[\s\S]*>/i.test(raw);
       // Retry once with safer defaults if HTML error or 400
       if (res.status === 400 || looksHtml) {
@@ -88,11 +88,6 @@ export async function POST(request: NextRequest) {
         if (retryRes.ok) {
           res = retryRes;
         } else {
-          raw = await retryRes.text();
-          let parsedRetry: any = null;
-          try {
-            parsedRetry = JSON.parse(raw);
-          } catch {}
           const meta: Record<string, any> = {
             country,
             page,
@@ -102,20 +97,19 @@ export async function POST(request: NextRequest) {
             retryWhere: 'United States',
             hasWhat: Boolean(query || 'software engineer'),
           };
+          log.error('Adzuna retry request failed', toErrorCode('EXTERNAL_API_ERROR'), {
+            event: 'adzuna.retry_failed',
+            httpStatus: retryRes.status,
+            extra: meta,
+          });
           return NextResponse.json(
             {
-              error: 'Adzuna request failed',
-              details: parsedRetry || raw,
-              meta,
+              error: 'Job search service temporarily unavailable',
             },
-            { status: retryRes.status },
+            { status: 503 },
           );
         }
       } else {
-        let parsed: any = null;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {}
         const meta: Record<string, any> = {
           country,
           page,
@@ -123,9 +117,14 @@ export async function POST(request: NextRequest) {
           hasWhat: Boolean(query || 'software engineer'),
           hasWhere: Boolean(location && location.toLowerCase() !== 'remote'),
         };
+        log.error('Adzuna request failed', toErrorCode('EXTERNAL_API_ERROR'), {
+          event: 'adzuna.request_failed',
+          httpStatus: res.status,
+          extra: meta,
+        });
         return NextResponse.json(
-          { error: 'Adzuna request failed', details: parsed || raw, meta },
-          { status: res.status },
+          { error: 'Job search service temporarily unavailable' },
+          { status: 503 },
         );
       }
     }

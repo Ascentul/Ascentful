@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
+
 // ========== SCORE SCHEMAS ==========
 export const ScoreSignalSchema = z.object({
   name: z.string(),
@@ -140,12 +142,30 @@ export const JDRequirementSchema = z.object({
   importance: z.enum(['critical', 'high', 'medium', 'low']),
 });
 
+// Normalized keyword type (output of transformation)
 export const JDKeywordSchema = z.object({
   keyword: z.string(),
   frequency: z.number(),
   synonyms: z.array(z.string()),
   mustIncludeInResume: z.boolean(),
 });
+
+// Flexible keyword schema that accepts either string or full object
+// GPT-5 models often return simple strings instead of objects
+const FlexibleKeywordSchema = z.union([
+  z.string().transform((s) => ({
+    keyword: s,
+    frequency: 1,
+    synonyms: [],
+    mustIncludeInResume: true,
+  })),
+  z.object({
+    keyword: z.string(),
+    frequency: z.number().optional().default(1),
+    synonyms: z.array(z.string()).optional().default([]),
+    mustIncludeInResume: z.boolean().optional().default(true),
+  }),
+]);
 
 export const JDRecommendationSchema = z.object({
   priority: z.enum(['high', 'medium', 'low']),
@@ -155,32 +175,106 @@ export const JDRecommendationSchema = z.object({
 
 export const JDAnalysisResponseSchema = z.object({
   basics: z.object({
-    company: z.string(),
-    title: z.string(),
-    standardizedTitle: z.string(),
-    location: z.string(),
-    locationType: z.enum(['onsite', 'hybrid', 'remote']),
-    seniorityLevel: z.enum(['entry', 'mid', 'senior', 'lead', 'executive']),
-    estimatedYearsExperience: z.object({
-      min: z.number(),
-      max: z.number().nullable(),
+    // All basic fields are optional with defaults - AI often returns null or omits fields
+    company: z
+      .string()
+      .nullable()
+      .optional()
+      .default('Unknown Company')
+      .transform((v) => {
+        const result = v || 'Unknown Company';
+        if (!v) {
+          logger.debug('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'company', default: 'Unknown Company' },
+          });
+        }
+        return result;
+      }),
+    title: z
+      .string()
+      .nullable()
+      .optional()
+      .default('Unknown Title')
+      .transform((v) => {
+        const result = v || 'Unknown Title';
+        if (!v) {
+          logger.debug('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'title', default: 'Unknown Title' },
+          });
+        }
+        return result;
+      }),
+    standardizedTitle: z
+      .string()
+      .nullable()
+      .optional()
+      .default('')
+      .transform((v) => v || ''),
+    location: z
+      .string()
+      .nullable()
+      .optional()
+      .default('Not specified')
+      .transform((v) => {
+        const result = v || 'Not specified';
+        if (!v) {
+          logger.debug('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'location', default: 'Not specified' },
+          });
+        }
+        return result;
+      }),
+    locationType: z.enum(['onsite', 'hybrid', 'remote']).optional().default('remote'),
+    seniorityLevel: z
+      .enum(['entry', 'mid', 'senior', 'lead', 'executive'])
+      .optional()
+      .default('mid'),
+    estimatedYearsExperience: z
+      .object({
+        min: z.number().optional().default(0),
+        max: z.number().nullable().optional().default(null),
+      })
+      .refine((data) => data.max === null || data.max >= data.min, {
+        message: 'max must be greater than or equal to min',
+      })
+      .optional()
+      .default({ min: 0, max: null }),
+  }),
+  requirements: z
+    .object({
+      required: z.array(JDRequirementSchema).optional().default([]),
+      preferred: z.array(JDRequirementSchema).optional().default([]),
+      education: z
+        .object({
+          required: z.string().nullable().optional().default(null),
+          preferred: z.string().nullable().optional().default(null),
+          fieldOfStudy: z.array(z.string()).optional().default([]),
+        })
+        .optional()
+        .default({ required: null, preferred: null, fieldOfStudy: [] }),
+    })
+    .optional()
+    .default({
+      required: [],
+      preferred: [],
+      education: { required: null, preferred: null, fieldOfStudy: [] },
     }),
-  }),
-  requirements: z.object({
-    required: z.array(JDRequirementSchema),
-    preferred: z.array(JDRequirementSchema),
-    education: z.object({
-      required: z.string().nullable(),
-      preferred: z.string().nullable(),
-      fieldOfStudy: z.array(z.string()),
-    }),
-  }),
-  keywords: z.object({
-    technical: z.array(JDKeywordSchema),
-    soft: z.array(JDKeywordSchema),
-    domain: z.array(JDKeywordSchema),
-  }),
-  recommendations: z.array(JDRecommendationSchema),
+  // Use FlexibleKeywordSchema to handle both string[] and object[] from AI
+  keywords: z
+    .object({
+      technical: z.array(FlexibleKeywordSchema).optional().default([]),
+      soft: z.array(FlexibleKeywordSchema).optional().default([]),
+      domain: z.array(FlexibleKeywordSchema).optional().default([]),
+    })
+    .optional()
+    .default({ technical: [], soft: [], domain: [] }),
+  recommendations: z.array(JDRecommendationSchema).optional().default([]),
 });
 
 // ========== MATCH SCORE SCHEMAS ==========

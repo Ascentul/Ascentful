@@ -1097,12 +1097,25 @@ function ExperienceEntry({
   onDelete?: () => void;
   canDelete?: boolean;
 }) {
-  const bullets = parseBulletPoints(experience.description || '');
+  // Use keyContributions if present (even if empty), otherwise parse from description
+  const usesKeyContributions = experience.keyContributions !== undefined;
+  const allBullets: string[] = usesKeyContributions
+    ? (experience.keyContributions ?? [])
+    : parseBulletPoints(experience.description || '');
+
+  // Only show summary when experience.summary explicitly exists
+  const displaySummary = experience.summary?.trim() ? experience.summary : '';
+  const displayBullets: string[] = allBullets;
 
   const handleBulletsChange = (newBullets: string[]) => {
+    const nextAllBullets = newBullets;
+
+    // Always set keyContributions when user edits bullets to complete migration from legacy format
+    // This ensures legacy records (keyContributions: undefined) migrate to structured format on first edit
     onChange({
       ...experience,
-      description: bulletPointsToDescription(newBullets),
+      keyContributions: nextAllBullets,
+      description: bulletPointsToDescription(nextAllBullets),
     });
   };
 
@@ -1131,63 +1144,74 @@ function ExperienceEntry({
           canDelete={canDelete}
         />
       )}
+      {/* Title and Date Row */}
       <div className="flex justify-between items-baseline">
-        <div>
-          <InlineEditableText
-            spanId={`experience-${experience.id}-title`}
-            value={experience.title}
-            onChange={(value) => onChange({ ...experience, title: value })}
-            placeholder={titleIsMissing ? 'Enter job title (e.g. Software Engineer)' : 'Job Title'}
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            className="font-semibold text-[12pt]"
-            isMissing={titleIsMissing}
-            editorMode={editorMode}
-            aiSuggestions={aiSuggestions}
-            focusedSuggestionId={focusedSuggestionId}
-            onTrackChangeClick={onTrackChangeClick}
-          />
-          <span className="mx-2 text-slate-400">–</span>
-          <InlineEditableText
-            spanId={`experience-${experience.id}-company`}
-            value={experience.company}
-            onChange={(value) => onChange({ ...experience, company: value })}
-            placeholder={companyIsMissing ? 'Enter company name' : 'Company Name'}
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            className="text-[12pt]"
-            style={{ color: accentColor } as CSSProperties}
-            isMissing={companyIsMissing}
-            editorMode={editorMode}
-            aiSuggestions={aiSuggestions}
-            focusedSuggestionId={focusedSuggestionId}
-            onTrackChangeClick={onTrackChangeClick}
-          />
-        </div>
-        <div className="text-[10pt] text-slate-500">
-          {experience.startDate} – {experience.current ? 'Present' : experience.endDate}
-        </div>
-      </div>
-      {experience.location && (
-        <div className="text-[10pt] text-slate-500 mb-1">{experience.location}</div>
-      )}
-      <div className="mt-2 text-[11pt]">
-        <BulletEditable
-          spanId={`experience-${experience.id}-bullets`}
-          bullets={bullets.length > 0 ? bullets : ['']}
-          onChange={handleBulletsChange}
+        <InlineEditableText
+          spanId={`experience-${experience.id}-title`}
+          value={experience.title}
+          onChange={(value) => onChange({ ...experience, title: value })}
+          placeholder={titleIsMissing ? 'Enter job title (e.g. Software Engineer)' : 'Job Title'}
           suggestions={suggestions}
           coachEnabled={coachEnabled}
-          isMissing={bulletIsMissing}
-          placeholder={
-            bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
-          }
+          className="font-semibold text-[12pt]"
+          isMissing={titleIsMissing}
           editorMode={editorMode}
           aiSuggestions={aiSuggestions}
           focusedSuggestionId={focusedSuggestionId}
           onTrackChangeClick={onTrackChangeClick}
         />
+        <div className="text-[10pt] text-slate-500">
+          {experience.startDate} – {experience.current ? 'Present' : experience.endDate}
+        </div>
       </div>
+      {/* Company Row */}
+      <InlineEditableText
+        spanId={`experience-${experience.id}-company`}
+        value={experience.company}
+        onChange={(value) => onChange({ ...experience, company: value })}
+        placeholder={companyIsMissing ? 'Enter company name' : 'Company Name'}
+        suggestions={suggestions}
+        coachEnabled={coachEnabled}
+        className="text-[12pt]"
+        style={{ color: accentColor } as CSSProperties}
+        isMissing={companyIsMissing}
+        editorMode={editorMode}
+        aiSuggestions={aiSuggestions}
+        focusedSuggestionId={focusedSuggestionId}
+        onTrackChangeClick={onTrackChangeClick}
+      />
+      {experience.location && (
+        <div className="text-[10pt] text-slate-500 mb-1">{experience.location}</div>
+      )}
+      {/* Summary/Overview - rendered as paragraph */}
+      {displaySummary && (
+        <p className="mt-2 text-[11pt] text-slate-700 leading-relaxed">{displaySummary}</p>
+      )}
+      {/* Accomplishments label + bullets */}
+      {(displayBullets.length > 0 || bulletIsMissing || editorMode === 'editor') && (
+        <div className="mt-2 text-[11pt]">
+          {displayBullets.length > 0 && (
+            <div className="text-[10pt] font-semibold text-slate-500 italic mb-1">
+              Accomplishments:
+            </div>
+          )}
+          <BulletEditable
+            spanId={`experience-${experience.id}-bullets`}
+            bullets={displayBullets}
+            onChange={handleBulletsChange}
+            suggestions={suggestions}
+            coachEnabled={coachEnabled}
+            isMissing={bulletIsMissing}
+            placeholder={
+              bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
+            }
+            editorMode={editorMode}
+            aiSuggestions={aiSuggestions}
+            focusedSuggestionId={focusedSuggestionId}
+            onTrackChangeClick={onTrackChangeClick}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,11 @@
 import React from 'react';
 
 import type { Education, Experience, Project } from '@/components/resume/ResumeDocument';
-import { formatDateRange, parseDescription } from '@/lib/resume-utils';
+import {
+  formatDateRange,
+  parseDescription,
+  parseDescriptionToStructured,
+} from '@/lib/resume-utils';
 
 import type { FontPairingId, TemplateLayoutConfig } from '../types';
 import { FONT_PAIRINGS } from '../types';
@@ -12,6 +16,27 @@ import { FONT_PAIRINGS } from '../types';
 // Base Template Primitives
 // Shared components used by all template layouts
 // ============================================================================
+
+// ============================================================================
+// Heuristic Constants for Bullet-to-Summary Promotion
+// These thresholds may need tuning based on real-world resume data
+// ============================================================================
+
+/**
+ * Minimum character length for a bullet to be considered for promotion to summary.
+ * Bullets shorter than this are assumed to be achievement-style bullets, not descriptive summaries.
+ */
+const MIN_SUMMARY_LENGTH = 60;
+
+/**
+ * Pattern to detect action verb bullets (hoisted to avoid per-render compilation).
+ * Bullets starting with these verbs are assumed to be accomplishments, not role descriptions.
+ *
+ * Note: This list will likely need expansion as we encounter more resume patterns.
+ * Common additions might include: Facilitated, Collaborated, Streamlined, Mentored, etc.
+ */
+const ACTION_VERB_PATTERN =
+  /^(Led|Managed|Developed|Built|Created|Implemented|Designed|Launched|Delivered|Achieved|Increased|Reduced|Improved|Optimized|Coordinated|Executed|Analyzed|Conducted|Oversaw|Spearheaded|Initiated|Established|Directed)\b/i;
 
 interface BaseProps {
   config: TemplateLayoutConfig;
@@ -140,8 +165,44 @@ interface ExperienceItemProps extends BaseProps {
 
 export function ExperienceItem({ experience, config, isFirst = false }: ExperienceItemProps) {
   const fonts = getFontStyles(config.fontPairing);
-  const bullets = parseDescription(experience.description);
   const spacing = config.density === 'comfortable' ? '12px' : '8px';
+
+  // Check if using structured format (summary + keyContributions)
+  // Use presence check (not length) to match canvas behavior - even empty arrays mean "structured mode"
+  const hasStructuredData =
+    experience.summary !== undefined || experience.keyContributions !== undefined;
+
+  // If no structured data, parse description into summary + bullets
+  // This handles legacy data that only has description field populated
+  const parsedFromDescription =
+    !hasStructuredData && experience.description
+      ? parseDescriptionToStructured(experience.description)
+      : null;
+
+  // Use structured fields if available, otherwise use parsed description
+  let displaySummary = experience.summary || parsedFromDescription?.summary || '';
+  let displayBullets = experience.keyContributions?.length
+    ? experience.keyContributions
+    : parsedFromDescription?.keyContributions || [];
+
+  // If summary is empty but we have bullets, consider using the first bullet as the summary
+  // Only promote if it looks like a descriptive summary (see MIN_SUMMARY_LENGTH threshold)
+  // This handles cases where the AI put all content in keyContributions
+  if (!displaySummary && displayBullets.length > 0) {
+    const firstBullet = displayBullets[0];
+
+    // Promote to summary if it's long and doesn't start with action verb (likely descriptive)
+    if (firstBullet.length > MIN_SUMMARY_LENGTH && !ACTION_VERB_PATTERN.test(firstBullet)) {
+      displaySummary = firstBullet;
+      displayBullets = displayBullets.slice(1);
+    }
+  }
+
+  // Legacy fallback: if parsing found nothing useful, use old parseDescription for raw bullets
+  const legacyBullets =
+    !displaySummary && displayBullets.length === 0 && experience.description
+      ? parseDescription(experience.description)
+      : [];
 
   return (
     <div style={{ marginTop: isFirst ? 0 : spacing }}>
@@ -192,28 +253,60 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
         {experience.title}
       </div>
 
-      {/* Summary (new format) */}
-      {experience.summary && (
+      {/* Summary/Overview - rendered as paragraph */}
+      {displaySummary && (
         <p
           style={{
             fontFamily: fonts.body,
             fontSize: '11pt',
             marginTop: '4px',
-            marginBottom: '4px',
+            marginBottom: '8px',
+            lineHeight: '1.4',
+            color: '#2D3748',
           }}
         >
-          {experience.summary}
+          {displaySummary}
         </p>
       )}
 
-      {/* Key Contributions (new format) */}
-      {experience.keyContributions && experience.keyContributions.length > 0 && (
-        <BulletList items={experience.keyContributions} config={config} />
+      {/* Accomplishments Header + Bullets */}
+      {displayBullets.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '10pt',
+              fontWeight: 600,
+              color: '#718096',
+              fontStyle: 'italic',
+              marginTop: displaySummary ? '4px' : '0',
+              marginBottom: '4px',
+            }}
+          >
+            Accomplishments:
+          </div>
+          <BulletList items={displayBullets} config={config} />
+        </>
       )}
 
-      {/* Description Bullets (fallback) */}
-      {!experience.summary && !experience.keyContributions && bullets.length > 0 && (
-        <BulletList items={bullets} config={config} />
+      {/* Legacy fallback for truly unstructured data - also show Accomplishments label */}
+      {legacyBullets.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '10pt',
+              fontWeight: 600,
+              color: '#718096',
+              fontStyle: 'italic',
+              marginTop: '0',
+              marginBottom: '4px',
+            }}
+          >
+            Accomplishments:
+          </div>
+          <BulletList items={legacyBullets} config={config} />
+        </>
       )}
     </div>
   );
@@ -380,19 +473,24 @@ export function BulletList({ items, config }: BulletListProps) {
         marginTop: '4px',
       }}
     >
-      {items.map((item, idx) => (
-        <li
-          key={idx}
-          style={{
-            fontFamily: fonts.body,
-            fontSize: '11pt',
-            lineHeight: '1.3',
-            marginBottom: '4px',
-          }}
-        >
-          {item}
-        </li>
-      ))}
+      {items.map((item, idx) => {
+        // Strip any leading bullet markers to prevent "double bullets"
+        // (in case AI/legacy data includes •/-/* at the start)
+        const cleanItem = item.replace(/^[•\-\*]\s*/, '').trim();
+        return (
+          <li
+            key={idx}
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '11pt',
+              lineHeight: '1.3',
+              marginBottom: '4px',
+            }}
+          >
+            {cleanItem}
+          </li>
+        );
+      })}
     </ul>
   );
 }

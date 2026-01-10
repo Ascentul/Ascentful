@@ -114,16 +114,24 @@ function StudentReviewsContent() {
 // Reviews List Component
 // ============================================================================
 
-interface ReviewRequest {
-  _id: string;
-  asset_type: string;
+// Manual type definition matching the Convex query return shape
+type ReviewRequest = {
+  _id: any;
+  asset_type: 'resume' | 'cover_letter' | 'other';
   assetName: string;
-  status: string;
+  status:
+    | 'draft'
+    | 'submitted'
+    | 'in_review'
+    | 'feedback_ready'
+    | 'revision_requested'
+    | 'complete'
+    | 'cancelled';
   student_note?: string;
   created_at: number;
   submitted_at?: number;
   updated_at: number;
-}
+};
 
 function ReviewsList({ reviews }: { reviews: ReviewRequest[] }) {
   return (

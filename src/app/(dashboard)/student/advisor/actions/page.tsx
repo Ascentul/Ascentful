@@ -182,7 +182,12 @@ function ActionItemCard({ item, clerkId }: { item: ActionItem; clerkId: string }
   const formatDueDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.ceil((timestamp - now.getTime()) / (1000 * 60 * 60 * 24));
+    // Compare calendar dates for accurate "today"/"tomorrow" labels
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.floor(
+      (dueStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     if (diffDays < 0) {
       return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} overdue`;
@@ -243,6 +248,7 @@ function ActionItemCard({ item, clerkId }: { item: ActionItem; clerkId: string }
           <button
             onClick={handleToggle}
             disabled={isUpdating}
+            aria-label={isDone ? 'Mark as incomplete' : 'Mark as complete'}
             className={`flex-shrink-0 mt-1 rounded-full transition-colors ${
               isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
             }`}

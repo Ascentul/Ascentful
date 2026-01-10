@@ -96,6 +96,7 @@ interface ThreePanelEditorProps {
   onUpdateSkills: (skills: string[]) => void;
   onUpdateAchievements?: (achievements: Achievement[]) => void;
   onUpdateCertifications?: (certifications: Certification[]) => void;
+  onBatchUpdate?: (updates: Partial<ResumeData>) => void;
   onSetSectionOrder: (newOrder: string[]) => void;
   onToggleSection: (sectionId: string, enabled: boolean) => void;
   onTemplateChange: (templateId: TemplateId) => void;
@@ -128,6 +129,7 @@ function ThreePanelEditorInner({
   onUpdateSkills,
   onUpdateAchievements,
   onUpdateCertifications,
+  onBatchUpdate,
   onSetSectionOrder,
   onToggleSection,
   onTemplateChange,
@@ -147,6 +149,8 @@ function ThreePanelEditorInner({
   const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
   // Version history panel state
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+  // Target job title for job tailor panel (optional field)
+  const [targetJobTitle, setTargetJobTitle] = useState<string>('');
 
   // Coach is always enabled
   const coachEnabled = true;
@@ -194,8 +198,13 @@ function ThreePanelEditorInner({
     jobDescription,
     jdAnalysis,
     jdLoading,
+    jdError,
     matchScore,
     assistMode,
+    // New: working job analysis and optimize flow
+    jobAnalysisResult,
+    optimizedResume,
+    optimizeLoading,
   } = useResumeAIState();
 
   const {
@@ -204,6 +213,10 @@ function ThreePanelEditorInner({
     dismissSuggestion: dismissAISuggestion,
     applySuggestion: applyAISuggestion,
     refreshSuggestions,
+    // New: optimize flow actions
+    optimizeForJob,
+    applyOptimizedResume,
+    discardOptimizedResume,
   } = useResumeAIActions();
 
   // Use legacy-compatible formats for existing components
@@ -1014,6 +1027,116 @@ function ThreePanelEditorInner({
     [dismissAISuggestion],
   );
 
+  /**
+   * Handle applying optimized resume from AI.
+   *
+   * Uses batch update mechanism (if available) to apply all changes atomically,
+   * avoiding multiple re-renders, save operations, and undo stack entries.
+   *
+   * Without batching: 6+ discrete state updates → 6+ saves, 6+ re-renders
+   * With batching: 1 atomic state update → 1 save, 1 re-render
+   */
+  const handleApplyOptimized = useCallback(() => {
+    if (!optimizedResume) return;
+
+    // Use batch update if available for atomic state change
+    if (onBatchUpdate) {
+      // Build the batch update object
+      const batchUpdates: Partial<ResumeData> = {};
+
+      if (optimizedResume.summary !== undefined) {
+        batchUpdates.summary = optimizedResume.summary || '';
+      }
+      if (optimizedResume.skills) {
+        batchUpdates.skills = optimizedResume.skills;
+      }
+      if (optimizedResume.experience) {
+        batchUpdates.experience = optimizedResume.experience;
+      }
+      if (optimizedResume.education) {
+        batchUpdates.education = optimizedResume.education;
+      }
+      if (optimizedResume.projects) {
+        batchUpdates.projects = optimizedResume.projects;
+      }
+      if (optimizedResume.contactInfo) {
+        const allowed: (keyof ContactInfo)[] = [
+          'name',
+          'email',
+          'phone',
+          'location',
+          'linkedin',
+          'github',
+          'website',
+        ];
+        // Filter and merge contact info
+        const filteredContactInfo: Partial<ContactInfo> = {};
+        Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
+          if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
+            // eslint-disable-next-line security/detect-object-injection
+            filteredContactInfo[field as keyof ContactInfo] = value;
+          }
+        });
+        if (Object.keys(filteredContactInfo).length > 0) {
+          batchUpdates.contactInfo = {
+            ...resumeData.contactInfo,
+            ...filteredContactInfo,
+          };
+        }
+      }
+
+      // Apply all changes atomically
+      onBatchUpdate(batchUpdates);
+    } else {
+      // Fallback: use individual updates for backward compatibility
+      if (optimizedResume.summary !== undefined) {
+        onUpdateSummary(optimizedResume.summary || '');
+      }
+      if (optimizedResume.skills) {
+        onUpdateSkills(optimizedResume.skills);
+      }
+      if (optimizedResume.experience) {
+        onUpdateExperience(optimizedResume.experience);
+      }
+      if (optimizedResume.education) {
+        onUpdateEducation(optimizedResume.education);
+      }
+      if (optimizedResume.projects) {
+        onUpdateProjects(optimizedResume.projects);
+      }
+      if (optimizedResume.contactInfo) {
+        const allowed: (keyof ContactInfo)[] = [
+          'name',
+          'email',
+          'phone',
+          'location',
+          'linkedin',
+          'github',
+          'website',
+        ];
+        Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
+          if (value !== undefined && allowed.includes(field as keyof ContactInfo)) {
+            onUpdateContactInfo(field as keyof ContactInfo, value);
+          }
+        });
+      }
+    }
+
+    // Clear the optimized state
+    applyOptimizedResume();
+  }, [
+    optimizedResume,
+    resumeData.contactInfo,
+    onBatchUpdate,
+    onUpdateSummary,
+    onUpdateSkills,
+    onUpdateExperience,
+    onUpdateEducation,
+    onUpdateProjects,
+    onUpdateContactInfo,
+    applyOptimizedResume,
+  ]);
+
   // Legacy apply suggestion (for backward compatibility)
   const handleApplySuggestion = useCallback(
     (suggestionId: string) => {
@@ -1283,15 +1406,26 @@ function ThreePanelEditorInner({
             // AI props
             aiScore={aiScore}
             aiSuggestions={aiSuggestions}
-            matchScore={matchScore?.matchScore}
+            matchScore={matchScore?.matchScore ?? jobAnalysisResult?.score}
             onApplyAISuggestion={handleApplyAISuggestion}
             onDismissAISuggestion={handleDismissAISuggestion}
             onScrollToTarget={(targetPath) => scrollToSpan(targetPath)}
             // JD props
             jobDescription={jobDescription}
             onJobDescriptionChange={setJobDescription}
+            targetJobTitle={targetJobTitle}
+            onTargetJobTitleChange={setTargetJobTitle}
             onAnalyzeJD={() => analyzeJobDescription(jobDescription)}
             jdLoading={jdLoading}
+            jdError={jdError}
+            // New: Working job analysis result
+            jobAnalysisResult={jobAnalysisResult}
+            // New: Optimize flow
+            onOptimizeResume={optimizeForJob}
+            optimizeLoading={optimizeLoading}
+            hasOptimizedResume={!!optimizedResume}
+            onApplyOptimized={handleApplyOptimized}
+            onDiscardOptimized={discardOptimizedResume}
             // Bidirectional linking
             focusedSuggestionId={focusedSuggestionId}
             onSuggestionSelect={(suggestionId, targetPath) => {
@@ -1443,28 +1577,23 @@ function ThreePanelEditorInner({
 
         {/* Right side: Score and suggestions */}
         <div className="flex items-center gap-3">
-          {scoreLoading ? (
-            <span className="animate-pulse flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary-400" />
-              Analyzing...
+          {/* Always show the score - effectiveScore has heuristic fallback */}
+          <span className={cn('flex items-center gap-1.5', scoreLoading && 'opacity-60')}>
+            {scoreLoading && <Sparkles className="h-3.5 w-3.5 text-primary-400 animate-pulse" />}
+            <span
+              className={cn(
+                'font-semibold',
+                effectiveScore.overallScore >= 80
+                  ? 'text-green-600'
+                  : effectiveScore.overallScore >= 60
+                    ? 'text-amber-600'
+                    : 'text-red-500',
+              )}
+            >
+              {effectiveScore.overallScore}
             </span>
-          ) : (
-            <span className="flex items-center gap-1.5">
-              <span
-                className={cn(
-                  'font-semibold',
-                  effectiveScore.overallScore >= 80
-                    ? 'text-green-600'
-                    : effectiveScore.overallScore >= 60
-                      ? 'text-amber-600'
-                      : 'text-red-500',
-                )}
-              >
-                {effectiveScore.overallScore}
-              </span>
-              <span className="text-slate-400">/100</span>
-            </span>
-          )}
+            <span className="text-slate-400">/100</span>
+          </span>
 
           {aiSuggestions.length > 0 && (
             <span className="flex items-center gap-1 text-amber-600">
@@ -1473,18 +1602,20 @@ function ThreePanelEditorInner({
             </span>
           )}
 
-          {matchScore && (
+          {typeof (matchScore?.matchScore ?? jobAnalysisResult?.score) === 'number' && (
             <span
               className={cn(
                 'flex items-center gap-1',
-                matchScore.matchScore >= 80
+                (matchScore?.matchScore ?? jobAnalysisResult!.score) >= 80
                   ? 'text-green-600'
-                  : matchScore.matchScore >= 60
+                  : (matchScore?.matchScore ?? jobAnalysisResult!.score) >= 60
                     ? 'text-amber-600'
                     : 'text-red-500',
               )}
             >
-              <span className="font-medium">{matchScore.matchScore}%</span>
+              <span className="font-medium">
+                {matchScore?.matchScore ?? jobAnalysisResult!.score}%
+              </span>
               <span className="text-slate-400">match</span>
             </span>
           )}

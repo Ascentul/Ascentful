@@ -11,6 +11,7 @@ import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { parseDescriptionToStructured } from '@/lib/resume-utils';
 
 import { FunnelProgress } from './FunnelProgress';
 import { QuickWinsPreviewStep } from './QuickWinsPreviewStep';
@@ -120,18 +121,30 @@ export function CreateResumeFunnel({
               .map((s: string) => s.trim())
               .filter(Boolean)
           : [],
-        experience: (profile.work_history || []).map((job, index: number) => ({
-          id: `exp-${index}`,
-          title: job.role || '',
-          company: job.company || '',
-          location: job.location || '',
-          startDate: job.start_date || '',
-          endDate: job.is_current ? 'Present' : job.end_date || '',
-          current: job.is_current || false,
-          description: job.summary || '',
-        })),
-        education: (profile.education_history || []).map((edu, index: number) => ({
-          id: `edu-${index}`,
+        experience: (profile.work_history || []).map((job, index: number) => {
+          // Parse the job summary to extract overview and bullet points
+          const jobSummary = job.summary || '';
+          const { summary, keyContributions } = parseDescriptionToStructured(jobSummary);
+
+          return {
+            // Use crypto.randomUUID() for stable IDs that won't change on reorder
+            id: `exp-${crypto.randomUUID()}`,
+            title: job.role || '',
+            company: job.company || '',
+            location: job.location || '',
+            startDate: job.start_date || '',
+            // Leave endDate empty for current roles - current flag is source of truth
+            endDate: job.is_current ? '' : job.end_date || '',
+            current: job.is_current || false,
+            // Keep description for backward compatibility
+            description: jobSummary,
+            // New structured fields
+            summary,
+            keyContributions,
+          };
+        }),
+        education: (profile.education_history || []).map((edu) => ({
+          id: `edu-${crypto.randomUUID()}`,
           school: edu.school || '',
           degree: edu.degree || '',
           field: edu.field_of_study || '',
@@ -139,16 +152,16 @@ export function CreateResumeFunnel({
           startYear: edu.start_year || '',
           endYear: edu.is_current ? 'Present' : edu.end_year || '',
         })),
-        projects: (profile.projects || []).map((proj, index: number) => ({
-          id: `proj-${index}`,
+        projects: (profile.projects || []).map((proj) => ({
+          id: `proj-${crypto.randomUUID()}`,
           name: proj.title || '',
           role: proj.role || '',
           description: proj.description || '',
           technologies: (proj.technologies || []).join(', '),
           url: proj.url || '',
         })),
-        achievements: (profile.achievements_history || []).map((ach, index: number) => ({
-          id: `ach-${index}`,
+        achievements: (profile.achievements_history || []).map((ach) => ({
+          id: `ach-${crypto.randomUUID()}`,
           title: ach.title || '',
           description: ach.description || '',
           date: ach.date || '',

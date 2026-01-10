@@ -106,16 +106,16 @@ export const getAllBookings = query({
   handler: async (ctx, { filter = 'all' }) => {
     const user = await getCurrentUser(ctx);
 
-    let bookings = await ctx.db
+    // Use compound index to filter by status at database level for better performance
+    const bookings = await ctx.db
       .query('session_bookings')
-      .withIndex('by_advisor', (q) => q.eq('advisor_user_id', user.userId))
+      .withIndex('by_advisor', (q) =>
+        filter === 'all'
+          ? q.eq('advisor_user_id', user.userId)
+          : q.eq('advisor_user_id', user.userId).eq('status', filter),
+      )
       .order('desc')
       .collect();
-
-    // Apply filter
-    if (filter !== 'all') {
-      bookings = bookings.filter((b) => b.status === filter);
-    }
 
     // Enrich with student info
     const enriched = await Promise.all(

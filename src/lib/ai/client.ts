@@ -13,9 +13,9 @@ const openai = process.env.OPENAI_API_KEY
 export type ModelTier = 'pro' | 'standard' | 'mini';
 
 const MODEL_MAP = {
-  pro: 'gpt-5.2-pro',
-  standard: 'gpt-5.2',
-  mini: 'gpt-5.2-chat-latest',
+  pro: 'gpt-5',
+  standard: 'gpt-5-mini',
+  mini: 'gpt-5-nano',
 } as const;
 
 // Temperature defaults by tier
@@ -38,7 +38,7 @@ export interface AICallOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
-  timeoutMs?: number;
+  timeoutMs?: number; // Default: 120000ms (2 minutes)
 }
 
 export interface AICallResult<T> {
@@ -124,7 +124,7 @@ export async function callAI<T>(
     temperature = TEMPERATURE_DEFAULTS[tier],
     maxTokens = MAX_TOKENS_DEFAULTS[tier],
     jsonMode = true,
-    timeoutMs = 60000,
+    timeoutMs = 120000, // 2 minute default for complex AI operations
   } = options;
 
   if (!openai) {
@@ -143,7 +143,7 @@ export async function callAI<T>(
       const response = await openai.chat.completions.create(
         {
           model,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
           temperature,
           ...(jsonMode && { response_format: { type: 'json_object' as const } }),
           messages: [
@@ -156,9 +156,29 @@ export async function callAI<T>(
         },
       );
 
-      const textContent = response.choices[0]?.message?.content;
+      const choice = response.choices[0];
+      const textContent = choice?.message?.content;
+
+      // Check for various failure modes
+      if (!choice) {
+        throw new Error('No choices in response');
+      }
+
+      // Check for refusals (model declined to respond)
+      const refusal = (choice.message as { refusal?: string })?.refusal;
+      if (refusal) {
+        throw new Error(`Model refused: ${refusal}`);
+      }
+
+      // Check finish reason
+      if (choice.finish_reason === 'length') {
+        console.warn('Response was cut off due to max_tokens limit');
+      }
+
       if (!textContent) {
-        throw new Error('No text content in response');
+        throw new Error(
+          `No text content in response (finish_reason: ${choice.finish_reason || 'unknown'})`,
+        );
       }
 
       const jsonString = extractJSON(textContent);
@@ -178,12 +198,19 @@ export async function callAI<T>(
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'Unknown error';
 
-      // Log for debugging
+      // Log detailed error info for debugging
       console.error(`AI call attempt ${attempt}/${maxRetries} failed:`, lastError);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
+      }
 
-      // Exponential backoff before retry
+      // Exponential backoff with jitter before retry (prevents thundering herd)
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+        const baseBackoffMs = Math.pow(2, attempt) * 1000;
+        const jitter = 0.5 + Math.random(); // Random multiplier between 0.5 and 1.5
+        const backoffMs = Math.floor(baseBackoffMs * jitter);
+        console.log(`Retrying in ${backoffMs}ms...`);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
   }
@@ -218,7 +245,7 @@ export async function callAIText(
     maxRetries = 3,
     temperature = TEMPERATURE_DEFAULTS[tier],
     maxTokens = MAX_TOKENS_DEFAULTS[tier],
-    timeoutMs = 60000,
+    timeoutMs = 120000, // 2 minute default for complex AI operations
   } = options;
 
   if (!openai) {
@@ -237,7 +264,7 @@ export async function callAIText(
       const response = await openai.chat.completions.create(
         {
           model,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
           temperature,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -249,9 +276,29 @@ export async function callAIText(
         },
       );
 
-      const content = response.choices[0]?.message?.content?.trim();
+      const choice = response.choices[0];
+
+      // Check for various failure modes
+      if (!choice) {
+        throw new Error('No choices in response');
+      }
+
+      // Check for refusals (model declined to respond)
+      const refusal = (choice.message as { refusal?: string })?.refusal;
+      if (refusal) {
+        throw new Error(`Model refused: ${refusal}`);
+      }
+
+      // Check finish reason
+      if (choice.finish_reason === 'length') {
+        console.warn('Response was cut off due to max_tokens limit');
+      }
+
+      const content = choice.message?.content?.trim();
       if (!content) {
-        throw new Error('No content in response');
+        throw new Error(
+          `No text content in response (finish_reason: ${choice.finish_reason || 'unknown'})`,
+        );
       }
 
       return {
@@ -266,8 +313,20 @@ export async function callAIText(
       };
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'Unknown error';
+
+      // Log detailed error info for debugging
+      console.error(`AI text call attempt ${attempt}/${maxRetries} failed:`, lastError);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
+      }
+
+      // Exponential backoff with jitter before retry (prevents thundering herd)
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+        const baseBackoffMs = Math.pow(2, attempt) * 1000;
+        const jitter = 0.5 + Math.random(); // Random multiplier between 0.5 and 1.5
+        const backoffMs = Math.floor(baseBackoffMs * jitter);
+        console.log(`Retrying in ${backoffMs}ms...`);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
   }

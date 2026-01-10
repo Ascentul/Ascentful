@@ -22,7 +22,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -95,6 +95,16 @@ function getBrowserTimezone(): string {
   } catch {
     return 'America/New_York'; // Fallback
   }
+}
+
+// Ensure browser timezone is available in dropdown options
+function getTimezoneOptionsWithBrowser(): typeof TIMEZONE_OPTIONS {
+  const browserTz = getBrowserTimezone();
+  const hasMatch = TIMEZONE_OPTIONS.some((o) => o.value === browserTz);
+  if (hasMatch) return TIMEZONE_OPTIONS;
+
+  // Add browser timezone to the end of the list with a clearer label
+  return [...TIMEZONE_OPTIONS, { value: browserTz, label: `Local Time (${browserTz})` }];
 }
 
 // Find matching timezone option or return the raw timezone
@@ -342,6 +352,9 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ensure browser timezone is available in dropdown (memoized)
+  const timezoneOptions = useMemo(() => getTimezoneOptionsWithBrowser(), []);
+
   const addSlot = useMutation(api.advisor_availability.addAvailabilitySlot);
 
   const handleSubmit = async () => {
@@ -458,7 +471,7 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {TIMEZONE_OPTIONS.map((tz) => (
+              {timezoneOptions.map((tz) => (
                 <SelectItem key={tz.value} value={tz.value}>
                   {tz.label}
                 </SelectItem>
@@ -500,6 +513,32 @@ function AddSlotDialog({ onClose }: { onClose: () => void }) {
 // ============================================================================
 // Booking Requests Section
 // ============================================================================
+
+// Utility functions for formatting (extracted to avoid recreation on every render)
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  career_planning: 'Career Planning',
+  resume_review: 'Resume Review',
+  mock_interview: 'Mock Interview',
+  application_strategy: 'Application Strategy',
+  general_advising: 'General Advising',
+  other: 'Other',
+};
+
+function getSessionTypeLabel(type: string): string {
+  return SESSION_TYPE_LABELS[type] || type;
+}
 
 function BookingRequestsSection() {
   const bookings = useQuery(api.advisor_availability.getPendingBookings, {});
@@ -563,35 +602,15 @@ function BookingRequestCard({ booking }: { booking: BookingRequest }) {
   const startDate = new Date(booking.requested_start);
   const endDate = new Date(booking.requested_end);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  };
-
-  const getSessionTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      career_planning: 'Career Planning',
-      resume_review: 'Resume Review',
-      mock_interview: 'Mock Interview',
-      application_strategy: 'Application Strategy',
-      general_advising: 'General Advising',
-      other: 'Other',
-    };
-    return labels[type] || type;
-  };
-
   const handleConfirm = async () => {
     if (isConfirming) return;
     setIsConfirming(true);
     try {
       await confirmBooking({ bookingId: booking._id });
+      toast({
+        title: 'Booking Confirmed',
+        description: 'The session has been added to your calendar.',
+      });
     } catch (error) {
       console.error('Failed to confirm booking:', error);
       toast({
@@ -609,6 +628,10 @@ function BookingRequestCard({ booking }: { booking: BookingRequest }) {
     setIsDeclining(true);
     try {
       await declineBooking({ bookingId: booking._id });
+      toast({
+        title: 'Booking Declined',
+        description: 'The student has been notified.',
+      });
     } catch (error) {
       console.error('Failed to decline booking:', error);
       toast({

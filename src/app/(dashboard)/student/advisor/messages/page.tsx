@@ -197,6 +197,7 @@ function StudentMessagesContent() {
               <button
                 onClick={() => setSendError(null)}
                 className="ml-auto text-red-400 hover:text-red-600"
+                aria-label="Dismiss error"
               >
                 &times;
               </button>

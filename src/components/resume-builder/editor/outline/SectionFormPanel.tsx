@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { parseDescriptionToStructured, structuredToDescription } from '@/lib/resume-utils';
 import { cn } from '@/lib/utils';
 import { SECTION_CONFIGS } from '@/types/resume-editor';
 
@@ -376,9 +377,80 @@ interface ExperienceFormProps {
 function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
   const [expandedId, setExpandedId] = useState<string | null>(experiences[0]?.id || null);
 
-  const handleFieldChange = (id: string, field: keyof Experience, value: string | boolean) => {
-    const updated = experiences.map((exp) => (exp.id === id ? { ...exp, [field]: value } : exp));
+  // Auto-migrate legacy description to structured format on mount
+  const autoParsedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    let changed = false;
+    const next = experiences.map((exp) => {
+      // Skip if already parsed
+      if (autoParsedRef.current.has(exp.id)) return exp;
+
+      // Only parse if structured fields are empty but description exists
+      const hasEmptyStructured =
+        !exp.summary && (!exp.keyContributions || exp.keyContributions.length === 0);
+      const hasDescription = !!exp.description?.trim();
+
+      if (!hasEmptyStructured || !hasDescription) return exp;
+
+      // Parse description into structured format
+      const parsed = parseDescriptionToStructured(exp.description);
+
+      // Always mark as processed to avoid repeated retries
+      autoParsedRef.current.add(exp.id);
+
+      // Only apply if we got meaningful data
+      if (!parsed.summary && parsed.keyContributions.length === 0) return exp;
+
+      changed = true;
+      return { ...exp, summary: parsed.summary, keyContributions: parsed.keyContributions };
+    });
+
+    if (changed) onUpdate(next);
+  }, [experiences, onUpdate]);
+
+  const handleFieldChange = (
+    id: string,
+    field: keyof Experience,
+    value: string | boolean | string[],
+  ) => {
+    const updated = experiences.map((exp) => {
+      if (exp.id !== id) return exp;
+      const newExp = { ...exp, [field]: value };
+
+      // Keep description in sync for backward compatibility
+      if (field === 'summary' || field === 'keyContributions') {
+        const summary = field === 'summary' ? (value as string) : exp.summary || '';
+        const bullets =
+          field === 'keyContributions' ? (value as string[]) : exp.keyContributions || [];
+        newExp.description = structuredToDescription(summary, bullets);
+      }
+
+      return newExp;
+    });
     onUpdate(updated);
+  };
+
+  const handleBulletChange = (expId: string, bulletIdx: number, value: string) => {
+    const exp = experiences.find((e) => e.id === expId);
+    if (!exp) return;
+    const bullets = [...(exp.keyContributions || [])];
+    bullets[bulletIdx] = value;
+    handleFieldChange(expId, 'keyContributions', bullets);
+  };
+
+  const handleAddBullet = (expId: string) => {
+    const exp = experiences.find((e) => e.id === expId);
+    if (!exp) return;
+    const bullets = [...(exp.keyContributions || []), ''];
+    handleFieldChange(expId, 'keyContributions', bullets);
+  };
+
+  const handleRemoveBullet = (expId: string, bulletIdx: number) => {
+    const exp = experiences.find((e) => e.id === expId);
+    if (!exp) return;
+    const bullets = [...(exp.keyContributions || [])];
+    bullets.splice(bulletIdx, 1);
+    handleFieldChange(expId, 'keyContributions', bullets);
   };
 
   const handleAdd = () => {
@@ -391,6 +463,8 @@ function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
       endDate: '',
       current: false,
       description: '',
+      summary: '',
+      keyContributions: [],
     };
     onUpdate([...experiences, newExp]);
     setExpandedId(newExp.id);
@@ -491,14 +565,57 @@ function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
                   placeholder="Dec 2023"
                 />
               </div>
-              <FormField
-                label="Description & Achievements"
-                value={exp.description || ''}
-                onChange={(value) => handleFieldChange(exp.id, 'description', value)}
-                placeholder="• Led development of new features&#10;• Improved performance by 40%"
-                multiline
-                rows={4}
-              />
+
+              {/* Role Overview */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Role Overview</label>
+                <p className="text-xs text-slate-500">
+                  Brief paragraph about your role and responsibilities
+                </p>
+                <Textarea
+                  value={exp.summary || ''}
+                  onChange={(e) => handleFieldChange(exp.id, 'summary', e.target.value)}
+                  placeholder="Led a team of engineers to deliver critical features..."
+                  rows={3}
+                  className="text-sm resize-none rounded-sm border border-slate-200 hover:border-[#5371FF] focus:border-[#5371FF] focus:shadow-[0_0_0_1px_#5371FF] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors"
+                />
+              </div>
+
+              {/* Key Accomplishments */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Accomplishments</label>
+                <p className="text-xs text-slate-500">Specific achievements with metrics</p>
+                <div className="space-y-2">
+                  {(exp.keyContributions || []).map((bullet, bulletIdx) => (
+                    <div key={bulletIdx} className="flex items-start gap-2">
+                      <span className="text-slate-400 mt-2 text-sm">•</span>
+                      <Input
+                        value={bullet}
+                        onChange={(e) => handleBulletChange(exp.id, bulletIdx, e.target.value)}
+                        placeholder="Increased revenue by 25%..."
+                        className="flex-1 text-sm rounded-sm border border-slate-200 hover:border-[#5371FF] focus:border-[#5371FF] focus:shadow-[0_0_0_1px_#5371FF] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBullet(exp.id, bulletIdx)}
+                        className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50"
+                        aria-label="Remove accomplishment"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddBullet(exp.id)}
+                    className="gap-1.5 text-slate-600 hover:text-slate-900"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Bullet
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

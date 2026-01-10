@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { generateResumePDF } from '@/lib/resume-pdf-generator';
+import { structuredToDescription } from '@/lib/resume-utils';
 import { exportCoverLetterPDF } from '@/utils/exportCoverLetter';
 
 // Types
@@ -464,6 +465,92 @@ export default function ResumeStudioPage() {
         ? `${parsedData.personalInfo.name}'s Resume`
         : `Imported Resume - ${file.name.replace('.pdf', '')}`;
 
+      // Transform parsed experiences to include required id and description fields
+      const transformedExperiences = (parsedData.experience || []).map(
+        (exp: {
+          title?: string;
+          company?: string;
+          location?: string;
+          startDate?: string;
+          endDate?: string;
+          current?: boolean;
+          summary?: string;
+          keyContributions?: string[];
+          description?: string;
+        }) => {
+          // Build description from summary and keyContributions if description is missing
+          let description = exp.description || '';
+          if (!description.trim() && (exp.summary || exp.keyContributions?.length)) {
+            description = structuredToDescription(exp.summary || '', exp.keyContributions || []);
+          }
+          return {
+            id: `exp-${crypto.randomUUID()}`,
+            title: exp.title || '',
+            company: exp.company || '',
+            location: exp.location || '',
+            startDate: exp.startDate || '',
+            endDate: exp.endDate || '',
+            current: exp.current || false,
+            description,
+            summary: exp.summary,
+            keyContributions: exp.keyContributions,
+          };
+        },
+      );
+
+      // Transform education entries to include id
+      const transformedEducation = (parsedData.education || []).map(
+        (edu: {
+          degree?: string;
+          field?: string;
+          school?: string;
+          location?: string;
+          startYear?: string;
+          endYear?: string;
+          graduationYear?: string;
+          gpa?: string;
+          honors?: string;
+        }) => ({
+          id: `edu-${crypto.randomUUID()}`,
+          degree: edu.degree || '',
+          field: edu.field || '',
+          school: edu.school || '',
+          location: edu.location || '',
+          startYear: edu.startYear || '',
+          endYear: edu.endYear || edu.graduationYear || '',
+          gpa: edu.gpa || '',
+          honors: edu.honors || '',
+        }),
+      );
+
+      // Transform projects to include id
+      const transformedProjects = (parsedData.projects || []).map(
+        (proj: {
+          name?: string;
+          role?: string;
+          technologies?: string;
+          description?: string;
+          url?: string;
+        }) => ({
+          id: `proj-${crypto.randomUUID()}`,
+          name: proj.name || '',
+          role: proj.role || '',
+          technologies: proj.technologies || '',
+          description: proj.description || '',
+          url: proj.url || '',
+        }),
+      );
+
+      // Transform achievements to include id
+      const transformedAchievements = (parsedData.achievements || []).map(
+        (ach: { title?: string; description?: string; date?: string }) => ({
+          id: `ach-${crypto.randomUUID()}`,
+          title: ach.title || '',
+          description: ach.description || '',
+          date: ach.date || '',
+        }),
+      );
+
       await createResumeMutation({
         clerkId,
         title: resumeTitle,
@@ -471,10 +558,10 @@ export default function ResumeStudioPage() {
           contactInfo: parsedData.personalInfo,
           summary: parsedData.summary || '',
           skills: parsedData.skills || [],
-          experiences: parsedData.experience || [],
-          education: parsedData.education || [],
-          projects: parsedData.projects || [],
-          achievements: parsedData.achievements || [],
+          experiences: transformedExperiences,
+          education: transformedEducation,
+          projects: transformedProjects,
+          achievements: transformedAchievements,
         },
         visibility: 'private',
         source: 'pdf_upload',

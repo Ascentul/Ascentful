@@ -3,9 +3,620 @@ import OpenAI from 'openai';
 
 import { evaluate } from '@/lib/ai-evaluation';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
+import {
+  extractJobBlocks as extractJobBlocksFromLib,
+  type JobBlock,
+  parseExperienceFromJobBlocks,
+} from '@/lib/resume/jobBlockParser';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// ============================================================================
+// GROUND TRUTH EXTRACTION
+// ============================================================================
+// Pre-analyze the resume text to establish expectations for AI parsing.
+// This creates a "contract" that we can validate against.
+
+interface SectionInfo {
+  name: string;
+  startLine: number;
+  endLine: number;
+  bulletCount: number;
+  content: string;
+}
+
+// JobBlock type imported from @/lib/resume/jobBlockParser
+
+interface GroundTruth {
+  sections: SectionInfo[];
+  totalBullets: number;
+  experienceBullets: number;
+  dateRanges: { text: string; line: number }[];
+  certificationIndicators: number; // Count of certification-like items
+  hasSummary: boolean;
+  jobBlocks: JobBlock[]; // Ordered list of job blocks as they appear in document
+}
+
+interface ParsedExperienceEntry {
+  title?: string;
+  company?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  current?: boolean;
+  summary?: string;
+  keyContributions?: string[];
+}
+
+// Common section headers to detect
+const SECTION_PATTERNS: { name: string; patterns: RegExp[] }[] = [
+  {
+    name: 'SUMMARY',
+    patterns: [
+      /^(?:professional\s+)?summary$/i,
+      /^profile$/i,
+      /^(?:career\s+)?objective$/i,
+      /^about\s*(?:me)?$/i,
+      /^overview$/i,
+    ],
+  },
+  {
+    name: 'EXPERIENCE',
+    patterns: [
+      /^(?:work\s+)?experience$/i,
+      /^(?:professional\s+)?experience$/i,
+      /^employment(?:\s+history)?$/i,
+      /^work\s+history$/i,
+    ],
+  },
+  {
+    name: 'EDUCATION',
+    patterns: [/^education$/i, /^academic(?:\s+background)?$/i, /^qualifications$/i],
+  },
+  {
+    name: 'SKILLS',
+    patterns: [
+      /^(?:technical\s+)?skills$/i,
+      /^core\s+competencies$/i,
+      /^expertise$/i,
+      /^technologies$/i,
+    ],
+  },
+  {
+    name: 'CERTIFICATIONS',
+    patterns: [
+      /^certifications?$/i,
+      /^licenses?(?:\s*&\s*certifications?)?$/i,
+      /^credentials?$/i,
+      /^professional\s+certifications?$/i,
+    ],
+  },
+  {
+    name: 'PROJECTS',
+    patterns: [/^projects?$/i, /^(?:personal\s+)?projects$/i, /^portfolio$/i],
+  },
+  {
+    name: 'ACHIEVEMENTS',
+    patterns: [/^achievements?$/i, /^awards?$/i, /^honors?$/i, /^accomplishments?$/i],
+  },
+];
+
+function findSectionStarts(lines: string[]): { name: string; line: number; headerLine: string }[] {
+  const sectionStarts: { name: string; line: number; headerLine: string }[] = [];
+
+  lines.forEach((line, idx) => {
+    const trimmedLine = line.trim().replace(/[:\s]+$/, '');
+    if (!trimmedLine || trimmedLine.length > 50) return;
+
+    for (const section of SECTION_PATTERNS) {
+      for (const pattern of section.patterns) {
+        if (pattern.test(trimmedLine)) {
+          if (!sectionStarts.some((entry) => entry.line === idx)) {
+            sectionStarts.push({ name: section.name, line: idx, headerLine: trimmedLine });
+          }
+          return;
+        }
+      }
+    }
+  });
+
+  return sectionStarts.sort((a, b) => a.line - b.line);
+}
+
+function isSectionHeader(line: string): boolean {
+  const trimmedLine = line.trim().replace(/[:\s]+$/, '');
+  if (!trimmedLine || trimmedLine.length > 50) return false;
+  return SECTION_PATTERNS.some((section) =>
+    section.patterns.some((pattern) => pattern.test(trimmedLine)),
+  );
+}
+
+const BULLET_LINE_PATTERN = /^\s*(?:[•●○▪▸►➤➢]|[-*]|\d+[.)])\s+/;
+const ACCOMPLISHMENTS_HEADER_PATTERN =
+  /^(?:accomplishments?|achievements?|highlights?|responsibilities|key contributions?)\s*:?\s*$/i;
+const LOCATION_PATTERN = /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2,}(?:\s*\d{5})?$/;
+const REMOTE_PATTERN = /^(remote|hybrid|onsite)$/i;
+const COMPANY_HINT_PATTERN =
+  /\b(inc\.?|llc|l\.l\.c\.|corp\.?|corporation|company|co\.?|ltd\.?|limited|group|university|institutes?|laborator(?:y|ies)|labs?|agency|department|consulting|systems|solutions|technologies|health|bank|foundation|college|school|research)\b/i;
+const TITLE_HINT_PATTERN =
+  /\b(analyst|engineer|developer|designer|manager|director|lead|specialist|consultant|administrator|coordinator|intern|assistant|associate|officer|architect|strategist|scientist|principal|owner|founder|president|vice president|vp|product|marketing|sales|account|project|program|business|operations|research|data|software|qa|devops)\b/i;
+const MONTH_PATTERN =
+  'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+const RANGE_SEPARATOR = '(?:-|–|—|to)';
+const MONTH_RANGE_REGEX = new RegExp(
+  `(${MONTH_PATTERN})[.,]?\\s*(\\d{4})\\s*${RANGE_SEPARATOR}\\s*(?:(${MONTH_PATTERN})[.,]?\\s*(\\d{4})|(Present|Current|Now|Ongoing))`,
+  'i',
+);
+const NUMERIC_RANGE_REGEX =
+  /(\d{1,2})\s*\/\s*(\d{4})\s*(?:-|–|—|to)\s*(?:(\d{1,2})\s*\/\s*(\d{4})|(Present|Current|Now|Ongoing))/i;
+const YEAR_RANGE_REGEX =
+  /((?:19|20)\d{2})\s*(?:-|–|—|to)\s*((?:19|20)\d{2}|Present|Current|Now|Ongoing)/i;
+const DATE_RANGE_LINE_PATTERNS = [
+  new RegExp(
+    `(?:${MONTH_PATTERN})[.,]?\\s*\\d{4}\\s*${RANGE_SEPARATOR}\\s*(?:(?:${MONTH_PATTERN})[.,]?\\s*\\d{4}|Present|Current|Now|Ongoing)`,
+    'i',
+  ),
+  new RegExp(
+    `\\d{1,2}\\s*\\/\\s*\\d{4}\\s*${RANGE_SEPARATOR}\\s*(?:\\d{1,2}\\s*\\/\\s*\\d{4}|Present|Current|Now|Ongoing)`,
+    'i',
+  ),
+  new RegExp(
+    `(?:19|20)\\d{2}\\s*${RANGE_SEPARATOR}\\s*(?:(?:19|20)\\d{2}|Present|Current|Now|Ongoing)`,
+    'i',
+  ),
+];
+const MONTH_NUMBER_MAP: Record<string, string> = {
+  jan: '01',
+  january: '01',
+  feb: '02',
+  february: '02',
+  mar: '03',
+  march: '03',
+  apr: '04',
+  april: '04',
+  may: '05',
+  jun: '06',
+  june: '06',
+  jul: '07',
+  july: '07',
+  aug: '08',
+  august: '08',
+  sep: '09',
+  sept: '09',
+  september: '09',
+  oct: '10',
+  october: '10',
+  nov: '11',
+  november: '11',
+  dec: '12',
+  december: '12',
+};
+
+/**
+ * Count bullet points in text
+ * Recognizes: •, -, *, ●, ○, ▪, ▸, ►, ➤, ➢
+ */
+function countBullets(text: string): number {
+  const bulletPatterns = [
+    /^\s*[•●○▪▸►➤➢]\s+\S/gm, // Unicode bullets (allow indentation)
+    /^\s*[-*]\s+\S/gm, // Dash or asterisk followed by space and content
+    /^\s*\d+[.)]\s/gm, // Numbered lists like "1." or "1)"
+  ];
+
+  let count = 0;
+  for (const pattern of bulletPatterns) {
+    const matches = text.match(pattern);
+    if (matches) count += matches.length;
+  }
+  return count;
+}
+
+/**
+ * Extract date ranges from text
+ */
+function extractDateRanges(text: string): { text: string; line: number }[] {
+  const lines = text.split('\n');
+  const results: { text: string; line: number }[] = [];
+
+  const datePatterns = [
+    // "Month YYYY - Month YYYY" or "Month YYYY - Present"
+    /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}\s*(?:-|–|—|\bto\b)\s*(?:(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}|Present|Current|Now|Ongoing)/gi,
+    // "MM/YYYY - MM/YYYY"
+    /\d{1,2}\/\d{4}\s*(?:-|–|—|\bto\b)\s*(?:\d{1,2}\/\d{4}|Present|Current)/gi,
+    // "YYYY - YYYY"
+    /(?:19|20)\d{2}\s*(?:-|–|—|\bto\b)\s*(?:(?:19|20)\d{2}|Present|Current)/gi,
+  ];
+
+  lines.forEach((line, idx) => {
+    for (const pattern of datePatterns) {
+      pattern.lastIndex = 0;
+      const matches = line.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          // Avoid duplicates
+          if (!results.some((r) => r.text === match && Math.abs(r.line - idx) < 2)) {
+            results.push({ text: match, line: idx + 1 });
+          }
+        }
+      }
+    }
+  });
+
+  return results;
+}
+
+function findDateRange(text: string): string {
+  for (const pattern of DATE_RANGE_LINE_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) return match[0];
+  }
+  return '';
+}
+
+/**
+ * Detect certification indicators in text
+ */
+function countCertificationIndicators(text: string): number {
+  const certKeywords = [
+    /salesforce\s+(?:certified|administrator|consultant|developer)/gi,
+    /(?:aws|amazon)\s+(?:certified|solutions\s+architect)/gi,
+    /google\s+(?:certified|analytics|ads)/gi,
+    /microsoft\s+(?:certified|azure)/gi,
+    /pmp|project\s+management\s+professional/gi,
+    /(?:scrum|agile)\s+(?:master|certified)/gi,
+    /hubspot\s+(?:certified|certification)/gi,
+    /(?:certification|certified|credential)\s*(?:id|#)?[:.]?\s*[A-Z0-9-]+/gi,
+  ];
+
+  let count = 0;
+  for (const pattern of certKeywords) {
+    const matches = text.match(pattern);
+    if (matches) count += matches.length;
+  }
+  return count;
+}
+
+// extractJobBlocks function imported from @/lib/resume/jobBlockParser
+// Use extractJobBlocksFromLib as the implementation
+
+/**
+ * Extract ground truth from resume text
+ * This pre-analyzes the text to establish expectations for validation
+ */
+function extractGroundTruth(text: string): GroundTruth {
+  const lines = text.split('\n');
+  const sections: SectionInfo[] = [];
+
+  // Find all section boundaries
+  const sectionStarts = findSectionStarts(lines);
+
+  // Build section info with content and bullet counts
+  for (let i = 0; i < sectionStarts.length; i++) {
+    const start = sectionStarts[i];
+    const endLine = i < sectionStarts.length - 1 ? sectionStarts[i + 1].line : lines.length;
+    const content = lines.slice(start.line + 1, endLine).join('\n');
+
+    sections.push({
+      name: start.name,
+      startLine: start.line + 1,
+      endLine,
+      bulletCount: countBullets(content),
+      content,
+    });
+  }
+
+  // Calculate totals
+  const totalBullets = countBullets(text);
+  const experienceSection = sections.find((s) => s.name === 'EXPERIENCE');
+  const experienceBullets = experienceSection?.bulletCount || 0;
+  const dateRanges = extractDateRanges(text);
+  const certificationIndicators = countCertificationIndicators(text);
+  const jobBlocks = extractJobBlocksFromLib(text);
+
+  // Check if there's a summary section
+  const hasSummary =
+    sections.some((s) => s.name === 'SUMMARY') ||
+    /(?:professional\s+)?summary|profile|objective/i.test(text.substring(0, 1000));
+
+  return {
+    sections,
+    totalBullets,
+    experienceBullets,
+    dateRanges,
+    certificationIndicators,
+    hasSummary,
+    jobBlocks,
+  };
+}
+
+function normalizeMonthYear(text: string): string {
+  const monthMatch = text.match(new RegExp(`(${MONTH_PATTERN})[.,]?\\s*(\\d{4})`, 'i'));
+  if (monthMatch) {
+    const monthKey = monthMatch[1].toLowerCase().replace('.', '');
+    const monthNumber = MONTH_NUMBER_MAP[monthKey];
+    if (monthNumber) return `${monthNumber}/${monthMatch[2]}`;
+  }
+
+  const numericMatch = text.match(/(\d{1,2})\s*\/\s*(\d{4})/);
+  if (numericMatch) {
+    const paddedMonth = numericMatch[1].padStart(2, '0');
+    return `${paddedMonth}/${numericMatch[2]}`;
+  }
+
+  const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+  return yearMatch ? yearMatch[0] : text.trim();
+}
+
+function stripDateRangeFromLine(line: string): string {
+  let cleaned = line;
+  for (const pattern of DATE_RANGE_LINE_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '').trim();
+  }
+  return cleaned
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[\s|•·-]+$/, '')
+    .replace(/^[-–—|]\s*/, '')
+    .trim();
+}
+
+function parseDateRangeText(dateRange: string): {
+  startDate: string;
+  endDate: string;
+  current: boolean;
+} {
+  if (!dateRange) return { startDate: '', endDate: '', current: false };
+
+  const normalized = dateRange.replace(/\s+/g, ' ').trim();
+
+  const monthMatch = normalized.match(MONTH_RANGE_REGEX);
+  if (monthMatch) {
+    const startDate = normalizeMonthYear(`${monthMatch[1]} ${monthMatch[2]}`);
+    if (monthMatch[5]) {
+      return { startDate, endDate: 'Present', current: true };
+    }
+    const endDate = normalizeMonthYear(`${monthMatch[3]} ${monthMatch[4]}`);
+    return { startDate, endDate, current: false };
+  }
+
+  const numericMatch = normalized.match(NUMERIC_RANGE_REGEX);
+  if (numericMatch) {
+    const startDate = `${numericMatch[1].padStart(2, '0')}/${numericMatch[2]}`;
+    if (numericMatch[5]) {
+      return { startDate, endDate: 'Present', current: true };
+    }
+    const endDate = `${numericMatch[3].padStart(2, '0')}/${numericMatch[4]}`;
+    return { startDate, endDate, current: false };
+  }
+
+  const yearMatch = normalized.match(YEAR_RANGE_REGEX);
+  if (yearMatch) {
+    const endIsCurrent = /present|current|now|ongoing/i.test(yearMatch[2]);
+    return {
+      startDate: yearMatch[1],
+      endDate: endIsCurrent ? 'Present' : yearMatch[2],
+      current: endIsCurrent,
+    };
+  }
+
+  return { startDate: '', endDate: '', current: false };
+}
+
+function splitCompanyTitle(line: string): { company: string; title: string } | null {
+  const separators = [' | ', ' - ', ' — ', ' – '];
+  for (const separator of separators) {
+    if (!line.includes(separator)) continue;
+    const parts = line
+      .split(separator)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 2) return { company: parts[0], title: parts[1] };
+  }
+  return null;
+}
+
+function deriveCompanyAndTitle(
+  candidates: string[],
+  dateLineIndex: number = -1,
+): { company: string; title: string } {
+  const cleaned = candidates.map((line) => line.trim()).filter(Boolean);
+  if (cleaned.length === 0) return { company: '', title: '' };
+
+  if (cleaned.length > 1 && dateLineIndex >= 0 && dateLineIndex < cleaned.length) {
+    const dateLine = cleaned[dateLineIndex];
+    const otherLine = cleaned.find((_, idx) => idx !== dateLineIndex) || '';
+    const dateLineLooksTitle = TITLE_HINT_PATTERN.test(dateLine);
+    const dateLineLooksCompany = COMPANY_HINT_PATTERN.test(dateLine);
+    const otherLooksTitle = TITLE_HINT_PATTERN.test(otherLine);
+    const otherLooksCompany = COMPANY_HINT_PATTERN.test(otherLine);
+
+    if (otherLooksCompany && !otherLooksTitle && dateLineLooksTitle && !dateLineLooksCompany) {
+      return { company: otherLine, title: dateLine };
+    }
+    if (dateLineLooksCompany && !dateLineLooksTitle && otherLooksTitle && !otherLooksCompany) {
+      return { company: dateLine, title: otherLine };
+    }
+    if (dateLineLooksCompany && otherLooksTitle && !otherLooksCompany) {
+      return { company: dateLine, title: otherLine };
+    }
+    if (otherLooksCompany && dateLineLooksTitle && !dateLineLooksCompany) {
+      return { company: otherLine, title: dateLine };
+    }
+    if (otherLooksTitle) {
+      return { company: dateLine, title: otherLine };
+    }
+    if (dateLineLooksTitle && !otherLooksTitle) {
+      return { company: otherLine, title: dateLine };
+    }
+    return { company: dateLine, title: otherLine };
+  }
+
+  if (cleaned.length === 1) {
+    const split = splitCompanyTitle(cleaned[0]);
+    if (split) return split;
+    if (TITLE_HINT_PATTERN.test(cleaned[0]) && !COMPANY_HINT_PATTERN.test(cleaned[0])) {
+      return { company: '', title: cleaned[0] };
+    }
+    return { company: cleaned[0], title: '' };
+  }
+
+  for (const line of cleaned) {
+    const split = splitCompanyTitle(line);
+    if (split) return split;
+  }
+
+  const companyIndex = cleaned.findIndex((line) => COMPANY_HINT_PATTERN.test(line));
+  const titleIndex = cleaned.findIndex((line) => TITLE_HINT_PATTERN.test(line));
+
+  if (companyIndex !== -1 && titleIndex !== -1 && companyIndex !== titleIndex) {
+    return { company: cleaned[companyIndex], title: cleaned[titleIndex] };
+  }
+  if (titleIndex !== -1) {
+    const company = cleaned.find((_, idx) => idx !== titleIndex) || '';
+    return { company, title: cleaned[titleIndex] };
+  }
+  if (companyIndex !== -1) {
+    const title = cleaned.find((_, idx) => idx !== companyIndex) || '';
+    return { company: cleaned[companyIndex], title };
+  }
+
+  return { company: cleaned[0], title: cleaned[1] };
+}
+
+// ============================================================================
+// DEAD CODE REMOVED
+// ============================================================================
+// The parseExperienceFromJobBlock function (singular, 159 lines) that was here has been removed.
+// It was a duplicate of the implementation in src/lib/resume/jobBlockParser.ts.
+// The actual code uses parseExperienceFromJobBlocks (plural) imported from that module (line 9).
+// This route now properly uses the single source of truth from the shared module.
+
+// parseExperienceFromJobBlocks function imported from @/lib/resume/jobBlockParser
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+interface ParsedResume {
+  personalInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    github?: string;
+  };
+  summary?: string;
+  skills?: string[];
+  experience?: ParsedExperienceEntry[];
+  education?: Array<{
+    degree?: string;
+    field?: string;
+    school?: string;
+    location?: string;
+    startYear?: string;
+    endYear?: string;
+    graduationYear?: string;
+    gpa?: string;
+    honors?: string;
+  }>;
+  projects?: Array<{
+    name?: string;
+    role?: string;
+    technologies?: string;
+    description?: string;
+    url?: string;
+  }>;
+  achievements?: Array<{
+    title?: string;
+    description?: string;
+    date?: string;
+  }>;
+  certifications?: Array<{
+    name?: string;
+    issuer?: string;
+    date?: string;
+    expirationDate?: string;
+    credentialId?: string;
+    url?: string;
+  }>;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  stats: {
+    expectedBullets: number;
+    actualBullets: number;
+    expectedCerts: number;
+    actualCerts: number;
+  };
+}
+
+/**
+ * Validate parsed resume against ground truth
+ */
+function validateParsedResume(parsed: ParsedResume, groundTruth: GroundTruth): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Count bullets in parsed output
+  const actualBullets = (parsed.experience || []).reduce(
+    (sum, exp) => sum + (exp.keyContributions?.length || 0),
+    0,
+  );
+
+  // Count certifications
+  const actualCerts = parsed.certifications?.length || 0;
+
+  // Validation 1: Check bullet count (allow 15% tolerance for edge cases)
+  const bulletThreshold = Math.floor(groundTruth.experienceBullets * 0.85);
+  if (actualBullets < bulletThreshold && groundTruth.experienceBullets > 0) {
+    errors.push(
+      `Missing bullet points: expected ~${groundTruth.experienceBullets} in experience, got ${actualBullets}`,
+    );
+  }
+
+  // Validation 2: Check certifications
+  if (groundTruth.certificationIndicators > 0 && actualCerts === 0) {
+    errors.push(
+      `Certifications missing: found ${groundTruth.certificationIndicators} certification indicators in text, but none extracted`,
+    );
+  }
+
+  // Validation 3: Check if we have experience entries for each date range
+  const experienceCount = parsed.experience?.length || 0;
+  // Filter date ranges to only those likely in experience section (rough heuristic)
+  const experienceDateCount = Math.min(groundTruth.dateRanges.length, 10); // Cap at reasonable max
+  if (experienceCount < experienceDateCount - 1 && experienceDateCount > 0) {
+    warnings.push(
+      `Possible missing jobs: found ${experienceDateCount} date ranges, but only ${experienceCount} experience entries`,
+    );
+  }
+
+  // Validation 4: Check summary if expected
+  if (groundTruth.hasSummary && (!parsed.summary || parsed.summary.length < 20)) {
+    warnings.push('Professional summary may be missing or too short');
+  }
+
+  // Validation 5: Basic sanity checks
+  if (!parsed.personalInfo?.name || parsed.personalInfo.name === 'Imported Resume') {
+    warnings.push('Name not detected');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    stats: {
+      expectedBullets: groundTruth.experienceBullets,
+      actualBullets,
+      expectedCerts: groundTruth.certificationIndicators,
+      actualCerts,
+    },
+  };
+}
 
 /**
  * Enhanced fallback parser that uses regex to extract comprehensive resume information
@@ -381,10 +992,60 @@ export async function POST(req: NextRequest) {
         log.info('Starting OpenAI resume parsing', { event: 'ai.request' });
         const client = new OpenAI({ apiKey });
 
+        // Extract ground truth BEFORE AI parsing to establish expectations
+        const groundTruth = extractGroundTruth(resumeText);
+        log.debug('Ground truth extracted', {
+          event: 'groundtruth.extracted',
+          extra: {
+            totalBullets: groundTruth.totalBullets,
+            experienceBullets: groundTruth.experienceBullets,
+            certificationIndicators: groundTruth.certificationIndicators,
+            dateRanges: groundTruth.dateRanges.length,
+            hasSummary: groundTruth.hasSummary,
+            sections: groundTruth.sections.map((s) => s.name),
+            jobBlocksCount: groundTruth.jobBlocks.length,
+            jobBlocks: groundTruth.jobBlocks.map((j) => ({
+              order: j.order,
+              lineNumber: j.startLine,
+              lineCount: j.endLine - j.startLine,
+              hasDateRange: Boolean(j.dateRange),
+            })),
+          },
+        });
+
+        // Build the prompt with ground truth constraints
         const prompt = `You are a professional resume parser. Parse the following resume text and extract structured information.
 
 Resume Text:
 ${resumeText}
+
+=== GROUND TRUTH (Pre-analyzed from document - YOU MUST MATCH THESE) ===
+Total bullet points detected in document: ${groundTruth.totalBullets}
+Bullet points in Experience section: ${groundTruth.experienceBullets}
+Certification indicators found: ${groundTruth.certificationIndicators}
+Date ranges detected: ${groundTruth.dateRanges.map((d) => d.text).join(', ')}
+Has professional summary: ${groundTruth.hasSummary}
+
+=== JOB BLOCKS DETECTED IN DOCUMENT ORDER ===
+${
+  groundTruth.jobBlocks.length > 0
+    ? groundTruth.jobBlocks
+        .map(
+          (job) =>
+            `Position #${job.order} in document: "${job.headerLine}" (${job.dateRange || 'dates not auto-detected'})`,
+        )
+        .join('\n')
+    : 'Auto-detection found no job blocks - parse the Experience section carefully'
+}
+IMPORTANT: Your experience array output MUST follow this same order. Position #1 = experience[0], Position #2 = experience[1], etc.
+
+YOUR OUTPUT MUST:
+- Extract ALL work experience entries from the resume (not just the ones listed above)
+- Have approximately ${groundTruth.experienceBullets} total items across all keyContributions arrays (if bullets detected)
+- Extract ${groundTruth.certificationIndicators > 0 ? 'at least 1 certification' : 'certifications if present'}
+- ${groundTruth.hasSummary ? 'Include the professional summary' : 'Include summary if found'}
+- Maintain the exact order jobs appear in the document
+=== END GROUND TRUTH ===
 
 Return a JSON object with this exact structure:
 {
@@ -442,42 +1103,189 @@ Return a JSON object with this exact structure:
       "description": "Achievement description",
       "date": "Date if available"
     }
+  ],
+  "certifications": [
+    {
+      "name": "Certification name (e.g., Salesforce Marketing Cloud Account Engagement Consultant)",
+      "issuer": "Issuing organization (e.g., Salesforce, Google, AWS)",
+      "date": "Date obtained (MM/YYYY or YYYY)",
+      "expirationDate": "Expiration date if applicable",
+      "credentialId": "Credential ID if mentioned",
+      "url": "Verification URL if available"
+    }
   ]
 }
 
-IMPORTANT FORMATTING RULES:
-1. For work experience, separate the role summary from specific achievements:
+CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+1. CAPTURE ALL CONTENT - NO TRUNCATION:
+   - Extract EVERY SINGLE bullet point from each job - do not skip any
+   - If a job has 10 bullet points, keyContributions must have 10 items
+   - Count the bullets in the resume and make sure your output has the same count
+   - NEVER summarize or combine multiple bullets into one
+
+2. For work experience, separate the role summary from specific achievements:
    - "summary": A paragraph describing overall responsibilities (NO bullets, just plain text)
-   - "keyContributions": An array of specific achievements (each item is PLAIN TEXT without bullet symbols like •, -, or *)
-2. DO NOT include bullet point symbols (•, -, *, etc.) in the keyContributions array - just the text content
-3. Extract all information accurately. If a field is not found, use an empty string or empty array.
-4. Clean up any bullet symbols from the original resume text before adding to keyContributions.`;
+   - "keyContributions": An array containing EVERY achievement/bullet point (each item is PLAIN TEXT without bullet symbols)
 
-        const response = await client.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a professional resume parser. Output only valid JSON with the exact structure requested.',
+3. DO NOT include bullet point symbols (•, -, *, etc.) in the keyContributions array - just the text content
+
+4. Extract all information accurately. If a field is not found, use an empty string or empty array.
+
+5. PRESERVE DOCUMENT ORDER AND JOB INTEGRITY - THIS IS CRITICAL:
+   - Jobs MUST appear in the EXACT same order as they appear in the resume document
+   - The first job listed in the resume = the first item in the experience array
+   - Do NOT reorder jobs by date or any other criteria
+
+   CRITICAL - KEEP EACH JOB AS A COMPLETE UNIT:
+   - Each job block in the resume contains: company name, job title, date range, and bullet points
+   - ALL of these elements belong together and must stay together in your output
+   - Read each job block top-to-bottom: the company/title at the top of that block owns ALL the bullets beneath it until the next job block starts
+   - The bullets/achievements listed under a company belong to THAT company, not to any other company
+   - NEVER separate a company's name from its own bullets
+   - NEVER assign one company's bullets to a different company
+
+6. Each bullet point from the original resume becomes ONE item in keyContributions - never merge them.
+
+7. CERTIFICATIONS - Extract ALL certifications:
+   - Look for sections labeled "Certifications", "Licenses", "Credentials", "Professional Certifications"
+   - Extract each certification with its name, issuing organization, and date
+   - Common issuers: Salesforce, Google, AWS, Microsoft, HubSpot, etc.
+   - Do NOT put certifications in the achievements array - they go in the certifications array`;
+
+        const MAX_RETRIES = 2;
+        let parsedData: ParsedResume | null = null;
+        let validationResult: ValidationResult | null = null;
+        let lastValidationErrors: string[] = [];
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          // Build prompt with validation feedback on retry
+          let retryFeedback = '';
+          if (attempt > 0 && lastValidationErrors.length > 0) {
+            retryFeedback = `
+
+=== PREVIOUS ATTEMPT FAILED VALIDATION ===
+${lastValidationErrors.map((e) => `- ${e}`).join('\n')}
+Please fix these issues. Make sure to capture ALL content.
+=== END VALIDATION FEEDBACK ===`;
+          }
+
+          const fullPrompt = prompt + retryFeedback;
+
+          log.info(`AI parsing attempt ${attempt + 1}/${MAX_RETRIES + 1}`, {
+            event: 'ai.attempt',
+            extra: { attempt, hasRetryFeedback: attempt > 0 },
+          });
+
+          const response = await client.chat.completions.create({
+            model: 'gpt-5',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a professional resume parser. Extract ALL content from the resume - do not truncate or skip any bullet points. CRITICAL: Keep each job as a complete unit - the company name, job title, dates, and all bullets must stay together as they appear in the document. Never swap content between jobs. Output only valid JSON with the exact structure requested.',
+              },
+              { role: 'user', content: fullPrompt },
+            ],
+            response_format: { type: 'json_object' },
+            // Note: GPT-5 does not support temperature parameter
+            max_completion_tokens: 16000, // Increased to ensure all content is captured
+          });
+
+          const content = response.choices[0]?.message?.content || '{}';
+
+          // Parse JSON with error handling
+          try {
+            parsedData = JSON.parse(content) as ParsedResume;
+          } catch (parseError) {
+            log.warn('Failed to parse AI response as JSON', {
+              event: 'ai.json_parse_error',
+              extra: { attempt, contentPreview: content.substring(0, 200) },
+            });
+            lastValidationErrors = ['AI returned invalid JSON'];
+            if (attempt < MAX_RETRIES) continue;
+            throw new Error('Failed to parse AI response as JSON');
+          }
+
+          const jobBlockExperience = parseExperienceFromJobBlocks(groundTruth.jobBlocks);
+          // Only use job-block experience if it has more entries/bullets than AI output
+          // This allows AI retries to fix experience-related validation errors
+          const aiExperienceCount = parsedData.experience?.length || 0;
+          const aiExperienceBullets = (parsedData.experience || []).reduce(
+            (sum, exp) => sum + (exp.keyContributions?.length || 0),
+            0,
+          );
+          const jobBlockBullets = jobBlockExperience.reduce(
+            (sum, exp) => sum + (exp.keyContributions?.length || 0),
+            0,
+          );
+          if (
+            jobBlockExperience.length > 0 &&
+            (jobBlockExperience.length > aiExperienceCount || jobBlockBullets > aiExperienceBullets)
+          ) {
+            parsedData.experience = jobBlockExperience;
+            log.debug('Experience rebuilt from job blocks (higher quality)', {
+              event: 'experience.job_blocks',
+              extra: {
+                jobBlocksCount: groundTruth.jobBlocks.length,
+                experienceCount: jobBlockExperience.length,
+                aiEntries: aiExperienceCount,
+                jobBlockEntries: jobBlockExperience.length,
+                aiBullets: aiExperienceBullets,
+                jobBlockBullets,
+              },
+            });
+          }
+
+          // Validate against ground truth
+          validationResult = validateParsedResume(parsedData, groundTruth);
+
+          log.info('Validation result', {
+            event: 'validation.result',
+            extra: {
+              attempt,
+              isValid: validationResult.isValid,
+              errors: validationResult.errors,
+              warnings: validationResult.warnings,
+              stats: validationResult.stats,
             },
-            { role: 'user', content: prompt },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.3, // Lower temperature for more accurate parsing
-        });
+          });
 
-        const content = response.choices[0]?.message?.content || '{}';
-        const parsedData = JSON.parse(content);
+          if (validationResult.isValid) {
+            log.info(`AI parsing succeeded on attempt ${attempt + 1}`, {
+              event: 'ai.success',
+              extra: { attempt },
+            });
+            break;
+          }
+
+          // Store errors for retry feedback
+          lastValidationErrors = validationResult.errors;
+
+          if (attempt < MAX_RETRIES) {
+            log.warn('Validation failed, retrying', {
+              event: 'validation.retry',
+              extra: { attempt, errors: validationResult.errors },
+            });
+          }
+        }
 
         log.info('OpenAI resume parsing completed', { event: 'ai.response' });
+
+        // Handle case where no valid parse was obtained (shouldn't happen but be safe)
+        if (!parsedData) {
+          log.error('No parsed data after all attempts', 'PARSE_FAILED', {
+            event: 'ai.parse.failed',
+          });
+          throw new Error('Failed to parse resume after multiple attempts');
+        }
 
         // Evaluate AI-parsed resume (non-blocking for now)
         try {
           const evalResult = await evaluate({
             tool_id: 'resume-parse',
             input: { resumeText },
-            output: parsedData,
+            output: parsedData as unknown as Record<string, unknown>,
           });
 
           if (!evalResult.passed) {
@@ -502,17 +1310,36 @@ IMPORTANT FORMATTING RULES:
           event: 'request.success',
           httpStatus: 200,
           durationMs,
+          extra: {
+            validationPassed: validationResult?.isValid ?? false,
+            bulletsCaptured: validationResult?.stats.actualBullets ?? 0,
+            bulletsExpected: validationResult?.stats.expectedBullets ?? 0,
+          },
         });
 
-        return NextResponse.json(
-          {
-            success: true,
-            data: parsedData,
-          },
-          {
-            headers: { 'x-correlation-id': correlationId },
-          },
-        );
+        // Build response with validation metadata
+        const responseData: Record<string, unknown> = {
+          success: true,
+          data: parsedData,
+        };
+
+        // Include validation stats and warnings for debugging/transparency
+        if (validationResult) {
+          responseData.validation = {
+            passed: validationResult.isValid,
+            stats: validationResult.stats,
+            warnings: validationResult.warnings,
+          };
+
+          // If validation ultimately failed, include errors as warnings in response
+          if (!validationResult.isValid) {
+            responseData.warning = `Parsing may be incomplete: ${validationResult.errors.join('; ')}`;
+          }
+        }
+
+        return NextResponse.json(responseData, {
+          headers: { 'x-correlation-id': correlationId },
+        });
       } catch (aiError: any) {
         log.warn('AI parsing error, falling back to regex parser', {
           event: 'ai.fallback',
