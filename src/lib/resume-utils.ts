@@ -63,8 +63,8 @@ export function parseDescriptionToStructured(description: string): {
   // Also handle inline - and * bullets for robustness (e.g., "text - bullet1 - bullet2")
   const normalized = description
     .replace(/•/g, '\n•')
-    .replace(/\s-\s/g, '\n- ')
-    .replace(/\s\*\s/g, '\n* ');
+    .replace(/\s-\s(?=[A-Za-z])/g, '\n- ')
+    .replace(/\s\*\s(?=[A-Za-z])/g, '\n* ');
   const lines = normalized.split('\n');
   const summaryLines: string[] = [];
   const bullets: string[] = [];
