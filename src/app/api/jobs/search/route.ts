@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
           log.error('Adzuna retry request failed', toErrorCode('EXTERNAL_API_ERROR'), {
             event: 'adzuna.retry_failed',
             httpStatus: retryRes.status,
+            extra: meta,
           });
           return NextResponse.json(
             {
@@ -128,6 +129,7 @@ export async function POST(request: NextRequest) {
         log.error('Adzuna request failed', toErrorCode('EXTERNAL_API_ERROR'), {
           event: 'adzuna.request_failed',
           httpStatus: res.status,
+          extra: meta,
         });
         return NextResponse.json(
           { error: 'Job search service temporarily unavailable' },

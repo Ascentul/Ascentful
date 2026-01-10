@@ -1,5 +1,5 @@
 // AI-powered Job Description analysis API route
-// Uses PRO tier for comprehensive parsing and keyword extraction
+// Uses STANDARD tier (gpt-5-mini) for lightweight parsing and keyword extraction
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';

@@ -17,6 +17,10 @@ import { FONT_PAIRINGS } from '../types';
 // Shared components used by all template layouts
 // ============================================================================
 
+// Pattern to detect action verb bullets (hoisted to avoid per-render compilation)
+const ACTION_VERB_PATTERN =
+  /^(Led|Managed|Developed|Built|Created|Implemented|Designed|Launched|Delivered|Achieved|Increased|Reduced|Improved|Optimized|Coordinated|Executed|Analyzed|Conducted|Oversaw|Spearheaded|Initiated|Established|Directed)\b/i;
+
 interface BaseProps {
   config: TemplateLayoutConfig;
   className?: string;
@@ -168,11 +172,9 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
   // This handles cases where the AI put all content in keyContributions
   if (!displaySummary && displayBullets.length > 0) {
     const firstBullet = displayBullets[0];
-    const actionVerbPattern =
-      /^(Led|Managed|Developed|Built|Created|Implemented|Designed|Launched|Delivered|Achieved|Increased|Reduced|Improved|Optimized|Coordinated|Executed|Analyzed|Conducted|Oversaw|Spearheaded|Initiated|Established|Directed)\b/i;
 
     // Promote to summary if it's long and doesn't start with action verb (likely descriptive)
-    if (firstBullet.length > 60 && !actionVerbPattern.test(firstBullet)) {
+    if (firstBullet.length > 60 && !ACTION_VERB_PATTERN.test(firstBullet)) {
       displaySummary = firstBullet;
       displayBullets = displayBullets.slice(1);
     }

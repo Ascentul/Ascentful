@@ -127,12 +127,14 @@ export function CreateResumeFunnel({
           const { summary, keyContributions } = parseDescriptionToStructured(jobSummary);
 
           return {
-            id: `exp-${index}`,
+            // Use crypto.randomUUID() for stable IDs that won't change on reorder
+            id: `exp-${crypto.randomUUID()}`,
             title: job.role || '',
             company: job.company || '',
             location: job.location || '',
             startDate: job.start_date || '',
-            endDate: job.is_current ? 'Present' : job.end_date || '',
+            // Leave endDate empty for current roles - current flag is source of truth
+            endDate: job.is_current ? '' : job.end_date || '',
             current: job.is_current || false,
             // Keep description for backward compatibility
             description: jobSummary,

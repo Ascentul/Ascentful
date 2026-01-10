@@ -56,11 +56,8 @@ export function ExperienceSection({
 
     // Update experiences if any were parsed
     if (experiencesToUpdate.length > 0) {
-      const updatedExperiences = experiences.map((exp) => {
-        const updated = experiencesToUpdate.find((u) => u.id === exp.id);
-        return updated || exp;
-      });
-      onChange(updatedExperiences);
+      const byId = new Map(experiencesToUpdate.map((e) => [e.id, e]));
+      onChange(experiences.map((exp) => byId.get(exp.id) ?? exp));
     }
   }, [experiences, onChange]);
 
@@ -281,6 +278,8 @@ export function ExperienceSection({
             </div>
 
             <div className="space-y-2">
+              {/* Note: Using index as key can cause cursor jumps on delete.
+                  Consider refactoring keyContributions to {id, text}[] if UX issues arise. */}
               {(exp.keyContributions || []).map((bullet, bulletIndex) => (
                 <div key={bulletIndex} className="flex items-start gap-2">
                   <span className="text-slate-400 mt-2.5 text-sm">•</span>

@@ -33,21 +33,25 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
 
   // Summary
   if (data.summary) {
-    parts.push('\nPROFESSIONAL SUMMARY');
+    parts.push('');
+    parts.push('PROFESSIONAL SUMMARY');
     parts.push(data.summary);
   }
 
   // Skills
   if (data.skills && data.skills.length > 0) {
-    parts.push('\nSKILLS');
+    parts.push('');
+    parts.push('SKILLS');
     parts.push(data.skills.join(', '));
   }
 
   // Experience
   if (data.experience && data.experience.length > 0) {
-    parts.push('\nEXPERIENCE');
+    parts.push('');
+    parts.push('EXPERIENCE');
     for (const exp of data.experience) {
-      parts.push(`\n${exp.title} at ${exp.company}`);
+      parts.push('');
+      parts.push(`${exp.title} at ${exp.company}`);
       if (exp.location) parts.push(exp.location);
 
       const dateRange = exp.current
@@ -89,10 +93,12 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
 
   // Education
   if (data.education && data.education.length > 0) {
-    parts.push('\nEDUCATION');
+    parts.push('');
+    parts.push('EDUCATION');
     for (const edu of data.education) {
       const degreeField = edu.field ? `${edu.degree} in ${edu.field}` : edu.degree;
-      parts.push(`\n${degreeField}`);
+      parts.push('');
+      parts.push(degreeField);
       parts.push(edu.school);
       if (edu.location) parts.push(edu.location);
 
@@ -106,9 +112,11 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
 
   // Projects
   if (data.projects && data.projects.length > 0) {
-    parts.push('\nPROJECTS');
+    parts.push('');
+    parts.push('PROJECTS');
     for (const project of data.projects) {
-      parts.push(`\n${project.name}`);
+      parts.push('');
+      parts.push(project.name);
       if (project.role) parts.push(project.role);
       if (project.description) parts.push(project.description);
       if (project.technologies) parts.push(`Technologies: ${project.technologies}`);
@@ -118,9 +126,11 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
 
   // Achievements
   if (data.achievements && data.achievements.length > 0) {
-    parts.push('\nACHIEVEMENTS');
+    parts.push('');
+    parts.push('ACHIEVEMENTS');
     for (const achievement of data.achievements) {
-      parts.push(`\n${achievement.title}`);
+      parts.push('');
+      parts.push(achievement.title);
       if (achievement.date) parts.push(achievement.date);
       if (achievement.description) parts.push(achievement.description);
     }
@@ -128,9 +138,11 @@ export function resumeDataToText(data: ResumeData, opts?: { includeContactPII?: 
 
   // Certifications
   if (data.certifications && data.certifications.length > 0) {
-    parts.push('\nCERTIFICATIONS');
+    parts.push('');
+    parts.push('CERTIFICATIONS');
     for (const cert of data.certifications) {
-      parts.push(`\n${cert.name}`);
+      parts.push('');
+      parts.push(cert.name);
       if (cert.issuer) parts.push(`Issued by: ${cert.issuer}`);
       if (cert.date) parts.push(`Date: ${cert.date}`);
       if (cert.expirationDate) parts.push(`Expires: ${cert.expirationDate}`);

@@ -204,9 +204,11 @@ export async function callAI<T>(
         console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
       }
 
-      // Exponential backoff before retry (2s, 4s, 8s...)
+      // Exponential backoff with jitter before retry (prevents thundering herd)
       if (attempt < maxRetries) {
-        const backoffMs = Math.pow(2, attempt) * 1000;
+        const baseBackoffMs = Math.pow(2, attempt) * 1000;
+        const jitter = 0.5 + Math.random(); // Random multiplier between 0.5 and 1.5
+        const backoffMs = Math.floor(baseBackoffMs * jitter);
         console.log(`Retrying in ${backoffMs}ms...`);
         await new Promise((r) => setTimeout(r, backoffMs));
       }
@@ -318,9 +320,11 @@ export async function callAIText(
         console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
       }
 
-      // Exponential backoff before retry (2s, 4s, 8s...)
+      // Exponential backoff with jitter before retry (prevents thundering herd)
       if (attempt < maxRetries) {
-        const backoffMs = Math.pow(2, attempt) * 1000;
+        const baseBackoffMs = Math.pow(2, attempt) * 1000;
+        const jitter = 0.5 + Math.random(); // Random multiplier between 0.5 and 1.5
+        const backoffMs = Math.floor(baseBackoffMs * jitter);
         console.log(`Retrying in ${backoffMs}ms...`);
         await new Promise((r) => setTimeout(r, backoffMs));
       }

@@ -1215,26 +1215,6 @@ function ExperienceEntry({
           />
         </div>
       )}
-      {/* Fallback: show bullets without label if no summary and no displayBullets */}
-      {!displaySummary && displayBullets.length === 0 && allBullets.length > 0 && (
-        <div className="mt-2 text-[11pt]">
-          <BulletEditable
-            spanId={`experience-${experience.id}-bullets`}
-            bullets={allBullets}
-            onChange={handleBulletsChange}
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            isMissing={bulletIsMissing}
-            placeholder={
-              bulletIsMissing ? 'Describe your achievement or responsibility...' : undefined
-            }
-            editorMode={editorMode}
-            aiSuggestions={aiSuggestions}
-            focusedSuggestionId={focusedSuggestionId}
-            onTrackChangeClick={onTrackChangeClick}
-          />
-        </div>
-      )}
     </div>
   );
 }

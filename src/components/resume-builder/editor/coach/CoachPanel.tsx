@@ -193,7 +193,7 @@ function TailorTabContent({
                         ? 'bg-amber-500'
                         : 'bg-red-500',
                   )}
-                  style={{ width: `${matchScore}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, matchScore))}%` }}
                 />
               </div>
               <p className="text-xs text-slate-500 mt-2">

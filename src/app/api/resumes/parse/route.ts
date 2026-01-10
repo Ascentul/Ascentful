@@ -3,6 +3,11 @@ import OpenAI from 'openai';
 
 import { evaluate } from '@/lib/ai-evaluation';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
+import {
+  extractJobBlocks as extractJobBlocksFromLib,
+  type JobBlock,
+  parseExperienceFromJobBlocks,
+} from '@/lib/resume/jobBlockParser';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,15 +26,7 @@ interface SectionInfo {
   content: string;
 }
 
-interface JobBlock {
-  order: number; // 1-based position in document
-  dateRange: string;
-  headerLine: string; // First line of the job block (usually title/company)
-  preview: string; // First 200 chars of content
-  startLine: number;
-  endLine: number;
-  blockText: string;
-}
+// JobBlock type imported from @/lib/resume/jobBlockParser
 
 interface GroundTruth {
   sections: SectionInfo[];
@@ -280,98 +277,8 @@ function countCertificationIndicators(text: string): number {
   return count;
 }
 
-/**
- * Extract job blocks from experience section in document order
- * This helps ensure the AI maintains the same ordering
- */
-function extractJobBlocks(text: string): JobBlock[] {
-  const lines = text.split('\n');
-  const jobBlocks: JobBlock[] = [];
-
-  // Find experience section boundaries
-  let expStart = -1;
-  let expEnd = lines.length;
-  const sectionStarts = findSectionStarts(lines);
-  const experienceIndex = sectionStarts.findIndex((section) => section.name === 'EXPERIENCE');
-  if (experienceIndex !== -1) {
-    expStart = sectionStarts[experienceIndex].line + 1;
-    const nextSection = sectionStarts.slice(experienceIndex + 1).find((section) => {
-      if (section.line <= expStart) return false;
-      if (section.name !== 'ACHIEVEMENTS') return true;
-      if (!ACCOMPLISHMENTS_HEADER_PATTERN.test(section.headerLine)) return true;
-      const lookbackStart = Math.max(expStart, section.line - 12);
-      for (let i = section.line - 1; i >= lookbackStart; i--) {
-        if (findDateRange(lines[i])) return false;
-      }
-      return true;
-    });
-    if (nextSection) expEnd = nextSection.line;
-  }
-
-  if (expStart === -1) return jobBlocks;
-
-  // Find lines with date ranges - these typically mark job entries
-  const jobStartLines: number[] = [];
-  for (let i = expStart; i < expEnd; i++) {
-    const line = lines[i];
-    const trimmedLine = line.trim();
-    if (!trimmedLine || BULLET_LINE_PATTERN.test(trimmedLine)) continue;
-    if (findDateRange(trimmedLine)) {
-      // Walk up to include contiguous header lines above the date line
-      let headerLine = i;
-      for (let j = i - 1; j >= expStart; j--) {
-        const prevLine = lines[j].trim();
-        if (
-          !prevLine ||
-          prevLine.length > 120 ||
-          BULLET_LINE_PATTERN.test(prevLine) ||
-          ACCOMPLISHMENTS_HEADER_PATTERN.test(prevLine)
-        ) {
-          break;
-        }
-        headerLine = j;
-      }
-      if (!jobStartLines.includes(headerLine)) jobStartLines.push(headerLine);
-    }
-  }
-
-  jobStartLines.sort((a, b) => a - b);
-
-  // Extract job blocks
-  for (let i = 0; i < jobStartLines.length; i++) {
-    const startLine = jobStartLines[i];
-    const endLine = i < jobStartLines.length - 1 ? jobStartLines[i + 1] : expEnd;
-
-    const blockLines = lines.slice(startLine, endLine);
-    const blockText = blockLines.join('\n');
-
-    // Find the date range in this block
-    const dateRange = findDateRange(blockText);
-
-    // Get header line (first non-empty line)
-    const headerLineText = blockLines.find((l) => l.trim().length > 0)?.trim() || '';
-
-    // Get preview (first 200 chars of content after header)
-    const contentStart = blockLines.findIndex((l) => l.trim().length > 0);
-    const preview = blockLines
-      .slice(contentStart, contentStart + 5)
-      .join(' ')
-      .substring(0, 200)
-      .trim();
-
-    jobBlocks.push({
-      order: i + 1,
-      dateRange,
-      headerLine: headerLineText,
-      preview,
-      startLine,
-      endLine,
-      blockText,
-    });
-  }
-
-  return jobBlocks;
-}
+// extractJobBlocks function imported from @/lib/resume/jobBlockParser
+// Use extractJobBlocksFromLib as the implementation
 
 /**
  * Extract ground truth from resume text
@@ -405,7 +312,7 @@ function extractGroundTruth(text: string): GroundTruth {
   const experienceBullets = experienceSection?.bulletCount || 0;
   const dateRanges = extractDateRanges(text);
   const certificationIndicators = countCertificationIndicators(text);
-  const jobBlocks = extractJobBlocks(text);
+  const jobBlocks = extractJobBlocksFromLib(text);
 
   // Check if there's a summary section
   const hasSummary =
@@ -736,18 +643,7 @@ function parseExperienceFromJobBlock(block: JobBlock): ParsedExperienceEntry {
   };
 }
 
-function parseExperienceFromJobBlocks(jobBlocks: JobBlock[]): ParsedExperienceEntry[] {
-  const experiences = jobBlocks.map((block) => parseExperienceFromJobBlock(block));
-  return experiences.filter(
-    (exp) =>
-      exp.company ||
-      exp.title ||
-      exp.summary ||
-      (exp.keyContributions && exp.keyContributions.length > 0) ||
-      exp.startDate ||
-      exp.endDate,
-  );
-}
+// parseExperienceFromJobBlocks function imported from @/lib/resume/jobBlockParser
 
 // ============================================================================
 // VALIDATION
