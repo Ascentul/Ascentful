@@ -1042,10 +1042,10 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       setAssistMode,
       showInlineToolbar,
       hideInlineToolbar,
+      rewriteBullet,
       optimizeForJob,
       applyOptimizedResume,
       discardOptimizedResume,
-      rewriteBullet,
     ],
   );
 

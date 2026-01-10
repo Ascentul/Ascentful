@@ -1110,19 +1110,13 @@ function ExperienceEntry({
   const handleBulletsChange = (newBullets: string[]) => {
     const nextAllBullets = newBullets;
 
-    // If using keyContributions, update that field (and keep legacy description in sync)
-    if (usesKeyContributions) {
-      onChange({
-        ...experience,
-        keyContributions: nextAllBullets,
-        description: bulletPointsToDescription(nextAllBullets),
-      });
-    } else {
-      onChange({
-        ...experience,
-        description: bulletPointsToDescription(nextAllBullets),
-      });
-    }
+    // Always set keyContributions when user edits bullets to complete migration from legacy format
+    // This ensures legacy records (keyContributions: undefined) migrate to structured format on first edit
+    onChange({
+      ...experience,
+      keyContributions: nextAllBullets,
+      description: bulletPointsToDescription(nextAllBullets),
+    });
   };
 
   // Check if any bullet in this experience is missing (needs description)

@@ -151,8 +151,9 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
   const spacing = config.density === 'comfortable' ? '12px' : '8px';
 
   // Check if using structured format (summary + keyContributions)
+  // Use presence check (not length) to match canvas behavior - even empty arrays mean "structured mode"
   const hasStructuredData =
-    experience.summary || (experience.keyContributions && experience.keyContributions.length > 0);
+    experience.summary !== undefined || experience.keyContributions !== undefined;
 
   // If no structured data, parse description into summary + bullets
   // This handles legacy data that only has description field populated
@@ -455,19 +456,24 @@ export function BulletList({ items, config }: BulletListProps) {
         marginTop: '4px',
       }}
     >
-      {items.map((item, idx) => (
-        <li
-          key={idx}
-          style={{
-            fontFamily: fonts.body,
-            fontSize: '11pt',
-            lineHeight: '1.3',
-            marginBottom: '4px',
-          }}
-        >
-          {item}
-        </li>
-      ))}
+      {items.map((item, idx) => {
+        // Strip any leading bullet markers to prevent "double bullets"
+        // (in case AI/legacy data includes •/-/* at the start)
+        const cleanItem = item.replace(/^[•\-\*]\s*/, '').trim();
+        return (
+          <li
+            key={idx}
+            style={{
+              fontFamily: fonts.body,
+              fontSize: '11pt',
+              lineHeight: '1.3',
+              marginBottom: '4px',
+            }}
+          >
+            {cleanItem}
+          </li>
+        );
+      })}
     </ul>
   );
 }

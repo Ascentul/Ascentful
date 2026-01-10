@@ -60,7 +60,11 @@ export function parseDescriptionToStructured(description: string): {
   }
 
   // Normalize inline bullets into newline-start bullets to support legacy "… • … • …" strings
-  const normalized = description.replace(/•/g, '\n•');
+  // Also handle inline - and * bullets for robustness (e.g., "text - bullet1 - bullet2")
+  const normalized = description
+    .replace(/•/g, '\n•')
+    .replace(/\s-\s/g, '\n- ')
+    .replace(/\s\*\s/g, '\n* ');
   const lines = normalized.split('\n');
   const summaryLines: string[] = [];
   const bullets: string[] = [];

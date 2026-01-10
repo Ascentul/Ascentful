@@ -62,7 +62,7 @@ async function findClerkUser(email) {
   }
 
   const data = await res.json();
-  return Array.isArray(data) ? data[0] ?? null : (data.data?.[0] ?? null);
+  return data.data?.[0] ?? null;
 }
 
 async function seedApplications(clerkId) {
@@ -70,10 +70,24 @@ async function seedApplications(clerkId) {
 
   const { api } = require('../convex/_generated/api');
 
+  // Query existing applications to avoid duplicates
+  console.log('Checking for existing applications...');
+  const existingApps = await client.query(api.applications.getUserApplications, { clerkId });
+  const existingKeys = new Set(
+    existingApps.map(app => `${app.company}|${app.job_title}|${app.status}`)
+  );
+  console.log(`Found ${existingApps.length} existing application(s)\n`);
+
   let failures = 0;
-  // Note: This does not check for duplicates - running multiple times will create duplicate records
-  // For idempotent seeding, consider querying existing applications before creating
+  let skipped = 0;
   for (const app of sampleApplications) {
+    const key = `${app.company}|${app.job_title}|${app.status}`;
+    if (existingKeys.has(key)) {
+      console.log(`⏭️  Skipping duplicate: ${app.company} - ${app.job_title} (${app.status})`);
+      skipped += 1;
+      continue;
+    }
+
     try {
       await client.mutation(api.applications.createApplication, {
         clerkId,
@@ -91,6 +105,9 @@ async function seedApplications(clerkId) {
   }
 
   console.log("\n✨ Done seeding sample applications!");
+  if (skipped > 0) {
+    console.log(`ℹ️  Skipped ${skipped} duplicate(s)`);
+  }
 
   if (failures > 0) {
     console.error(`\n⚠️  ${failures} application(s) failed to seed`);

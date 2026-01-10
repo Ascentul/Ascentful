@@ -43,13 +43,16 @@ export function ExperienceSection({
       if (hasEmptyStructured && hasDescription) {
         // Parse description into structured fields
         const { summary, keyContributions } = parseDescriptionToStructured(exp.description);
+
+        // Always mark as processed (even if parse yields empty) to prevent infinite retry
+        autoParseRef.current.add(exp.id);
+
         if (summary || keyContributions.length > 0) {
           experiencesToUpdate.push({
             ...exp,
             summary,
             keyContributions,
           });
-          autoParseRef.current.add(exp.id);
         }
       }
     }

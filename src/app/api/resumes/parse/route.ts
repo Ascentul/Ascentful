@@ -199,7 +199,7 @@ const MONTH_NUMBER_MAP: Record<string, string> = {
  */
 function countBullets(text: string): number {
   const bulletPatterns = [
-    /^[•●○▪▸►➤➢]\s/gm, // Unicode bullets at line start
+    /^\s*[•●○▪▸►➤➢]\s+\S/gm, // Unicode bullets (allow indentation)
     /^\s*[-*]\s+\S/gm, // Dash or asterisk followed by space and content
     /^\s*\d+[.)]\s/gm, // Numbered lists like "1." or "1)"
   ];
@@ -221,11 +221,11 @@ function extractDateRanges(text: string): { text: string; line: number }[] {
 
   const datePatterns = [
     // "Month YYYY - Month YYYY" or "Month YYYY - Present"
-    /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}\s*[-–—to]+\s*(?:(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}|Present|Current|Now|Ongoing)/gi,
+    /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}\s*(?:-|–|—|\bto\b)\s*(?:(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.,]?\s*\d{4}|Present|Current|Now|Ongoing)/gi,
     // "MM/YYYY - MM/YYYY"
-    /\d{1,2}\/\d{4}\s*[-–—to]+\s*(?:\d{1,2}\/\d{4}|Present|Current)/gi,
+    /\d{1,2}\/\d{4}\s*(?:-|–|—|\bto\b)\s*(?:\d{1,2}\/\d{4}|Present|Current)/gi,
     // "YYYY - YYYY"
-    /(?:19|20)\d{2}\s*[-–—to]+\s*(?:(?:19|20)\d{2}|Present|Current)/gi,
+    /(?:19|20)\d{2}\s*(?:-|–|—|\bto\b)\s*(?:(?:19|20)\d{2}|Present|Current)/gi,
   ];
 
   lines.forEach((line, idx) => {
@@ -1158,8 +1158,9 @@ export async function POST(req: NextRequest) {
             jobBlocksCount: groundTruth.jobBlocks.length,
             jobBlocks: groundTruth.jobBlocks.map((j) => ({
               order: j.order,
-              header: j.headerLine,
-              dates: j.dateRange,
+              lineNumber: j.startLine,
+              lineCount: j.endLine - j.startLine,
+              hasDateRange: Boolean(j.dateRange),
             })),
           },
         });
@@ -1340,8 +1341,7 @@ Please fix these issues. Make sure to capture ALL content.
             ],
             response_format: { type: 'json_object' },
             // Note: GPT-5 does not support temperature parameter
-            // Note: Using max_tokens (OpenAI SDK types don't yet include max_output_tokens for GPT-5)
-            max_tokens: 16000, // Increased to ensure all content is captured
+            max_completion_tokens: 16000, // Increased to ensure all content is captured
           });
 
           const content = response.choices[0]?.message?.content || '{}';
@@ -1362,6 +1362,7 @@ Please fix these issues. Make sure to capture ALL content.
           const jobBlockExperience = parseExperienceFromJobBlocks(groundTruth.jobBlocks);
           // Only use job-block experience if it has more entries/bullets than AI output
           // This allows AI retries to fix experience-related validation errors
+          const aiExperienceCount = parsedData.experience?.length || 0;
           const aiExperienceBullets = (parsedData.experience || []).reduce(
             (sum, exp) => sum + (exp.keyContributions?.length || 0),
             0,
@@ -1372,8 +1373,7 @@ Please fix these issues. Make sure to capture ALL content.
           );
           if (
             jobBlockExperience.length > 0 &&
-            (jobBlockExperience.length > (parsedData.experience?.length || 0) ||
-              jobBlockBullets > aiExperienceBullets)
+            (jobBlockExperience.length > aiExperienceCount || jobBlockBullets > aiExperienceBullets)
           ) {
             parsedData.experience = jobBlockExperience;
             log.debug('Experience rebuilt from job blocks (higher quality)', {
@@ -1381,7 +1381,7 @@ Please fix these issues. Make sure to capture ALL content.
               extra: {
                 jobBlocksCount: groundTruth.jobBlocks.length,
                 experienceCount: jobBlockExperience.length,
-                aiEntries: parsedData.experience?.length || 0,
+                aiEntries: aiExperienceCount,
                 jobBlockEntries: jobBlockExperience.length,
                 aiBullets: aiExperienceBullets,
                 jobBlockBullets,

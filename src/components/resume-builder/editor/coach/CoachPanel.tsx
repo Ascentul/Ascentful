@@ -335,7 +335,7 @@ function TailorTabContent({
               )}
 
               {/* Apply/Discard Optimized Resume */}
-              {hasOptimizedResume && (
+              {hasOptimizedResume && onApplyOptimized && onDiscardOptimized && (
                 <div className="p-3 rounded-lg bg-primary-50 border border-primary-100 space-y-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-primary-600" />

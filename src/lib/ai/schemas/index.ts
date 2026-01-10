@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
+
 // ========== SCORE SCHEMAS ==========
 export const ScoreSignalSchema = z.object({
   name: z.string(),
@@ -179,13 +181,33 @@ export const JDAnalysisResponseSchema = z.object({
       .nullable()
       .optional()
       .default('Unknown Company')
-      .transform((v) => v || 'Unknown Company'),
+      .transform((v) => {
+        const result = v || 'Unknown Company';
+        if (!v) {
+          logger.warn('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'company', default: 'Unknown Company' },
+          });
+        }
+        return result;
+      }),
     title: z
       .string()
       .nullable()
       .optional()
       .default('Unknown Title')
-      .transform((v) => v || 'Unknown Title'),
+      .transform((v) => {
+        const result = v || 'Unknown Title';
+        if (!v) {
+          logger.warn('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'title', default: 'Unknown Title' },
+          });
+        }
+        return result;
+      }),
     standardizedTitle: z
       .string()
       .nullable()
@@ -197,7 +219,17 @@ export const JDAnalysisResponseSchema = z.object({
       .nullable()
       .optional()
       .default('Not specified')
-      .transform((v) => v || 'Not specified'),
+      .transform((v) => {
+        const result = v || 'Not specified';
+        if (!v) {
+          logger.warn('AI extraction used default', {
+            feature: 'ai-coach',
+            event: 'ai.extraction.default_applied',
+            extra: { field: 'location', default: 'Not specified' },
+          });
+        }
+        return result;
+      }),
     locationType: z.enum(['onsite', 'hybrid', 'remote']).optional().default('remote'),
     seniorityLevel: z
       .enum(['entry', 'mid', 'senior', 'lead', 'executive'])
