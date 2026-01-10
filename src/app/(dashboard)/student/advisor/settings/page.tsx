@@ -24,7 +24,7 @@ import {
   Shield,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { StudentUniversityGate } from '@/components/StudentUniversityGate';
 import { Button } from '@/components/ui/button';
@@ -64,58 +64,65 @@ function SettingsContent() {
   // Mutation
   const updateSettings = useMutation(api.student_advisor_hub_mutations.updateAdvisorSettings);
 
-  // Local state
-  const [shareCareerProfile, setShareCareerProfile] = useState(SETTING_DEFAULTS.shareCareerProfile);
-  const [shareApplications, setShareApplications] = useState(SETTING_DEFAULTS.shareApplications);
-  const [shareGoals, setShareGoals] = useState(SETTING_DEFAULTS.shareGoals);
-  const [shareDocuments, setShareDocuments] = useState(SETTING_DEFAULTS.shareDocuments);
-  const [notificationPreference, setNotificationPreference] = useState<NotificationPreference>(
-    SETTING_DEFAULTS.notificationPreference,
-  );
+  // Local state - consolidated settings object
+  const [localSettings, setLocalSettings] = useState({
+    shareCareerProfile: SETTING_DEFAULTS.shareCareerProfile,
+    shareApplications: SETTING_DEFAULTS.shareApplications,
+    shareGoals: SETTING_DEFAULTS.shareGoals,
+    shareDocuments: SETTING_DEFAULTS.shareDocuments,
+    notificationPreference: SETTING_DEFAULTS.notificationPreference,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Track whether we've initialized from server settings
+  const hasInitialized = useRef(false);
+
   const isLoading = settings === undefined;
 
-  // Initialize state from fetched settings
+  // Initialize state from fetched settings (only on first load)
+  // This prevents discarding in-progress edits if settings sync from another tab
   useEffect(() => {
-    if (settings) {
-      setShareCareerProfile(settings.share_career_profile ?? SETTING_DEFAULTS.shareCareerProfile);
-      setShareApplications(settings.share_applications ?? SETTING_DEFAULTS.shareApplications);
-      setShareGoals(settings.share_goals ?? SETTING_DEFAULTS.shareGoals);
-      setShareDocuments(settings.share_documents ?? SETTING_DEFAULTS.shareDocuments);
-      setNotificationPreference(
-        settings.notification_preference ?? SETTING_DEFAULTS.notificationPreference,
-      );
+    if (settings && !hasInitialized.current) {
+      hasInitialized.current = true;
+      setLocalSettings({
+        shareCareerProfile: settings.share_career_profile ?? SETTING_DEFAULTS.shareCareerProfile,
+        shareApplications: settings.share_applications ?? SETTING_DEFAULTS.shareApplications,
+        shareGoals: settings.share_goals ?? SETTING_DEFAULTS.shareGoals,
+        shareDocuments: settings.share_documents ?? SETTING_DEFAULTS.shareDocuments,
+        notificationPreference:
+          settings.notification_preference ?? SETTING_DEFAULTS.notificationPreference,
+      });
     }
   }, [settings]);
 
   // Track changes
   useEffect(() => {
     if (settings) {
+      const originalSettings = {
+        shareCareerProfile: settings.share_career_profile ?? SETTING_DEFAULTS.shareCareerProfile,
+        shareApplications: settings.share_applications ?? SETTING_DEFAULTS.shareApplications,
+        shareGoals: settings.share_goals ?? SETTING_DEFAULTS.shareGoals,
+        shareDocuments: settings.share_documents ?? SETTING_DEFAULTS.shareDocuments,
+        notificationPreference:
+          settings.notification_preference ?? SETTING_DEFAULTS.notificationPreference,
+      };
+
       const changed =
-        shareCareerProfile !==
-          (settings.share_career_profile ?? SETTING_DEFAULTS.shareCareerProfile) ||
-        shareApplications !== (settings.share_applications ?? SETTING_DEFAULTS.shareApplications) ||
-        shareGoals !== (settings.share_goals ?? SETTING_DEFAULTS.shareGoals) ||
-        shareDocuments !== (settings.share_documents ?? SETTING_DEFAULTS.shareDocuments) ||
-        notificationPreference !==
-          (settings.notification_preference ?? SETTING_DEFAULTS.notificationPreference);
+        localSettings.shareCareerProfile !== originalSettings.shareCareerProfile ||
+        localSettings.shareApplications !== originalSettings.shareApplications ||
+        localSettings.shareGoals !== originalSettings.shareGoals ||
+        localSettings.shareDocuments !== originalSettings.shareDocuments ||
+        localSettings.notificationPreference !== originalSettings.notificationPreference;
+
       setHasChanges(changed);
       if (changed) {
         setSaveSuccess(false);
       }
     }
-  }, [
-    settings,
-    shareCareerProfile,
-    shareApplications,
-    shareGoals,
-    shareDocuments,
-    notificationPreference,
-  ]);
+  }, [settings, localSettings]);
 
   const handleSave = async () => {
     if (!clerkId || isSaving) return;
@@ -125,14 +132,12 @@ function SettingsContent() {
     try {
       await updateSettings({
         clerkId,
-        shareCareerProfile,
-        shareApplications,
-        shareGoals,
-        shareDocuments,
-        notificationPreference,
+        ...localSettings,
       });
       setSaveSuccess(true);
       setHasChanges(false);
+      // Reset initialization flag so settings can be reloaded if user navigates away and back
+      hasInitialized.current = false;
     } catch (error) {
       console.error('Failed to save settings:', error);
       setSaveError(true);
@@ -221,32 +226,40 @@ function SettingsContent() {
                 id="share-career-profile"
                 label="Career Profile"
                 description="Your skills, experience, and career interests"
-                checked={shareCareerProfile}
-                onCheckedChange={setShareCareerProfile}
+                checked={localSettings.shareCareerProfile}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev) => ({ ...prev, shareCareerProfile: checked }))
+                }
               />
 
               <ToggleSetting
                 id="share-applications"
                 label="Job Applications"
                 description="Your application status and company details"
-                checked={shareApplications}
-                onCheckedChange={setShareApplications}
+                checked={localSettings.shareApplications}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev) => ({ ...prev, shareApplications: checked }))
+                }
               />
 
               <ToggleSetting
                 id="share-goals"
                 label="Career Goals"
                 description="Your goals, milestones, and progress tracking"
-                checked={shareGoals}
-                onCheckedChange={setShareGoals}
+                checked={localSettings.shareGoals}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev) => ({ ...prev, shareGoals: checked }))
+                }
               />
 
               <ToggleSetting
                 id="share-documents"
                 label="Documents"
                 description="Your resumes and cover letters"
-                checked={shareDocuments}
-                onCheckedChange={setShareDocuments}
+                checked={localSettings.shareDocuments}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev) => ({ ...prev, shareDocuments: checked }))
+                }
               />
             </CardContent>
           </Card>
@@ -262,8 +275,13 @@ function SettingsContent() {
             </CardHeader>
             <CardContent>
               <RadioGroup
-                value={notificationPreference}
-                onValueChange={(v) => setNotificationPreference(v as NotificationPreference)}
+                value={localSettings.notificationPreference}
+                onValueChange={(v) =>
+                  setLocalSettings((prev) => ({
+                    ...prev,
+                    notificationPreference: v as NotificationPreference,
+                  }))
+                }
                 className="space-y-4"
               >
                 <div className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-slate-50 transition-colors">

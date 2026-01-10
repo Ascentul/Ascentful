@@ -7,6 +7,7 @@ import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { CreateResumeFunnel } from '@/components/resume-builder/funnel';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { structuredToDescription } from '@/lib/resume-utils';
 
 interface ResumeStartModalProps {
   open: boolean;
@@ -126,8 +127,8 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
             },
             summary: parsedData.summary || '',
             skills: parsedData.skills || [],
-            experience: (parsedData.experience || []).map((exp: any, index: number) => ({
-              id: `exp-${index}-${Date.now()}`,
+            experience: (parsedData.experience || []).map((exp: any) => ({
+              id: `exp-${crypto.randomUUID()}`,
               title: exp.title || '',
               company: exp.company || '',
               location: exp.location || '',
@@ -135,18 +136,13 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
               endDate: exp.endDate || '',
               current: exp.current || false,
               // Generate description from summary + keyContributions for backward compat
-              description: [
-                exp.summary || '',
-                ...(exp.keyContributions || []).map((c: string) => `• ${c}`),
-              ]
-                .filter(Boolean)
-                .join('\n'),
+              description: structuredToDescription(exp.summary || '', exp.keyContributions || []),
               // Preserve structured fields
               summary: exp.summary || '',
               keyContributions: exp.keyContributions || [],
             })),
-            education: (parsedData.education || []).map((edu: any, index: number) => ({
-              id: `edu-${index}-${Date.now()}`,
+            education: (parsedData.education || []).map((edu: any) => ({
+              id: `edu-${crypto.randomUUID()}`,
               school: edu.school || '',
               degree: edu.degree || '',
               field: edu.field || '',
@@ -156,8 +152,8 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
               gpa: edu.gpa,
               honors: edu.honors,
             })),
-            projects: (parsedData.projects || []).map((proj: any, index: number) => ({
-              id: `proj-${index}-${Date.now()}`,
+            projects: (parsedData.projects || []).map((proj: any) => ({
+              id: `proj-${crypto.randomUUID()}`,
               name: proj.name || proj.title || '',
               role: proj.role || '',
               description: proj.description || '',
@@ -166,14 +162,14 @@ export function ResumeStartModal({ open, onClose }: ResumeStartModalProps) {
                 : proj.technologies || '',
               url: proj.url || '',
             })),
-            achievements: (parsedData.achievements || []).map((ach: any, index: number) => ({
-              id: `ach-${index}-${Date.now()}`,
+            achievements: (parsedData.achievements || []).map((ach: any) => ({
+              id: `ach-${crypto.randomUUID()}`,
               title: ach.title || '',
               description: ach.description || '',
               date: ach.date || '',
             })),
-            certifications: (parsedData.certifications || []).map((cert: any, index: number) => ({
-              id: `cert-${index}-${Date.now()}`,
+            certifications: (parsedData.certifications || []).map((cert: any) => ({
+              id: `cert-${crypto.randomUUID()}`,
               name: cert.name || '',
               issuer: cert.issuer || '',
               date: cert.date || '',

@@ -1433,7 +1433,7 @@ Please fix these issues. Make sure to capture ALL content.
           });
 
           const response = await client.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-5',
             messages: [
               {
                 role: 'system',
@@ -1443,12 +1443,24 @@ Please fix these issues. Make sure to capture ALL content.
               { role: 'user', content: fullPrompt },
             ],
             response_format: { type: 'json_object' },
-            temperature: 0, // Zero temperature for maximum accuracy and consistency
+            // Note: GPT-5 does not support temperature parameter
             max_tokens: 16000, // Increased to ensure all content is captured
           });
 
           const content = response.choices[0]?.message?.content || '{}';
-          parsedData = JSON.parse(content) as ParsedResume;
+
+          // Parse JSON with error handling
+          try {
+            parsedData = JSON.parse(content) as ParsedResume;
+          } catch (parseError) {
+            log.warn('Failed to parse AI response as JSON', {
+              event: 'ai.json_parse_error',
+              extra: { attempt, contentPreview: content.substring(0, 200) },
+            });
+            lastValidationErrors = ['AI returned invalid JSON'];
+            if (attempt < MAX_RETRIES) continue;
+            throw new Error('Failed to parse AI response as JSON');
+          }
 
           const jobBlockExperience = parseExperienceFromJobBlocks(groundTruth.jobBlocks);
           if (jobBlockExperience.length > 0) {

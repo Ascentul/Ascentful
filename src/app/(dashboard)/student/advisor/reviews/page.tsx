@@ -49,7 +49,7 @@ function StudentReviewsContent() {
     clerkId ? { clerkId, filter: activeTab } : 'skip',
   );
 
-  const isLoading = reviews === undefined;
+  const isLoading = reviews === undefined || !clerkId;
 
   return (
     <div className="w-full">
@@ -114,16 +114,10 @@ function StudentReviewsContent() {
 // Reviews List Component
 // ============================================================================
 
-interface ReviewRequest {
-  _id: string;
-  asset_type: string;
-  assetName: string;
-  status: string;
-  student_note?: string;
-  created_at: number;
-  submitted_at?: number;
-  updated_at: number;
-}
+// Use Convex-generated type from getMyReviewRequests query return
+type ReviewRequest = Awaited<
+  ReturnType<typeof api.student_advisor_hub.getMyReviewRequests>
+>[number];
 
 function ReviewsList({ reviews }: { reviews: ReviewRequest[] }) {
   return (

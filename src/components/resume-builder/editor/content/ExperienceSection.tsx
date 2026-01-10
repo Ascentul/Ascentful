@@ -8,84 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { parseDescriptionToStructured, structuredToDescription } from '@/lib/resume-utils';
 
 interface ExperienceSectionProps {
   experiences: Experience[];
   onChange: (experiences: Experience[]) => void;
   onGenerateBullets?: (experienceIndex: number) => void;
   isGenerating?: boolean;
-}
-
-/**
- * Always use structured format for all experiences.
- * This ensures consistent UI across the app.
- */
-function isStructuredFormat(_exp: Experience): boolean {
-  // Always show structured mode - Role Overview + Key Accomplishments
-  return true;
-}
-
-/**
- * Parses a freeform description into summary and keyContributions
- * - First paragraph (before bullet points) becomes summary
- * - Lines starting with •, -, * become keyContributions
- */
-function parseDescriptionToStructured(description: string): {
-  summary: string;
-  keyContributions: string[];
-} {
-  if (!description.trim()) {
-    return { summary: '', keyContributions: [] };
-  }
-
-  const lines = description.split('\n');
-  const summaryLines: string[] = [];
-  const bullets: string[] = [];
-  let foundBullet = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Check if line starts with a bullet character
-    if (/^[•\-\*]/.test(trimmed)) {
-      foundBullet = true;
-      // Clean the bullet and add to keyContributions
-      const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
-      if (cleanBullet) {
-        bullets.push(cleanBullet);
-      }
-    } else if (!foundBullet && trimmed) {
-      // Before we see any bullets, collect as summary
-      summaryLines.push(trimmed);
-    } else if (foundBullet && trimmed) {
-      // After bullets start, if we see non-bullet text, treat it as continuation
-      // or additional bullet (user typed without bullet char)
-      bullets.push(trimmed);
-    }
-  }
-
-  return {
-    summary: summaryLines.join(' '),
-    keyContributions: bullets,
-  };
-}
-
-/**
- * Converts structured format back to description for backward compatibility
- */
-function structuredToDescription(summary: string, keyContributions: string[]): string {
-  const parts: string[] = [];
-  if (summary?.trim()) {
-    parts.push(summary.trim());
-  }
-  if (keyContributions && keyContributions.length > 0) {
-    if (parts.length > 0) parts.push(''); // Add blank line between summary and bullets
-    for (const bullet of keyContributions) {
-      if (bullet.trim()) {
-        parts.push(`• ${bullet.trim()}`);
-      }
-    }
-  }
-  return parts.join('\n');
 }
 
 export function ExperienceSection({

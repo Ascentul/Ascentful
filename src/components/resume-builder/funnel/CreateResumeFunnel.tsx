@@ -11,6 +11,7 @@ import type { ResumeData } from '@/components/resume/ResumeDocument';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { parseDescriptionToStructured } from '@/lib/resume-utils';
 
 import { FunnelProgress } from './FunnelProgress';
 import { QuickWinsPreviewStep } from './QuickWinsPreviewStep';
@@ -123,26 +124,7 @@ export function CreateResumeFunnel({
         experience: (profile.work_history || []).map((job, index: number) => {
           // Parse the job summary to extract overview and bullet points
           const jobSummary = job.summary || '';
-          const lines = jobSummary.split('\n');
-          const summaryLines: string[] = [];
-          const bullets: string[] = [];
-          let foundBullet = false;
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            // Check if line starts with a bullet character
-            if (/^[•\-\*]/.test(trimmed)) {
-              foundBullet = true;
-              const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
-              if (cleanBullet) {
-                bullets.push(cleanBullet);
-              }
-            } else if (!foundBullet && trimmed) {
-              summaryLines.push(trimmed);
-            } else if (foundBullet && trimmed) {
-              bullets.push(trimmed);
-            }
-          }
+          const { summary, keyContributions } = parseDescriptionToStructured(jobSummary);
 
           return {
             id: `exp-${index}`,
@@ -155,8 +137,8 @@ export function CreateResumeFunnel({
             // Keep description for backward compatibility
             description: jobSummary,
             // New structured fields
-            summary: summaryLines.join(' '),
-            keyContributions: bullets,
+            summary,
+            keyContributions,
           };
         }),
         education: (profile.education_history || []).map((edu, index: number) => ({

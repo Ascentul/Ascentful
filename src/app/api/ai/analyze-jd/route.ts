@@ -45,13 +45,13 @@ export async function POST(request: Request) {
     if (!result.success) {
       const errorMessage = result.error || 'Unknown error';
       console.error('AI JD analysis failed:', errorMessage);
-      // Pass through a sanitized error message to the client
+      // Return sanitized error message to the client
       const clientError = errorMessage.includes('API key')
         ? 'AI service configuration error'
         : errorMessage.includes('timeout') || errorMessage.includes('timed out')
           ? 'Analysis timed out. Please try again with a shorter job description.'
           : 'Failed to analyze job description. Please try again.';
-      return NextResponse.json({ error: clientError, details: errorMessage }, { status: 500 });
+      return NextResponse.json({ error: clientError }, { status: 500 });
     }
 
     // Evaluate AI-generated content for safety

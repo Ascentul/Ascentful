@@ -24,7 +24,6 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { StudentUniversityGate } from '@/components/StudentUniversityGate';
@@ -158,7 +157,6 @@ export default function BookSessionPage() {
 
 function BookSessionContent() {
   const { user } = useUser();
-  const router = useRouter();
   const clerkId = user?.id;
 
   // State
@@ -273,8 +271,17 @@ function BookSessionContent() {
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
 
-        // Only add future slots
-        if (slotStart.getTime() > now) {
+        // Check if the slot actually belongs to this calendar day after timezone conversion
+        // This prevents slots that span midnight from appearing in the wrong day column
+        const slotDate = new Date(slotStart);
+        slotDate.setHours(0, 0, 0, 0);
+        const targetDate = new Date(date);
+        targetDate.setHours(0, 0, 0, 0);
+
+        const belongsToThisDay = slotDate.getTime() === targetDate.getTime();
+
+        // Only add future slots that belong to this calendar day
+        if (slotStart.getTime() > now && belongsToThisDay) {
           // Check if slot conflicts with existing bookings
           const hasConflict = existingBookings?.some(
             (b) =>

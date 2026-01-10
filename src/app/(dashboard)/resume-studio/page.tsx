@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { generateResumePDF } from '@/lib/resume-pdf-generator';
+import { structuredToDescription } from '@/lib/resume-utils';
 import { exportCoverLetterPDF } from '@/utils/exportCoverLetter';
 
 // Types
@@ -460,28 +461,6 @@ export default function ResumeStudioPage() {
 
       const { data: parsedData, warning } = await parseResponse.json();
 
-      // Debug: Log parsed experience data
-      if (process.env.NODE_ENV === 'development' && parsedData.experience?.length > 0) {
-        console.log(
-          '[Resume Import] Parsed experience data:',
-          parsedData.experience.map(
-            (exp: {
-              title?: string;
-              company?: string;
-              summary?: string;
-              keyContributions?: string[];
-            }) => ({
-              title: exp.title,
-              company: exp.company,
-              hasSummary: !!exp.summary,
-              summaryPreview: exp.summary?.substring(0, 50),
-              keyContributionsCount: exp.keyContributions?.length || 0,
-              keyContributionsPreview: exp.keyContributions?.slice(0, 2),
-            }),
-          ),
-        );
-      }
-
       const resumeTitle = parsedData.personalInfo?.name
         ? `${parsedData.personalInfo.name}'s Resume`
         : `Imported Resume - ${file.name.replace('.pdf', '')}`;
@@ -502,14 +481,9 @@ export default function ResumeStudioPage() {
           // Build description from summary and keyContributions if description is missing
           let description = exp.description || '';
           if (!description && (exp.summary || exp.keyContributions?.length)) {
-            const parts: string[] = [];
-            if (exp.summary) parts.push(exp.summary);
-            if (exp.keyContributions?.length) {
-              parts.push(exp.keyContributions.map((c) => `• ${c}`).join('\n'));
-            }
-            description = parts.join('\n\n');
+            description = structuredToDescription(exp.summary || '', exp.keyContributions || []);
           }
-          const transformed = {
+          return {
             id: `exp-${crypto.randomUUID()}`,
             title: exp.title || '',
             company: exp.company || '',
@@ -521,18 +495,6 @@ export default function ResumeStudioPage() {
             summary: exp.summary,
             keyContributions: exp.keyContributions,
           };
-
-          // Debug: Log transformed experience
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Resume Import] Transformed experience:', {
-              title: transformed.title,
-              company: transformed.company,
-              descriptionLength: transformed.description.length,
-              descriptionPreview: transformed.description.substring(0, 100),
-            });
-          }
-
-          return transformed;
         },
       );
 

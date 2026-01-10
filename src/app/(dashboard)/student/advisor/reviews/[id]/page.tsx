@@ -57,15 +57,13 @@ function ReviewDetailContent() {
   const params = useParams();
   const router = useRouter();
   const clerkId = user?.id;
-  const requestId = params.id as string;
+  const requestId = params.id as Id<'student_review_requests'>;
 
   const [isCancelling, setIsCancelling] = useState(false);
 
   const review = useQuery(
     api.student_advisor_hub.getReviewRequestDetail,
-    clerkId && requestId
-      ? { clerkId, requestId: requestId as Id<'student_review_requests'> }
-      : 'skip',
+    clerkId && requestId ? { clerkId, requestId } : 'skip',
   );
 
   const cancelRequest = useMutation(api.student_advisor_hub_mutations.cancelReviewRequest);
@@ -79,7 +77,7 @@ function ReviewDetailContent() {
     try {
       await cancelRequest({
         clerkId,
-        requestId: requestId as Id<'student_review_requests'>,
+        requestId,
       });
       router.push('/student/advisor/reviews');
     } catch (error) {

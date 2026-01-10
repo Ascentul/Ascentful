@@ -102,13 +102,15 @@ export async function POST(request: NextRequest) {
             retryWhere: 'United States',
             hasWhat: Boolean(query || 'software engineer'),
           };
+          log.error('Adzuna retry request failed', toErrorCode('EXTERNAL_API_ERROR'), {
+            event: 'adzuna.retry_failed',
+            httpStatus: retryRes.status,
+          });
           return NextResponse.json(
             {
-              error: 'Adzuna request failed',
-              details: parsedRetry || raw,
-              meta,
+              error: 'Job search service temporarily unavailable',
             },
-            { status: retryRes.status },
+            { status: 503 },
           );
         }
       } else {
@@ -123,9 +125,13 @@ export async function POST(request: NextRequest) {
           hasWhat: Boolean(query || 'software engineer'),
           hasWhere: Boolean(location && location.toLowerCase() !== 'remote'),
         };
+        log.error('Adzuna request failed', toErrorCode('EXTERNAL_API_ERROR'), {
+          event: 'adzuna.request_failed',
+          httpStatus: res.status,
+        });
         return NextResponse.json(
-          { error: 'Adzuna request failed', details: parsed || raw, meta },
-          { status: res.status },
+          { error: 'Job search service temporarily unavailable' },
+          { status: 503 },
         );
       }
     }

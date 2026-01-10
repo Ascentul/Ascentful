@@ -1104,31 +1104,27 @@ function ExperienceEntry({
     : parseBulletPoints(experience.description || '');
 
   // Split: first item = summary (paragraph), rest = accomplishments (bullets)
-  const displaySummary = experience.summary || (allBullets.length > 0 ? allBullets[0] : '');
-  const displayBullets: string[] = experience.summary
-    ? allBullets // If summary exists separately, all bullets are accomplishments
-    : allBullets.slice(1); // Otherwise, first bullet became summary
+  // Track if summary is derived from first bullet (not a separate field)
+  const summaryFromBullets = !experience.summary && allBullets.length > 0;
+  const displaySummary = experience.summary || (summaryFromBullets ? allBullets[0] : '');
+  const displayBullets: string[] = summaryFromBullets ? allBullets.slice(1) : allBullets;
 
   const handleBulletsChange = (newBullets: string[]) => {
+    // If summary came from first bullet, prepend it back to preserve it
+    const nextAllBullets = summaryFromBullets ? [displaySummary, ...newBullets] : newBullets;
+
     // If using keyContributions, update that field
     if (hasKeyContributions || experience.keyContributions !== undefined) {
       onChange({
         ...experience,
-        keyContributions: newBullets,
+        keyContributions: nextAllBullets,
       });
     } else {
       onChange({
         ...experience,
-        description: bulletPointsToDescription(newBullets),
+        description: bulletPointsToDescription(nextAllBullets),
       });
     }
-  };
-
-  const handleSummaryChange = (newSummary: string) => {
-    onChange({
-      ...experience,
-      summary: newSummary,
-    });
   };
 
   // Check if any bullet in this experience is missing (needs description)

@@ -1048,7 +1048,8 @@ function ThreePanelEditorInner({
     if (optimizedResume.contactInfo) {
       // Update contact info fields individually
       Object.entries(optimizedResume.contactInfo).forEach(([field, value]) => {
-        if (value) {
+        // Allow empty strings to clear fields, but skip undefined
+        if (value !== undefined) {
           onUpdateContactInfo(field as keyof ContactInfo, value);
         }
       });

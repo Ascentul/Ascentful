@@ -152,7 +152,7 @@ export async function getStudentAdvisor(
     advisorId: advisor._id,
     advisorName: advisor.name || advisor.email,
     advisorEmail: advisor.email,
-    advisorTitle: undefined, // Could add job_title if needed
+    advisorTitle: advisor.job_title,
     hasAvailability: availabilitySlot !== null,
   };
 }

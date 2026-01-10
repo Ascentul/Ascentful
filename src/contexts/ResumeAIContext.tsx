@@ -8,17 +8,10 @@ import React, {
   useMemo,
   useReducer,
   useRef,
-  useState,
 } from 'react';
 
 import type { ResumeData } from '@/components/resume/ResumeDocument';
-import {
-  useAISuggestions,
-  useJDAnalysis,
-  useMatchScore,
-  useRewrite,
-  useScore,
-} from '@/hooks/useAI';
+import { useAISuggestions, useMatchScore, useRewrite, useScore } from '@/hooks/useAI';
 import type {
   JDAnalysisResponse,
   MatchScoreResponse,
@@ -155,6 +148,7 @@ interface ResumeAIState {
   // Optimized Resume (from /api/resumes/optimize)
   optimizedResume: ResumeData | null;
   optimizeLoading: boolean;
+  optimizeError: string | null;
   resumeDiff: ResumeDiff | null;
 
   // AI Assist Panel Mode
@@ -196,6 +190,7 @@ type ResumeAIAction =
   | { type: 'SET_JOB_ANALYSIS_RESULT'; payload: JobAnalysisResult | null }
   | { type: 'SET_OPTIMIZED_RESUME'; payload: ResumeData | null }
   | { type: 'SET_OPTIMIZE_LOADING'; payload: boolean }
+  | { type: 'SET_OPTIMIZE_ERROR'; payload: string | null }
   | { type: 'SET_RESUME_DIFF'; payload: ResumeDiff | null }
   | { type: 'CLEAR_OPTIMIZED_RESUME' };
 
@@ -266,6 +261,7 @@ const initialState: ResumeAIState = {
   jobAnalysisResult: null,
   optimizedResume: null,
   optimizeLoading: false,
+  optimizeError: null,
   resumeDiff: null,
   assistMode: 'active',
   inlineToolbarTarget: null,
@@ -333,10 +329,12 @@ function resumeAIReducer(state: ResumeAIState, action: ResumeAIAction): ResumeAI
       return { ...state, optimizedResume: action.payload };
     case 'SET_OPTIMIZE_LOADING':
       return { ...state, optimizeLoading: action.payload };
+    case 'SET_OPTIMIZE_ERROR':
+      return { ...state, optimizeError: action.payload };
     case 'SET_RESUME_DIFF':
       return { ...state, resumeDiff: action.payload };
     case 'CLEAR_OPTIMIZED_RESUME':
-      return { ...state, optimizedResume: null, resumeDiff: null };
+      return { ...state, optimizedResume: null, resumeDiff: null, optimizeError: null };
     default:
       return state;
   }
@@ -366,7 +364,6 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
   const scoreHook = useScore();
   const suggestionsHook = useAISuggestions();
   const rewriteHook = useRewrite();
-  const jdHook = useJDAnalysis();
   const matchHook = useMatchScore();
 
   // Refs for debouncing (using ReturnType for browser/Node compatibility)
@@ -769,7 +766,7 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
       }
     } catch (error) {
       dispatch({
-        type: 'SET_JD_ERROR',
+        type: 'SET_OPTIMIZE_ERROR',
         payload: error instanceof Error ? error.message : 'Optimization failed',
       });
     } finally {
@@ -777,14 +774,55 @@ export function ResumeAIProvider({ children, resumeData, enabled = true }: Resum
     }
   }, [enabled, state.jobDescription, state.jobAnalysisResult]);
 
-  // Apply optimized resume - caller must handle updating the actual resume data
+  /**
+   * Signals that the optimized resume has been applied to the actual resume data.
+   *
+   * IMPORTANT: This function does NOT apply the optimization itself.
+   *
+   * Usage pattern:
+   * 1. Read `state.optimizedResume` to get the AI-optimized version
+   * 2. Apply the optimized data to your actual resume state (e.g., via setResumeData)
+   * 3. Call this function to clear the optimized state
+   *
+   * The actual application logic is in the parent component (e.g., ThreePanelEditor)
+   * because it has access to the resume state setters.
+   *
+   * @example
+   * ```typescript
+   * const { optimizedResume, applyOptimizedResume } = useResumeAIActions();
+   *
+   * const handleApply = () => {
+   *   if (optimizedResume) {
+   *     // Apply each section to actual resume
+   *     if (optimizedResume.summary) onUpdateSummary(optimizedResume.summary);
+   *     if (optimizedResume.experience) onUpdateExperience(optimizedResume.experience);
+   *     // ... apply other sections
+   *
+   *     // Clear the optimized state
+   *     applyOptimizedResume();
+   *   }
+   * };
+   * ```
+   */
   const applyOptimizedResume = useCallback(() => {
-    // The actual update is handled by the parent component that has setResumeData
-    // This just clears the optimized state
     dispatch({ type: 'CLEAR_OPTIMIZED_RESUME' });
   }, []);
 
-  // Discard optimized resume
+  /**
+   * Discards the optimized resume without applying it.
+   *
+   * Use this when the user rejects the AI optimization or wants to
+   * keep their current resume unchanged.
+   *
+   * @example
+   * ```typescript
+   * const { discardOptimizedResume } = useResumeAIActions();
+   *
+   * const handleDiscard = () => {
+   *   discardOptimizedResume(); // Clear without applying changes
+   * };
+   * ```
+   */
   const discardOptimizedResume = useCallback(() => {
     dispatch({ type: 'CLEAR_OPTIMIZED_RESUME' });
   }, []);

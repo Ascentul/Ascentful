@@ -6,25 +6,10 @@
  * Intended for local development only - do not use in production environments.
  */
 
-const fs = require('fs');
 const path = require('path');
 
 // Load .env.local
-const envPath = path.resolve(process.cwd(), '.env.local');
-if (fs.existsSync(envPath)) {
-  const content = fs.readFileSync(envPath, 'utf8');
-  for (const line of content.split(/\r?\n/)) {
-    if (!line || line.startsWith('#')) continue;
-    const idx = line.indexOf('=');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    let val = line.slice(idx + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    if (!(key in process.env)) process.env[key] = val;
-  }
-}
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const { ConvexHttpClient } = require('convex/browser');
 
@@ -68,7 +53,7 @@ async function findClerkUser(email) {
   }
 
   const data = await res.json();
-  return Array.isArray(data) ? data[0] : (data.data ? data.data[0] : null);
+  return Array.isArray(data) ? data[0] ?? null : (data.data?.[0] ?? null);
 }
 
 async function seedApplications(clerkId) {
@@ -114,4 +99,7 @@ async function main() {
   await seedApplications(user.id);
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

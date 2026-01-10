@@ -3,54 +3,14 @@
 import React from 'react';
 
 import type { Education, Experience, Project } from '@/components/resume/ResumeDocument';
-import { formatDateRange, parseDescription } from '@/lib/resume-utils';
+import {
+  formatDateRange,
+  parseDescription,
+  parseDescriptionToStructured,
+} from '@/lib/resume-utils';
 
 import type { FontPairingId, TemplateLayoutConfig } from '../types';
 import { FONT_PAIRINGS } from '../types';
-
-/**
- * Parses a freeform description into summary and keyContributions
- * - First paragraph (before bullet points) becomes summary
- * - Lines starting with •, -, * become keyContributions
- */
-function parseDescriptionToStructured(description: string): {
-  summary: string;
-  keyContributions: string[];
-} {
-  if (!description?.trim()) {
-    return { summary: '', keyContributions: [] };
-  }
-
-  const lines = description.split('\n');
-  const summaryLines: string[] = [];
-  const bullets: string[] = [];
-  let foundBullet = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Check if line starts with a bullet character
-    if (/^[•\-\*]/.test(trimmed)) {
-      foundBullet = true;
-      // Clean the bullet and add to keyContributions
-      const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
-      if (cleanBullet) {
-        bullets.push(cleanBullet);
-      }
-    } else if (!foundBullet && trimmed) {
-      // Before we see any bullets, collect as summary
-      summaryLines.push(trimmed);
-    } else if (foundBullet && trimmed) {
-      // After bullets start, if we see non-bullet text, treat it as continuation
-      // or additional bullet (user typed without bullet char)
-      bullets.push(trimmed);
-    }
-  }
-
-  return {
-    summary: summaryLines.join(' '),
-    keyContributions: bullets,
-  };
-}
 
 // ============================================================================
 // Base Template Primitives
@@ -203,11 +163,19 @@ export function ExperienceItem({ experience, config, isFirst = false }: Experien
     ? experience.keyContributions
     : parsedFromDescription?.keyContributions || [];
 
-  // If summary is empty but we have bullets, use the first bullet as the summary
+  // If summary is empty but we have bullets, consider using the first bullet as the summary
+  // Only promote if it looks like a descriptive summary (>60 chars, doesn't start with action verb)
   // This handles cases where the AI put all content in keyContributions
   if (!displaySummary && displayBullets.length > 0) {
-    displaySummary = displayBullets[0];
-    displayBullets = displayBullets.slice(1);
+    const firstBullet = displayBullets[0];
+    const actionVerbPattern =
+      /^(Led|Managed|Developed|Built|Created|Implemented|Designed|Launched|Delivered|Achieved|Increased|Reduced|Improved|Optimized|Coordinated|Executed|Analyzed|Conducted|Oversaw|Spearheaded|Initiated|Established|Directed)\b/i;
+
+    // Promote to summary if it's long and doesn't start with action verb (likely descriptive)
+    if (firstBullet.length > 60 && !actionVerbPattern.test(firstBullet)) {
+      displaySummary = firstBullet;
+      displayBullets = displayBullets.slice(1);
+    }
   }
 
   // Legacy fallback: if parsing found nothing useful, use old parseDescription for raw bullets

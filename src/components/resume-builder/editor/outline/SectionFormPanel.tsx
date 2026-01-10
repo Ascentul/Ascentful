@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { parseDescriptionToStructured, structuredToDescription } from '@/lib/resume-utils';
 import { cn } from '@/lib/utils';
 import { SECTION_CONFIGS } from '@/types/resume-editor';
 
@@ -373,27 +374,37 @@ interface ExperienceFormProps {
   onUpdate: (experiences: Experience[]) => void;
 }
 
-/**
- * Converts structured format back to description for backward compatibility
- */
-function structuredToDescription(summary: string, keyContributions: string[]): string {
-  const parts: string[] = [];
-  if (summary?.trim()) {
-    parts.push(summary.trim());
-  }
-  if (keyContributions && keyContributions.length > 0) {
-    if (parts.length > 0) parts.push(''); // Add blank line between summary and bullets
-    for (const bullet of keyContributions) {
-      if (bullet.trim()) {
-        parts.push(`• ${bullet.trim()}`);
-      }
-    }
-  }
-  return parts.join('\n');
-}
-
 function ExperienceForm({ experiences, onUpdate }: ExperienceFormProps) {
   const [expandedId, setExpandedId] = useState<string | null>(experiences[0]?.id || null);
+
+  // Auto-migrate legacy description to structured format on mount
+  const autoParsedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    let changed = false;
+    const next = experiences.map((exp) => {
+      // Skip if already parsed
+      if (autoParsedRef.current.has(exp.id)) return exp;
+
+      // Only parse if structured fields are empty but description exists
+      const hasEmptyStructured =
+        !exp.summary && (!exp.keyContributions || exp.keyContributions.length === 0);
+      const hasDescription = !!exp.description?.trim();
+
+      if (!hasEmptyStructured || !hasDescription) return exp;
+
+      // Parse description into structured format
+      const parsed = parseDescriptionToStructured(exp.description);
+
+      // Only apply if we got meaningful data
+      if (!parsed.summary && parsed.keyContributions.length === 0) return exp;
+
+      autoParsedRef.current.add(exp.id);
+      changed = true;
+      return { ...exp, summary: parsed.summary, keyContributions: parsed.keyContributions };
+    });
+
+    if (changed) onUpdate(next);
+  }, [experiences, onUpdate]);
 
   const handleFieldChange = (
     id: string,

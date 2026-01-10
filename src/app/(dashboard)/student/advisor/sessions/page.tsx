@@ -11,16 +11,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
-import {
-  ArrowLeft,
-  Calendar,
-  CalendarDays,
-  Clock,
-  ExternalLink,
-  Loader2,
-  MapPin,
-  Video,
-} from 'lucide-react';
+import { ArrowLeft, Calendar, CalendarDays, Clock, Loader2, MapPin, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -56,7 +47,7 @@ function StudentSessionsContent() {
     clerkId ? { clerkId, filter: 'pending' } : 'skip',
   );
 
-  const isLoading = sessions === undefined;
+  const isLoading = sessions === undefined || !clerkId;
   const hasPendingBookings = (bookings?.length ?? 0) > 0;
 
   return (
@@ -136,18 +127,8 @@ function StudentSessionsContent() {
 // Sessions List Component
 // ============================================================================
 
-interface Session {
-  _id: string;
-  title?: string;
-  start_at: number;
-  end_at?: number;
-  session_type?: string;
-  status?: string;
-  location?: string;
-  meeting_url?: string;
-  duration_minutes?: number;
-  created_at: number;
-}
+// Use Convex-generated type from getMySessions query return
+type Session = Awaited<ReturnType<typeof api.student_advisor_hub.getMySessions>>[number];
 
 function SessionsList({ sessions, type }: { sessions: Session[]; type: 'upcoming' | 'past' }) {
   return (

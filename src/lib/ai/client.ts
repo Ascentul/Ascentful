@@ -291,9 +291,29 @@ export async function callAIText(
         },
       );
 
-      const content = response.choices[0]?.message?.content?.trim();
+      const choice = response.choices[0];
+
+      // Check for various failure modes
+      if (!choice) {
+        throw new Error('No choices in response');
+      }
+
+      // Check for refusals (model declined to respond)
+      const refusal = (choice.message as { refusal?: string })?.refusal;
+      if (refusal) {
+        throw new Error(`Model refused: ${refusal}`);
+      }
+
+      // Check finish reason
+      if (choice.finish_reason === 'length') {
+        console.warn('Response was cut off due to max_tokens limit');
+      }
+
+      const content = choice.message?.content?.trim();
       if (!content) {
-        throw new Error('No content in response');
+        throw new Error(
+          `No text content in response (finish_reason: ${choice.finish_reason || 'unknown'})`,
+        );
       }
 
       return {
@@ -308,8 +328,18 @@ export async function callAIText(
       };
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'Unknown error';
+
+      // Log detailed error info for debugging
+      console.error(`AI text call attempt ${attempt}/${maxRetries} failed:`, lastError);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack.split('\n').slice(0, 3).join('\n'));
+      }
+
+      // Exponential backoff before retry (2s, 4s, 8s...)
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+        const backoffMs = Math.pow(2, attempt) * 1000;
+        console.log(`Retrying in ${backoffMs}ms...`);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
   }

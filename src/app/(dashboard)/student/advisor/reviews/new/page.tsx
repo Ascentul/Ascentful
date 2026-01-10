@@ -13,7 +13,6 @@ import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { ArrowLeft, Check, FileText, Loader2, Upload, User } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { StudentUniversityGate } from '@/components/StudentUniversityGate';
@@ -44,7 +43,6 @@ export default function NewReviewRequestPage() {
 
 function NewReviewRequestContent() {
   const { user } = useUser();
-  const router = useRouter();
   const clerkId = user?.id;
 
   // State
@@ -98,6 +96,18 @@ function NewReviewRequestContent() {
         variant: 'destructive',
       });
       return;
+    }
+    if (assetType === 'other') {
+      try {
+        new URL(documentUrl.trim());
+      } catch {
+        toast({
+          title: 'Invalid URL',
+          description: 'Please provide a valid URL (e.g., https://example.com/document).',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsSubmitting(true);

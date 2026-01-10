@@ -112,12 +112,21 @@ export function optimizedToResumeData(
     );
 
     // Build description from summary and keyContributions
-    let description = '';
-    if (exp.keyContributions && exp.keyContributions.length > 0) {
-      description = exp.keyContributions
-        .map((c) => c.replace(/^[\s•\-\*]+/, '').trim()) // Clean any bullet symbols
-        .join('\n');
+    // Format: summary paragraph, blank line, then bulleted accomplishments
+    const parts: string[] = [];
+    if (exp.summary?.trim()) {
+      parts.push(exp.summary.trim());
     }
+    if (exp.keyContributions && exp.keyContributions.length > 0) {
+      if (parts.length > 0) parts.push(''); // Blank line between summary and bullets
+      exp.keyContributions.forEach((c) => {
+        const cleaned = c.replace(/^[\s•\-\*]+/, '').trim();
+        if (cleaned) {
+          parts.push(`• ${cleaned}`);
+        }
+      });
+    }
+    const description = parts.join('\n');
 
     return {
       id: originalExp?.id || generateId(),
@@ -245,6 +254,12 @@ export function computeResumeDiff(original: ResumeData, optimized: ResumeData): 
     if (!orig || !opt) {
       diff.experienceChanged.push(i);
     } else if (
+      orig.title !== opt.title ||
+      orig.company !== opt.company ||
+      orig.location !== opt.location ||
+      orig.startDate !== opt.startDate ||
+      orig.endDate !== opt.endDate ||
+      orig.current !== opt.current ||
       orig.description !== opt.description ||
       orig.summary !== opt.summary ||
       JSON.stringify(orig.keyContributions) !== JSON.stringify(opt.keyContributions)
@@ -253,11 +268,24 @@ export function computeResumeDiff(original: ResumeData, optimized: ResumeData): 
     }
   }
 
-  // Check education (usually not changed much)
+  // Check education
   const origEdu = original.education || [];
   const optEdu = optimized.education || [];
   for (let i = 0; i < Math.max(origEdu.length, optEdu.length); i++) {
-    if (!origEdu[i] || !optEdu[i]) {
+    const orig = origEdu[i];
+    const opt = optEdu[i];
+    if (!orig || !opt) {
+      diff.educationChanged.push(i);
+    } else if (
+      orig.school !== opt.school ||
+      orig.degree !== opt.degree ||
+      orig.field !== opt.field ||
+      orig.location !== opt.location ||
+      orig.startYear !== opt.startYear ||
+      orig.endYear !== opt.endYear ||
+      orig.gpa !== opt.gpa ||
+      orig.honors !== opt.honors
+    ) {
       diff.educationChanged.push(i);
     }
   }
@@ -268,7 +296,15 @@ export function computeResumeDiff(original: ResumeData, optimized: ResumeData): 
   for (let i = 0; i < Math.max(origProj.length, optProj.length); i++) {
     const orig = origProj[i];
     const opt = optProj[i];
-    if (!orig || !opt || orig.description !== opt.description) {
+    if (
+      !orig ||
+      !opt ||
+      orig.name !== opt.name ||
+      orig.role !== opt.role ||
+      orig.description !== opt.description ||
+      orig.technologies !== opt.technologies ||
+      orig.url !== opt.url
+    ) {
       diff.projectsChanged.push(i);
     }
   }
@@ -279,7 +315,13 @@ export function computeResumeDiff(original: ResumeData, optimized: ResumeData): 
   for (let i = 0; i < Math.max(origAch.length, optAch.length); i++) {
     const orig = origAch[i];
     const opt = optAch[i];
-    if (!orig || !opt || orig.description !== opt.description) {
+    if (
+      !orig ||
+      !opt ||
+      orig.title !== opt.title ||
+      orig.description !== opt.description ||
+      orig.date !== opt.date
+    ) {
       diff.achievementsChanged.push(i);
     }
   }

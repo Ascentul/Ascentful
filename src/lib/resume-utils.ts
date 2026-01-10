@@ -40,3 +40,75 @@ export function parseDescription(description: string | string[]): string[] {
 
   return lines;
 }
+
+/**
+ * Parses a freeform description into structured summary and key contributions
+ * - Text before any bullet points becomes the summary
+ * - Lines starting with •, -, * become key contributions
+ * - Non-bullet text after bullets is treated as additional contributions (legacy migration)
+ *
+ * @param description - The freeform description text to parse
+ * @returns Object with summary and keyContributions array
+ */
+export function parseDescriptionToStructured(description: string): {
+  summary: string;
+  keyContributions: string[];
+} {
+  if (!description?.trim()) {
+    return { summary: '', keyContributions: [] };
+  }
+
+  const lines = description.split('\n');
+  const summaryLines: string[] = [];
+  const bullets: string[] = [];
+  let foundBullet = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Check if line starts with a bullet character
+    if (/^[•\-\*]/.test(trimmed)) {
+      foundBullet = true;
+      // Clean the bullet and add to keyContributions
+      const cleanBullet = trimmed.replace(/^[•\-\*]\s*/, '').trim();
+      if (cleanBullet) {
+        bullets.push(cleanBullet);
+      }
+    } else if (!foundBullet && trimmed) {
+      // Before we see any bullets, collect as summary
+      summaryLines.push(trimmed);
+    } else if (foundBullet && trimmed) {
+      // After bullets start, if we see non-bullet text, treat it as continuation
+      // or additional bullet (user typed without bullet char)
+      bullets.push(trimmed);
+    }
+  }
+
+  return {
+    summary: summaryLines.join(' '),
+    keyContributions: bullets,
+  };
+}
+
+/**
+ * Converts structured format (summary + keyContributions) back to description string
+ * Inverse of parseDescriptionToStructured - ensures round-trip compatibility
+ *
+ * @param summary - The summary/overview text
+ * @param keyContributions - Array of bullet point contributions
+ * @returns Formatted description string with summary followed by bulleted contributions
+ */
+export function structuredToDescription(summary: string, keyContributions: string[]): string {
+  const parts: string[] = [];
+  if (summary?.trim()) {
+    parts.push(summary.trim());
+  }
+  if (keyContributions && keyContributions.length > 0) {
+    if (parts.length > 0) parts.push(''); // Add blank line between summary and bullets
+    for (const bullet of keyContributions) {
+      if (bullet.trim()) {
+        parts.push(`• ${bullet.trim()}`);
+      }
+    }
+  }
+  return parts.join('\n');
+}

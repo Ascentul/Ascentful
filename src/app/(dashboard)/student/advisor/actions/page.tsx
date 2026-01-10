@@ -182,7 +182,8 @@ function ActionItemCard({ item, clerkId }: { item: ActionItem; clerkId: string }
   const formatDueDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.ceil((timestamp - now.getTime()) / (1000 * 60 * 60 * 24));
+    // Use Math.floor to avoid edge cases (e.g., 23 hours away should be "Due today", not "Due in 1 days")
+    const diffDays = Math.floor((timestamp - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
       return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} overdue`;
@@ -243,6 +244,7 @@ function ActionItemCard({ item, clerkId }: { item: ActionItem; clerkId: string }
           <button
             onClick={handleToggle}
             disabled={isUpdating}
+            aria-label={isDone ? 'Mark as incomplete' : 'Mark as complete'}
             className={`flex-shrink-0 mt-1 rounded-full transition-colors ${
               isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
             }`}

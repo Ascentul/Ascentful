@@ -239,14 +239,15 @@ export function useJDAnalysis() {
   const analyzeJD = useCallback(async (jobDescription: string, url?: string) => {
     setState({ data: null, loading: true, error: null });
 
-    // JD analysis with lightweight prompt should be fast
+    // JD analysis: allow sufficient time for backend AI call + retries
+    // Backend performs actual retries (configured with maxRetries: 2, timeoutMs: 30000)
     const result = await callAPI<JDAnalysisResponse>(
       '/api/ai/analyze-jd',
       {
         jobDescription,
         url,
       },
-      60000, // 60 second timeout (30s per attempt × 2 retries)
+      60000, // Frontend timeout: must exceed backend max duration (30s timeout × 2 retries)
     );
 
     if (result.success && result.data) {
