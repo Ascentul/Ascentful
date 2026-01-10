@@ -66,8 +66,11 @@ export function resumeDataToText(data: ResumeData): string {
         }
       }
 
-      // Include description (legacy format or additional info)
-      if (exp.description) {
+      // Include description only if no structured fields exist (legacy format)
+      // When both exist, structured fields take precedence to avoid duplicate content
+      const hasStructuredContent =
+        exp.summary || (exp.keyContributions && exp.keyContributions.length > 0);
+      if (exp.description && !hasStructuredContent) {
         // Split by newlines to handle bullet points
         const bullets = exp.description.split('\n').filter((line) => line.trim());
         for (const bullet of bullets) {

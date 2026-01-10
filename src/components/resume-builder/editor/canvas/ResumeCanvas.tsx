@@ -1156,43 +1156,42 @@ function ExperienceEntry({
           canDelete={canDelete}
         />
       )}
+      {/* Title and Date Row */}
       <div className="flex justify-between items-baseline">
-        <div>
-          <InlineEditableText
-            spanId={`experience-${experience.id}-title`}
-            value={experience.title}
-            onChange={(value) => onChange({ ...experience, title: value })}
-            placeholder={titleIsMissing ? 'Enter job title (e.g. Software Engineer)' : 'Job Title'}
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            className="font-semibold text-[12pt]"
-            isMissing={titleIsMissing}
-            editorMode={editorMode}
-            aiSuggestions={aiSuggestions}
-            focusedSuggestionId={focusedSuggestionId}
-            onTrackChangeClick={onTrackChangeClick}
-          />
-          <span className="mx-2 text-slate-400">–</span>
-          <InlineEditableText
-            spanId={`experience-${experience.id}-company`}
-            value={experience.company}
-            onChange={(value) => onChange({ ...experience, company: value })}
-            placeholder={companyIsMissing ? 'Enter company name' : 'Company Name'}
-            suggestions={suggestions}
-            coachEnabled={coachEnabled}
-            className="text-[12pt]"
-            style={{ color: accentColor } as CSSProperties}
-            isMissing={companyIsMissing}
-            editorMode={editorMode}
-            aiSuggestions={aiSuggestions}
-            focusedSuggestionId={focusedSuggestionId}
-            onTrackChangeClick={onTrackChangeClick}
-          />
-        </div>
+        <InlineEditableText
+          spanId={`experience-${experience.id}-title`}
+          value={experience.title}
+          onChange={(value) => onChange({ ...experience, title: value })}
+          placeholder={titleIsMissing ? 'Enter job title (e.g. Software Engineer)' : 'Job Title'}
+          suggestions={suggestions}
+          coachEnabled={coachEnabled}
+          className="font-semibold text-[12pt]"
+          isMissing={titleIsMissing}
+          editorMode={editorMode}
+          aiSuggestions={aiSuggestions}
+          focusedSuggestionId={focusedSuggestionId}
+          onTrackChangeClick={onTrackChangeClick}
+        />
         <div className="text-[10pt] text-slate-500">
           {experience.startDate} – {experience.current ? 'Present' : experience.endDate}
         </div>
       </div>
+      {/* Company Row */}
+      <InlineEditableText
+        spanId={`experience-${experience.id}-company`}
+        value={experience.company}
+        onChange={(value) => onChange({ ...experience, company: value })}
+        placeholder={companyIsMissing ? 'Enter company name' : 'Company Name'}
+        suggestions={suggestions}
+        coachEnabled={coachEnabled}
+        className="text-[12pt]"
+        style={{ color: accentColor } as CSSProperties}
+        isMissing={companyIsMissing}
+        editorMode={editorMode}
+        aiSuggestions={aiSuggestions}
+        focusedSuggestionId={focusedSuggestionId}
+        onTrackChangeClick={onTrackChangeClick}
+      />
       {experience.location && (
         <div className="text-[10pt] text-slate-500 mb-1">{experience.location}</div>
       )}

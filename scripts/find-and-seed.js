@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
  * Find user by email and seed sample applications
+ *
+ * WARNING: This script logs PII (email, user ID) to console.
+ * Intended for local development only - do not use in production environments.
  */
 
 const fs = require('fs');
