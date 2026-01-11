@@ -7,11 +7,11 @@ import { Camera, Loader2 } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAvatarUpload } from '@/hooks/useAvatarUpload';
 
 import { EmailEntry, MultiEmailInput } from '../shared/MultiEmailInput';
 import { MultiPhoneInput, PhoneEntry } from '../shared/MultiPhoneInput';
@@ -22,9 +22,10 @@ export interface BasicInfoSectionRef {
   isSaving: boolean;
 }
 
-export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref) => {
+export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
+  const { uploadAvatar, isUploading: isUploadingImage } = useAvatarUpload();
 
   // Fetch user data from Convex
   const convexUser = useQuery(
@@ -33,8 +34,6 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref)
   );
 
   const updateUserMutation = useMutation(api.users.updateUser);
-  const generateAvatarUploadUrl = useMutation(api.avatar.generateAvatarUploadUrl);
-  const updateUserAvatar = useMutation(api.avatar.updateUserAvatar);
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -48,7 +47,6 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref)
   const [bio, setBio] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Initialize form from Convex data
   useEffect(() => {
@@ -147,64 +145,18 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref)
   };
 
   // Expose save handler to parent via ref
-  useImperativeHandle(ref, () => ({
-    handleSave,
-    isSaving,
-  }));
+  useImperativeHandle(
+    ref,
+    () => ({
+      handleSave,
+      isSaving,
+    }),
+    [isSaving],
+  );
 
   const handleImageUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please upload an image file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload an image smaller than 5MB',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      const uploadUrl = await generateAvatarUploadUrl();
-      const uploadResult = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-
-      if (!uploadResult.ok) throw new Error('Failed to upload image');
-
-      const { storageId } = await uploadResult.json();
-
-      if (clerkUser?.id) {
-        await updateUserAvatar({
-          clerkId: clerkUser.id,
-          storageId,
-        });
-        toast({
-          title: 'Profile picture updated',
-          description: 'Your profile picture has been updated successfully',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('Image upload error:', error);
-      toast({
-        title: 'Upload failed',
-        description: 'Failed to upload image. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
+    if (!clerkUser?.id) return;
+    await uploadAvatar(file, clerkUser.id);
   };
 
   if (!convexUser) {
@@ -252,6 +204,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref)
             <button
               onClick={() => document.getElementById('avatar-upload')?.click()}
               disabled={isUploadingImage}
+              aria-label={isUploadingImage ? 'Uploading profile picture' : 'Change profile picture'}
               className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
             >
               {isUploadingImage ? (
@@ -354,6 +307,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((props, ref)
           onChange={(e) => setBio(e.target.value)}
           placeholder="Tell us about yourself..."
           rows={6}
+          maxLength={500}
           className="rounded-lg resize-none"
         />
         <p className="text-xs text-muted-foreground">{bio.length}/500 characters</p>

@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/select';
 
 export interface EmailEntry {
+  id?: string;
   email: string;
   type: 'personal' | 'work';
   isPrimary?: boolean;
@@ -34,15 +36,22 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     if (!newEmail.trim()) return;
 
     // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (!emailRegex.test(newEmail)) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Check for duplicates
+    if (value.some((entry) => entry.email.toLowerCase() === newEmail.trim().toLowerCase())) {
+      toast.error('This email address is already added');
       return;
     }
 
     onChange([
       ...value,
       {
+        id: `email-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         email: newEmail.trim(),
         type: newEmailType,
         isPrimary: value.length === 0, // First email is primary by default
@@ -57,7 +66,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     const updated = value.filter((_, i) => i !== index);
     // If we removed the primary email, make the first one primary
     if (value[index].isPrimary && updated.length > 0) {
-      updated[0].isPrimary = true;
+      updated[0] = { ...updated[0], isPrimary: true };
     }
     onChange(updated);
   };
@@ -80,13 +89,22 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     <div className="space-y-3">
       {/* Existing emails */}
       {value.map((entry, index) => (
-        <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+        <div
+          key={entry.id || `email-${index}`}
+          className="flex items-center gap-2 p-3 border rounded-lg bg-white"
+        >
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <Input
                 type="email"
                 value={entry.email}
                 onChange={(e) => updateEmail(index, { email: e.target.value })}
+                onBlur={(e) => {
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+                  if (e.target.value && !emailRegex.test(e.target.value)) {
+                    toast.error('Please enter a valid email address');
+                  }
+                }}
                 className="rounded-control"
                 placeholder="email@example.com"
               />

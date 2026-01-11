@@ -47,6 +47,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useAvatarUpload } from '@/hooks/useAvatarUpload';
 
 // Password change form schema
 const passwordChangeSchema = z
@@ -71,11 +72,11 @@ function AccountPageContent() {
   const { user: clerkUser } = useUser();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { uploadAvatar, isUploading: isUploadingImage } = useAvatarUpload();
 
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // For password change
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isExportingData, setIsExportingData] = useState(false);
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
@@ -92,9 +93,7 @@ function AccountPageContent() {
   });
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  // Avatar mutations - always call hooks unconditionally
-  const generateAvatarUploadUrlMutation = useMutation(api.avatar.generateAvatarUploadUrl);
-  const updateUserAvatarMutation = useMutation(api.avatar.updateUserAvatar);
+  // User update mutation
   const updateUserMutation = useMutation(api.users.updateUser);
 
   // Prefill profile form from user data (only when not actively editing)
@@ -258,58 +257,8 @@ function AccountPageContent() {
   };
 
   const handleImageUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please upload an image file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload an image smaller than 5MB',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      const uploadUrl = await generateAvatarUploadUrlMutation();
-      const uploadResult = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-
-      if (!uploadResult.ok) throw new Error('Failed to upload image');
-
-      const { storageId } = await uploadResult.json();
-
-      if (clerkUser?.id) {
-        await updateUserAvatarMutation({
-          clerkId: clerkUser.id,
-          storageId,
-        });
-        toast({
-          title: 'Profile picture updated',
-          description: 'Your profile picture has been updated successfully',
-          variant: 'success',
-        });
-      }
-    } catch (error) {
-      console.error('Image upload error:', error);
-      toast({
-        title: 'Upload failed',
-        description: 'Failed to upload image. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
+    if (!clerkUser?.id) return;
+    await uploadAvatar(file, clerkUser.id);
   };
 
   const effectiveClerkId = clerkUser?.id || user?.clerkId;

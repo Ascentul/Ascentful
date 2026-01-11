@@ -13,8 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 export interface PhoneEntry {
+  id?: string;
   phone: string;
   type: 'mobile' | 'home' | 'work';
   isPrimary?: boolean;
@@ -26,6 +28,7 @@ interface MultiPhoneInputProps {
 }
 
 export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
+  const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   const [newPhoneType, setNewPhoneType] = useState<'mobile' | 'home' | 'work'>('mobile');
@@ -36,13 +39,29 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
     // Basic phone validation (allow various formats)
     const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
     if (!phoneRegex.test(newPhone)) {
-      alert('Please enter a valid phone number');
+      toast({
+        title: 'Invalid phone number',
+        description: 'Please enter a valid phone number',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check for duplicates (normalize by removing non-digit characters)
+    const normalizedNewPhone = newPhone.replace(/\D/g, '');
+    if (value.some((entry) => entry.phone.replace(/\D/g, '') === normalizedNewPhone)) {
+      toast({
+        title: 'Duplicate phone number',
+        description: 'This phone number is already added',
+        variant: 'destructive',
+      });
       return;
     }
 
     onChange([
       ...value,
       {
+        id: `phone-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         phone: newPhone.trim(),
         type: newPhoneType,
         isPrimary: value.length === 0, // First phone is primary by default
@@ -57,7 +76,7 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
     const updated = value.filter((_, i) => i !== index);
     // If we removed the primary phone, make the first one primary
     if (value[index].isPrimary && updated.length > 0) {
-      updated[0].isPrimary = true;
+      updated[0] = { ...updated[0], isPrimary: true };
     }
     onChange(updated);
   };
@@ -80,13 +99,26 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
     <div className="space-y-3">
       {/* Existing phones */}
       {value.map((entry, index) => (
-        <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+        <div
+          key={entry.id || `phone-${index}`}
+          className="flex items-center gap-2 p-3 border rounded-lg bg-white"
+        >
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <Input
                 type="tel"
                 value={entry.phone}
                 onChange={(e) => updatePhone(index, { phone: e.target.value })}
+                onBlur={(e) => {
+                  const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
+                  if (e.target.value && !phoneRegex.test(e.target.value)) {
+                    toast({
+                      title: 'Invalid phone number',
+                      description: 'Please enter a valid phone number',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
                 className="rounded-control"
                 placeholder="+1 (555) 123-4567"
               />
