@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { Camera, Loader2 } from 'lucide-react';
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -102,7 +102,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
     }
   }, [convexUser]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!clerkUser?.id) return;
 
     setIsSaving(true);
@@ -142,7 +142,20 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [
+    clerkUser?.id,
+    firstName,
+    lastName,
+    headline,
+    currentLocation,
+    username,
+    skills,
+    emails,
+    phones,
+    bio,
+    updateUserMutation,
+    toast,
+  ]);
 
   // Expose save handler to parent via ref
   useImperativeHandle(
@@ -151,7 +164,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
       handleSave,
       isSaving,
     }),
-    [isSaving],
+    [handleSave, isSaving],
   );
 
   const handleImageUpload = async (file: File) => {

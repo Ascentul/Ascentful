@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { KeyboardEvent, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -28,12 +29,14 @@ export function SkillsInput({
 
       // Check if skill already exists (case-insensitive)
       if (value.some((skill) => skill.toLowerCase() === trimmed.toLowerCase())) {
+        toast.info('Skill already added');
         setInputValue('');
         return;
       }
 
       // Check max skills limit
       if (value.length >= maxSkills) {
+        toast.info(`Maximum ${maxSkills} skills allowed`);
         return;
       }
 

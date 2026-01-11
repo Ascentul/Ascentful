@@ -19,23 +19,27 @@ import {
 } from '@/components/ui/dialog';
 
 interface SharedProfileLayoutProps {
-  pageTitle?: string;
   pageDescription?: string;
   showLoadingState?: boolean;
 }
 
 export function SharedProfileLayout({
-  pageTitle = 'Profile',
   pageDescription = 'Manage your profile information',
   showLoadingState = false,
 }: SharedProfileLayoutProps) {
   const [activeSection, setActiveSection] = useState('basic-info');
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const basicInfoRef = useRef<BasicInfoSectionRef>(null);
 
   const handleUpdate = async () => {
     if (activeSection === 'basic-info' && basicInfoRef.current) {
-      await basicInfoRef.current.handleSave();
+      setIsSaving(true);
+      try {
+        await basicInfoRef.current.handleSave();
+      } finally {
+        setIsSaving(false);
+      }
     }
     // Add handlers for other sections as they're implemented
   };
@@ -103,12 +107,10 @@ export function SharedProfileLayout({
           </Button>
           <Button
             onClick={handleUpdate}
-            disabled={activeSection === 'basic-info' && basicInfoRef.current?.isSaving}
+            disabled={isSaving}
             className="rounded-control bg-[#5371FF] hover:bg-[#4361EE] text-white px-6"
           >
-            {activeSection === 'basic-info' && basicInfoRef.current?.isSaving
-              ? 'Updating...'
-              : 'Update'}
+            {isSaving ? 'Updating...' : 'Update'}
           </Button>
         </div>
       </div>

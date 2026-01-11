@@ -32,6 +32,7 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   const [newPhoneType, setNewPhoneType] = useState<'mobile' | 'home' | 'work'>('mobile');
+  const [editingValues, setEditingValues] = useState<Record<number, string>>({});
 
   const addPhone = () => {
     if (!newPhone.trim()) return;
@@ -108,6 +109,10 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
               <Input
                 type="tel"
                 value={entry.phone}
+                onFocus={() => {
+                  // Store the original value when editing starts
+                  setEditingValues((prev) => ({ ...prev, [index]: entry.phone }));
+                }}
                 onChange={(e) => updatePhone(index, { phone: e.target.value })}
                 onBlur={(e) => {
                   const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
@@ -117,7 +122,16 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
                       description: 'Please enter a valid phone number',
                       variant: 'destructive',
                     });
+                    // Revert to the original value
+                    const originalValue = editingValues[index] || entry.phone;
+                    updatePhone(index, { phone: originalValue });
                   }
+                  // Clean up the stored value
+                  setEditingValues((prev) => {
+                    const updated = { ...prev };
+                    delete updated[index];
+                    return updated;
+                  });
                 }}
                 className="rounded-control"
                 placeholder="+1 (555) 123-4567"

@@ -5,6 +5,7 @@ import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { Bell, MessageCircle, Search, Settings, User as UserIcon } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -263,42 +264,22 @@ export default function AppTopBar() {
 
         {openPanel === 'profile' && (
           <div className="absolute right-4 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden z-50">
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeout(() => {
-                  setOpenPanel(null);
-                  router.push('/account');
-                }, 0);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 text-left"
+            <Link
+              href="/account"
+              onClick={() => setOpenPanel(null)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100"
             >
               <Settings className="h-4 w-4 text-slate-500" />
               <span className="text-sm font-medium text-slate-900">Account Settings</span>
-            </button>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeout(() => {
-                  setOpenPanel(null);
-                  router.push('/profile');
-                }, 0);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+            </Link>
+            <Link
+              href="/profile"
+              onClick={() => setOpenPanel(null)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
             >
               <UserIcon className="h-4 w-4 text-slate-500" />
               <span className="text-sm font-medium text-slate-900">Career Profile</span>
-            </button>
+            </Link>
           </div>
         )}
       </div>

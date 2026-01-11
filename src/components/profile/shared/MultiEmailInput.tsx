@@ -2,7 +2,6 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 export interface EmailEntry {
   id?: string;
@@ -28,9 +28,11 @@ interface MultiEmailInputProps {
 }
 
 export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
+  const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newEmailType, setNewEmailType] = useState<'personal' | 'work'>('personal');
+  const [editingValues, setEditingValues] = useState<Record<number, string>>({});
 
   const addEmail = () => {
     if (!newEmail.trim()) return;
@@ -38,13 +40,21 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (!emailRegex.test(newEmail)) {
-      toast.error('Please enter a valid email address');
+      toast({
+        title: 'Invalid email address',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Check for duplicates
     if (value.some((entry) => entry.email.toLowerCase() === newEmail.trim().toLowerCase())) {
-      toast.error('This email address is already added');
+      toast({
+        title: 'Duplicate email address',
+        description: 'This email address is already added',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -98,12 +108,29 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
               <Input
                 type="email"
                 value={entry.email}
+                onFocus={() => {
+                  // Store the original value when editing starts
+                  setEditingValues((prev) => ({ ...prev, [index]: entry.email }));
+                }}
                 onChange={(e) => updateEmail(index, { email: e.target.value })}
                 onBlur={(e) => {
                   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
                   if (e.target.value && !emailRegex.test(e.target.value)) {
-                    toast.error('Please enter a valid email address');
+                    toast({
+                      title: 'Invalid email address',
+                      description: 'Please enter a valid email address',
+                      variant: 'destructive',
+                    });
+                    // Revert to the original value
+                    const originalValue = editingValues[index] || entry.email;
+                    updateEmail(index, { email: originalValue });
                   }
+                  // Clean up the stored value
+                  setEditingValues((prev) => {
+                    const updated = { ...prev };
+                    delete updated[index];
+                    return updated;
+                  });
                 }}
                 className="rounded-control"
                 placeholder="email@example.com"
