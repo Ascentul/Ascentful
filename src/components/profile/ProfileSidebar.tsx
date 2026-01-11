@@ -34,7 +34,7 @@ const sections = [
 
 export function ProfileSidebar({ activeSection, onSectionChange }: ProfileSidebarProps) {
   return (
-    <nav className="w-64 flex-shrink-0 bg-neutral-50 rounded-shell p-4 space-y-1">
+    <nav className="w-64 flex-shrink-0 p-4 space-y-1">
       {sections.map((section) => {
         const Icon = section.icon;
         const isActive = activeSection === section.id;
@@ -45,7 +45,7 @@ export function ProfileSidebar({ activeSection, onSectionChange }: ProfileSideba
             onClick={() => onSectionChange(section.id)}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
-                ? 'bg-primary-500 text-white shadow-sm'
+                ? 'bg-neutral-900 text-white shadow-sm'
                 : 'text-neutral-700 hover:bg-neutral-100'
             }`}
           >

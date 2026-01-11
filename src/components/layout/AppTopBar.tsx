@@ -113,14 +113,14 @@ export default function AppTopBar() {
   }, [openPanel]);
 
   return (
-    <header className="relative z-20">
-      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px] bg-[#f0f2f5]">
+    <header className="sticky top-0 z-20 bg-[#f0f2f5]">
+      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px]">
         {/* Centered Search Bar - anchored to center of content area (adjusts with sidebar) */}
         <button
           onClick={globalSearch.open}
-          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group fixed -translate-x-1/2 -translate-y-1/2 top-[38px] cursor-pointer"
+          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
           style={{
-            left: `calc((100vw + ${isSidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED}px) / 2)`,
+            left: `calc((100vw - ${isSidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED}px) / 2)`,
           }}
         >
           <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-500 transition-colors" />
@@ -132,8 +132,8 @@ export default function AppTopBar() {
           </kbd>
         </button>
 
-        {/* Right side icons */}
-        <div className="flex items-center gap-2.5 mt-[1px]" ref={panelRef}>
+        {/* Right side icons and panels container */}
+        <div className="flex items-center gap-2.5 mt-[1px] relative" ref={panelRef}>
           {/* Plan/University Badge */}
           {badgeText && (
             <span className="hidden md:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
@@ -186,102 +186,111 @@ export default function AppTopBar() {
               </div>
             </button>
           )}
-        </div>
 
-        {openPanel === 'messages' && (
-          <div className="absolute right-4 top-[calc(100%+8px)] w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
-            <p className="mb-2 text-xs font-semibold text-slate-500">Messages</p>
-            <p className="text-sm text-slate-600">No new messages.</p>
-          </div>
-        )}
-
-        {openPanel === 'notifications' && (
-          <div className="absolute right-4 top-[calc(100%+8px)] w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 p-3">
-              <p className="text-sm font-semibold text-slate-900">Notifications</p>
-              {hasUnreadNotifications && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await markAllAsReadMutation({});
-                      router.refresh();
-                    } catch (err) {
-                      console.error('Failed to mark all notifications as read:', err);
-                      toast.error('Failed to mark notifications as read. Please try again.');
-                    }
-                  }}
-                  className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
-                >
-                  Mark all as read
-                </button>
-              )}
+          {/* Dropdown Panels */}
+          {openPanel === 'messages' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+              <p className="mb-2 text-xs font-semibold text-slate-500">Messages</p>
+              <p className="text-sm text-slate-600">No new messages.</p>
             </div>
-            <div className="max-h-96 overflow-y-auto">
-              {!notifications || notifications.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-slate-600">You are all caught up.</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification._id}
-                      className={cn(
-                        'p-3 hover:bg-slate-50 transition-colors cursor-pointer',
-                        !notification.read && 'bg-blue-50/50',
-                      )}
-                      onClick={() => {
-                        if (!notification.read) {
-                          markAsRead({ notificationId: notification._id }).catch((err) => {
-                            console.error('Failed to mark notification as read:', err);
-                            toast.error('Failed to update notification.');
-                          });
-                        }
-                        if (notification.link) {
-                          router.push(notification.link);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900">{notification.title}</p>
-                          <p className="text-xs text-slate-600 mt-0.5">{notification.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {new Date(notification.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                        {!notification.read && (
-                          <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+          )}
+
+          {openPanel === 'notifications' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-200 p-3">
+                <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                {hasUnreadNotifications && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await markAllAsReadMutation({});
+                        router.refresh();
+                      } catch (err) {
+                        console.error('Failed to mark all notifications as read:', err);
+                        toast.error('Failed to mark notifications as read. Please try again.');
+                      }
+                    }}
+                    className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {!notifications || notifications.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-slate-600">You are all caught up.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification._id}
+                        className={cn(
+                          'p-3 hover:bg-slate-50 transition-colors cursor-pointer',
+                          !notification.read && 'bg-blue-50/50',
                         )}
+                        onClick={() => {
+                          if (!notification.read) {
+                            markAsRead({ notificationId: notification._id }).catch((err) => {
+                              console.error('Failed to mark notification as read:', err);
+                              toast.error('Failed to update notification.');
+                            });
+                          }
+                          if (notification.link) {
+                            router.push(notification.link);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900">
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-slate-600 mt-0.5">{notification.message}</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {new Date(notification.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          {!notification.read && (
+                            <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {openPanel === 'profile' && (
-          <div className="absolute right-4 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden z-50">
-            <Link
-              href="/account"
-              onClick={() => setOpenPanel(null)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100"
-            >
-              <Settings className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-900">Account Settings</span>
-            </Link>
-            <Link
-              href="/profile"
-              onClick={() => setOpenPanel(null)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
-            >
-              <UserIcon className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-900">Career Profile</span>
-            </Link>
-          </div>
-        )}
+          {openPanel === 'profile' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden z-50">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/account');
+                  setOpenPanel(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100"
+              >
+                <Settings className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-900">Account Settings</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/profile');
+                  setOpenPanel(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
+              >
+                <UserIcon className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-900">Career Profile</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Global Search Modal */}

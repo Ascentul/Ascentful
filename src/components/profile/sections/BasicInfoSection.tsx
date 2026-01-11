@@ -9,6 +9,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } fro
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAvatarUpload } from '@/hooks/useAvatarUpload';
@@ -45,6 +46,8 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
   const [emails, setEmails] = useState<EmailEntry[]>([]);
   const [phones, setPhones] = useState<PhoneEntry[]>([]);
   const [bio, setBio] = useState('');
+  const [legallyAuthorizedUs, setLegallyAuthorizedUs] = useState(false);
+  const [requiresSponsorship, setRequiresSponsorship] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -99,6 +102,10 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
       } else {
         setPhones([]);
       }
+
+      // Initialize work authorization fields
+      setLegallyAuthorizedUs(convexUser.legally_authorized_us ?? false);
+      setRequiresSponsorship(convexUser.requires_sponsorship ?? false);
     }
   }, [convexUser]);
 
@@ -124,6 +131,8 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
           emails,
           phones,
           bio,
+          legally_authorized_us: legallyAuthorizedUs,
+          requires_sponsorship: requiresSponsorship,
         },
       });
 
@@ -153,6 +162,8 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
     emails,
     phones,
     bio,
+    legallyAuthorizedUs,
+    requiresSponsorship,
     updateUserMutation,
     toast,
   ]);
@@ -324,6 +335,30 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
           className="rounded-lg resize-none"
         />
         <p className="text-xs text-muted-foreground">{bio.length}/500 characters</p>
+      </div>
+
+      {/* Work Authorization */}
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="legallyAuthorizedUs">Legally Authorized to work in USA?</Label>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="legallyAuthorizedUs"
+              checked={legallyAuthorizedUs}
+              onCheckedChange={setLegallyAuthorizedUs}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="requiresSponsorship">Require visa sponsorship to work in USA?</Label>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="requiresSponsorship"
+              checked={requiresSponsorship}
+              onCheckedChange={setRequiresSponsorship}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

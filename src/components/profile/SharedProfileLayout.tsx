@@ -5,9 +5,43 @@ import { useRef, useState } from 'react';
 
 import { ProfileSidebar } from '@/components/profile/ProfileSidebar';
 import {
+  AutofillFieldsSection,
+  AutofillFieldsSectionRef,
+} from '@/components/profile/sections/AutofillFieldsSection';
+import {
   BasicInfoSection,
   BasicInfoSectionRef,
 } from '@/components/profile/sections/BasicInfoSection';
+import {
+  CertificationsSection,
+  CertificationsSectionRef,
+} from '@/components/profile/sections/CertificationsSection';
+import {
+  CustomFieldsSection,
+  CustomFieldsSectionRef,
+} from '@/components/profile/sections/CustomFieldsSection';
+import {
+  DocumentsSection,
+  DocumentsSectionRef,
+} from '@/components/profile/sections/DocumentsSection';
+import {
+  EducationSection,
+  EducationSectionRef,
+} from '@/components/profile/sections/EducationSection';
+import {
+  ExperienceSection,
+  ExperienceSectionRef,
+} from '@/components/profile/sections/ExperienceSection';
+import { LinksSection, LinksSectionRef } from '@/components/profile/sections/LinksSection';
+import {
+  PreferencesSection,
+  PreferencesSectionRef,
+} from '@/components/profile/sections/PreferencesSection';
+import { ProjectsSection, ProjectsSectionRef } from '@/components/profile/sections/ProjectsSection';
+import {
+  VolunteerExperienceSection,
+  VolunteerExperienceSectionRef,
+} from '@/components/profile/sections/VolunteerExperienceSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -31,17 +65,36 @@ export function SharedProfileLayout({
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const basicInfoRef = useRef<BasicInfoSectionRef>(null);
+  const preferencesRef = useRef<PreferencesSectionRef>(null);
+  const experienceRef = useRef<ExperienceSectionRef>(null);
+  const volunteerRef = useRef<VolunteerExperienceSectionRef>(null);
+  const certificationsRef = useRef<CertificationsSectionRef>(null);
+  const educationRef = useRef<EducationSectionRef>(null);
+  const projectsRef = useRef<ProjectsSectionRef>(null);
+  const linksRef = useRef<LinksSectionRef>(null);
+  const documentsRef = useRef<DocumentsSectionRef>(null);
+  const customFieldsRef = useRef<CustomFieldsSectionRef>(null);
+  const autofillFieldsRef = useRef<AutofillFieldsSectionRef>(null);
+
+  // Sections that have save functionality implemented (with top-level Update button)
+  const sectionsWithSave = ['basic-info', 'preferences', 'links'];
+  const showUpdateButton = sectionsWithSave.includes(activeSection);
 
   const handleUpdate = async () => {
-    if (activeSection === 'basic-info' && basicInfoRef.current) {
-      setIsSaving(true);
-      try {
+    setIsSaving(true);
+    try {
+      if (activeSection === 'basic-info' && basicInfoRef.current) {
         await basicInfoRef.current.handleSave();
-      } finally {
-        setIsSaving(false);
+      } else if (activeSection === 'preferences' && preferencesRef.current) {
+        await preferencesRef.current.handleSave();
+      } else if (activeSection === 'experience' && experienceRef.current) {
+        await experienceRef.current.handleSave();
+      } else if (activeSection === 'links' && linksRef.current) {
+        await linksRef.current.handleSave();
       }
+    } finally {
+      setIsSaving(false);
     }
-    // Add handlers for other sections as they're implemented
   };
 
   const renderSection = () => {
@@ -49,27 +102,25 @@ export function SharedProfileLayout({
       case 'basic-info':
         return <BasicInfoSection ref={basicInfoRef} />;
       case 'preferences':
-        return <div className="text-muted-foreground">Preferences section coming soon...</div>;
+        return <PreferencesSection ref={preferencesRef} />;
       case 'experience':
-        return <div className="text-muted-foreground">Experience section coming soon...</div>;
+        return <ExperienceSection ref={experienceRef} />;
       case 'volunteer':
-        return (
-          <div className="text-muted-foreground">Volunteer experience section coming soon...</div>
-        );
+        return <VolunteerExperienceSection ref={volunteerRef} />;
       case 'certifications':
-        return <div className="text-muted-foreground">Certifications section coming soon...</div>;
+        return <CertificationsSection ref={certificationsRef} />;
       case 'education':
-        return <div className="text-muted-foreground">Education section coming soon...</div>;
+        return <EducationSection ref={educationRef} />;
       case 'projects':
-        return <div className="text-muted-foreground">Projects section coming soon...</div>;
+        return <ProjectsSection ref={projectsRef} />;
       case 'links':
-        return <div className="text-muted-foreground">Links section coming soon...</div>;
+        return <LinksSection ref={linksRef} />;
       case 'documents':
-        return <div className="text-muted-foreground">Documents section coming soon...</div>;
+        return <DocumentsSection ref={documentsRef} />;
       case 'custom-fields':
-        return <div className="text-muted-foreground">Custom fields section coming soon...</div>;
+        return <CustomFieldsSection ref={customFieldsRef} />;
       case 'autofill-fields':
-        return <div className="text-muted-foreground">Autofill fields section coming soon...</div>;
+        return <AutofillFieldsSection ref={autofillFieldsRef} />;
       default:
         return <BasicInfoSection ref={basicInfoRef} />;
     }
@@ -88,11 +139,13 @@ export function SharedProfileLayout({
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">
-            {activeSection
-              .split('-')
-              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ')}
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            {activeSection === 'autofill-fields'
+              ? 'Application Autofill Fields'
+              : activeSection
+                  .split('-')
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ')}
           </h1>
           <p className="text-muted-foreground">{pageDescription}</p>
         </div>
@@ -105,13 +158,15 @@ export function SharedProfileLayout({
             <Download className="h-4 w-4" />
             Import
           </Button>
-          <Button
-            onClick={handleUpdate}
-            disabled={isSaving}
-            className="rounded-control bg-[#5371FF] hover:bg-[#4361EE] text-white px-6"
-          >
-            {isSaving ? 'Updating...' : 'Update'}
-          </Button>
+          {showUpdateButton && (
+            <Button
+              onClick={handleUpdate}
+              disabled={isSaving}
+              className="rounded-control bg-[#5371FF] hover:bg-[#4361EE] text-white px-6"
+            >
+              {isSaving ? 'Updating...' : 'Update'}
+            </Button>
+          )}
         </div>
       </div>
 
