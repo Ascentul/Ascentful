@@ -39,6 +39,25 @@ export default defineSchema({
     linkedin_url: v.optional(v.string()),
     github_url: v.optional(v.string()),
     bio: v.optional(v.string()),
+    headline: v.optional(v.string()), // Professional headline/tagline
+    emails: v.optional(
+      v.array(
+        v.object({
+          email: v.string(),
+          type: v.union(v.literal('personal'), v.literal('work')),
+          isPrimary: v.optional(v.boolean()),
+        }),
+      ),
+    ), // Additional email addresses with types
+    phones: v.optional(
+      v.array(
+        v.object({
+          phone: v.string(),
+          type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
+          isPrimary: v.optional(v.boolean()),
+        }),
+      ),
+    ), // Additional phone numbers with types
     job_title: v.optional(v.string()),
     company: v.optional(v.string()),
     location: v.optional(v.string()),

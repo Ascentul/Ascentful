@@ -613,6 +613,25 @@ export const updateUser = mutation({
       cover_image: v.optional(v.string()),
       linkedin_url: v.optional(v.string()),
       bio: v.optional(v.string()),
+      headline: v.optional(v.string()),
+      emails: v.optional(
+        v.array(
+          v.object({
+            email: v.string(),
+            type: v.union(v.literal('personal'), v.literal('work')),
+            isPrimary: v.optional(v.boolean()),
+          }),
+        ),
+      ),
+      phones: v.optional(
+        v.array(
+          v.object({
+            phone: v.string(),
+            type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
+            isPrimary: v.optional(v.boolean()),
+          }),
+        ),
+      ),
       job_title: v.optional(v.string()),
       company: v.optional(v.string()),
       location: v.optional(v.string()),
@@ -803,6 +822,25 @@ export const updateUserById = mutation({
       profile_image: v.optional(v.string()),
       linkedin_url: v.optional(v.string()),
       bio: v.optional(v.string()),
+      headline: v.optional(v.string()),
+      emails: v.optional(
+        v.array(
+          v.object({
+            email: v.string(),
+            type: v.union(v.literal('personal'), v.literal('work')),
+            isPrimary: v.optional(v.boolean()),
+          }),
+        ),
+      ),
+      phones: v.optional(
+        v.array(
+          v.object({
+            phone: v.string(),
+            type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
+            isPrimary: v.optional(v.boolean()),
+          }),
+        ),
+      ),
       job_title: v.optional(v.string()),
       company: v.optional(v.string()),
       location: v.optional(v.string()),

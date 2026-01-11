@@ -3,9 +3,8 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
-import { Bell, MessageCircle, Search } from 'lucide-react';
+import { Bell, MessageCircle, Search, Settings, User as UserIcon } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -70,7 +69,9 @@ export default function AppTopBar() {
         : subscription.isPremium
           ? subscription.planName
           : null;
-  const [openPanel, setOpenPanel] = useState<null | 'search' | 'messages' | 'notifications'>(null);
+  const [openPanel, setOpenPanel] = useState<
+    null | 'search' | 'messages' | 'notifications' | 'profile'
+  >(null);
   const [unreadMessages, setUnreadMessages] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -89,7 +90,7 @@ export default function AppTopBar() {
 
   const hasUnreadNotifications = (unreadCount ?? 0) > 0;
 
-  const togglePanel = (panel: 'search' | 'messages' | 'notifications') => {
+  const togglePanel = (panel: 'search' | 'messages' | 'notifications' | 'profile') => {
     setOpenPanel((prev) => {
       const next = prev === panel ? null : panel;
       if (next === 'messages') {
@@ -157,8 +158,19 @@ export default function AppTopBar() {
 
           {/* Profile Avatar */}
           {clerkUser && (
-            <Link href="/account" className="flex-shrink-0" aria-label="Account settings">
-              <div className="relative h-10 w-10 rounded-full ring-2 ring-primary-500/50 hover:ring-primary-500 transition-all overflow-hidden shadow-sm">
+            <button
+              onClick={() => togglePanel('profile')}
+              className="flex-shrink-0"
+              aria-label="Profile menu"
+            >
+              <div
+                className={cn(
+                  'relative h-10 w-10 rounded-full ring-2 transition-all overflow-hidden shadow-sm cursor-pointer',
+                  openPanel === 'profile'
+                    ? 'ring-primary-500'
+                    : 'ring-primary-500/50 hover:ring-primary-500',
+                )}
+              >
                 <Image
                   src={
                     user?.profile_image ||
@@ -171,7 +183,7 @@ export default function AppTopBar() {
                   className="h-full w-full object-cover"
                 />
               </div>
-            </Link>
+            </button>
           )}
         </div>
 
@@ -246,6 +258,47 @@ export default function AppTopBar() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {openPanel === 'profile' && (
+          <div className="absolute right-4 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden z-50">
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setTimeout(() => {
+                  setOpenPanel(null);
+                  router.push('/account');
+                }, 0);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 text-left"
+            >
+              <Settings className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-900">Account Settings</span>
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setTimeout(() => {
+                  setOpenPanel(null);
+                  router.push('/profile');
+                }, 0);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+            >
+              <UserIcon className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-900">Career Profile</span>
+            </button>
           </div>
         )}
       </div>

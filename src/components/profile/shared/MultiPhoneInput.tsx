@@ -1,0 +1,195 @@
+'use client';
+
+import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+export interface PhoneEntry {
+  phone: string;
+  type: 'mobile' | 'home' | 'work';
+  isPrimary?: boolean;
+}
+
+interface MultiPhoneInputProps {
+  value: PhoneEntry[];
+  onChange: (phones: PhoneEntry[]) => void;
+}
+
+export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+  const [newPhoneType, setNewPhoneType] = useState<'mobile' | 'home' | 'work'>('mobile');
+
+  const addPhone = () => {
+    if (!newPhone.trim()) return;
+
+    // Basic phone validation (allow various formats)
+    const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
+    if (!phoneRegex.test(newPhone)) {
+      alert('Please enter a valid phone number');
+      return;
+    }
+
+    onChange([
+      ...value,
+      {
+        phone: newPhone.trim(),
+        type: newPhoneType,
+        isPrimary: value.length === 0, // First phone is primary by default
+      },
+    ]);
+
+    setNewPhone('');
+    setShowAddForm(false);
+  };
+
+  const removePhone = (index: number) => {
+    const updated = value.filter((_, i) => i !== index);
+    // If we removed the primary phone, make the first one primary
+    if (value[index].isPrimary && updated.length > 0) {
+      updated[0].isPrimary = true;
+    }
+    onChange(updated);
+  };
+
+  const setPrimary = (index: number) => {
+    const updated = value.map((phone, i) => ({
+      ...phone,
+      isPrimary: i === index,
+    }));
+    onChange(updated);
+  };
+
+  const updatePhone = (index: number, updates: Partial<PhoneEntry>) => {
+    const updated = [...value];
+    updated[index] = { ...updated[index], ...updates };
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Existing phones */}
+      {value.map((entry, index) => (
+        <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                type="tel"
+                value={entry.phone}
+                onChange={(e) => updatePhone(index, { phone: e.target.value })}
+                className="rounded-control"
+                placeholder="+1 (555) 123-4567"
+              />
+              <Select
+                value={entry.type}
+                onValueChange={(type: 'mobile' | 'home' | 'work') => updatePhone(index, { type })}
+              >
+                <SelectTrigger className="w-32 rounded-control">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile">Mobile</SelectItem>
+                  <SelectItem value="home">Home</SelectItem>
+                  <SelectItem value="work">Work</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {value.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setPrimary(index)}
+                className="text-xs text-muted-foreground hover:text-primary-500"
+              >
+                {entry.isPrimary ? '✓ Primary' : 'Set as primary'}
+              </button>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => removePhone(index)}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+
+      {/* Add new phone form */}
+      {showAddForm && (
+        <div className="p-3 border border-dashed rounded-lg space-y-2">
+          <Label className="text-sm font-medium">Add Phone</Label>
+          <div className="flex gap-2">
+            <Input
+              type="tel"
+              value={newPhone}
+              onChange={(e) => setNewPhone(e.target.value)}
+              placeholder="+1 (555) 123-4567"
+              className="flex-1 rounded-control"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addPhone();
+                }
+              }}
+            />
+            <Select
+              value={newPhoneType}
+              onValueChange={(v: 'mobile' | 'home' | 'work') => setNewPhoneType(v)}
+            >
+              <SelectTrigger className="w-32 rounded-control">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mobile">Mobile</SelectItem>
+                <SelectItem value="home">Home</SelectItem>
+                <SelectItem value="work">Work</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={addPhone} size="sm" className="rounded-control">
+              Add
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowAddForm(false);
+                setNewPhone('');
+              }}
+              size="sm"
+              className="rounded-control"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add phone button */}
+      {!showAddForm && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowAddForm(true)}
+          className="w-full rounded-control flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add phone
+        </Button>
+      )}
+    </div>
+  );
+}
