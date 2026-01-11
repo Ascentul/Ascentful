@@ -133,25 +133,37 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     const url = formLinkUrl.trim().startsWith('http')
       ? formLinkUrl.trim()
       : `https://${formLinkUrl.trim()}`;
+    const title = formLinkTitle.trim();
+    const type = linkDialogType;
+    const timestamp = Date.now();
 
-    if (linkDialogType === 'resume') {
-      const newResume: ProfileResume = {
-        id: `resume_${Date.now()}`,
-        type: 'link',
-        title: formLinkTitle.trim() || 'Resume',
-        url,
-        uploaded_at: Date.now(),
-      };
-      setProfileResume(newResume);
-    } else {
-      const newDoc: ProfileDocument = {
-        id: `doc_${Date.now()}`,
-        type: 'link',
-        title: formLinkTitle.trim() || 'Document',
-        url,
-        uploaded_at: Date.now(),
-      };
-      setProfileDocuments([...profileDocuments, newDoc]);
+    // Generate IDs once to ensure consistency between local state and server
+    const newResumeData: ProfileResume | null =
+      type === 'resume'
+        ? {
+            id: `resume_${crypto.randomUUID()}`,
+            type: 'link',
+            title: title || 'Resume',
+            url,
+            uploaded_at: timestamp,
+          }
+        : null;
+
+    const newDocData: ProfileDocument | null =
+      type === 'document'
+        ? {
+            id: `doc_${crypto.randomUUID()}`,
+            type: 'link',
+            title: title || 'Document',
+            url,
+            uploaded_at: timestamp,
+          }
+        : null;
+
+    if (newResumeData) {
+      setProfileResume(newResumeData);
+    } else if (newDocData) {
+      setProfileDocuments([...profileDocuments, newDocData]);
     }
 
     setIsLinkDialogOpen(false);
@@ -161,30 +173,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     // Auto-save
     if (clerkUser?.id) {
       try {
-        const updatedResume =
-          linkDialogType === 'resume'
-            ? {
-                id: `resume_${Date.now()}`,
-                type: 'link' as const,
-                title: formLinkTitle.trim() || 'Resume',
-                url,
-                uploaded_at: Date.now(),
-              }
-            : profileResume;
-
-        const updatedDocs =
-          linkDialogType === 'document'
-            ? [
-                ...profileDocuments,
-                {
-                  id: `doc_${Date.now()}`,
-                  type: 'link' as const,
-                  title: formLinkTitle.trim() || 'Document',
-                  url,
-                  uploaded_at: Date.now(),
-                },
-              ]
-            : profileDocuments;
+        const updatedResume = newResumeData || profileResume;
+        const updatedDocs = newDocData ? [...profileDocuments, newDocData] : profileDocuments;
 
         await updateUserMutation({
           clerkId: clerkUser.id,
@@ -195,7 +185,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
         });
 
         toast({
-          title: linkDialogType === 'resume' ? 'Resume linked' : 'Document linked',
+          title: type === 'resume' ? 'Resume linked' : 'Document linked',
           description: 'Your link has been saved',
           variant: 'success',
         });

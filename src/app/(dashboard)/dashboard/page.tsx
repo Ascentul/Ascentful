@@ -129,17 +129,6 @@ export default function DashboardPage() {
     visible: { opacity: 1, transition: { duration: 0.3 } },
   };
 
-  const subtleUp = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-      },
-    },
-  };
-
   const cardAnimation = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -183,7 +172,7 @@ export default function DashboardPage() {
         >
           {/* Row 1-3: Dashboard Header with Greeting, Stage Tabs, and Hero Card */}
           {showStudentDashboard && (
-            <motion.div variants={subtleUp}>
+            <motion.div variants={cardAnimation}>
               <DashboardHeader
                 userName={user.name?.split(' ')[0]}
                 thisWeekActions={stats.thisWeekActions}

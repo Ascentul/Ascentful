@@ -87,8 +87,6 @@ export function SharedProfileLayout({
         await basicInfoRef.current.handleSave();
       } else if (activeSection === 'preferences' && preferencesRef.current) {
         await preferencesRef.current.handleSave();
-      } else if (activeSection === 'experience' && experienceRef.current) {
-        await experienceRef.current.handleSave();
       } else if (activeSection === 'links' && linksRef.current) {
         await linksRef.current.handleSave();
       }

@@ -191,6 +191,8 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
       updatedHistory = [newEducation, ...educationHistory];
     }
 
+    // Store previous state for rollback
+    const previousHistory = educationHistory;
     setEducationHistory(updatedHistory);
     setIsDialogOpen(false);
     resetForm();
@@ -211,6 +213,8 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
         });
       } catch (error) {
         console.error('Failed to save education:', error);
+        // Rollback local state on failure
+        setEducationHistory(previousHistory);
         toast({
           title: 'Save failed',
           description: 'Failed to save. Please try again.',

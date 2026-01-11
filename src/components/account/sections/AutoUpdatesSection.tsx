@@ -56,7 +56,7 @@ export function AutoUpdatesSection() {
   const deleteData = useMutation(api.email_auto_updates.deleteEmailAutoUpdateData);
 
   const integrationByProvider = useMemo(() => {
-    const map = new Map<Provider, any>();
+    const map = new Map<Provider, NonNullable<typeof integrations>[number]>();
     for (const i of integrations || []) {
       map.set(i.provider as Provider, i);
     }

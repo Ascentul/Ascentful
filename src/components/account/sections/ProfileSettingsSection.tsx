@@ -302,6 +302,39 @@ export function ProfileSettingsSection() {
             </div>
           </div>
         )}
+
+        {!isEditingProfile && (
+          <div className="space-y-2 text-sm">
+            <p>
+              <span className="font-medium text-muted-foreground">Email:</span>{' '}
+              {profileForm.email || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Name:</span>{' '}
+              {profileForm.name || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Job Title:</span>{' '}
+              {profileForm.jobTitle || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Company:</span>{' '}
+              {profileForm.company || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Location:</span>{' '}
+              {profileForm.location || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Website:</span>{' '}
+              {profileForm.website || '-'}
+            </p>
+            <p>
+              <span className="font-medium text-muted-foreground">Bio:</span>{' '}
+              {profileForm.bio || '-'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

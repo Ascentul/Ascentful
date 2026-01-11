@@ -96,6 +96,13 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
     onChange(updated);
   };
 
+  const isPhoneDuplicate = (phone: string, excludeIndex?: number) => {
+    const normalized = phone.replace(/\D/g, '');
+    return value.some(
+      (entry, i) => i !== excludeIndex && entry.phone.replace(/\D/g, '') === normalized,
+    );
+  };
+
   return (
     <div className="space-y-3">
       {/* Existing phones */}
@@ -116,10 +123,13 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
                 onChange={(e) => updatePhone(index, { phone: e.target.value })}
                 onBlur={(e) => {
                   const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
-                  if (e.target.value && !phoneRegex.test(e.target.value)) {
+                  const isDuplicate = isPhoneDuplicate(e.target.value, index);
+                  if (e.target.value && (!phoneRegex.test(e.target.value) || isDuplicate)) {
                     toast({
-                      title: 'Invalid phone number',
-                      description: 'Please enter a valid phone number',
+                      title: isDuplicate ? 'Duplicate phone number' : 'Invalid phone number',
+                      description: isDuplicate
+                        ? 'This phone number is already added'
+                        : 'Please enter a valid phone number',
                       variant: 'destructive',
                     });
                     // Revert to the original value
@@ -166,6 +176,7 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
             size="sm"
             onClick={() => removePhone(index)}
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            aria-label="Remove phone number"
           >
             <Trash2 className="h-4 w-4" />
           </Button>

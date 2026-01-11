@@ -74,6 +74,7 @@ export default function AppTopBar() {
     null | 'search' | 'messages' | 'notifications' | 'profile'
   >(null);
   const [unreadMessages, setUnreadMessages] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Fetch notification count from Convex
@@ -202,17 +203,22 @@ export default function AppTopBar() {
                 {hasUnreadNotifications && (
                   <button
                     onClick={async () => {
+                      if (isMarkingAllRead) return;
+                      setIsMarkingAllRead(true);
                       try {
                         await markAllAsReadMutation({});
                         router.refresh();
                       } catch (err) {
                         console.error('Failed to mark all notifications as read:', err);
                         toast.error('Failed to mark notifications as read. Please try again.');
+                      } finally {
+                        setIsMarkingAllRead(false);
                       }
                     }}
-                    className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors"
+                    className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isMarkingAllRead}
                   >
-                    Mark all as read
+                    {isMarkingAllRead ? 'Marking...' : 'Mark all as read'}
                   </button>
                 )}
               </div>

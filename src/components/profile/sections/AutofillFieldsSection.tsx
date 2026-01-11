@@ -29,7 +29,7 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
       handleSave,
       isSaving,
     }),
-    [isSaving],
+    [handleSave, isSaving],
   );
 
   if (!convexUser) {

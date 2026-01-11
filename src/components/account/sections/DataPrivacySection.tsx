@@ -110,13 +110,21 @@ export function DataPrivacySection() {
       setDeleteConfirmText('');
 
       if (result.deletionType === 'immediate') {
-        await signOut();
+        try {
+          await signOut();
+        } catch (signOutError) {
+          console.error('Sign out error after deletion:', signOutError);
+          // User is deleted but sign-out failed - they'll be signed out on next page load
+        }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Account deletion error:', error);
       toast({
         title: 'Deletion failed',
-        description: error.message || 'Failed to request account deletion. Please try again.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to request account deletion. Please try again.',
         variant: 'destructive',
       });
     } finally {

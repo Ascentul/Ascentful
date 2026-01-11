@@ -135,6 +135,16 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
   const handleSave = useCallback(async () => {
     if (!clerkUser?.id) return;
 
+    // Validate salary range
+    if (salaryType === 'range' && salaryMin > 0 && salaryMax > 0 && salaryMin > salaryMax) {
+      toast({
+        title: 'Invalid salary range',
+        description: 'Minimum salary must be less than maximum salary',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateUserMutation({
@@ -422,6 +432,9 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
               )}
               <span className="px-2 py-1 bg-slate-100 text-slate-600 text-sm rounded">USD</span>
             </div>
+            {salaryType === 'range' && salaryMin > 0 && salaryMax > 0 && salaryMin > salaryMax && (
+              <p className="text-xs text-red-600">Minimum salary should be less than maximum</p>
+            )}
             <div className="flex justify-center gap-4 text-sm border-t pt-3">
               <button
                 type="button"

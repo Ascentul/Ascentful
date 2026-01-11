@@ -57,7 +57,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
   const [formLinkUrl, setFormLinkUrl] = useState('');
 
   // Helper to extract handle from full URL
-  const extractHandle = (url: string | undefined, prefix: string): string => {
+  const extractHandle = (url: string | undefined): string => {
     if (!url) return '';
     // If it's already just a handle (no /)
     if (!url.includes('/')) return url;
@@ -69,10 +69,10 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
   // Initialize form from Convex data
   useEffect(() => {
     if (convexUser) {
-      setLinkedinHandle(extractHandle(convexUser.linkedin_url, 'linkedin.com/in/'));
-      setGithubHandle(extractHandle(convexUser.github_url, 'github.com/'));
-      setTwitterHandle(extractHandle(convexUser.twitter_url, 'twitter.com/'));
-      setDribbbleHandle(extractHandle(convexUser.dribbble_url, 'dribbble.com/'));
+      setLinkedinHandle(extractHandle(convexUser.linkedin_url));
+      setGithubHandle(extractHandle(convexUser.github_url));
+      setTwitterHandle(extractHandle(convexUser.twitter_url));
+      setDribbbleHandle(extractHandle(convexUser.dribbble_url));
       setCustomLinks(convexUser.custom_links || []);
     }
   }, [convexUser]);
@@ -266,6 +266,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
           {/* Add Link Button */}
           <button
             onClick={openAddLinkDialog}
+            aria-label="Add custom link"
             className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
           >
             <Plus className="h-5 w-5 text-slate-400" />
@@ -285,6 +286,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
                   </div>
                   <button
                     onClick={() => handleRemoveCustomLink(link.id)}
+                    aria-label={`Remove ${link.title}`}
                     className="ml-3 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />

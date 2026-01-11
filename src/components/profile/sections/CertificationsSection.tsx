@@ -145,6 +145,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
   };
 
   const handleSaveCertification = async () => {
+    const previousCertifications = [...certifications];
     const newCertification: Certification = {
       id: editingCertification?.id || `cert_${Date.now()}`,
       name: formName || undefined,
@@ -189,6 +190,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
         });
       } catch (error) {
         console.error('Failed to save certification:', error);
+        setCertifications(previousCertifications);
         toast({
           title: 'Save failed',
           description: 'Failed to save. Please try again.',
@@ -199,6 +201,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
   };
 
   const handleDeleteCertification = async (id: string) => {
+    const previousCertifications = [...certifications];
     const updatedCertifications = certifications.filter((cert) => cert.id !== id);
     setCertifications(updatedCertifications);
     setDeleteConfirmId(null);
@@ -219,6 +222,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
         });
       } catch (error) {
         console.error('Failed to delete certification:', error);
+        setCertifications(previousCertifications);
         toast({
           title: 'Delete failed',
           description: 'Failed to delete. Please try again.',
@@ -271,6 +275,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Actions</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -296,6 +301,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
         <button
           onClick={openAddDialog}
           className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+          aria-label="Add certification"
         >
           <Plus className="h-5 w-5 text-slate-400" />
         </button>

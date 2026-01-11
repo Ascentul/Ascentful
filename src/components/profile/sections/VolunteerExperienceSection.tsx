@@ -147,6 +147,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
     };
 
     const handleSaveExperience = async () => {
+      const previousHistory = [...volunteerHistory];
       const newExperience: VolunteerExperience = {
         id: editingExperience?.id || `vol_${Date.now()}`,
         organization: formOrganization || undefined,
@@ -191,6 +192,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
           });
         } catch (error) {
           console.error('Failed to save volunteer experience:', error);
+          setVolunteerHistory(previousHistory);
           toast({
             title: 'Save failed',
             description: 'Failed to save. Please try again.',
@@ -201,6 +203,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
     };
 
     const handleDeleteExperience = async (id: string) => {
+      const previousHistory = [...volunteerHistory];
       const updatedHistory = volunteerHistory.filter((exp) => exp.id !== id);
       setVolunteerHistory(updatedHistory);
       setDeleteConfirmId(null);
@@ -221,6 +224,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
           });
         } catch (error) {
           console.error('Failed to delete volunteer experience:', error);
+          setVolunteerHistory(previousHistory);
           toast({
             title: 'Delete failed',
             description: 'Failed to delete. Please try again.',
@@ -258,6 +262,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
           <button
             onClick={openAddDialog}
             className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+            aria-label="Add volunteer experience"
           >
             <Plus className="h-5 w-5 text-slate-400" />
           </button>
@@ -299,6 +304,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

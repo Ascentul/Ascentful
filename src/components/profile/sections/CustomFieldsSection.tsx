@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
 import { Loader2 } from 'lucide-react';
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
 
 export interface CustomFieldsSectionRef {
   handleSave: () => Promise<void>;
@@ -21,9 +21,9 @@ export const CustomFieldsSection = forwardRef<CustomFieldsSectionRef, {}>((_, re
   );
 
   // No-op save since this section is display-only for now
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     // Custom fields would be managed by the organization
-  };
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -31,7 +31,7 @@ export const CustomFieldsSection = forwardRef<CustomFieldsSectionRef, {}>((_, re
       handleSave,
       isSaving,
     }),
-    [isSaving],
+    [handleSave, isSaving],
   );
 
   if (!convexUser) {
