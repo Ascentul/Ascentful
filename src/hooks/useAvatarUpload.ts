@@ -48,6 +48,9 @@ export function useAvatarUpload() {
       }
 
       const { storageId } = await uploadResult.json();
+      if (!storageId) {
+        throw new Error('Invalid upload response: missing storageId');
+      }
 
       // Update user's avatar in database
       await updateUserAvatar({

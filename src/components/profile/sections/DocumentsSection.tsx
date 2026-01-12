@@ -362,6 +362,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
               <button
                 onClick={() => handleUploadClick('resume')}
                 className="w-full border-2 border-dashed border-[#5371FF] rounded-xl p-4 flex items-center justify-center hover:bg-slate-50 transition-colors"
+                aria-label="Upload resume"
               >
                 <Plus className="h-5 w-5 text-[#5371FF]" />
               </button>
@@ -397,6 +398,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
           <button
             onClick={() => handleUploadClick('document')}
             className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+            aria-label="Upload document"
           >
             <Plus className="h-5 w-5 text-slate-400" />
           </button>

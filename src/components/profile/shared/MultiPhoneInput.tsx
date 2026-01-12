@@ -3,9 +3,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-// Phone validation: allows digits, spaces, dashes, parentheses, plus sign, and dots
-const PHONE_REGEX = /^[\d\s\-\(\)\+\.]+$/;
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +14,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+// Phone validation: allows digits, spaces, dashes, parentheses, plus sign, and dots
+const PHONE_REGEX = /^[\d\s\-\(\)\+\.]+$/;
 
 export interface PhoneEntry {
   id?: string;

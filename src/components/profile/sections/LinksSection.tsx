@@ -80,8 +80,8 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
   // Build full URLs from handles
   const buildUrl = (handle: string, baseUrl: string): string | undefined => {
     if (!handle.trim()) return undefined;
-    // Remove any existing URL prefix if user pasted full URL
-    const cleanHandle = handle.replace(/^https?:\/\//, '').replace(baseUrl, '');
+    // Remove any existing URL prefix if user pasted full URL (handles www. prefix)
+    const cleanHandle = handle.replace(/^https?:\/\/(www\.)?/, '').replace(baseUrl, '');
     return `https://${baseUrl}${cleanHandle}`;
   };
 
@@ -146,7 +146,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
     if (!formLinkTitle.trim() || !formLinkUrl.trim()) return;
 
     const newLink: CustomLink = {
-      id: `link_${Date.now()}`,
+      id: `link_${crypto.randomUUID()}`,
       title: formLinkTitle.trim(),
       url: formLinkUrl.trim().startsWith('http')
         ? formLinkUrl.trim()

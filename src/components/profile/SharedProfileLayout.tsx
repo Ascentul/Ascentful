@@ -95,6 +95,9 @@ export function SharedProfileLayout({
       } else if (activeSection === 'links' && linksRef.current) {
         await linksRef.current.handleSave();
       }
+    } catch (error) {
+      // Error already handled by section with toast - log for debugging
+      console.error('Update failed:', error);
     } finally {
       setIsSaving(false);
     }

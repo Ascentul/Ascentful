@@ -233,6 +233,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
         description: 'The project has been removed',
         variant: 'success',
       });
+      setDeleteConfirmId(null);
     } catch (error) {
       console.error('Failed to delete project:', error);
       toast({
@@ -241,7 +242,6 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
         variant: 'destructive',
       });
     }
-    setDeleteConfirmId(null);
   };
 
   const formatDateRange = (startDate?: number, endDate?: number) => {

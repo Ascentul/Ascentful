@@ -168,7 +168,7 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
 
   const handleSaveEducation = async () => {
     const newEducation: Education = {
-      id: editingEducation?.id || `edu_${Date.now()}`,
+      id: editingEducation?.id || `edu_${crypto.randomUUID()}`,
       school: formSchool || undefined,
       degree: formDegree || undefined,
       field_of_study: formFieldOfStudy || undefined,

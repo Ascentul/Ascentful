@@ -103,6 +103,11 @@ export function SecuritySettingsSection() {
       await signOut();
     } catch (error) {
       console.error('Sign out error:', error);
+      toast({
+        title: 'Sign out failed',
+        description: 'Unable to sign out. Please try again.',
+        variant: 'destructive',
+      });
       setIsSigningOut(false);
     }
   };

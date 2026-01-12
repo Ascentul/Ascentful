@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -26,33 +26,41 @@ import {
   hasUniversityAdminAccess,
 } from '@/lib/constants/roles';
 
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.3 } },
-};
-
-const cardAnimation = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4 },
+// Animation variants - will be conditionally applied based on reduced motion preference
+const createAnimationVariants = (prefersReducedMotion: boolean | null) => ({
+  fadeIn: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
+    visible: { opacity: 1, transition: { duration: prefersReducedMotion ? 0 : 0.3 } },
   },
-};
-
-const staggeredContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+  cardAnimation: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0, y: prefersReducedMotion ? 0 : 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: prefersReducedMotion ? 0 : 0.4 },
+    },
   },
-};
+  staggeredContainer: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
+    visible: {
+      opacity: 1,
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : { staggerChildren: 0.1, delayChildren: 0.1 },
+    },
+  },
+});
 
 export default function DashboardPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { user } = useAuth();
   const { impersonation, getEffectiveRole } = useImpersonation();
   const router = useRouter();
+
+  // Respect user's reduced motion preference for accessibility
+  const prefersReducedMotion = useReducedMotion();
+  const { fadeIn, cardAnimation, staggeredContainer } =
+    createAnimationVariants(prefersReducedMotion);
 
   // Get effective role (respects impersonation)
   const effectiveRole = getEffectiveRole();

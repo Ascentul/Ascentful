@@ -3,9 +3,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-// Email validation: requires user@domain.tld format with TLD of at least 2 characters
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +14,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+// Email validation: requires user@domain.tld format with TLD of at least 2 characters
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export interface EmailEntry {
   id?: string;
@@ -116,10 +116,17 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
                 }}
                 onChange={(e) => updateEmail(index, { email: e.target.value })}
                 onBlur={(e) => {
-                  if (e.target.value && !EMAIL_REGEX.test(e.target.value)) {
+                  const isDuplicate = value.some(
+                    (entry, i) =>
+                      i !== index &&
+                      entry.email.toLowerCase() === e.target.value.trim().toLowerCase(),
+                  );
+                  if (e.target.value && (!EMAIL_REGEX.test(e.target.value) || isDuplicate)) {
                     toast({
-                      title: 'Invalid email address',
-                      description: 'Please enter a valid email address',
+                      title: isDuplicate ? 'Duplicate email address' : 'Invalid email address',
+                      description: isDuplicate
+                        ? 'This email address is already added'
+                        : 'Please enter a valid email address',
                       variant: 'destructive',
                     });
                     // Revert to the original value

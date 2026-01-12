@@ -147,7 +147,7 @@ export const CertificationsSection = forwardRef<CertificationsSectionRef, {}>((_
   const handleSaveCertification = async () => {
     const previousCertifications = [...certifications];
     const newCertification: Certification = {
-      id: editingCertification?.id || `cert_${Date.now()}`,
+      id: editingCertification?.id || `cert_${crypto.randomUUID()}`,
       name: formName || undefined,
       issuing_organization: formIssuingOrg || undefined,
       issue_date: formIssueDate || undefined,

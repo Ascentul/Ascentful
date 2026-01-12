@@ -342,7 +342,11 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
                   className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm"
                 >
                   {role}
-                  <button type="button" onClick={() => removeOtherRole(role)}>
+                  <button
+                    type="button"
+                    onClick={() => removeOtherRole(role)}
+                    aria-label={`Remove ${role}`}
+                  >
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -384,7 +388,11 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
                   className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm"
                 >
                   {industry}
-                  <button type="button" onClick={() => removeIndustry(industry)}>
+                  <button
+                    type="button"
+                    onClick={() => removeIndustry(industry)}
+                    aria-label={`Remove ${industry}`}
+                  >
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -583,7 +591,11 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
                     className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm"
                   >
                     {loc}
-                    <button type="button" onClick={() => removeLocation(loc)}>
+                    <button
+                      type="button"
+                      onClick={() => removeLocation(loc)}
+                      aria-label={`Remove ${loc}`}
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
