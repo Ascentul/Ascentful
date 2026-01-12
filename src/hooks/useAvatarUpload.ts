@@ -36,12 +36,17 @@ export function useAvatarUpload() {
       // Generate upload URL
       const uploadUrl = await generateUploadUrl();
 
-      // Upload file to Convex storage
+      // Upload file to Convex storage with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       const uploadResult = await fetch(uploadUrl, {
         method: 'POST',
         headers: { 'Content-Type': file.type },
         body: file,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!uploadResult.ok) {
         throw new Error('Failed to upload image');
@@ -67,9 +72,12 @@ export function useAvatarUpload() {
       return true;
     } catch (error) {
       console.error('Image upload error:', error);
+      const isTimeout = error instanceof Error && error.name === 'AbortError';
       toast({
         title: 'Upload failed',
-        description: 'Failed to upload image. Please try again.',
+        description: isTimeout
+          ? 'Upload timed out. Please check your connection and try again.'
+          : 'Failed to upload image. Please try again.',
         variant: 'destructive',
       });
       return false;

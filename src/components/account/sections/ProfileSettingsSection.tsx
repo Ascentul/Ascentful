@@ -59,16 +59,18 @@ export function ProfileSettingsSection() {
   const effectiveClerkId = clerkUser?.id || user?.clerkId;
 
   const handleSaveProfile = async () => {
-    const urlPattern = /^https?:\/\/.+/i;
-    if (profileForm.website && !urlPattern.test(profileForm.website)) {
-      setProfileError('Please enter a valid URL');
-      return;
-    }
     if (profileForm.bio.length > 500) {
       setProfileError('Bio must be 500 characters or less');
       return;
     }
     setProfileError(null);
+
+    // Normalize website URL - auto-prepend https:// if missing protocol
+    let normalizedWebsite = profileForm.website.trim();
+    if (normalizedWebsite && !normalizedWebsite.startsWith('http')) {
+      normalizedWebsite = `https://${normalizedWebsite}`;
+    }
+
     if (effectiveClerkId) {
       setIsSavingProfile(true);
       try {
@@ -80,7 +82,7 @@ export function ProfileSettingsSection() {
             job_title: profileForm.jobTitle,
             company: profileForm.company,
             location: profileForm.location,
-            website: profileForm.website,
+            website: normalizedWebsite || undefined,
           },
         });
         toast({
@@ -277,7 +279,7 @@ export function ProfileSettingsSection() {
               <Input
                 id="website"
                 name="website"
-                placeholder="https://example.com"
+                placeholder="example.com"
                 value={profileForm.website}
                 onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
               />

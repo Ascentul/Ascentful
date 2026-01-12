@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Loader2 } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { ProfileSidebar } from '@/components/profile/ProfileSidebar';
@@ -164,7 +164,7 @@ export function SharedProfileLayout({
             onClick={() => setShowImportDialog(true)}
             className="rounded-control flex items-center gap-2"
           >
-            <Download className="h-4 w-4" />
+            <Upload className="h-4 w-4" />
             Import
           </Button>
           {showUpdateButton && (

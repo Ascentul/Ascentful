@@ -75,6 +75,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
   const deleteProjectMutation = useMutation(api.projects.deleteProject);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -223,6 +224,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
   const handleDeleteProject = async (id: Id<'projects'>) => {
     if (!clerkUser?.id) return;
 
+    setIsDeleting(true);
     try {
       await deleteProjectMutation({
         clerkId: clerkUser.id,
@@ -241,6 +243,8 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
         description: 'Failed to delete project. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -573,8 +577,9 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
               variant="destructive"
               onClick={() => deleteConfirmId && handleDeleteProject(deleteConfirmId)}
               className="rounded-control"
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

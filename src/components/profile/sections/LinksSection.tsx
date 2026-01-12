@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
-import { Dribbble, Github, Linkedin, Loader2, Plus, Trash2, Twitter } from 'lucide-react';
+import { Github, Linkedin, Loader2, Plus, Trash2, Twitter } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -45,11 +45,11 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
   const [linkedinHandle, setLinkedinHandle] = useState('');
   const [githubHandle, setGithubHandle] = useState('');
   const [twitterHandle, setTwitterHandle] = useState('');
-  const [dribbbleHandle, setDribbbleHandle] = useState('');
 
   // Custom links
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Dialog state for adding custom links
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -66,16 +66,16 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
     return parts[parts.length - 1] || '';
   };
 
-  // Initialize form from Convex data
+  // Initialize form from Convex data (only once to prevent overwriting in-progress edits)
   useEffect(() => {
-    if (convexUser) {
+    if (convexUser && !isInitialized) {
       setLinkedinHandle(extractHandle(convexUser.linkedin_url));
       setGithubHandle(extractHandle(convexUser.github_url));
       setTwitterHandle(extractHandle(convexUser.twitter_url));
-      setDribbbleHandle(extractHandle(convexUser.dribbble_url));
       setCustomLinks(convexUser.custom_links || []);
+      setIsInitialized(true);
     }
-  }, [convexUser]);
+  }, [convexUser, isInitialized]);
 
   // Build full URLs from handles
   const buildUrl = (handle: string, baseUrl: string): string | undefined => {
@@ -98,8 +98,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
           linkedin_url: buildUrl(linkedinHandle, 'linkedin.com/in/'),
           github_url: buildUrl(githubHandle, 'github.com/'),
           twitter_url: buildUrl(twitterHandle, 'twitter.com/'),
-          dribbble_url: buildUrl(dribbbleHandle, 'dribbble.com/'),
-          custom_links: customLinks.length > 0 ? customLinks : undefined,
+          custom_links: customLinks,
         },
       });
 
@@ -123,7 +122,6 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
     linkedinHandle,
     githubHandle,
     twitterHandle,
-    dribbbleHandle,
     customLinks,
     updateUserMutation,
     toast,
@@ -200,7 +198,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
                 value={linkedinHandle}
                 onChange={(e) => setLinkedinHandle(e.target.value)}
                 placeholder="enter-handle"
-                className="flex-1 text-sm bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400"
+                className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded text-slate-700 placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -225,7 +223,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
                 value={githubHandle}
                 onChange={(e) => setGithubHandle(e.target.value)}
                 placeholder="enter-handle"
-                className="flex-1 text-sm bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400"
+                className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded text-slate-700 placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -250,32 +248,7 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
                 value={twitterHandle}
                 onChange={(e) => setTwitterHandle(e.target.value)}
                 placeholder="enter-handle"
-                className="flex-1 text-sm bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400"
-              />
-            </div>
-          </div>
-
-          {/* Dribbble */}
-          <div className="border border-slate-200 rounded-xl p-4 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 bg-[#EA4C89] rounded flex items-center justify-center">
-                <Dribbble className="h-4 w-4 text-white" />
-              </div>
-              <Label htmlFor="dribbble-handle" className="font-medium text-[#EA4C89]">
-                Dribbble
-              </Label>
-            </div>
-            <div className="flex items-center">
-              <span className="text-slate-500 text-sm" aria-hidden="true">
-                dribbble.com/
-              </span>
-              <input
-                id="dribbble-handle"
-                type="text"
-                value={dribbbleHandle}
-                onChange={(e) => setDribbbleHandle(e.target.value)}
-                placeholder="enter-handle"
-                className="flex-1 text-sm bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400"
+                className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded text-slate-700 placeholder:text-slate-400"
               />
             </div>
           </div>

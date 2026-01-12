@@ -145,7 +145,7 @@ export function AutoUpdatesSection() {
     }
   };
 
-  const handleDeleteData = async (provider?: Provider) => {
+  const handleDeleteData = async (provider?: Provider): Promise<boolean> => {
     try {
       await deleteData({ provider, includeStageEvents });
       toast({
@@ -153,6 +153,7 @@ export function AutoUpdatesSection() {
         description: 'Email-derived data deletion has been scheduled.',
         variant: 'success',
       });
+      return true;
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to schedule deletion.';
       toast({
@@ -160,6 +161,7 @@ export function AutoUpdatesSection() {
         description: message,
         variant: 'destructive',
       });
+      return false;
     }
   };
 
@@ -365,8 +367,11 @@ export function AutoUpdatesSection() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                await handleDeleteData(deleteConfirmation.provider);
-                setDeleteConfirmation({ open: false });
+                const success = await handleDeleteData(deleteConfirmation.provider);
+                if (success) {
+                  setDeleteConfirmation({ open: false });
+                }
+                // On failure, keep dialog open for retry (error toast already shown)
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

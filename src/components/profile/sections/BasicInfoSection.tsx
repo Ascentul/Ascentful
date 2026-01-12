@@ -50,10 +50,11 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
   const [requiresSponsorship, setRequiresSponsorship] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize form from Convex data
+  // Initialize form from Convex data (only once to prevent overwriting in-progress edits)
   useEffect(() => {
-    if (convexUser) {
+    if (convexUser && !isInitialized) {
       // Parse name into first and last
       const nameParts = (convexUser.name || '').split(' ');
       setFirstName(nameParts[0] || '');
@@ -106,8 +107,9 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
       // Initialize work authorization fields
       setLegallyAuthorizedUs(convexUser.legally_authorized_us ?? false);
       setRequiresSponsorship(convexUser.requires_sponsorship ?? false);
+      setIsInitialized(true);
     }
-  }, [convexUser]);
+  }, [convexUser, isInitialized]);
 
   const handleSave = useCallback(async () => {
     if (!clerkUser?.id) return;

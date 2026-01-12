@@ -78,7 +78,6 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
   const linkedinUrl = convexUser.linkedin_url;
   const githubUrl = convexUser.github_url;
   const twitterUrl = convexUser.twitter_url;
-  const dribbbleUrl = convexUser.dribbble_url;
   const customLinks = convexUser.custom_links || [];
 
   // Get resume
@@ -202,10 +201,6 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
                     <td className="px-4 py-3 text-sm font-medium text-[#1DA1F2]">Twitter</td>
                     <td className="px-4 py-3 text-sm text-right">{displayValue(twitterUrl)}</td>
                   </tr>
-                  <tr>
-                    <td className="px-4 py-3 text-sm font-medium text-[#EA4C89]">Dribbble</td>
-                    <td className="px-4 py-3 text-sm text-right">{displayValue(dribbbleUrl)}</td>
-                  </tr>
                 </tbody>
               </table>
 
@@ -248,7 +243,7 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
                         <h4 className="font-semibold text-[#0C29AB]">{exp.company}</h4>
                         <p className="text-sm text-slate-600">{exp.role}</p>
                         <p className="text-sm text-slate-500">
-                          {exp.start_date} to {exp.is_current ? '-' : exp.end_date}
+                          {exp.start_date} – {exp.is_current ? 'Present' : exp.end_date}
                         </p>
                       </div>
                     </div>

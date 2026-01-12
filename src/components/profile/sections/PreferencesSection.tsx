@@ -111,10 +111,11 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
     const [willingToRelocate, setWillingToRelocate] = useState(false);
 
     const [isSaving, setIsSaving] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
 
-    // Initialize form from Convex data
+    // Initialize form from Convex data (only once to prevent overwriting in-progress edits)
     useEffect(() => {
-      if (convexUser) {
+      if (convexUser && !isInitialized) {
         setPrimaryRole(convexUser.primary_role || '');
         setPrimaryRoleExperience(convexUser.primary_role_experience || '');
         setOtherRoles(convexUser.other_roles || []);
@@ -129,8 +130,9 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
         setPreferredEnvironment(convexUser.preferred_environment || '');
         setPreferredLocations(convexUser.preferred_locations || []);
         setWillingToRelocate(convexUser.willing_to_relocate ?? false);
+        setIsInitialized(true);
       }
-    }, [convexUser]);
+    }, [convexUser, isInitialized]);
 
     const handleSave = useCallback(async () => {
       if (!clerkUser?.id) return;
@@ -409,6 +411,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
                 {salaryType === 'exact' ? (
                   <Input
                     type="number"
+                    min="0"
                     value={salaryExact || ''}
                     onChange={(e) => setSalaryExact(Number(e.target.value))}
                     className="flex-1 border-0 focus-visible:ring-0 text-lg"
@@ -418,6 +421,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
                   <div className="flex items-center gap-2 flex-1">
                     <Input
                       type="number"
+                      min="0"
                       value={salaryMin || ''}
                       onChange={(e) => setSalaryMin(Number(e.target.value))}
                       className="flex-1 border-0 focus-visible:ring-0"
@@ -426,6 +430,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
                     <span className="text-slate-400">-</span>
                     <Input
                       type="number"
+                      min="0"
                       value={salaryMax || ''}
                       onChange={(e) => setSalaryMax(Number(e.target.value))}
                       className="flex-1 border-0 focus-visible:ring-0"
