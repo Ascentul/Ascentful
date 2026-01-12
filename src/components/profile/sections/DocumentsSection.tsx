@@ -173,6 +173,10 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
           }
         : null;
 
+    // Store previous state for rollback
+    const previousResume = profileResume;
+    const previousDocs = [...profileDocuments];
+
     if (newResumeData) {
       setProfileResume(newResumeData);
     } else if (newDocData) {
@@ -204,6 +208,9 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
         });
       } catch (error) {
         console.error('Failed to save link:', error);
+        // Rollback local state on failure
+        setProfileResume(previousResume);
+        setProfileDocuments(previousDocs);
         toast({
           title: 'Save failed',
           description: 'Failed to save. Please try again.',
@@ -222,6 +229,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     }
   };
 
+  // TODO: Implement file upload to Convex storage
   // Handle file selection (placeholder - would need storage upload implementation)
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,

@@ -82,7 +82,8 @@ export function SharedProfileLayout({
   const autofillFieldsRef = useRef<AutofillFieldsSectionRef>(null);
 
   // Sections that have save functionality implemented (with top-level Update button)
-  const sectionsWithSave = ['basic-info', 'preferences', 'links'];
+  // Note: experience requires manual save, other sections (education, certifications, etc.) auto-save
+  const sectionsWithSave = ['basic-info', 'preferences', 'experience', 'links'];
   const showUpdateButton = sectionsWithSave.includes(activeSection);
 
   const handleUpdate = async () => {
@@ -92,6 +93,8 @@ export function SharedProfileLayout({
         await basicInfoRef.current.handleSave();
       } else if (activeSection === 'preferences' && preferencesRef.current) {
         await preferencesRef.current.handleSave();
+      } else if (activeSection === 'experience' && experienceRef.current) {
+        await experienceRef.current.handleSave();
       } else if (activeSection === 'links' && linksRef.current) {
         await linksRef.current.handleSave();
       }

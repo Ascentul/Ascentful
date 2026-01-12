@@ -82,6 +82,8 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
     if (!handle.trim()) return undefined;
     // Remove any existing URL prefix if user pasted full URL (handles www. prefix)
     const cleanHandle = handle.replace(/^https?:\/\/(www\.)?/, '').replace(baseUrl, '');
+    // Return undefined if only the base URL was entered (no actual handle/path)
+    if (!cleanHandle.trim()) return undefined;
     return `https://${baseUrl}${cleanHandle}`;
   };
 

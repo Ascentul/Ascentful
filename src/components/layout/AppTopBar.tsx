@@ -207,7 +207,7 @@ export default function AppTopBar() {
                       setIsMarkingAllRead(true);
                       try {
                         await markAllAsReadMutation({});
-                        router.refresh();
+                        // Convex queries are reactive - no refresh needed
                       } catch (err) {
                         console.error('Failed to mark all notifications as read:', err);
                         toast.error('Failed to mark notifications as read. Please try again.');

@@ -167,7 +167,7 @@ export const ExperienceSection = forwardRef<ExperienceSectionRef, {}>((_, ref) =
 
   const handleSaveExperience = () => {
     const newExperience: WorkExperience = {
-      id: editingExperience?.id || `exp_${Date.now()}`,
+      id: editingExperience?.id || `exp_${crypto.randomUUID()}`,
       company: formCompany || undefined,
       role: formRole || undefined,
       start_date: formStartDate || undefined,

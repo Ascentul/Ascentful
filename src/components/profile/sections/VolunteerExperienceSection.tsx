@@ -149,7 +149,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
     const handleSaveExperience = async () => {
       const previousHistory = [...volunteerHistory];
       const newExperience: VolunteerExperience = {
-        id: editingExperience?.id || `vol_${Date.now()}`,
+        id: editingExperience?.id || `vol_${crypto.randomUUID()}`,
         organization: formOrganization || undefined,
         role: formRole || undefined,
         start_date: formStartDate || undefined,

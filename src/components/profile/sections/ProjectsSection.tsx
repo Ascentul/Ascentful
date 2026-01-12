@@ -105,7 +105,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
       handleSave,
       isSaving,
     }),
-    [isSaving],
+    [handleSave, isSaving],
   );
 
   const resetForm = () => {

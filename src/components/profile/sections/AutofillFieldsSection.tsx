@@ -32,10 +32,20 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
     [handleSave, isSaving],
   );
 
-  if (!convexUser) {
+  // Handle loading state (undefined = still loading)
+  if (convexUser === undefined) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Handle error/not found state (null = query completed but user not found)
+  if (convexUser === null) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-muted-foreground">Unable to load profile data</p>
       </div>
     );
   }
