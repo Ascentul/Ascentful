@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
 import { Building2, GraduationCap, Loader2 } from 'lucide-react';
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
 
 export interface AutofillFieldsSectionRef {
   handleSave: () => Promise<void>;
@@ -21,7 +21,7 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
   );
 
   // No-op save since this section is display-only
-  const handleSave = async () => {};
+  const handleSave = useCallback(async () => {}, []);
 
   useImperativeHandle(
     ref,

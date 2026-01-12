@@ -90,7 +90,7 @@ export function SkillsInput({
 
       {/* Helper text */}
       <p className="text-xs text-muted-foreground">
-        Press Enter to add skills • {value.length}/{maxSkills} skills
+        Press Enter to add • Backspace to remove last • {value.length}/{maxSkills} skills
       </p>
     </div>
   );

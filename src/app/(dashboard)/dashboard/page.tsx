@@ -26,6 +26,28 @@ import {
   hasUniversityAdminAccess,
 } from '@/lib/constants/roles';
 
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } },
+};
+
+const cardAnimation = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4 },
+  },
+};
+
+const staggeredContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+  },
+};
+
 export default function DashboardPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { user } = useAuth();
@@ -122,33 +144,6 @@ export default function DashboardPage() {
     thisWeekActions: dashboardData?.thisWeek?.totalActions || 0,
     applicationsThisWeek: dashboardData?.thisWeek?.applicationsAdded || 0,
     overdueFollowups: dashboardData?.overdueFollowups || 0,
-  };
-
-  const fadeIn = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.3 } },
-  };
-
-  const cardAnimation = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-      },
-    },
-  };
-
-  const staggeredContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.1,
-      },
-    },
   };
 
   // Calculate nextInterviewDays from nextInterviewDetails (null if interview is in the past)

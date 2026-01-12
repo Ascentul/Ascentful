@@ -3,6 +3,9 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+// Phone validation: allows digits, spaces, dashes, parentheses, plus sign, and dots
+const PHONE_REGEX = /^[\d\s\-\(\)\+\.]+$/;
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,12 +40,12 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
   const addPhone = () => {
     if (!newPhone.trim()) return;
 
-    // Basic phone validation (allow various formats)
-    const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
-    if (!phoneRegex.test(newPhone)) {
+    // Basic phone validation - must contain at least some digits
+    const digitCount = (newPhone.match(/\d/g) || []).length;
+    if (!PHONE_REGEX.test(newPhone) || digitCount < 7) {
       toast({
         title: 'Invalid phone number',
-        description: 'Please enter a valid phone number',
+        description: 'Please enter a valid phone number with at least 7 digits',
         variant: 'destructive',
       });
       return;
@@ -122,14 +125,17 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
                 }}
                 onChange={(e) => updatePhone(index, { phone: e.target.value })}
                 onBlur={(e) => {
-                  const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
+                  const digitCount = (e.target.value.match(/\d/g) || []).length;
                   const isDuplicate = isPhoneDuplicate(e.target.value, index);
-                  if (e.target.value && (!phoneRegex.test(e.target.value) || isDuplicate)) {
+                  if (
+                    e.target.value &&
+                    (!PHONE_REGEX.test(e.target.value) || digitCount < 7 || isDuplicate)
+                  ) {
                     toast({
                       title: isDuplicate ? 'Duplicate phone number' : 'Invalid phone number',
                       description: isDuplicate
                         ? 'This phone number is already added'
-                        : 'Please enter a valid phone number',
+                        : 'Please enter a valid phone number with at least 7 digits',
                       variant: 'destructive',
                     });
                     // Revert to the original value

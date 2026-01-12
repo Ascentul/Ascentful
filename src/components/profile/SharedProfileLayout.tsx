@@ -64,14 +64,19 @@ export function SharedProfileLayout({
   const [activeSection, setActiveSection] = useState('basic-info');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Section refs - used by sectionsWithSave for top-level Update button.
+  // Other sections (experience, education, etc.) use inline auto-save instead.
   const basicInfoRef = useRef<BasicInfoSectionRef>(null);
   const preferencesRef = useRef<PreferencesSectionRef>(null);
+  const linksRef = useRef<LinksSectionRef>(null);
+
+  // Refs for auto-save sections - passed to components for consistency
   const experienceRef = useRef<ExperienceSectionRef>(null);
   const volunteerRef = useRef<VolunteerExperienceSectionRef>(null);
   const certificationsRef = useRef<CertificationsSectionRef>(null);
   const educationRef = useRef<EducationSectionRef>(null);
   const projectsRef = useRef<ProjectsSectionRef>(null);
-  const linksRef = useRef<LinksSectionRef>(null);
   const documentsRef = useRef<DocumentsSectionRef>(null);
   const customFieldsRef = useRef<CustomFieldsSectionRef>(null);
   const autofillFieldsRef = useRef<AutofillFieldsSectionRef>(null);

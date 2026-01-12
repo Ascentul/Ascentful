@@ -133,6 +133,19 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     const url = formLinkUrl.trim().startsWith('http')
       ? formLinkUrl.trim()
       : `https://${formLinkUrl.trim()}`;
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      toast({
+        title: 'Invalid URL',
+        description: 'Please enter a valid URL',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const title = formLinkTitle.trim();
     const type = linkDialogType;
     const timestamp = Date.now();
@@ -231,6 +244,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
 
   // Remove resume
   const handleRemoveResume = async () => {
+    const previousResume = profileResume;
     setProfileResume(null);
 
     if (clerkUser?.id) {
@@ -249,12 +263,19 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
         });
       } catch (error) {
         console.error('Failed to remove resume:', error);
+        setProfileResume(previousResume);
+        toast({
+          title: 'Remove failed',
+          description: 'Failed to remove resume. Please try again.',
+          variant: 'destructive',
+        });
       }
     }
   };
 
   // Remove document
   const handleRemoveDocument = async (id: string) => {
+    const previousDocs = profileDocuments;
     const updatedDocs = profileDocuments.filter((doc) => doc.id !== id);
     setProfileDocuments(updatedDocs);
 
@@ -274,6 +295,12 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
         });
       } catch (error) {
         console.error('Failed to remove document:', error);
+        setProfileDocuments(previousDocs);
+        toast({
+          title: 'Remove failed',
+          description: 'Failed to remove document. Please try again.',
+          variant: 'destructive',
+        });
       }
     }
   };
@@ -323,6 +350,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                 <button
                   onClick={handleRemoveResume}
                   className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                  aria-label="Remove resume"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -417,6 +445,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                     <button
                       onClick={() => handleRemoveDocument(doc.id)}
                       className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                      aria-label={`Remove ${doc.title || 'document'}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

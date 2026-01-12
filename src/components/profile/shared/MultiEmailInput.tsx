@@ -3,6 +3,9 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+// Email validation: requires user@domain.tld format with TLD of at least 2 characters
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,8 +41,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     if (!newEmail.trim()) return;
 
     // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailRegex.test(newEmail)) {
+    if (!EMAIL_REGEX.test(newEmail)) {
       toast({
         title: 'Invalid email address',
         description: 'Please enter a valid email address',
@@ -114,8 +116,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
                 }}
                 onChange={(e) => updateEmail(index, { email: e.target.value })}
                 onBlur={(e) => {
-                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-                  if (e.target.value && !emailRegex.test(e.target.value)) {
+                  if (e.target.value && !EMAIL_REGEX.test(e.target.value)) {
                     toast({
                       title: 'Invalid email address',
                       description: 'Please enter a valid email address',
@@ -164,6 +165,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
             size="sm"
             onClick={() => removeEmail(index)}
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            aria-label="Remove email"
           >
             <Trash2 className="h-4 w-4" />
           </Button>

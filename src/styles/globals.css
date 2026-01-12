@@ -67,7 +67,7 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     /* Match body background for overscroll areas */
-    background-color: #f1f3f9;
+    background-color: rgb(var(--app-bg));
     /* Disable overscroll bounce effect */
     overscroll-behavior: none;
   }

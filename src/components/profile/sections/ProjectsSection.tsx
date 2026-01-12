@@ -277,6 +277,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
         <button
           onClick={openAddDialog}
           className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+          aria-label="Add new project"
         >
           <Plus className="h-5 w-5 text-slate-400" />
         </button>
@@ -309,7 +310,12 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
                       {/* Actions Menu */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label="Project actions"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -501,6 +507,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
                         type="button"
                         onClick={() => removeTechnology(index)}
                         className="text-slate-500 hover:text-slate-700"
+                        aria-label={`Remove ${tech}`}
                       >
                         <X className="h-3 w-3" />
                       </button>

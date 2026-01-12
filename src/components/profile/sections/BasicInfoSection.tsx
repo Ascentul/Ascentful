@@ -223,7 +223,8 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  // Validate file size (5MB limit)
+                  // Early validation for immediate UX feedback before loading state.
+                  // Note: useAvatarUpload hook also validates as a fallback.
                   if (file.size > 5 * 1024 * 1024) {
                     toast({
                       title: 'File too large',

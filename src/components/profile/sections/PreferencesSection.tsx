@@ -97,7 +97,6 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
   const [otherRoles, setOtherRoles] = useState<string[]>([]);
   const [otherRoleInput, setOtherRoleInput] = useState('');
   const [industries, setIndustries] = useState<string[]>([]);
-  const [industryInput, setIndustryInput] = useState('');
   const [salaryType, setSalaryType] = useState<SalaryType>('exact');
   const [salaryExact, setSalaryExact] = useState<number>(0);
   const [salaryMin, setSalaryMin] = useState<number>(0);
@@ -222,13 +221,6 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
     setOtherRoles(otherRoles.filter((r) => r !== role));
   };
 
-  const addIndustry = () => {
-    if (industryInput.trim() && !industries.includes(industryInput.trim())) {
-      setIndustries([...industries, industryInput.trim()]);
-      setIndustryInput('');
-    }
-  };
-
   const removeIndustry = (industry: string) => {
     setIndustries(industries.filter((i) => i !== industry));
   };
@@ -327,7 +319,12 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
               onChange={(e) => setOtherRoleInput(e.target.value)}
               placeholder="Roles"
               className="rounded-lg"
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherRole())}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addOtherRole();
+                }
+              }}
             />
             <button
               type="button"
@@ -360,7 +357,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
           <p className="text-sm text-slate-500">What industries would you like to work in?</p>
           <div className="flex gap-2">
             <Select
-              value={industryInput}
+              value=""
               onValueChange={(val) => {
                 if (!industries.includes(val)) {
                   setIndustries([...industries, val]);
@@ -570,7 +567,12 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, {}>((_, ref)
                 onChange={(e) => setLocationInput(e.target.value)}
                 placeholder="+ add location"
                 className="rounded-lg"
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLocation())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addLocation();
+                  }
+                }}
               />
             </div>
             {preferredLocations.length > 0 && (

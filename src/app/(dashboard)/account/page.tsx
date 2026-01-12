@@ -26,7 +26,7 @@ function AccountPageContent() {
   const SectionComponent = config.component;
 
   return (
-    <div className="w-full max-w-[75%] mx-auto">
+    <div className="w-full max-w-full lg:max-w-[75%] mx-auto px-4 lg:px-0">
       <div className="w-full rounded-3xl bg-white p-5 space-y-6">
         {/* Header */}
         <div className="mb-8">

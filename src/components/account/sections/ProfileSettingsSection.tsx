@@ -134,16 +134,18 @@ export function ProfileSettingsSection() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditingProfile(true)}
-          aria-label="Edit Profile"
-        >
-          Edit Profile
-        </Button>
-      </div>
+      {!isEditingProfile && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditingProfile(true)}
+            aria-label="Edit Profile"
+          >
+            Edit Profile
+          </Button>
+        </div>
+      )}
 
       {/* Profile Picture */}
       <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -178,7 +180,10 @@ export function ProfileSettingsSection() {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) handleImageUpload(file);
+              if (file) {
+                handleImageUpload(file);
+                e.target.value = '';
+              }
             }}
           />
           <Button

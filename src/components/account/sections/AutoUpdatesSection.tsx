@@ -78,10 +78,11 @@ export function AutoUpdatesSection() {
         description: enabled ? 'Auto Updates enabled.' : 'Auto Updates disabled.',
         variant: 'success',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to update setting.';
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to update setting.',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -96,10 +97,11 @@ export function AutoUpdatesSection() {
         description: 'Scanning your inbox for application updates. Results will appear shortly.',
         variant: 'success',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to trigger scan.';
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to trigger scan.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -115,10 +117,11 @@ export function AutoUpdatesSection() {
         description: 'Switched to metadata-only mode.',
         variant: 'success',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Please reconnect to change mode.';
       toast({
         title: 'Reconnect required',
-        description: e?.message || 'Please reconnect to change mode.',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -132,10 +135,11 @@ export function AutoUpdatesSection() {
         description: 'Integration disconnected.',
         variant: 'success',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to disconnect.';
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to disconnect.',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -149,10 +153,11 @@ export function AutoUpdatesSection() {
         description: 'Email-derived data deletion has been scheduled.',
         variant: 'success',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to schedule deletion.';
       toast({
         title: 'Error',
-        description: e?.message || 'Failed to schedule deletion.',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -359,8 +364,8 @@ export function AutoUpdatesSection() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                handleDeleteData(deleteConfirmation.provider);
+              onClick={async () => {
+                await handleDeleteData(deleteConfirmation.provider);
                 setDeleteConfirmation({ open: false });
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

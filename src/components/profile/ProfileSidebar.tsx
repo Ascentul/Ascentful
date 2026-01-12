@@ -6,11 +6,12 @@ import {
   Briefcase,
   FileText,
   FolderOpen,
+  FormInput,
   Heart,
   Link,
   Settings,
-  Sparkles,
   User,
+  Wand2,
 } from 'lucide-react';
 
 interface ProfileSidebarProps {
@@ -28,8 +29,8 @@ const sections = [
   { id: 'projects', label: 'Projects', icon: FolderOpen },
   { id: 'links', label: 'Links', icon: Link },
   { id: 'documents', label: 'Documents', icon: FileText },
-  { id: 'custom-fields', label: 'Custom Fields', icon: Sparkles },
-  { id: 'autofill-fields', label: 'Autofill Fields', icon: Sparkles },
+  { id: 'custom-fields', label: 'Custom Fields', icon: Wand2 },
+  { id: 'autofill-fields', label: 'Autofill Fields', icon: FormInput },
 ];
 
 export function ProfileSidebar({ activeSection, onSectionChange }: ProfileSidebarProps) {

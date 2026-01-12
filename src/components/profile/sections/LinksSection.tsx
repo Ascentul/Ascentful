@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
-import { Dribbble, Github, Linkedin, Loader2, Plus, Trash2, Twitter, X } from 'lucide-react';
+import { Dribbble, Github, Linkedin, Loader2, Plus, Trash2, Twitter } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -184,11 +184,16 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
               <div className="w-6 h-6 bg-[#0A66C2] rounded flex items-center justify-center">
                 <Linkedin className="h-4 w-4 text-white" />
               </div>
-              <span className="font-medium text-[#0A66C2]">LinkedIn</span>
+              <Label htmlFor="linkedin-handle" className="font-medium text-[#0A66C2]">
+                LinkedIn
+              </Label>
             </div>
             <div className="flex items-center">
-              <span className="text-slate-500 text-sm">linkedin.com/in/</span>
+              <span className="text-slate-500 text-sm" aria-hidden="true">
+                linkedin.com/in/
+              </span>
               <input
+                id="linkedin-handle"
                 type="text"
                 value={linkedinHandle}
                 onChange={(e) => setLinkedinHandle(e.target.value)}
@@ -204,11 +209,16 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
               <div className="w-6 h-6 bg-slate-900 rounded flex items-center justify-center">
                 <Github className="h-4 w-4 text-white" />
               </div>
-              <span className="font-medium text-slate-900">GitHub</span>
+              <Label htmlFor="github-handle" className="font-medium text-slate-900">
+                GitHub
+              </Label>
             </div>
             <div className="flex items-center">
-              <span className="text-slate-500 text-sm">github.com/</span>
+              <span className="text-slate-500 text-sm" aria-hidden="true">
+                github.com/
+              </span>
               <input
+                id="github-handle"
                 type="text"
                 value={githubHandle}
                 onChange={(e) => setGithubHandle(e.target.value)}
@@ -224,11 +234,16 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
               <div className="w-6 h-6 bg-[#1DA1F2] rounded flex items-center justify-center">
                 <Twitter className="h-4 w-4 text-white" />
               </div>
-              <span className="font-medium text-[#1DA1F2]">Twitter</span>
+              <Label htmlFor="twitter-handle" className="font-medium text-[#1DA1F2]">
+                Twitter
+              </Label>
             </div>
             <div className="flex items-center">
-              <span className="text-slate-500 text-sm">twitter.com/</span>
+              <span className="text-slate-500 text-sm" aria-hidden="true">
+                twitter.com/
+              </span>
               <input
+                id="twitter-handle"
                 type="text"
                 value={twitterHandle}
                 onChange={(e) => setTwitterHandle(e.target.value)}
@@ -244,11 +259,16 @@ export const LinksSection = forwardRef<LinksSectionRef, {}>((_, ref) => {
               <div className="w-6 h-6 bg-[#EA4C89] rounded flex items-center justify-center">
                 <Dribbble className="h-4 w-4 text-white" />
               </div>
-              <span className="font-medium text-[#EA4C89]">Dribbble</span>
+              <Label htmlFor="dribbble-handle" className="font-medium text-[#EA4C89]">
+                Dribbble
+              </Label>
             </div>
             <div className="flex items-center">
-              <span className="text-slate-500 text-sm">dribbble.com/</span>
+              <span className="text-slate-500 text-sm" aria-hidden="true">
+                dribbble.com/
+              </span>
               <input
+                id="dribbble-handle"
                 type="text"
                 value={dribbbleHandle}
                 onChange={(e) => setDribbbleHandle(e.target.value)}

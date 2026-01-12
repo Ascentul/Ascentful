@@ -54,6 +54,7 @@ export function SecuritySettingsSection() {
 
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const passwordForm = useForm<PasswordChangeFormValues>({
     resolver: zodResolver(passwordChangeSchema),
@@ -96,6 +97,16 @@ export function SecuritySettingsSection() {
     }
   };
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -122,8 +133,15 @@ export function SecuritySettingsSection() {
               Sign out of your account on this device
             </p>
           </div>
-          <Button variant="outline" onClick={signOut}>
-            Sign Out
+          <Button variant="outline" onClick={handleSignOut} disabled={isSigningOut}>
+            {isSigningOut ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Signing out...
+              </>
+            ) : (
+              'Sign Out'
+            )}
           </Button>
         </div>
       </div>

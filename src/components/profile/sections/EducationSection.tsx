@@ -225,6 +225,7 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
   };
 
   const handleDeleteEducation = async (id: string) => {
+    const previousHistory = [...educationHistory];
     const updatedHistory = educationHistory.filter((edu) => edu.id !== id);
     setEducationHistory(updatedHistory);
     setDeleteConfirmId(null);
@@ -245,6 +246,8 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
         });
       } catch (error) {
         console.error('Failed to delete education:', error);
+        // Rollback local state on failure
+        setEducationHistory(previousHistory);
         toast({
           title: 'Delete failed',
           description: 'Failed to delete. Please try again.',
@@ -308,6 +311,7 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -355,6 +359,7 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
         <button
           onClick={openAddDialog}
           className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+          aria-label="Add education"
         >
           <Plus className="h-5 w-5 text-slate-400" />
         </button>
@@ -483,6 +488,7 @@ export const EducationSection = forwardRef<EducationSectionRef, {}>((_, ref) => 
                         type="button"
                         onClick={() => removeAchievement(index)}
                         className="text-slate-500 hover:text-slate-700"
+                        aria-label={`Remove ${achievement}`}
                       >
                         <X className="h-3 w-3" />
                       </button>

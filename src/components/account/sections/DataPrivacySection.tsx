@@ -94,11 +94,18 @@ export function DataPrivacySection() {
         }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to request account deletion');
+        let errorMessage = 'Failed to request account deletion';
+        try {
+          const errorResult = await response.json();
+          errorMessage = errorResult.error || errorMessage;
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       toast({
         title: 'Deletion requested',
