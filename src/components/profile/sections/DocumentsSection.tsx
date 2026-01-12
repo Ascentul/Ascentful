@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { FileText, Link as LinkIcon, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { FileText, Link as LinkIcon, Loader2, Plus, Trash2 } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,32 @@ interface ProfileResume {
   uploaded_at?: number;
 }
 
+// Helper component to display uploaded document with resolved URL
+function UploadedDocumentLink({
+  storageId,
+  fileName,
+}: {
+  storageId: Id<'_storage'>;
+  fileName?: string;
+}) {
+  const url = useQuery(api.documents.getDocumentUrl, { storageId });
+
+  if (!url) {
+    return <span className="text-sm text-slate-400">Loading...</span>;
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-blue-600 hover:underline truncate block"
+    >
+      {fileName || 'Download'}
+    </a>
+  );
+}
+
 export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
@@ -55,11 +81,14 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
   );
 
   const updateUserMutation = useMutation(api.users.updateUser);
+  const generateUploadUrl = useMutation(api.documents.generateDocumentUploadUrl);
+  const deleteDocumentMutation = useMutation(api.documents.deleteDocument);
 
   // State
   const [profileResume, setProfileResume] = useState<ProfileResume | null>(null);
   const [profileDocuments, setProfileDocuments] = useState<ProfileDocument[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Dialog state
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
@@ -87,8 +116,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
       await updateUserMutation({
         clerkId: clerkUser.id,
         updates: {
-          profile_resume: profileResume || undefined,
-          profile_documents: profileDocuments.length > 0 ? profileDocuments : undefined,
+          profile_resume: profileResume ?? undefined,
+          profile_documents: profileDocuments,
         },
       });
 
@@ -196,8 +225,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
         await updateUserMutation({
           clerkId: clerkUser.id,
           updates: {
-            profile_resume: updatedResume || undefined,
-            profile_documents: updatedDocs.length > 0 ? updatedDocs : undefined,
+            profile_resume: updatedResume ?? undefined,
+            profile_documents: updatedDocs,
           },
         });
 
@@ -229,8 +258,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     }
   };
 
-  // TODO: Implement file upload to Convex storage
-  // Handle file selection (placeholder - would need storage upload implementation)
+  // Handle file selection and upload to Convex storage
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
     type: 'resume' | 'document',
@@ -238,32 +266,159 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // For now, show a toast that file upload is coming soon
-    // In a full implementation, this would upload to Convex storage
-    toast({
-      title: 'File upload coming soon',
-      description: 'For now, please use the "Link Document" option to add a URL to your document.',
-      variant: 'default',
-    });
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: 'File too large',
+        description: 'Please select a file smaller than 10MB.',
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
 
-    // Reset the input
-    event.target.value = '';
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload a PDF, DOC, DOCX, or TXT file.',
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    const previousResume = profileResume;
+    const previousDocs = [...profileDocuments];
+
+    try {
+      // Step 1: Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl();
+
+      // Step 2: Upload file to Convex storage
+      const result = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!result.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const { storageId } = await result.json();
+      const timestamp = Date.now();
+
+      // Step 3: Create document/resume data with storage ID
+      if (type === 'resume') {
+        const newResume: ProfileResume = {
+          id: `resume_${crypto.randomUUID()}`,
+          type: 'upload',
+          title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for title
+          file_name: file.name,
+          storage_id: storageId as Id<'_storage'>,
+          uploaded_at: timestamp,
+        };
+
+        setProfileResume(newResume);
+
+        // Save to database
+        if (clerkUser?.id) {
+          await updateUserMutation({
+            clerkId: clerkUser.id,
+            updates: {
+              profile_resume: newResume,
+              profile_documents: profileDocuments,
+            },
+          });
+        }
+
+        toast({
+          title: 'Resume uploaded',
+          description: 'Your resume has been uploaded successfully',
+          variant: 'success',
+        });
+      } else {
+        const newDoc: ProfileDocument = {
+          id: `doc_${crypto.randomUUID()}`,
+          type: 'upload',
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          file_name: file.name,
+          storage_id: storageId as Id<'_storage'>,
+          uploaded_at: timestamp,
+        };
+
+        const updatedDocs = [...profileDocuments, newDoc];
+        setProfileDocuments(updatedDocs);
+
+        // Save to database
+        if (clerkUser?.id) {
+          await updateUserMutation({
+            clerkId: clerkUser.id,
+            updates: {
+              profile_resume: profileResume ?? undefined,
+              profile_documents: updatedDocs,
+            },
+          });
+        }
+
+        toast({
+          title: 'Document uploaded',
+          description: 'Your document has been uploaded successfully',
+          variant: 'success',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      // Rollback local state on failure
+      setProfileResume(previousResume);
+      setProfileDocuments(previousDocs);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload file. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
   };
 
   // Remove resume
   const handleRemoveResume = async () => {
     const previousResume = profileResume;
+    const storageIdToDelete = previousResume?.storage_id;
     setProfileResume(null);
 
     if (clerkUser?.id) {
       try {
+        // Update user profile first
         await updateUserMutation({
           clerkId: clerkUser.id,
           updates: {
             profile_resume: undefined,
-            profile_documents: profileDocuments.length > 0 ? profileDocuments : undefined,
+            profile_documents: profileDocuments,
           },
         });
+
+        // Delete from storage if it was an uploaded file
+        if (storageIdToDelete) {
+          try {
+            await deleteDocumentMutation({ storageId: storageIdToDelete });
+          } catch (storageError) {
+            // Log but don't fail - the profile update succeeded
+            console.error('Failed to delete file from storage:', storageError);
+          }
+        }
+
         toast({
           title: 'Resume removed',
           description: 'Your resume has been removed',
@@ -284,18 +439,32 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
   // Remove document
   const handleRemoveDocument = async (id: string) => {
     const previousDocs = profileDocuments;
+    const docToRemove = profileDocuments.find((doc) => doc.id === id);
+    const storageIdToDelete = docToRemove?.storage_id;
     const updatedDocs = profileDocuments.filter((doc) => doc.id !== id);
     setProfileDocuments(updatedDocs);
 
     if (clerkUser?.id) {
       try {
+        // Update user profile first
         await updateUserMutation({
           clerkId: clerkUser.id,
           updates: {
-            profile_resume: profileResume || undefined,
-            profile_documents: updatedDocs.length > 0 ? updatedDocs : undefined,
+            profile_resume: profileResume ?? undefined,
+            profile_documents: updatedDocs,
           },
         });
+
+        // Delete from storage if it was an uploaded file
+        if (storageIdToDelete) {
+          try {
+            await deleteDocumentMutation({ storageId: storageIdToDelete });
+          } catch (storageError) {
+            // Log but don't fail - the profile update succeeded
+            console.error('Failed to delete file from storage:', storageError);
+          }
+        }
+
         toast({
           title: 'Document removed',
           description: 'The document has been removed',
@@ -343,7 +512,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                     <p className="font-medium text-slate-900 truncate">
                       {profileResume.title || profileResume.file_name || 'Resume'}
                     </p>
-                    {profileResume.url && (
+                    {profileResume.type === 'link' && profileResume.url && (
                       <a
                         href={profileResume.url}
                         target="_blank"
@@ -352,6 +521,12 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                       >
                         {profileResume.url}
                       </a>
+                    )}
+                    {profileResume.type === 'upload' && profileResume.storage_id && (
+                      <UploadedDocumentLink
+                        storageId={profileResume.storage_id}
+                        fileName={profileResume.file_name}
+                      />
                     )}
                   </div>
                 </div>
@@ -369,10 +544,15 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
               {/* Upload Button */}
               <button
                 onClick={() => handleUploadClick('resume')}
-                className="w-full border-2 border-dashed border-[#5371FF] rounded-xl p-4 flex items-center justify-center hover:bg-slate-50 transition-colors"
+                disabled={isUploading}
+                className="w-full border-2 border-dashed border-[#5371FF] rounded-xl p-4 flex items-center justify-center hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Upload resume"
               >
-                <Plus className="h-5 w-5 text-[#5371FF]" />
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 text-[#5371FF] animate-spin" />
+                ) : (
+                  <Plus className="h-5 w-5 text-[#5371FF]" />
+                )}
               </button>
 
               <p className="text-center text-sm text-slate-500">or</p>
@@ -380,7 +560,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
               {/* Link Document Button */}
               <button
                 onClick={() => openLinkDialog('resume')}
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                disabled={isUploading}
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4" />
                 Link Document
@@ -405,10 +586,15 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
           {/* Upload Button */}
           <button
             onClick={() => handleUploadClick('document')}
-            className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors"
+            disabled={isUploading}
+            className="w-full border border-dashed border-slate-300 rounded-xl p-4 flex items-center justify-center hover:border-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Upload document"
           >
-            <Plus className="h-5 w-5 text-slate-400" />
+            {isUploading ? (
+              <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
+            ) : (
+              <Plus className="h-5 w-5 text-slate-400" />
+            )}
           </button>
 
           <p className="text-center text-sm text-slate-500">or</p>
@@ -416,7 +602,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
           {/* Link Document Button */}
           <button
             onClick={() => openLinkDialog('document')}
-            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+            disabled={isUploading}
+            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             Link Document
@@ -440,7 +627,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                         <p className="font-medium text-slate-900 truncate">
                           {doc.title || doc.file_name}
                         </p>
-                        {doc.url && (
+                        {doc.type === 'link' && doc.url && (
                           <a
                             href={doc.url}
                             target="_blank"
@@ -449,6 +636,12 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                           >
                             {doc.url}
                           </a>
+                        )}
+                        {doc.type === 'upload' && doc.storage_id && (
+                          <UploadedDocumentLink
+                            storageId={doc.storage_id}
+                            fileName={doc.file_name}
+                          />
                         )}
                       </div>
                     </div>

@@ -88,7 +88,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
         await updateUserMutation({
           clerkId: clerkUser.id,
           updates: {
-            volunteer_history: volunteerHistory.length > 0 ? volunteerHistory : undefined,
+            volunteer_history: volunteerHistory,
           },
         });
 
@@ -180,7 +180,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
           await updateUserMutation({
             clerkId: clerkUser.id,
             updates: {
-              volunteer_history: updatedHistory.length > 0 ? updatedHistory : undefined,
+              volunteer_history: updatedHistory,
             },
           });
           toast({
@@ -214,7 +214,7 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
           await updateUserMutation({
             clerkId: clerkUser.id,
             updates: {
-              volunteer_history: updatedHistory.length > 0 ? updatedHistory : undefined,
+              volunteer_history: updatedHistory,
             },
           });
           toast({

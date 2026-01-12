@@ -5,7 +5,7 @@ import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { FolderKanban, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -96,9 +96,9 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
   const [formTechInput, setFormTechInput] = useState('');
 
   // No-op save since projects auto-save via mutations
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     // Projects are auto-saved on add/edit/delete
-  };
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -106,7 +106,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
       handleSave,
       isSaving,
     }),
-    [handleSave, isSaving],
+    [isSaving],
   );
 
   const resetForm = () => {

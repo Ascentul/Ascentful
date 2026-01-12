@@ -1,0 +1,83 @@
+/**
+ * Document upload and management functions for profile documents
+ */
+
+import { v } from 'convex/values';
+
+import { Id } from './_generated/dataModel';
+import { mutation, query } from './_generated/server';
+
+/**
+ * Generate an upload URL for profile documents (resume, cover letters, etc.)
+ * This allows the client to upload directly to Convex storage
+ */
+export const generateDocumentUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Get a document's URL from its storage ID
+ * This converts the permanent storage ID to a temporary URL for display/download
+ */
+export const getDocumentUrl = query({
+  args: {
+    storageId: v.id('_storage'),
+  },
+  handler: async (ctx, args) => {
+    const url = await ctx.storage.getUrl(args.storageId);
+    return url;
+  },
+});
+
+/**
+ * Delete a document from storage
+ * Called when removing a document from profile
+ */
+export const deleteDocument = mutation({
+  args: {
+    storageId: v.id('_storage'),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify the document belongs to this user by checking their profile
+    const hasResumeWithId = user.profile_resume?.storage_id === args.storageId;
+    const hasDocWithId = user.profile_documents?.some((doc) => doc.storage_id === args.storageId);
+
+    if (!hasResumeWithId && !hasDocWithId) {
+      throw new Error('Document not found or unauthorized');
+    }
+
+    await ctx.storage.delete(args.storageId);
+    return { success: true };
+  },
+});

@@ -5,6 +5,152 @@ import { internalMutation, mutation, MutationCtx, query } from './_generated/ser
 import { logPermissionChange } from './lib/auditLogger';
 import { isServiceRequest } from './lib/roles';
 
+// ============================================
+// Shared Validators
+// ============================================
+// These validators are used across multiple mutations to ensure consistency
+// and reduce duplication.
+
+/** Validator for custom link objects */
+const customLinkValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  url: v.string(),
+});
+
+/** Validator for profile resume (uploaded or linked) */
+const profileResumeValidator = v.object({
+  id: v.string(),
+  type: v.union(v.literal('upload'), v.literal('link')),
+  title: v.optional(v.string()),
+  url: v.optional(v.string()),
+  storage_id: v.optional(v.id('_storage')),
+  file_name: v.optional(v.string()),
+  uploaded_at: v.optional(v.number()),
+});
+
+/** Validator for profile documents (uploaded or linked) */
+const profileDocumentValidator = v.object({
+  id: v.string(),
+  type: v.union(v.literal('upload'), v.literal('link')),
+  title: v.string(),
+  url: v.optional(v.string()),
+  storage_id: v.optional(v.id('_storage')),
+  file_name: v.optional(v.string()),
+  uploaded_at: v.optional(v.number()),
+});
+
+/** Validator for email addresses */
+const emailValidator = v.object({
+  email: v.string(),
+  type: v.union(v.literal('personal'), v.literal('work')),
+  isPrimary: v.optional(v.boolean()),
+});
+
+/** Validator for phone numbers */
+const phoneValidator = v.object({
+  phone: v.string(),
+  type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
+  isPrimary: v.optional(v.boolean()),
+});
+
+/** Validator for education history entries */
+const educationHistoryValidator = v.object({
+  id: v.string(),
+  school: v.optional(v.string()),
+  degree: v.optional(v.string()),
+  field_of_study: v.optional(v.string()),
+  start_year: v.optional(v.string()),
+  end_year: v.optional(v.string()),
+  is_current: v.optional(v.boolean()),
+  gpa: v.optional(v.string()),
+  achievements: v.optional(v.array(v.string())),
+  description: v.optional(v.string()),
+});
+
+/** Validator for work history entries */
+const workHistoryValidator = v.object({
+  id: v.string(),
+  role: v.optional(v.string()),
+  company: v.optional(v.string()),
+  start_date: v.optional(v.string()),
+  end_date: v.optional(v.string()),
+  is_current: v.optional(v.boolean()),
+  location: v.optional(v.string()),
+  summary: v.optional(v.string()),
+});
+
+/** Validator for volunteer history entries */
+const volunteerHistoryValidator = v.object({
+  id: v.string(),
+  role: v.optional(v.string()),
+  organization: v.optional(v.string()),
+  start_date: v.optional(v.string()),
+  end_date: v.optional(v.string()),
+  is_current: v.optional(v.boolean()),
+  location: v.optional(v.string()),
+  summary: v.optional(v.string()),
+});
+
+/** Validator for certification entries */
+const certificationValidator = v.object({
+  id: v.string(),
+  name: v.optional(v.string()),
+  issuing_organization: v.optional(v.string()),
+  issue_date: v.optional(v.string()),
+  expiration_date: v.optional(v.string()),
+  credential_id: v.optional(v.string()),
+  credential_url: v.optional(v.string()),
+  does_not_expire: v.optional(v.boolean()),
+});
+
+/** Validator for achievement entries */
+const achievementValidator = v.object({
+  id: v.string(),
+  title: v.optional(v.string()),
+  description: v.optional(v.string()),
+  date: v.optional(v.string()),
+  organization: v.optional(v.string()),
+});
+
+/** Validator for user roles */
+const roleValidator = v.union(
+  v.literal('individual'),
+  v.literal('user'),
+  v.literal('student'),
+  v.literal('staff'),
+  v.literal('university_admin'),
+  v.literal('advisor'),
+  v.literal('super_admin'),
+);
+
+/** Validator for subscription plans */
+const subscriptionPlanValidator = v.union(
+  v.literal('free'),
+  v.literal('premium'),
+  v.literal('university'),
+);
+
+/** Validator for subscription status */
+const subscriptionStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('inactive'),
+  v.literal('cancelled'),
+  v.literal('past_due'),
+);
+
+/** Validator for account status */
+const accountStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('suspended'),
+  v.literal('pending_activation'),
+  v.literal('deleted'),
+);
+
+// ============================================
+// Role Constants
+// ============================================
+
 // Roles that require university_id (university-affiliated roles)
 const UNIVERSITY_ROLES = ['student', 'university_admin', 'advisor', 'staff'] as const;
 // Roles that must NOT have university_id (individual/platform-wide users)
@@ -616,59 +762,13 @@ export const updateUser = mutation({
       twitter_url: v.optional(v.string()),
       dribbble_url: v.optional(v.string()),
       portfolio_url: v.optional(v.string()),
-      custom_links: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            title: v.string(),
-            url: v.string(),
-          }),
-        ),
-      ),
-      profile_resume: v.optional(
-        v.object({
-          id: v.string(),
-          type: v.union(v.literal('upload'), v.literal('link')),
-          title: v.optional(v.string()),
-          url: v.optional(v.string()),
-          storage_id: v.optional(v.id('_storage')),
-          file_name: v.optional(v.string()),
-          uploaded_at: v.optional(v.number()),
-        }),
-      ),
-      profile_documents: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            type: v.union(v.literal('upload'), v.literal('link')),
-            title: v.string(),
-            url: v.optional(v.string()),
-            storage_id: v.optional(v.id('_storage')),
-            file_name: v.optional(v.string()),
-            uploaded_at: v.optional(v.number()),
-          }),
-        ),
-      ),
+      custom_links: v.optional(v.array(customLinkValidator)),
+      profile_resume: v.optional(profileResumeValidator),
+      profile_documents: v.optional(v.array(profileDocumentValidator)),
       bio: v.optional(v.string()),
       headline: v.optional(v.string()),
-      emails: v.optional(
-        v.array(
-          v.object({
-            email: v.string(),
-            type: v.union(v.literal('personal'), v.literal('work')),
-            isPrimary: v.optional(v.boolean()),
-          }),
-        ),
-      ),
-      phones: v.optional(
-        v.array(
-          v.object({
-            phone: v.string(),
-            type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
-            isPrimary: v.optional(v.boolean()),
-          }),
-        ),
-      ),
+      emails: v.optional(v.array(emailValidator)),
+      phones: v.optional(v.array(phoneValidator)),
       job_title: v.optional(v.string()),
       company: v.optional(v.string()),
       location: v.optional(v.string()),
@@ -702,113 +802,23 @@ export const updateUser = mutation({
       industry: v.optional(v.string()),
       career_goals: v.optional(v.string()),
       education: v.optional(v.string()),
-      education_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            school: v.optional(v.string()),
-            degree: v.optional(v.string()),
-            field_of_study: v.optional(v.string()),
-            start_year: v.optional(v.string()),
-            end_year: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            gpa: v.optional(v.string()),
-            achievements: v.optional(v.array(v.string())),
-            description: v.optional(v.string()),
-          }),
-        ),
-      ),
-      work_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            role: v.optional(v.string()),
-            company: v.optional(v.string()),
-            start_date: v.optional(v.string()),
-            end_date: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            location: v.optional(v.string()),
-            summary: v.optional(v.string()),
-          }),
-        ),
-      ),
-      volunteer_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            role: v.optional(v.string()),
-            organization: v.optional(v.string()),
-            start_date: v.optional(v.string()),
-            end_date: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            location: v.optional(v.string()),
-            summary: v.optional(v.string()),
-          }),
-        ),
-      ),
-      certifications: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            name: v.optional(v.string()),
-            issuing_organization: v.optional(v.string()),
-            issue_date: v.optional(v.string()),
-            expiration_date: v.optional(v.string()),
-            credential_id: v.optional(v.string()),
-            credential_url: v.optional(v.string()),
-            does_not_expire: v.optional(v.boolean()),
-          }),
-        ),
-      ),
-      achievements_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            title: v.optional(v.string()),
-            description: v.optional(v.string()),
-            date: v.optional(v.string()),
-            organization: v.optional(v.string()),
-          }),
-        ),
-      ),
+      education_history: v.optional(v.array(educationHistoryValidator)),
+      work_history: v.optional(v.array(workHistoryValidator)),
+      volunteer_history: v.optional(v.array(volunteerHistoryValidator)),
+      certifications: v.optional(v.array(certificationValidator)),
+      achievements_history: v.optional(v.array(achievementValidator)),
       university_name: v.optional(v.string()),
       major: v.optional(v.string()),
       graduation_year: v.optional(v.string()),
       dream_job: v.optional(v.string()),
       onboarding_completed: v.optional(v.boolean()),
       // Role must match schema - see convex/schema.ts for valid values
-      role: v.optional(
-        v.union(
-          v.literal('individual'),
-          v.literal('user'),
-          v.literal('student'),
-          v.literal('staff'),
-          v.literal('university_admin'),
-          v.literal('advisor'),
-          v.literal('super_admin'),
-        ),
-      ),
-      subscription_plan: v.optional(
-        v.union(v.literal('free'), v.literal('premium'), v.literal('university')),
-      ),
-      subscription_status: v.optional(
-        v.union(
-          v.literal('active'),
-          v.literal('inactive'),
-          v.literal('cancelled'),
-          v.literal('past_due'),
-        ),
-      ),
+      role: v.optional(roleValidator),
+      subscription_plan: v.optional(subscriptionPlanValidator),
+      subscription_status: v.optional(subscriptionStatusValidator),
       university_id: v.optional(v.id('universities')),
       department_id: v.optional(v.id('departments')),
-      account_status: v.optional(
-        v.union(
-          v.literal('active'),
-          v.literal('suspended'),
-          v.literal('pending_activation'),
-          v.literal('deleted'),
-        ),
-      ),
+      account_status: v.optional(accountStatusValidator),
       // Allow updating Stripe IDs via this mutation as well
       stripe_customer_id: v.optional(v.string()),
       stripe_subscription_id: v.optional(v.string()),
@@ -912,59 +922,13 @@ export const updateUserById = mutation({
       twitter_url: v.optional(v.string()),
       dribbble_url: v.optional(v.string()),
       portfolio_url: v.optional(v.string()),
-      custom_links: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            title: v.string(),
-            url: v.string(),
-          }),
-        ),
-      ),
-      profile_resume: v.optional(
-        v.object({
-          id: v.string(),
-          type: v.union(v.literal('upload'), v.literal('link')),
-          title: v.optional(v.string()),
-          url: v.optional(v.string()),
-          storage_id: v.optional(v.id('_storage')),
-          file_name: v.optional(v.string()),
-          uploaded_at: v.optional(v.number()),
-        }),
-      ),
-      profile_documents: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            type: v.union(v.literal('upload'), v.literal('link')),
-            title: v.string(),
-            url: v.optional(v.string()),
-            storage_id: v.optional(v.id('_storage')),
-            file_name: v.optional(v.string()),
-            uploaded_at: v.optional(v.number()),
-          }),
-        ),
-      ),
+      custom_links: v.optional(v.array(customLinkValidator)),
+      profile_resume: v.optional(profileResumeValidator),
+      profile_documents: v.optional(v.array(profileDocumentValidator)),
       bio: v.optional(v.string()),
       headline: v.optional(v.string()),
-      emails: v.optional(
-        v.array(
-          v.object({
-            email: v.string(),
-            type: v.union(v.literal('personal'), v.literal('work')),
-            isPrimary: v.optional(v.boolean()),
-          }),
-        ),
-      ),
-      phones: v.optional(
-        v.array(
-          v.object({
-            phone: v.string(),
-            type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
-            isPrimary: v.optional(v.boolean()),
-          }),
-        ),
-      ),
+      emails: v.optional(v.array(emailValidator)),
+      phones: v.optional(v.array(phoneValidator)),
       job_title: v.optional(v.string()),
       company: v.optional(v.string()),
       location: v.optional(v.string()),
@@ -978,113 +942,23 @@ export const updateUserById = mutation({
       industry: v.optional(v.string()),
       career_goals: v.optional(v.string()),
       education: v.optional(v.string()),
-      education_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            school: v.optional(v.string()),
-            degree: v.optional(v.string()),
-            field_of_study: v.optional(v.string()),
-            start_year: v.optional(v.string()),
-            end_year: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            gpa: v.optional(v.string()),
-            achievements: v.optional(v.array(v.string())),
-            description: v.optional(v.string()),
-          }),
-        ),
-      ),
-      work_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            role: v.optional(v.string()),
-            company: v.optional(v.string()),
-            start_date: v.optional(v.string()),
-            end_date: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            location: v.optional(v.string()),
-            summary: v.optional(v.string()),
-          }),
-        ),
-      ),
-      volunteer_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            role: v.optional(v.string()),
-            organization: v.optional(v.string()),
-            start_date: v.optional(v.string()),
-            end_date: v.optional(v.string()),
-            is_current: v.optional(v.boolean()),
-            location: v.optional(v.string()),
-            summary: v.optional(v.string()),
-          }),
-        ),
-      ),
-      certifications: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            name: v.optional(v.string()),
-            issuing_organization: v.optional(v.string()),
-            issue_date: v.optional(v.string()),
-            expiration_date: v.optional(v.string()),
-            credential_id: v.optional(v.string()),
-            credential_url: v.optional(v.string()),
-            does_not_expire: v.optional(v.boolean()),
-          }),
-        ),
-      ),
-      achievements_history: v.optional(
-        v.array(
-          v.object({
-            id: v.string(),
-            title: v.optional(v.string()),
-            description: v.optional(v.string()),
-            date: v.optional(v.string()),
-            organization: v.optional(v.string()),
-          }),
-        ),
-      ),
+      education_history: v.optional(v.array(educationHistoryValidator)),
+      work_history: v.optional(v.array(workHistoryValidator)),
+      volunteer_history: v.optional(v.array(volunteerHistoryValidator)),
+      certifications: v.optional(v.array(certificationValidator)),
+      achievements_history: v.optional(v.array(achievementValidator)),
       university_name: v.optional(v.string()),
       major: v.optional(v.string()),
       graduation_year: v.optional(v.string()),
       dream_job: v.optional(v.string()),
       onboarding_completed: v.optional(v.boolean()),
       // Role must match schema - see convex/schema.ts for valid values
-      role: v.optional(
-        v.union(
-          v.literal('individual'),
-          v.literal('user'),
-          v.literal('student'),
-          v.literal('staff'),
-          v.literal('university_admin'),
-          v.literal('advisor'),
-          v.literal('super_admin'),
-        ),
-      ),
-      subscription_plan: v.optional(
-        v.union(v.literal('free'), v.literal('premium'), v.literal('university')),
-      ),
-      subscription_status: v.optional(
-        v.union(
-          v.literal('active'),
-          v.literal('inactive'),
-          v.literal('cancelled'),
-          v.literal('past_due'),
-        ),
-      ),
+      role: v.optional(roleValidator),
+      subscription_plan: v.optional(subscriptionPlanValidator),
+      subscription_status: v.optional(subscriptionStatusValidator),
       university_id: v.optional(v.id('universities')),
       department_id: v.optional(v.id('departments')),
-      account_status: v.optional(
-        v.union(
-          v.literal('active'),
-          v.literal('suspended'),
-          v.literal('pending_activation'),
-          v.literal('deleted'),
-        ),
-      ),
+      account_status: v.optional(accountStatusValidator),
       university_admin_notes: v.optional(v.string()),
       stripe_customer_id: v.optional(v.string()),
       stripe_subscription_id: v.optional(v.string()),

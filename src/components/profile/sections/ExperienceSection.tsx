@@ -75,6 +75,7 @@ export const ExperienceSection = forwardRef<ExperienceSectionRef, {}>((_, ref) =
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [workHistory, setWorkHistory] = useState<WorkExperience[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -90,13 +91,14 @@ export const ExperienceSection = forwardRef<ExperienceSectionRef, {}>((_, ref) =
   const [formLocation, setFormLocation] = useState('');
   const [formSummary, setFormSummary] = useState('');
 
-  // Initialize form from Convex data
+  // Initialize form from Convex data (only once to prevent overwriting unsaved edits)
   useEffect(() => {
-    if (convexUser) {
+    if (convexUser && !isInitialized) {
       setYearsOfExperience(convexUser.years_of_experience || '');
       setWorkHistory(convexUser.work_history || []);
+      setIsInitialized(true);
     }
-  }, [convexUser]);
+  }, [convexUser, isInitialized]);
 
   const handleSave = useCallback(async () => {
     if (!clerkUser?.id) return;
@@ -107,7 +109,7 @@ export const ExperienceSection = forwardRef<ExperienceSectionRef, {}>((_, ref) =
         clerkId: clerkUser.id,
         updates: {
           years_of_experience: yearsOfExperience || undefined,
-          work_history: workHistory.length > 0 ? workHistory : undefined,
+          work_history: workHistory,
         },
       });
 

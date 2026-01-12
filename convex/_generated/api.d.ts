@@ -48,6 +48,7 @@ import type * as departments from "../departments.js";
 import type * as dev_assignTestStudents from "../dev/assignTestStudents.js";
 import type * as dev_checkMetrics from "../dev/checkMetrics.js";
 import type * as dev_seedTestUniversity from "../dev/seedTestUniversity.js";
+import type * as documents from "../documents.js";
 import type * as email from "../email.js";
 import type * as email_auto_updates from "../email_auto_updates.js";
 import type * as email_auto_updates_actions from "../email_auto_updates_actions.js";
@@ -163,6 +164,7 @@ declare const fullApi: ApiFromModules<{
   "dev/assignTestStudents": typeof dev_assignTestStudents;
   "dev/checkMetrics": typeof dev_checkMetrics;
   "dev/seedTestUniversity": typeof dev_seedTestUniversity;
+  documents: typeof documents;
   email: typeof email;
   email_auto_updates: typeof email_auto_updates;
   email_auto_updates_actions: typeof email_auto_updates_actions;
