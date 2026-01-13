@@ -18,27 +18,41 @@ const customLinkValidator = v.object({
   url: v.string(),
 });
 
-/** Validator for profile resume (uploaded or linked) */
-const profileResumeValidator = v.object({
-  id: v.string(),
-  type: v.union(v.literal('upload'), v.literal('link')),
-  title: v.optional(v.string()),
-  url: v.optional(v.string()),
-  storage_id: v.optional(v.id('_storage')),
-  file_name: v.optional(v.string()),
-  uploaded_at: v.optional(v.number()),
-});
+/** Validator for profile resume (uploaded or linked) - discriminated union */
+const profileResumeValidator = v.union(
+  v.object({
+    id: v.string(),
+    type: v.literal('upload'),
+    title: v.optional(v.string()),
+    storage_id: v.id('_storage'),
+    file_name: v.optional(v.string()),
+    uploaded_at: v.optional(v.number()),
+  }),
+  v.object({
+    id: v.string(),
+    type: v.literal('link'),
+    title: v.optional(v.string()),
+    url: v.string(),
+  }),
+);
 
-/** Validator for profile documents (uploaded or linked) */
-const profileDocumentValidator = v.object({
-  id: v.string(),
-  type: v.union(v.literal('upload'), v.literal('link')),
-  title: v.string(),
-  url: v.optional(v.string()),
-  storage_id: v.optional(v.id('_storage')),
-  file_name: v.optional(v.string()),
-  uploaded_at: v.optional(v.number()),
-});
+/** Validator for profile documents (uploaded or linked) - discriminated union */
+const profileDocumentValidator = v.union(
+  v.object({
+    id: v.string(),
+    type: v.literal('upload'),
+    title: v.string(),
+    storage_id: v.id('_storage'),
+    file_name: v.optional(v.string()),
+    uploaded_at: v.optional(v.number()),
+  }),
+  v.object({
+    id: v.string(),
+    type: v.literal('link'),
+    title: v.string(),
+    url: v.string(),
+  }),
+);
 
 /** Validator for email addresses */
 const emailValidator = v.object({
@@ -144,6 +158,7 @@ const accountStatusValidator = v.union(
   v.literal('active'),
   v.literal('suspended'),
   v.literal('pending_activation'),
+  v.literal('pending_deletion'),
   v.literal('deleted'),
 );
 

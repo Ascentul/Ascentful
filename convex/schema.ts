@@ -51,28 +51,43 @@ export default defineSchema({
       ),
     ),
     // Profile documents (resume and other documents for autofill/sharing)
+    // Uses discriminated union to enforce: uploads must have storage_id, links must have url
     profile_resume: v.optional(
-      v.object({
-        id: v.string(),
-        type: v.union(v.literal('upload'), v.literal('link')),
-        title: v.optional(v.string()),
-        url: v.optional(v.string()),
-        storage_id: v.optional(v.id('_storage')),
-        file_name: v.optional(v.string()),
-        uploaded_at: v.optional(v.number()),
-      }),
-    ),
-    profile_documents: v.optional(
-      v.array(
+      v.union(
         v.object({
           id: v.string(),
-          type: v.union(v.literal('upload'), v.literal('link')),
-          title: v.string(),
-          url: v.optional(v.string()),
-          storage_id: v.optional(v.id('_storage')),
+          type: v.literal('upload'),
+          title: v.optional(v.string()),
+          storage_id: v.id('_storage'),
           file_name: v.optional(v.string()),
           uploaded_at: v.optional(v.number()),
         }),
+        v.object({
+          id: v.string(),
+          type: v.literal('link'),
+          title: v.optional(v.string()),
+          url: v.string(),
+        }),
+      ),
+    ),
+    profile_documents: v.optional(
+      v.array(
+        v.union(
+          v.object({
+            id: v.string(),
+            type: v.literal('upload'),
+            title: v.string(),
+            storage_id: v.id('_storage'),
+            file_name: v.optional(v.string()),
+            uploaded_at: v.optional(v.number()),
+          }),
+          v.object({
+            id: v.string(),
+            type: v.literal('link'),
+            title: v.string(),
+            url: v.string(),
+          }),
+        ),
       ),
     ),
     bio: v.optional(v.string()),

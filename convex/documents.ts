@@ -4,8 +4,8 @@
 
 import { v } from 'convex/values';
 
-import { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { getAuthenticatedUser } from './lib/authorization';
 
 /**
  * Generate an upload URL for profile documents (resume, cover letters, etc.)
@@ -14,20 +14,7 @@ import { mutation, query } from './_generated/server';
 export const generateDocumentUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('Unauthorized');
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
+    await getAuthenticatedUser(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -35,13 +22,34 @@ export const generateDocumentUploadUrl = mutation({
 /**
  * Get a document's URL from its storage ID
  * This converts the permanent storage ID to a temporary URL for display/download
+ * Requires authentication and verifies the document belongs to the requesting user
  */
 export const getDocumentUrl = query({
   args: {
     storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
+    const authUser = await getAuthenticatedUser(ctx);
+
+    // Fetch full user record to access profile documents
+    const user = await ctx.db.get(authUser._id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify the document belongs to this user by checking their profile
+    const hasResumeWithId = user.profile_resume?.storage_id === args.storageId;
+    const hasDocWithId = user.profile_documents?.some((doc) => doc.storage_id === args.storageId);
+
+    if (!hasResumeWithId && !hasDocWithId) {
+      throw new Error('Document not found or unauthorized');
+    }
+
     const url = await ctx.storage.getUrl(args.storageId);
+    if (!url) {
+      throw new Error('Document URL not available');
+    }
+
     return url;
   },
 });
@@ -55,16 +63,10 @@ export const deleteDocument = mutation({
     storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('Unauthorized');
-    }
+    const authUser = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
-      .unique();
-
+    // Fetch full user record to access profile documents
+    const user = await ctx.db.get(authUser._id);
     if (!user) {
       throw new Error('User not found');
     }

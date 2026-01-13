@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
 import { Loader2 } from 'lucide-react';
-import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle } from 'react';
 
 export interface CustomFieldsSectionRef {
   handleSave: () => Promise<void>;
@@ -13,17 +13,16 @@ export interface CustomFieldsSectionRef {
 
 export const CustomFieldsSection = forwardRef<CustomFieldsSectionRef, {}>((_, ref) => {
   const { user: clerkUser } = useUser();
-  const [isSaving] = useState(false);
 
   const convexUser = useQuery(
     api.users.getUserByClerkId,
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
   );
 
-  // No-op save since this section is display-only for now
-  const handleSave = useCallback(async () => {
-    // Custom fields would be managed by the organization
-  }, []);
+  // Display-only section - custom fields are managed by the organization
+  // These are constants to satisfy the ref contract while making intent clear
+  const isSaving = false;
+  const handleSave = useCallback(async () => {}, []);
 
   useImperativeHandle(
     ref,
@@ -53,7 +52,7 @@ export const CustomFieldsSection = forwardRef<CustomFieldsSectionRef, {}>((_, re
     return (
       <div className="flex items-center justify-center py-16">
         <p className="text-muted-foreground text-center text-sm">
-          This space is only for candidates working with an organization...
+          Custom fields are only available for users affiliated with an organization.
         </p>
       </div>
     );

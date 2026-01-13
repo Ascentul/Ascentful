@@ -298,6 +298,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
     setIsUploading(true);
     const previousResume = profileResume;
     const previousDocs = [...profileDocuments];
+    let uploadedStorageId: Id<'_storage'> | null = null;
 
     try {
       // Step 1: Get upload URL from Convex
@@ -315,6 +316,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
       }
 
       const { storageId } = await result.json();
+      uploadedStorageId = storageId as Id<'_storage'>;
       const timestamp = Date.now();
 
       // Step 3: Create document/resume data with storage ID
@@ -381,6 +383,17 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
       // Rollback local state on failure
       setProfileResume(previousResume);
       setProfileDocuments(previousDocs);
+
+      // Clean up orphaned storage file if upload succeeded but database save failed
+      if (uploadedStorageId) {
+        try {
+          await deleteDocumentMutation({ storageId: uploadedStorageId });
+        } catch (cleanupError) {
+          // Log but don't fail - orphaned file can be cleaned up later
+          console.error('Failed to clean up orphaned storage file:', cleanupError);
+        }
+      }
+
       toast({
         title: 'Upload failed',
         description: 'Failed to upload file. Please try again.',

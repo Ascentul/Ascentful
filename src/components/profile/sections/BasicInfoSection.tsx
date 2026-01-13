@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { Camera, Loader2 } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
   const { uploadAvatar, isUploading: isUploadingImage } = useAvatarUpload();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch user data from Convex
   const convexUser = useQuery(
@@ -78,7 +79,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
       if (convexUser.emails && convexUser.emails.length > 0) {
         setEmails(convexUser.emails);
       } else {
-        // Default to primary email from Clerk
+        // Default to user's primary email (synced from Clerk on account creation)
         setEmails([
           {
             email: convexUser.email || '',
@@ -220,6 +221,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
             <input
               type="file"
               id="avatar-upload"
+              ref={avatarInputRef}
               accept="image/*"
               className="hidden"
               onChange={(e) => {
@@ -233,14 +235,17 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
                       description: 'Please select an image under 5MB',
                       variant: 'destructive',
                     });
+                    e.currentTarget.value = '';
                     return;
                   }
                   handleImageUpload(file);
                 }
+                // Clear input to allow re-selecting the same file
+                e.currentTarget.value = '';
               }}
             />
             <button
-              onClick={() => document.getElementById('avatar-upload')?.click()}
+              onClick={() => avatarInputRef.current?.click()}
               disabled={isUploadingImage}
               aria-label={isUploadingImage ? 'Uploading profile picture' : 'Change profile picture'}
               className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"

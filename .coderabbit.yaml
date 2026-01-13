@@ -180,5 +180,18 @@ reviews:
         - Adding explicit keyboard handlers to native buttons is an anti-pattern that can interfere with default behavior
         - Only add keyboard handlers when using non-button elements (div, span) as interactive controls
 
+        ### String Methods vs Regex
+        - Prefer `startsWith()`, `endsWith()`, `includes()` over regex for simple prefix/suffix/contains checks
+        - Don't suggest replacing `startsWith('http')` with regex like `/^https?:\/\//` - they are functionally equivalent
+        - `startsWith('http')` correctly handles both 'http://' and 'https://' URLs
+        - Simple string methods are more readable and performant than regex for basic operations
+
+        ### Data Source Consistency (Clerk vs Convex)
+        - In profile/form components, Convex user data is the source of truth for display and editing
+        - Don't suggest reading directly from Clerk (`clerkUser`) when the component already uses Convex queries (`convexUser`)
+        - User data is synced from Clerk to Convex via webhooks - Convex is the canonical data store for forms
+        - Exception: Authorization checks should use Clerk `publicMetadata` (per CLAUDE.md role architecture)
+        - The comment "from Clerk" in profile forms refers to data that was originally synced from Clerk, not live Clerk reads
+
 chat:
   auto_reply: true

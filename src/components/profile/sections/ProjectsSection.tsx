@@ -34,6 +34,19 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Format a timestamp to YYYY-MM-DD for date input fields.
+ * Uses local timezone to prevent date shifting issues.
+ */
+function formatDateForInput(timestamp: number | string | undefined): string {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export interface ProjectsSectionRef {
   handleSave: () => Promise<void>;
   isSaving: boolean;
@@ -106,7 +119,7 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
       handleSave,
       isSaving,
     }),
-    [isSaving],
+    [handleSave, isSaving],
   );
 
   const resetForm = () => {
@@ -135,10 +148,8 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
     setFormRole(project.role || '');
     setFormType(project.type || 'personal');
     setFormCompany(project.company || '');
-    setFormStartDate(
-      project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : '',
-    );
-    setFormEndDate(project.end_date ? new Date(project.end_date).toISOString().split('T')[0] : '');
+    setFormStartDate(formatDateForInput(project.start_date));
+    setFormEndDate(formatDateForInput(project.end_date));
     setFormUrl(project.url || '');
     setFormGithubUrl(project.github_url || '');
     setFormDescription(project.description || '');

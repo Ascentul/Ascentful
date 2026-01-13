@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,17 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
   const [newPhone, setNewPhone] = useState('');
   const [newPhoneType, setNewPhoneType] = useState<'mobile' | 'home' | 'work'>('mobile');
   const [editingValues, setEditingValues] = useState<Record<number, string>>({});
+
+  // Ensure at least one entry is primary when entries exist
+  useEffect(() => {
+    if (value.length > 0 && !value.some((entry) => entry.isPrimary)) {
+      const normalized = value.map((entry, i) => ({
+        ...entry,
+        isPrimary: i === 0,
+      }));
+      onChange(normalized);
+    }
+  }, [value, onChange]);
 
   const addPhone = () => {
     if (!newPhone.trim()) return;
@@ -125,12 +136,23 @@ export function MultiPhoneInput({ value, onChange }: MultiPhoneInputProps) {
                 }}
                 onChange={(e) => updatePhone(index, { phone: e.target.value })}
                 onBlur={(e) => {
+                  const trimmed = e.target.value.trim();
+
+                  // If emptied, revert to original value
+                  if (!trimmed) {
+                    const originalValue = editingValues[index] ?? entry.phone;
+                    updatePhone(index, { phone: originalValue });
+                    setEditingValues((prev) => {
+                      const updated = { ...prev };
+                      delete updated[index];
+                      return updated;
+                    });
+                    return;
+                  }
+
                   const digitCount = (e.target.value.match(/\d/g) || []).length;
                   const isDuplicate = isPhoneDuplicate(e.target.value, index);
-                  if (
-                    e.target.value &&
-                    (!PHONE_REGEX.test(e.target.value) || digitCount < 7 || isDuplicate)
-                  ) {
+                  if (!PHONE_REGEX.test(e.target.value) || digitCount < 7 || isDuplicate) {
                     toast({
                       title: isDuplicate ? 'Duplicate phone number' : 'Invalid phone number',
                       description: isDuplicate

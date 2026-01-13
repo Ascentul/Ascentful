@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,17 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newEmailType, setNewEmailType] = useState<'personal' | 'work'>('personal');
   const [editingValues, setEditingValues] = useState<Record<number, string>>({});
+
+  // Ensure at least one entry is primary when entries exist
+  useEffect(() => {
+    if (value.length > 0 && !value.some((entry) => entry.isPrimary)) {
+      const normalized = value.map((entry, i) => ({
+        ...entry,
+        isPrimary: i === 0,
+      }));
+      onChange(normalized);
+    }
+  }, [value, onChange]);
 
   const addEmail = () => {
     if (!newEmail.trim()) return;

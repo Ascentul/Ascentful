@@ -244,6 +244,7 @@ export default function AppTopBar() {
                             });
                           }
                           if (notification.link) {
+                            setOpenPanel(null);
                             router.push(notification.link);
                           }
                         }}
