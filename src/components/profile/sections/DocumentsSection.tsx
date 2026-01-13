@@ -25,25 +25,42 @@ export interface DocumentsSectionRef {
   isSaving: boolean;
 }
 
-interface ProfileDocument {
+// Discriminated union types matching convex/schema.ts
+type ProfileDocumentUpload = {
   id: string;
-  type: 'upload' | 'link';
+  type: 'upload';
   title: string;
-  url?: string;
-  storage_id?: Id<'_storage'>;
+  storage_id: Id<'_storage'>;
   file_name?: string;
   uploaded_at?: number;
-}
+};
 
-interface ProfileResume {
+type ProfileDocumentLink = {
   id: string;
-  type: 'upload' | 'link';
+  type: 'link';
+  title: string;
+  url: string;
+};
+
+type ProfileDocument = ProfileDocumentUpload | ProfileDocumentLink;
+
+type ProfileResumeUpload = {
+  id: string;
+  type: 'upload';
   title?: string;
-  url?: string;
-  storage_id?: Id<'_storage'>;
+  storage_id: Id<'_storage'>;
   file_name?: string;
   uploaded_at?: number;
-}
+};
+
+type ProfileResumeLink = {
+  id: string;
+  type: 'link';
+  title?: string;
+  url: string;
+};
+
+type ProfileResume = ProfileResumeUpload | ProfileResumeLink;
 
 // Helper component to display uploaded document with resolved URL
 function UploadedDocumentLink({
@@ -177,9 +194,9 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
 
     const title = formLinkTitle.trim();
     const type = linkDialogType;
-    const timestamp = Date.now();
 
     // Generate IDs once to ensure consistency between local state and server
+    // Note: Link types don't have uploaded_at - only upload types do
     const newResumeData: ProfileResume | null =
       type === 'resume'
         ? {
@@ -187,7 +204,6 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
             type: 'link',
             title: title || 'Resume',
             url,
-            uploaded_at: timestamp,
           }
         : null;
 
@@ -198,7 +214,6 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
             type: 'link',
             title: title || 'Document',
             url,
-            uploaded_at: timestamp,
           }
         : null;
 
@@ -408,7 +423,9 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
   // Remove resume
   const handleRemoveResume = async () => {
     const previousResume = profileResume;
-    const storageIdToDelete = previousResume?.storage_id;
+    // Only upload types have storage_id
+    const storageIdToDelete =
+      previousResume?.type === 'upload' ? previousResume.storage_id : undefined;
     setProfileResume(null);
 
     if (clerkUser?.id) {
@@ -453,7 +470,8 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
   const handleRemoveDocument = async (id: string) => {
     const previousDocs = profileDocuments;
     const docToRemove = profileDocuments.find((doc) => doc.id === id);
-    const storageIdToDelete = docToRemove?.storage_id;
+    // Only upload types have storage_id
+    const storageIdToDelete = docToRemove?.type === 'upload' ? docToRemove.storage_id : undefined;
     const updatedDocs = profileDocuments.filter((doc) => doc.id !== id);
     setProfileDocuments(updatedDocs);
 
@@ -523,7 +541,9 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                   </div>
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900 truncate">
-                      {profileResume.title || profileResume.file_name || 'Resume'}
+                      {profileResume.title ||
+                        (profileResume.type === 'upload' ? profileResume.file_name : null) ||
+                        'Resume'}
                     </p>
                     {profileResume.type === 'link' && profileResume.url && (
                       <a
@@ -638,7 +658,7 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
                       </div>
                       <div className="min-w-0">
                         <p className="font-medium text-slate-900 truncate">
-                          {doc.title || doc.file_name}
+                          {doc.title || (doc.type === 'upload' ? doc.file_name : null)}
                         </p>
                         {doc.type === 'link' && doc.url && (
                           <a

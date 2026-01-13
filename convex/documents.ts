@@ -38,8 +38,15 @@ export const getDocumentUrl = query({
     }
 
     // Verify the document belongs to this user by checking their profile
-    const hasResumeWithId = user.profile_resume?.storage_id === args.storageId;
-    const hasDocWithId = user.profile_documents?.some((doc) => doc.storage_id === args.storageId);
+    // Only 'upload' type documents have storage_id (discriminated union)
+    const resume = user.profile_resume;
+    const hasResumeWithId = resume?.type === 'upload' && resume.storage_id === args.storageId;
+    const hasDocWithId = user.profile_documents?.some((doc) => {
+      if (doc.type === 'upload') {
+        return doc.storage_id === args.storageId;
+      }
+      return false;
+    });
 
     if (!hasResumeWithId && !hasDocWithId) {
       throw new Error('Document not found or unauthorized');
@@ -72,8 +79,15 @@ export const deleteDocument = mutation({
     }
 
     // Verify the document belongs to this user by checking their profile
-    const hasResumeWithId = user.profile_resume?.storage_id === args.storageId;
-    const hasDocWithId = user.profile_documents?.some((doc) => doc.storage_id === args.storageId);
+    // Only 'upload' type documents have storage_id (discriminated union)
+    const resume = user.profile_resume;
+    const hasResumeWithId = resume?.type === 'upload' && resume.storage_id === args.storageId;
+    const hasDocWithId = user.profile_documents?.some((doc) => {
+      if (doc.type === 'upload') {
+        return doc.storage_id === args.storageId;
+      }
+      return false;
+    });
 
     if (!hasResumeWithId && !hasDocWithId) {
       throw new Error('Document not found or unauthorized');

@@ -171,7 +171,9 @@ export const AutofillFieldsSection = forwardRef<AutofillFieldsSectionRef, {}>((_
             <div className="border border-slate-200 rounded-xl p-4">
               {profileResume ? (
                 <div className="text-sm text-slate-700">
-                  {profileResume.title || profileResume.file_name || 'Resume uploaded'}
+                  {profileResume.title ||
+                    ('file_name' in profileResume ? profileResume.file_name : null) ||
+                    'Resume uploaded'}
                 </div>
               ) : (
                 <p className="text-slate-400 text-sm">None added...</p>
