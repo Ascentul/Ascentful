@@ -49,10 +49,11 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
   }, [value, onChange]);
 
   const addEmail = () => {
-    if (!newEmail.trim()) return;
+    const trimmedEmail = newEmail.trim();
+    if (!trimmedEmail) return;
 
     // Basic email validation
-    if (!EMAIL_REGEX.test(newEmail)) {
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
       toast({
         title: 'Invalid email address',
         description: 'Please enter a valid email address',
@@ -62,7 +63,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
     }
 
     // Check for duplicates
-    if (value.some((entry) => entry.email.toLowerCase() === newEmail.trim().toLowerCase())) {
+    if (value.some((entry) => entry.email.toLowerCase() === trimmedEmail.toLowerCase())) {
       toast({
         title: 'Duplicate email address',
         description: 'This email address is already added',
@@ -75,7 +76,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
       ...value,
       {
         id: `email-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-        email: newEmail.trim(),
+        email: trimmedEmail,
         type: newEmailType,
         isPrimary: value.length === 0, // First email is primary by default
       },
