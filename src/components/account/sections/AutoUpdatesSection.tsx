@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import { RefreshCw } from 'lucide-react';
@@ -44,7 +43,6 @@ function oauthStartUrl(provider: Provider, mode: Mode) {
 }
 
 export function AutoUpdatesSection() {
-  const { user } = useUser();
   const { toast } = useToast();
 
   const integrations = useQuery(api.email_auto_updates.getMyEmailIntegrations);

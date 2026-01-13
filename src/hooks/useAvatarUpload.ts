@@ -40,13 +40,17 @@ export function useAvatarUpload() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const uploadResult = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type },
-        body: file,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      let uploadResult: Response;
+      try {
+        uploadResult = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!uploadResult.ok) {
         throw new Error('Failed to upload image');

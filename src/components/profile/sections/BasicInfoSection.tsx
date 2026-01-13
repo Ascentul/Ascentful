@@ -248,7 +248,7 @@ export const BasicInfoSection = forwardRef<BasicInfoSectionRef, {}>((_, ref) => 
               onClick={() => avatarInputRef.current?.click()}
               disabled={isUploadingImage}
               aria-label={isUploadingImage ? 'Uploading profile picture' : 'Change profile picture'}
-              className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+              className={`absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center ${isUploadingImage ? 'pointer-events-none' : 'cursor-pointer'}`}
             >
               {isUploadingImage ? (
                 <Loader2 className="h-6 w-6 text-white animate-spin" />

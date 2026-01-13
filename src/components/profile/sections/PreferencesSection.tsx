@@ -450,6 +450,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
                 <button
                   type="button"
                   onClick={() => setSalaryType('exact')}
+                  aria-pressed={salaryType === 'exact'}
                   className={`${salaryType === 'exact' ? 'text-primary-500 underline' : 'text-slate-500'}`}
                 >
                   exact salary
@@ -457,6 +458,7 @@ export const PreferencesSection = forwardRef<PreferencesSectionRef, Record<strin
                 <button
                   type="button"
                   onClick={() => setSalaryType('range')}
+                  aria-pressed={salaryType === 'range'}
                   className={`${salaryType === 'range' ? 'text-primary-500 underline' : 'text-slate-500'}`}
                 >
                   salary range

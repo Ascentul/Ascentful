@@ -47,6 +47,15 @@ function formatDateForInput(timestamp: number | string | undefined): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Parse a YYYY-MM-DD string as local date timestamp.
+ * Avoids UTC midnight interpretation that can shift dates by one day.
+ */
+function parseDateAsLocal(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).getTime();
+}
+
 export interface ProjectsSectionRef {
   handleSave: () => Promise<void>;
   isSaving: boolean;
@@ -183,8 +192,8 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
             role: formRole || undefined,
             type: formType,
             company: formCompany || undefined,
-            start_date: formStartDate ? new Date(formStartDate).getTime() : undefined,
-            end_date: formEndDate ? new Date(formEndDate).getTime() : undefined,
+            start_date: formStartDate ? parseDateAsLocal(formStartDate) : undefined,
+            end_date: formEndDate ? parseDateAsLocal(formEndDate) : undefined,
             url: formUrl || undefined,
             github_url: formGithubUrl || undefined,
             description: formDescription || undefined,
@@ -204,8 +213,8 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
           role: formRole || undefined,
           type: formType,
           company: formCompany || undefined,
-          start_date: formStartDate ? new Date(formStartDate).getTime() : undefined,
-          end_date: formEndDate ? new Date(formEndDate).getTime() : undefined,
+          start_date: formStartDate ? parseDateAsLocal(formStartDate) : undefined,
+          end_date: formEndDate ? parseDateAsLocal(formEndDate) : undefined,
           url: formUrl || undefined,
           github_url: formGithubUrl || undefined,
           description: formDescription || undefined,
