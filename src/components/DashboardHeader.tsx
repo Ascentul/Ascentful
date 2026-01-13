@@ -466,7 +466,7 @@ function StageTabs({
 
 function ProgressPanel({ subtasks, metrics }: { subtasks: SubTask[]; metrics: StageMetrics }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm h-full">
+    <div className="h-full">
       <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
         Progress
       </h3>
@@ -507,7 +507,7 @@ function StageHeroPanel({ stage, metrics }: { stage: StageConfig; metrics: Stage
   const hero = typeof stage.hero === 'function' ? stage.hero(metrics) : stage.hero;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 h-full flex flex-col">
+    <div className="relative h-full flex flex-col">
       {/* Background decoration */}
       <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary-100/20 to-transparent blur-3xl" />
 
@@ -644,7 +644,7 @@ export function DashboardHeader({
         journeyProgress={journeyProgress}
       />
 
-      {/* Row 3: Two-column Hero Card */}
+      {/* Row 3: Combined Hero Card */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeStage}
@@ -652,16 +652,18 @@ export function DashboardHeader({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+          className="bg-white rounded-card border border-neutral-200 p-6 shadow-card"
         >
-          {/* Left: Progress Panel */}
-          <div className="lg:col-span-1">
-            <ProgressPanel subtasks={currentStage.subtasks} metrics={metrics} />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Stage Hero Panel */}
+            <div className="lg:col-span-2">
+              <StageHeroPanel stage={currentStage} metrics={metrics} />
+            </div>
 
-          {/* Right: Stage Hero Panel */}
-          <div className="lg:col-span-2">
-            <StageHeroPanel stage={currentStage} metrics={metrics} />
+            {/* Right: Progress Panel */}
+            <div className="lg:col-span-1 lg:border-l lg:border-neutral-200 lg:pl-6">
+              <ProgressPanel subtasks={currentStage.subtasks} metrics={metrics} />
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

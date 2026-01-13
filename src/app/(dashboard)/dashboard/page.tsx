@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -26,11 +26,41 @@ import {
   hasUniversityAdminAccess,
 } from '@/lib/constants/roles';
 
+// Animation variants - will be conditionally applied based on reduced motion preference
+const createAnimationVariants = (prefersReducedMotion: boolean | null) => ({
+  fadeIn: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
+    visible: { opacity: 1, transition: { duration: prefersReducedMotion ? 0 : 0.3 } },
+  },
+  cardAnimation: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0, y: prefersReducedMotion ? 0 : 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: prefersReducedMotion ? 0 : 0.4 },
+    },
+  },
+  staggeredContainer: {
+    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
+    visible: {
+      opacity: 1,
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : { staggerChildren: 0.1, delayChildren: 0.1 },
+    },
+  },
+});
+
 export default function DashboardPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { user } = useAuth();
   const { impersonation, getEffectiveRole } = useImpersonation();
   const router = useRouter();
+
+  // Respect user's reduced motion preference for accessibility
+  const prefersReducedMotion = useReducedMotion();
+  const { fadeIn, cardAnimation, staggeredContainer } =
+    createAnimationVariants(prefersReducedMotion);
 
   // Get effective role (respects impersonation)
   const effectiveRole = getEffectiveRole();
@@ -124,44 +154,6 @@ export default function DashboardPage() {
     overdueFollowups: dashboardData?.overdueFollowups || 0,
   };
 
-  const fadeIn = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.3 } },
-  };
-
-  const subtleUp = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-      },
-    },
-  };
-
-  const cardAnimation = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-      },
-    },
-  };
-
-  const staggeredContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.1,
-      },
-    },
-  };
-
   // Calculate nextInterviewDays from nextInterviewDetails (null if interview is in the past)
   const nextInterviewDays = dashboardData?.nextInterviewDetails?.date
     ? (() => {
@@ -174,80 +166,94 @@ export default function DashboardPage() {
 
   return (
     <OnboardingGuard>
-      <motion.div className="space-y-6" initial="hidden" animate="visible" variants={fadeIn}>
-        {/* Row 1-3: Dashboard Header with Greeting, Stage Tabs, and Hero Card */}
-        {showStudentDashboard && (
-          <motion.div variants={subtleUp}>
-            <DashboardHeader
-              userName={user.name?.split(' ')[0]}
-              thisWeekActions={stats.thisWeekActions}
-              journeyProgress={dashboardData?.journeyProgress}
-              resumeScore={
-                dashboardData?.usageData?.usage?.resumes?.count
-                  ? Math.min(dashboardData.usageData.usage.resumes.count * 16, 100)
-                  : 16
-              }
-              activeApplications={stats.activeApplications}
-              upcomingInterviews={stats.upcomingInterviews}
-              nextInterviewDays={nextInterviewDays}
-              careerPathsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
-              resumesCount={dashboardData?.usageData?.usage?.resumes?.count || 0}
-              coverLettersCount={dashboardData?.usageData?.usage?.cover_letters?.count || 0}
-              goalsCount={stats.activeGoals}
-              skillsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
-              hasAnyResume={dashboardData?.usageData?.usage?.resumes?.hasAny || false}
-              hasAiTailoredResume={dashboardData?.usageData?.usage?.resumes?.hasAiTailored || false}
-              firstResumeId={dashboardData?.usageData?.usage?.resumes?.firstResumeId || null}
-              hasAnyCoverLetter={dashboardData?.usageData?.usage?.cover_letters?.hasAny || false}
-            />
-          </motion.div>
-        )}
-
-        {/* Extension Promo - dismissible banner */}
-        <motion.div variants={cardAnimation}>
-          <ExtensionPromo />
-        </motion.div>
-
-        {/* Advisor Actions - only shows for university students with assigned actions */}
-        <motion.div variants={cardAnimation}>
-          <StudentAdvisorActionsCard />
-        </motion.div>
-
-        {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}
-        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={staggeredContainer}>
-          <motion.div variants={cardAnimation} className="lg:col-span-2">
-            <InterviewsAndFollowUpsCard />
-          </motion.div>
-
-          <motion.div variants={cardAnimation}>
-            <UpcomingSection />
-          </motion.div>
-        </motion.div>
-
-        {/* Row 4: Applications Journey */}
-        <motion.div variants={cardAnimation}>
-          <ApplicationsJourney />
-        </motion.div>
-
-        {/* Row 5: Goals Summary + Smart Recommendations (2-column grid) */}
+      <div className="w-full">
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch"
-          variants={staggeredContainer}
+          className="w-full rounded-3xl bg-white p-5 space-y-6"
+          initial="hidden"
+          animate="visible"
+          variants={fadeIn}
         >
-          <motion.div variants={cardAnimation} className="h-full">
-            <CareerGoalsSummary />
+          {/* Row 1-3: Dashboard Header with Greeting, Stage Tabs, and Hero Card */}
+          {showStudentDashboard && (
+            <motion.div variants={cardAnimation}>
+              <DashboardHeader
+                userName={user.name?.split(' ')[0]}
+                thisWeekActions={stats.thisWeekActions}
+                journeyProgress={dashboardData?.journeyProgress}
+                resumeScore={
+                  dashboardData?.usageData?.usage?.resumes?.count
+                    ? Math.min(dashboardData.usageData.usage.resumes.count * 16, 100)
+                    : 16
+                }
+                activeApplications={stats.activeApplications}
+                upcomingInterviews={stats.upcomingInterviews}
+                nextInterviewDays={nextInterviewDays}
+                careerPathsCount={
+                  dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0
+                }
+                resumesCount={dashboardData?.usageData?.usage?.resumes?.count || 0}
+                coverLettersCount={dashboardData?.usageData?.usage?.cover_letters?.count || 0}
+                goalsCount={stats.activeGoals}
+                skillsCount={dashboardData?.onboardingProgress?.userProfile?.skills?.length || 0}
+                hasAnyResume={dashboardData?.usageData?.usage?.resumes?.hasAny || false}
+                hasAiTailoredResume={
+                  dashboardData?.usageData?.usage?.resumes?.hasAiTailored || false
+                }
+                firstResumeId={dashboardData?.usageData?.usage?.resumes?.firstResumeId || null}
+                hasAnyCoverLetter={dashboardData?.usageData?.usage?.cover_letters?.hasAny || false}
+              />
+            </motion.div>
+          )}
+
+          {/* Extension Promo - dismissible banner */}
+          <motion.div variants={cardAnimation}>
+            <ExtensionPromo />
           </motion.div>
 
-          <motion.div variants={cardAnimation} id="recommendations" className="h-full">
-            <TodaysRecommendations />
+          {/* Advisor Actions - only shows for university students with assigned actions */}
+          <motion.div variants={cardAnimation}>
+            <StudentAdvisorActionsCard />
+          </motion.div>
+
+          {/* Row 3: Interviews & Follow-ups + Upcoming (2-column grid) */}
+          <motion.div
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            variants={staggeredContainer}
+          >
+            <motion.div variants={cardAnimation} className="lg:col-span-2">
+              <InterviewsAndFollowUpsCard />
+            </motion.div>
+
+            <motion.div variants={cardAnimation}>
+              <UpcomingSection />
+            </motion.div>
+          </motion.div>
+
+          {/* Row 4: Applications Journey */}
+          <motion.div variants={cardAnimation}>
+            <ApplicationsJourney />
+          </motion.div>
+
+          {/* Row 5: Goals Summary + Smart Recommendations (2-column grid) */}
+          <motion.div
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch"
+            variants={staggeredContainer}
+          >
+            <motion.div variants={cardAnimation} className="h-full">
+              <CareerGoalsSummary />
+            </motion.div>
+
+            <motion.div variants={cardAnimation} id="recommendations" className="h-full">
+              <TodaysRecommendations />
+            </motion.div>
+          </motion.div>
+
+          {/* Row 6: Career Timeline */}
+          <motion.div variants={cardAnimation}>
+            <CareerTimeline />
           </motion.div>
         </motion.div>
-
-        {/* Row 6: Career Timeline */}
-        <motion.div variants={cardAnimation}>
-          <CareerTimeline />
-        </motion.div>
-      </motion.div>
+      </div>
     </OnboardingGuard>
   );
 }

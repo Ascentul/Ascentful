@@ -38,7 +38,78 @@ export default defineSchema({
     cover_image: v.optional(v.string()),
     linkedin_url: v.optional(v.string()),
     github_url: v.optional(v.string()),
+    twitter_url: v.optional(v.string()),
+    dribbble_url: v.optional(v.string()),
+    portfolio_url: v.optional(v.string()),
+    custom_links: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          url: v.string(),
+        }),
+      ),
+    ),
+    // Profile documents (resume and other documents for autofill/sharing)
+    // Uses discriminated union to enforce: uploads must have storage_id, links must have url
+    profile_resume: v.optional(
+      v.union(
+        v.object({
+          id: v.string(),
+          type: v.literal('upload'),
+          title: v.optional(v.string()),
+          storage_id: v.id('_storage'),
+          file_name: v.optional(v.string()),
+          uploaded_at: v.optional(v.number()),
+        }),
+        v.object({
+          id: v.string(),
+          type: v.literal('link'),
+          title: v.optional(v.string()),
+          url: v.string(),
+        }),
+      ),
+    ),
+    profile_documents: v.optional(
+      v.array(
+        v.union(
+          v.object({
+            id: v.string(),
+            type: v.literal('upload'),
+            title: v.string(),
+            storage_id: v.id('_storage'),
+            file_name: v.optional(v.string()),
+            uploaded_at: v.optional(v.number()),
+          }),
+          v.object({
+            id: v.string(),
+            type: v.literal('link'),
+            title: v.string(),
+            url: v.string(),
+          }),
+        ),
+      ),
+    ),
     bio: v.optional(v.string()),
+    headline: v.optional(v.string()), // Professional headline/tagline
+    emails: v.optional(
+      v.array(
+        v.object({
+          email: v.string(),
+          type: v.union(v.literal('personal'), v.literal('work')),
+          isPrimary: v.optional(v.boolean()),
+        }),
+      ),
+    ), // Additional email addresses with types
+    phones: v.optional(
+      v.array(
+        v.object({
+          phone: v.string(),
+          type: v.union(v.literal('mobile'), v.literal('home'), v.literal('work')),
+          isPrimary: v.optional(v.boolean()),
+        }),
+      ),
+    ), // Additional phone numbers with types
     job_title: v.optional(v.string()),
     company: v.optional(v.string()),
     location: v.optional(v.string()),
@@ -50,9 +121,25 @@ export default defineSchema({
     phone_number: v.optional(v.string()),
     // Work authorization fields (commonly required on job applications)
     work_authorization: v.optional(v.string()), // e.g., "US Citizen", "Green Card", "H1B", etc.
+    legally_authorized_us: v.optional(v.boolean()), // Legally authorized to work in USA?
     requires_sponsorship: v.optional(v.boolean()), // Will require visa sponsorship?
     // Job preferences
+    primary_role: v.optional(v.string()), // Primary role preference
+    primary_role_experience: v.optional(v.string()), // Years of experience in primary role
+    other_roles: v.optional(v.array(v.string())), // Other roles interested in
+    industries: v.optional(v.array(v.string())), // Industries interested in
     desired_salary: v.optional(v.string()), // Expected salary/compensation
+    salary_type: v.optional(v.union(v.literal('exact'), v.literal('range'))), // Exact or range
+    salary_min: v.optional(v.number()), // Minimum salary (for range)
+    salary_max: v.optional(v.number()), // Maximum salary (for range)
+    preferred_experience_level: v.optional(
+      v.union(v.literal('entry'), v.literal('mid'), v.literal('senior')),
+    ), // Experience level looking for
+    job_types: v.optional(v.array(v.string())), // Full Time, Part Time, Contractor, Internship
+    open_to_environments: v.optional(v.array(v.string())), // Remote, Hybrid, On Site
+    preferred_environment: v.optional(v.string()), // Preferred work environment
+    preferred_locations: v.optional(v.array(v.string())), // Cities open to working in
+    willing_to_relocate: v.optional(v.boolean()), // Willing to relocate
     available_start_date: v.optional(v.string()), // When can you start?
     years_of_experience: v.optional(v.string()), // Total years of professional experience
     website: v.optional(v.string()),
@@ -70,6 +157,8 @@ export default defineSchema({
           start_year: v.optional(v.string()),
           end_year: v.optional(v.string()),
           is_current: v.optional(v.boolean()),
+          gpa: v.optional(v.string()),
+          achievements: v.optional(v.array(v.string())),
           description: v.optional(v.string()),
         }),
       ),
@@ -88,6 +177,20 @@ export default defineSchema({
         }),
       ),
     ),
+    volunteer_history: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          role: v.optional(v.string()),
+          organization: v.optional(v.string()),
+          start_date: v.optional(v.string()),
+          end_date: v.optional(v.string()),
+          is_current: v.optional(v.boolean()),
+          location: v.optional(v.string()),
+          summary: v.optional(v.string()),
+        }),
+      ),
+    ),
     achievements_history: v.optional(
       v.array(
         v.object({
@@ -96,6 +199,20 @@ export default defineSchema({
           description: v.optional(v.string()),
           date: v.optional(v.string()),
           organization: v.optional(v.string()),
+        }),
+      ),
+    ),
+    certifications: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.optional(v.string()),
+          issuing_organization: v.optional(v.string()),
+          issue_date: v.optional(v.string()),
+          expiration_date: v.optional(v.string()),
+          credential_id: v.optional(v.string()),
+          credential_url: v.optional(v.string()),
+          does_not_expire: v.optional(v.boolean()),
         }),
       ),
     ),

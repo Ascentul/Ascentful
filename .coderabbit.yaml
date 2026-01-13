@@ -120,5 +120,90 @@ reviews:
         - Don't suggest transaction/rollback when the code already sequences operations to avoid inconsistent states
         - Convex mutations are atomic per-mutation; cross-mutation atomicity is handled by operation ordering
 
+        ### Profile Section Architecture (SharedProfileLayout)
+        - Sections are divided into "manual save" (basic-info, preferences, experience, links) and "auto-save" (education, certifications, etc.)
+        - The top-level "Update" button is intentionally NOT disabled by child ref.isSaving because:
+          - Error handling with toasts happens in section components
+          - setIsSaving(false) in SharedProfileLayout's finally block handles cleanup
+          - Auto-save sections don't use the top-level button at all
+        - Don't suggest disabling the Update button based on section ref.isSaving - this is intentional architecture
+        - Don't suggest adding isSaving to auto-save section toggle handlers - they use optimistic updates with Convex
+        - `isInitialized` pattern is ONLY for manual-save sections to prevent reactive query overwrites during editing
+        - Don't suggest `isInitialized` for auto-save sections (certifications, education, projects, etc.) - reactive refresh is desired there
+
+        ### Convex Schema Field Nullability
+        - Fields like `v.union(v.string(), v.null())` vs `v.optional(v.string())` are intentional
+        - Don't suggest making schema fields nullable without understanding the data model
+        - Changing schema field types can break existing data - this requires migration planning
+        - Optional fields (`v.optional()`) mean "can be omitted", nullable fields (`v.null()`) mean "explicitly set to null"
+
+        ### Background Job UI Feedback
+        - When mutations schedule background jobs via `ctx.scheduler.runAfter()`, the mutation returns immediately
+        - Fixed-duration UI states (e.g., `setTimeout(() => setScanningProvider(null), 3000)`) are intentional UX approximations
+        - Don't suggest tying UI state to "actual completion" when the operation runs asynchronously via scheduled jobs
+        - Convex reactive queries automatically update the UI when background jobs write results to the database
+        - Toast messages already set user expectations (e.g., "Results will appear shortly")
+
+        ### Suspense Boundaries
+        - Suspense wrappers around page content are intentional even when Convex queries don't suspend
+        - They future-proof for React.lazy() code-splitting and are a standard Next.js pattern
+        - Each component handles its own loading state for Convex queries (checking undefined)
+        - Don't suggest removing Suspense boundaries just because current data-fetching doesn't suspend
+
+        ### URL Handle Extraction
+        - Simple string parsing for social media handles is intentional
+        - Don't suggest adding complexity for unlikely edge cases (e.g., trailing slashes with no handle)
+        - The `buildUrl` function validates on save and handles edge cases appropriately
+        - Over-engineering for theoretical edge cases adds maintenance burden without real benefit
+
+        ### Range Validation (Salary, etc.)
+        - Allowing min === max in range validations is intentional (e.g., `salaryMin > salaryMax` not `>=`)
+        - Equal min/max represents "exactly $X" which is a valid user intent even when using range UI
+        - Don't suggest stricter inequality - disallowing equal values creates frustrating UX for users wanting exact amounts
+        - Functionally, equal min/max behaves the same as an exact value
+
+        ### Auto-Save Section Interface Consistency
+        - Auto-save sections (certifications, education, projects) expose `handleSave` via ref for interface consistency
+        - The parent SharedProfileLayout doesn't actually call `handleSave` for auto-save sections
+        - Don't suggest removing "duplicate" save logic - inline auto-save + ref method serves different purposes
+        - The ref interface allows uniform handling across all section types even if not actively used
+
+        ### Form Validation (Minimal by Design)
+        - Form dialogs intentionally use minimal validation (e.g., only checking primary identifier like `formName`)
+        - Additional fields are optional to allow flexibility - users may not have all information immediately
+        - This is consistent across sections: Education, Projects, Experience, Certifications all follow this pattern
+        - Don't suggest adding required validation for optional fields - it creates unnecessary friction
+
+        ### Native HTML Button Accessibility
+        - Native `<button>` elements automatically handle keyboard accessibility (Enter and Space keys)
+        - Don't suggest adding redundant `onKeyDown` handlers for Enter/Space to native buttons
+        - Adding explicit keyboard handlers to native buttons is an anti-pattern that can interfere with default behavior
+        - Only add keyboard handlers when using non-button elements (div, span) as interactive controls
+
+        ### String Methods vs Regex
+        - Prefer `startsWith()`, `endsWith()`, `includes()` over regex for simple prefix/suffix/contains checks
+        - Don't suggest replacing `startsWith('http')` with regex like `/^https?:\/\//` - they are functionally equivalent
+        - `startsWith('http')` correctly handles both 'http://' and 'https://' URLs
+        - Simple string methods are more readable and performant than regex for basic operations
+
+        ### Data Source Consistency (Clerk vs Convex)
+        - In profile/form components, Convex user data is the source of truth for display and editing
+        - Don't suggest reading directly from Clerk (`clerkUser`) when the component already uses Convex queries (`convexUser`)
+        - User data is synced from Clerk to Convex via webhooks - Convex is the canonical data store for forms
+        - Exception: Authorization checks should use Clerk `publicMetadata` (per CLAUDE.md role architecture)
+        - The comment "from Clerk" in profile forms refers to data that was originally synced from Clerk, not live Clerk reads
+
+        ### useEffect Callback Dependencies
+        - Don't suggest memoizing parent callbacks when useEffect already has guards preventing unnecessary work
+        - Pattern: `if (condition) { onChange(...) }` prevents infinite loops even with unmemoized callbacks
+        - Speculative "extra render" concerns are not actionable when the effect has early-exit conditions
+        - Don't push memoization responsibility to consumers when the component handles it safely
+
+        ### Premature Abstraction
+        - Don't suggest extracting helper functions for single-use logic under 10 lines
+        - Inline code is often clearer than jumping to a named function for simple transformations
+        - "Reusability" and "testability" arguments are weak for one-off logic with no actual reuse
+        - Only suggest extraction when: logic is used multiple times, is complex (>10 lines), or has independent meaning
+
 chat:
   auto_reply: true

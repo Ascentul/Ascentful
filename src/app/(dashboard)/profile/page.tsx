@@ -1,18 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { SharedProfileLayout } from '@/components/profile/SharedProfileLayout';
 
-/**
- * Redirect to the unified Account page (Career Profile tab)
- * This page is kept for backwards compatibility with existing links
- */
-export default function ProfileRedirectPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/account?tab=profile');
-  }, [router]);
-
-  return null;
+export default function ProfilePage() {
+  return (
+    <div className="w-full max-w-full lg:max-w-[75%] mx-auto px-4 lg:px-0">
+      <div className="w-full rounded-3xl bg-white p-5 space-y-6">
+        <SharedProfileLayout pageDescription="Manage your profile information" />
+      </div>
+    </div>
+  );
 }

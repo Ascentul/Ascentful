@@ -101,7 +101,9 @@ export async function GET(request: NextRequest) {
       // Links
       linkedinUrl: user.linkedin_url || undefined,
       githubUrl: user.github_url || undefined,
+      twitterUrl: user.twitter_url || undefined,
       website: user.website || undefined,
+      portfolioUrl: user.portfolio_url || undefined,
 
       // Career Data
       currentPosition: user.current_position || user.job_title || undefined,
