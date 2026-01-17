@@ -128,12 +128,25 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
                 }}
                 onChange={(e) => updateEmail(index, { email: e.target.value })}
                 onBlur={(e) => {
+                  const trimmed = e.target.value.trim();
+
+                  // If emptied, revert to original value
+                  if (!trimmed) {
+                    const originalValue = editingValues[index] ?? entry.email;
+                    updateEmail(index, { email: originalValue });
+                    setEditingValues((prev) => {
+                      const updated = { ...prev };
+                      delete updated[index];
+                      return updated;
+                    });
+                    return;
+                  }
+
                   const isDuplicate = value.some(
                     (entry, i) =>
-                      i !== index &&
-                      entry.email.toLowerCase() === e.target.value.trim().toLowerCase(),
+                      i !== index && entry.email.toLowerCase() === trimmed.toLowerCase(),
                   );
-                  if (e.target.value && (!EMAIL_REGEX.test(e.target.value) || isDuplicate)) {
+                  if (!EMAIL_REGEX.test(trimmed) || isDuplicate) {
                     toast({
                       title: isDuplicate ? 'Duplicate email address' : 'Invalid email address',
                       description: isDuplicate
@@ -142,7 +155,7 @@ export function MultiEmailInput({ value, onChange }: MultiEmailInputProps) {
                       variant: 'destructive',
                     });
                     // Revert to the original value
-                    const originalValue = editingValues[index] || entry.email;
+                    const originalValue = editingValues[index] ?? entry.email;
                     updateEmail(index, { email: originalValue });
                   }
                   // Clean up the stored value

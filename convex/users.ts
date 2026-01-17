@@ -878,6 +878,16 @@ export const updateUser = mutation({
       throw new Error('Unauthorized: Only super_admin can change user roles');
     }
 
+    // Only super_admin can update subscription/account status fields
+    const restrictedFields = ['subscription_plan', 'subscription_status', 'account_status'];
+    if (actor.role !== 'super_admin') {
+      for (const field of restrictedFields) {
+        if (field in cleanUpdates) {
+          throw new Error('Unauthorized: Only super_admin can update subscription/account status');
+        }
+      }
+    }
+
     // Validate role-university invariant for role changes
     if (newRole) {
       const finalUniversityId =
@@ -1020,6 +1030,16 @@ export const updateUserById = mutation({
     // Only super_admin can change roles
     if (newRole && !isSuperAdmin) {
       throw new Error('Unauthorized: Only super_admin can change user roles');
+    }
+
+    // Only super_admin can update subscription/account status fields
+    const restrictedFields = ['subscription_plan', 'subscription_status', 'account_status'];
+    if (!isSuperAdmin) {
+      for (const field of restrictedFields) {
+        if (field in cleanUpdates) {
+          throw new Error('Unauthorized: Only super_admin can update subscription/account status');
+        }
+      }
     }
 
     // Validate role-university invariant for role changes
