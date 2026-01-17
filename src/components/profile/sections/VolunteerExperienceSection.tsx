@@ -236,9 +236,9 @@ export const VolunteerExperienceSection = forwardRef<VolunteerExperienceSectionR
 
     const formatDateRange = (startDate?: string, endDate?: string, isCurrent?: boolean) => {
       if (!startDate) return '';
-      const start = startDate;
-      const end = isCurrent ? 'Present' : endDate || '';
-      return `${start} to ${end}`;
+      if (isCurrent) return `${startDate} to Present`;
+      if (!endDate) return startDate;
+      return `${startDate} to ${endDate}`;
     };
 
     if (!convexUser) {
