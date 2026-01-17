@@ -72,8 +72,14 @@ function UploadedDocumentLink({
 }) {
   const url = useQuery(api.documents.getDocumentUrl, { storageId });
 
-  if (!url) {
+  // Still loading
+  if (url === undefined) {
     return <span className="text-sm text-slate-400">Loading...</span>;
+  }
+
+  // Document not found or error
+  if (!url) {
+    return <span className="text-sm text-slate-400">Unavailable</span>;
   }
 
   return (
@@ -293,17 +299,23 @@ export const DocumentsSection = forwardRef<DocumentsSectionRef, {}>((_, ref) => 
       return;
     }
 
-    // Validate file type
-    const allowedTypes = [
+    // Validate file type - resumes only allow PDF/DOC/DOCX, documents also allow TXT
+    const resumeTypes = [
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
     ];
+    const documentTypes = [...resumeTypes, 'text/plain'];
+    const allowedTypes = type === 'resume' ? resumeTypes : documentTypes;
+
     if (!allowedTypes.includes(file.type)) {
+      const description =
+        type === 'resume'
+          ? 'Please upload a PDF, DOC, or DOCX file.'
+          : 'Please upload a PDF, DOC, DOCX, or TXT file.';
       toast({
         title: 'Invalid file type',
-        description: 'Please upload a PDF, DOC, DOCX, or TXT file.',
+        description,
         variant: 'destructive',
       });
       event.target.value = '';
