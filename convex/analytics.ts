@@ -2154,6 +2154,10 @@ export const getUniversityActiveUsersOverTime = query({
     timeRange: v.union(v.literal('daily'), v.literal('weekly'), v.literal('monthly')),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
     const { universityId, timeRange } = args;
     const now = Date.now();
     const msPerDay = 24 * 60 * 60 * 1000;
@@ -2259,6 +2263,10 @@ export const getUniversityFeatureUsage = query({
   handler: async (ctx, args) => {
     const { universityId } = args;
 
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
     // Get all students in this university
     const students = await ctx.db
       .query('users')
@@ -2266,24 +2274,25 @@ export const getUniversityFeatureUsage = query({
       .filter((q) => q.eq(q.field('role'), 'student'))
       .collect();
 
-    const studentIds = students.map((s) => s._id);
+    const studentIdSet = new Set(students.map((s) => s._id.toString()));
 
-    // Count networking contacts
-    let networkingContactsCount = 0;
-    for (const studentId of studentIds) {
-      const contacts = await ctx.db
-        .query('networking_contacts')
-        .withIndex('by_user', (q) => q.eq('user_id', studentId))
-        .collect();
-      networkingContactsCount += contacts.length;
-    }
+    // Bulk fetch networking contacts for the university, filter to students
+    const allContacts = await ctx.db
+      .query('networking_contacts')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const networkingContactsCount = allContacts.filter((c) =>
+      studentIdSet.has(c.user_id.toString()),
+    ).length;
 
     // Count AI coach conversations
+    // Note: ai_coach_conversations table lacks university_id field/index,
+    // so we must query per-student. Consider adding university_id to schema for optimization.
     let aiCoachConversationsCount = 0;
-    for (const studentId of studentIds) {
+    for (const student of students) {
       const conversations = await ctx.db
         .query('ai_coach_conversations')
-        .withIndex('by_user', (q) => q.eq('user_id', studentId))
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .collect();
       aiCoachConversationsCount += conversations.length;
     }
@@ -2305,6 +2314,10 @@ export const getUniversityDepartmentAnalytics = query({
   handler: async (ctx, args) => {
     const { universityId } = args;
 
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
     // Get all departments
     const departments = await ctx.db
       .query('departments')
@@ -2318,7 +2331,40 @@ export const getUniversityDepartmentAnalytics = query({
       .filter((q) => q.eq(q.field('role'), 'student'))
       .collect();
 
-    // Build department stats
+    // Collect all student IDs for bulk queries
+    const allStudentIds = students.map((s) => s._id);
+    const studentIdSet = new Set(allStudentIds.map((id) => id.toString()));
+
+    // Bulk fetch all goals for the university and filter to students
+    const allGoals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const studentGoals = allGoals.filter((g) => studentIdSet.has(g.user_id.toString()));
+
+    // Bulk fetch all applications for the university and filter to students
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const studentApplications = allApplications.filter((a) =>
+      studentIdSet.has(a.user_id.toString()),
+    );
+
+    // Pre-compute counts by user_id for O(1) lookups
+    const goalsCountByUser = new Map<string, number>();
+    for (const goal of studentGoals) {
+      const key = goal.user_id.toString();
+      goalsCountByUser.set(key, (goalsCountByUser.get(key) || 0) + 1);
+    }
+
+    const applicationsCountByUser = new Map<string, number>();
+    for (const app of studentApplications) {
+      const key = app.user_id.toString();
+      applicationsCountByUser.set(key, (applicationsCountByUser.get(key) || 0) + 1);
+    }
+
+    // Build department stats using pre-computed maps
     const departmentStats: Array<{
       departmentId: string;
       departmentName: string;
@@ -2330,26 +2376,14 @@ export const getUniversityDepartmentAnalytics = query({
 
     for (const dept of departments) {
       const deptStudents = students.filter((s) => s.department_id === dept._id);
-      const deptStudentIds = deptStudents.map((s) => s._id);
 
-      // Count goals for these students
+      // Aggregate counts from pre-computed maps
       let goalsCount = 0;
-      for (const studentId of deptStudentIds) {
-        const goals = await ctx.db
-          .query('goals')
-          .withIndex('by_user', (q) => q.eq('user_id', studentId))
-          .collect();
-        goalsCount += goals.length;
-      }
-
-      // Count applications for these students
       let applicationsCount = 0;
-      for (const studentId of deptStudentIds) {
-        const apps = await ctx.db
-          .query('applications')
-          .withIndex('by_user', (q) => q.eq('user_id', studentId))
-          .collect();
-        applicationsCount += apps.length;
+      for (const student of deptStudents) {
+        const key = student._id.toString();
+        goalsCount += goalsCountByUser.get(key) || 0;
+        applicationsCount += applicationsCountByUser.get(key) || 0;
       }
 
       departmentStats.push({
@@ -2376,6 +2410,10 @@ export const getUniversityStudentFunnel = query({
   handler: async (ctx, args) => {
     const { universityId } = args;
 
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
     // Get all students
     const students = await ctx.db
       .query('users')
@@ -2383,8 +2421,25 @@ export const getUniversityStudentFunnel = query({
       .filter((q) => q.eq(q.field('role'), 'student'))
       .collect();
 
-    const studentIds = students.map((s) => s._id);
+    const studentIdSet = new Set(students.map((s) => s._id.toString()));
     const totalStudents = students.length;
+
+    // Bulk fetch all applications for this university
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Group applications by student for O(1) lookups
+    const applicationsByStudent = new Map<string, typeof allApplications>();
+    for (const app of allApplications) {
+      const key = app.user_id.toString();
+      if (studentIdSet.has(key)) {
+        const existing = applicationsByStudent.get(key) || [];
+        existing.push(app);
+        applicationsByStudent.set(key, existing);
+      }
+    }
 
     // Count students at each stage
     let withProfileComplete = 0;
@@ -2399,11 +2454,8 @@ export const getUniversityStudentFunnel = query({
         student.name && student.email && (student.bio || student.skills || student.education);
       if (hasProfile) withProfileComplete++;
 
-      // Get applications for this student
-      const applications = await ctx.db
-        .query('applications')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .collect();
+      // Get applications for this student from pre-fetched map
+      const applications = applicationsByStudent.get(student._id.toString()) || [];
 
       if (applications.length > 0) {
         withApplications++;

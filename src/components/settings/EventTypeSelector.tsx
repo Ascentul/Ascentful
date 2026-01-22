@@ -224,6 +224,7 @@ export function EventTypeBadges({
               type="button"
               onClick={() => onRemove(event)}
               className="ml-0.5 rounded-full p-0.5 hover:bg-neutral-300"
+              aria-label={`Remove ${getEventLabel(event)}`}
             >
               <X className="h-3 w-3" />
             </button>

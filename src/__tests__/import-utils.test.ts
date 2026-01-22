@@ -11,7 +11,9 @@
 import { Id } from 'convex/_generated/dataModel';
 
 import {
+  calculateNameSimilarity,
   generateExternalOutcomeId,
+  normalizeForMatching,
   validateDataSource,
   validateOutcomeImportRow,
   validateOutcomeType,
@@ -288,41 +290,6 @@ describe('Identity Resolution', () => {
   });
 
   describe('Name similarity calculation', () => {
-    // Testing the name normalization and similarity concepts
-    function normalizeForMatching(name: string): string {
-      return name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/[^a-z0-9\s]/g, '') // Remove special chars
-        .replace(/\s+/g, ' ') // Standardize whitespace
-        .trim();
-    }
-
-    function calculateNameSimilarity(name1: string, name2: string): number {
-      const tokens1 = new Set(name1.split(' ').filter((t) => t.length > 0));
-      const tokens2 = new Set(name2.split(' ').filter((t) => t.length > 0));
-
-      if (tokens1.size === 0 || tokens2.size === 0) return 0;
-
-      let matches = 0;
-      for (const token of tokens1) {
-        if (tokens2.has(token)) {
-          matches++;
-        } else {
-          for (const t2 of tokens2) {
-            if (t2.startsWith(token) || token.startsWith(t2)) {
-              matches += 0.5;
-              break;
-            }
-          }
-        }
-      }
-
-      const total = tokens1.size + tokens2.size - matches;
-      return total > 0 ? matches / total : 0;
-    }
-
     it('should normalize names with diacritics', () => {
       expect(normalizeForMatching('José García')).toBe('jose garcia');
       expect(normalizeForMatching('François Müller')).toBe('francois muller');
@@ -378,7 +345,13 @@ describe('CSV Parsing', () => {
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
         if (char === '"') {
-          inQuotes = !inQuotes;
+          // Handle escaped quotes ("" -> literal ")
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++; // Skip the next quote
+          } else {
+            inQuotes = !inQuotes;
+          }
         } else if (char === ',' && !inQuotes) {
           values.push(current.trim());
           current = '';
@@ -411,6 +384,15 @@ Jane Smith,jane@test.com,unknown`;
     const { headers, rows } = parseCSV(csv);
     expect(rows[0][0]).toBe('Doe, John');
     expect(rows[0][1]).toBe('Software Engineer, Senior');
+  });
+
+  it('should handle escaped quotes within quoted fields', () => {
+    const csv = `name,company
+"John ""Johnny"" Doe","Acme ""Best"" Corp"`;
+
+    const { headers, rows } = parseCSV(csv);
+    expect(rows[0][0]).toBe('John "Johnny" Doe');
+    expect(rows[0][1]).toBe('Acme "Best" Corp');
   });
 
   it('should handle empty values', () => {

@@ -94,8 +94,10 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         const reg = await navigator.serviceWorker.register('/sw-push.js');
         setRegistration(reg);
 
+        // Wait for service worker to be available (may be installing, waiting, or active)
+        const sw = reg.active || reg.waiting || reg.installing;
         // Send VAPID key to service worker
-        reg.active?.postMessage({
+        sw?.postMessage({
           type: 'SET_VAPID_KEY',
           key: urlBase64ToUint8Array(vapidPublicKey),
         });

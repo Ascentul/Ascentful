@@ -176,7 +176,7 @@ export default function OutcomesDashboardPage() {
 
     const query = searchQuery.toLowerCase();
     return displayData.outcomes.filter(
-      (o: any) =>
+      (o: OutcomeRecord) =>
         o.student_name?.toLowerCase().includes(query) ||
         o.student_email?.toLowerCase().includes(query) ||
         o.employer_name?.toLowerCase().includes(query),
@@ -186,12 +186,17 @@ export default function OutcomesDashboardPage() {
   // Chart data for breakdown
   const breakdownChartData = useMemo(() => {
     if (!displayData.breakdown) return [];
-    return Object.entries(displayData.breakdown).map(([key, metrics]: [string, any]) => ({
-      name: key,
-      knowledgeRate: metrics.knowledge_rate || 0,
-      employmentRate: metrics.employment_rate || 0,
-      total: metrics.total_students || 0,
-    }));
+    return Object.entries(displayData.breakdown).map(
+      ([key, metrics]: [
+        string,
+        { knowledge_rate?: number; employment_rate?: number; total_students?: number },
+      ]) => ({
+        name: key,
+        knowledgeRate: metrics.knowledge_rate || 0,
+        employmentRate: metrics.employment_rate || 0,
+        total: metrics.total_students || 0,
+      }),
+    );
   }, [displayData.breakdown]);
 
   // Handlers
@@ -517,7 +522,7 @@ export default function OutcomesDashboardPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredOutcomes.slice(0, 50).map((outcome: any) => {
+                        filteredOutcomes.slice(0, 50).map((outcome: OutcomeRecord) => {
                           const statusConfig =
                             OUTCOME_STATUS_CONFIG[outcome.outcome_status] ||
                             OUTCOME_STATUS_CONFIG.unknown;

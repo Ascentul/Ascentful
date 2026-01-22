@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 
@@ -6,7 +7,13 @@ import webpush from 'web-push';
  *
  * Sends push notifications to subscribed users.
  * Requires VAPID keys to be configured in environment.
+ *
+ * Authentication:
+ * - Internal service token (for Convex actions)
+ * - Or authenticated super_admin user
  */
+
+const INTERNAL_SERVICE_TOKEN = process.env.CONVEX_INTERNAL_SERVICE_TOKEN;
 
 // Configure VAPID keys
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -43,6 +50,27 @@ interface PushPayload {
 
 export async function POST(request: Request) {
   try {
+    // Authentication: Require internal service token or super_admin
+    const authHeader = request.headers.get('Authorization');
+    const serviceToken = authHeader?.replace('Bearer ', '');
+
+    const isInternalRequest =
+      INTERNAL_SERVICE_TOKEN && serviceToken && serviceToken === INTERNAL_SERVICE_TOKEN;
+
+    if (!isInternalRequest) {
+      // Fall back to user authentication - require super_admin
+      const { userId, sessionClaims } = await auth();
+      const publicMetadata = sessionClaims?.publicMetadata as { role?: string } | undefined;
+      const userRole = publicMetadata?.role;
+
+      if (!userId || userRole !== 'super_admin') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Internal service or super_admin required' },
+          { status: 401 },
+        );
+      }
+    }
+
     // Check if VAPID keys are configured
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
       return NextResponse.json(
@@ -84,17 +112,11 @@ export async function POST(request: Request) {
       actions: payload.actions || [],
     });
 
-    const results: Array<{
-      endpoint: string;
-      success: boolean;
-      error?: string;
-    }> = [];
-
-    // Send to all subscriptions
-    for (const subscription of subscriptions) {
+    // Send to all subscriptions in parallel for better performance
+    const sendPromises = subscriptions.map(async (subscription) => {
       try {
         await webpush.sendNotification(subscription, notificationPayload);
-        results.push({ endpoint: subscription.endpoint, success: true });
+        return { endpoint: subscription.endpoint, success: true as const };
       } catch (error: any) {
         // Handle specific error codes
         let errorMessage = error.message || 'Unknown error';
@@ -106,13 +128,15 @@ export async function POST(request: Request) {
           errorMessage = 'Subscription not found';
         }
 
-        results.push({
+        return {
           endpoint: subscription.endpoint,
-          success: false,
+          success: false as const,
           error: errorMessage,
-        });
+        };
       }
-    }
+    });
+
+    const results = await Promise.all(sendPromises);
 
     const successCount = results.filter((r) => r.success).length;
     const failureCount = results.filter((r) => !r.success).length;

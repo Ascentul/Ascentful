@@ -9,6 +9,7 @@ import { v } from 'convex/values';
 
 import { action } from './_generated/server';
 import { sanitizeError } from './lib/piiSafe';
+import { escapeHtml } from './lib/sanitizeHtml';
 
 /**
  * Send activation email to newly created user with magic link
@@ -471,6 +472,13 @@ ${args.queueUrl}
 Best regards,
 The Ascentul Team`;
 
+    // Escape user-provided content for defense-in-depth
+    const safeAdvisorName = escapeHtml(args.advisorName);
+    const safeStudentName = escapeHtml(args.studentName);
+    const safeSignalTitle = escapeHtml(args.signalTitle);
+    const safeSignalType = escapeHtml(args.signalType);
+    const safeSignalDescription = args.signalDescription ? escapeHtml(args.signalDescription) : '';
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -481,21 +489,21 @@ The Ascentul Team`;
           <h2 style="color: ${args.signalPriority === 'urgent' ? '#DC2626' : '#CA8A04'}; margin: 0 0 8px 0; font-size: 18px;">
             ${priorityEmoji} ${priorityLabel} Priority Signal
           </h2>
-          <p style="margin: 0; font-size: 16px; font-weight: bold;">${args.signalTitle}</p>
+          <p style="margin: 0; font-size: 16px; font-weight: bold;">${safeSignalTitle}</p>
         </div>
 
-        <p>Hello ${args.advisorName},</p>
+        <p>Hello ${safeAdvisorName},</p>
 
         <p>A ${args.signalPriority} priority signal requires your attention:</p>
 
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Student:</strong></td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${args.studentName}</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeStudentName}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Signal:</strong></td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${args.signalTitle}</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalTitle}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Priority:</strong></td>
@@ -505,14 +513,14 @@ The Ascentul Team`;
           </tr>
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Type:</strong></td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${args.signalType}</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalType}</td>
           </tr>
           ${
-            args.signalDescription
+            safeSignalDescription
               ? `
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Description:</strong></td>
-            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${args.signalDescription}</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalDescription}</td>
           </tr>
           `
               : ''

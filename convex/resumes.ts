@@ -409,6 +409,22 @@ export const createResumeFromFunnel = mutation({
       },
     });
 
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+      eventCategory: 'document',
+      entityType: 'resume',
+      entityId: resumeId,
+      metadata: {
+        title: args.title,
+        intent: args.intent,
+        startSource: args.startSource,
+        templateId: args.templateId,
+      },
+    });
+
     return resumeId;
   },
 });

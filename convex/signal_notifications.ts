@@ -9,6 +9,11 @@ import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
+import {
+  getAuthenticatedUser,
+  assertUserAccess,
+  assertUniversityAccess,
+} from './lib/authorization';
 
 // ============================================================================
 // NOTIFICATION CREATION
@@ -155,6 +160,10 @@ export const getNotificationPreferences = query({
     universityId: v.id('universities'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
     const university = await ctx.db.get(args.universityId);
     if (!university) {
       return null;
@@ -191,6 +200,10 @@ export const updateNotificationPreferences = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can manage this university's settings
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
     const university = await ctx.db.get(args.universityId);
     if (!university) {
       throw new Error('University not found');
@@ -229,6 +242,10 @@ export const getSignalDigestData = query({
     universityId: v.id('universities'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
     // Get all active signals
     const activeSignals = await ctx.db
       .query('signals')
@@ -303,6 +320,10 @@ export const getUnreadSignalNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this user's notifications
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const limit = args.limit ?? 20;
 
     const notifications = await ctx.db
@@ -325,6 +346,10 @@ export const markSignalNotificationsRead = mutation({
     notificationIds: v.optional(v.array(v.id('notifications'))),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can manage this user's notifications
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const now = Date.now();
 
     if (args.notificationIds && args.notificationIds.length > 0) {

@@ -51,7 +51,6 @@ export function SignalNotificationBell() {
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: false });
   const unreadCount = useQuery(api.notifications.getUnreadCount);
   const markAsRead = useMutation(api.notifications.markAsRead);
-  const markAllAsRead = useMutation(api.notifications.markAllAsRead);
 
   // Filter to only signal notifications
   const signalNotifications =
@@ -81,11 +80,13 @@ export function SignalNotificationBell() {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      await markAllAsRead({});
+      // Only mark signal notifications as read, not all notification types
+      const unreadSignals = signalNotifications.filter((n) => !n.read);
+      await Promise.all(unreadSignals.map((n) => markAsRead({ notificationId: n._id as any })));
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }
-  }, [markAllAsRead]);
+  }, [markAsRead, signalNotifications]);
 
   if (!notifications) {
     return (
@@ -101,6 +102,7 @@ export function SignalNotificationBell() {
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Signal notifications"
           className={`relative ${hasNewNotification ? 'animate-pulse' : ''}`}
         >
           <Bell className="h-5 w-5" />

@@ -154,18 +154,26 @@ export const getUserRecentEvents = query({
 
     const cutoffTime = Date.now() - daysBack * 24 * 60 * 60 * 1000;
 
-    let events = await ctx.db
+    // Use composite index when category is specified for accurate pagination
+    if (args.category) {
+      return await ctx.db
+        .query('activity_events')
+        .withIndex('by_user_category_date', (q) =>
+          q
+            .eq('user_id', args.userId)
+            .eq('event_category', args.category)
+            .gte('occurred_at', cutoffTime),
+        )
+        .order('desc')
+        .take(limit);
+    }
+
+    // No category filter - use simpler index
+    return await ctx.db
       .query('activity_events')
       .withIndex('by_user_date', (q) => q.eq('user_id', args.userId).gte('occurred_at', cutoffTime))
       .order('desc')
       .take(limit);
-
-    // Filter by category if specified
-    if (args.category) {
-      events = events.filter((e) => e.event_category === args.category);
-    }
-
-    return events;
   },
 });
 

@@ -1188,24 +1188,55 @@ export const bulkUpsertOutcomes = mutation({
             }
           }
 
-          // Update
+          // Update - only override fields that are explicitly provided (not undefined)
+          // This prevents bulk imports from accidentally clearing existing data
           await ctx.db.patch(existing._id, {
-            external_student_id: outcomeData.externalStudentId,
-            student_email: outcomeData.studentEmail,
-            student_name: outcomeData.studentName,
-            major_id: outcomeData.majorId,
+            // Always update required fields and timestamp
             outcome_status: outcomeData.outcomeStatus,
-            outcome_type: outcomeData.outcomeType,
-            employer_name: outcomeData.employerName,
-            job_title: outcomeData.jobTitle,
-            salary: outcomeData.salary,
-            city: outcomeData.city,
-            state: outcomeData.state,
-            country: outcomeData.country,
-            grad_school_name: outcomeData.gradSchoolName,
-            grad_school_program: outcomeData.gradSchoolProgram,
-            data_source: args.dataSource ?? existing.data_source,
             updated_at: now,
+            // Only override optional fields if explicitly provided
+            ...(outcomeData.externalStudentId !== undefined && {
+              external_student_id: outcomeData.externalStudentId,
+            }),
+            ...(outcomeData.studentEmail !== undefined && {
+              student_email: outcomeData.studentEmail,
+            }),
+            ...(outcomeData.studentName !== undefined && {
+              student_name: outcomeData.studentName,
+            }),
+            ...(outcomeData.majorId !== undefined && {
+              major_id: outcomeData.majorId,
+            }),
+            ...(outcomeData.outcomeType !== undefined && {
+              outcome_type: outcomeData.outcomeType,
+            }),
+            ...(outcomeData.employerName !== undefined && {
+              employer_name: outcomeData.employerName,
+            }),
+            ...(outcomeData.jobTitle !== undefined && {
+              job_title: outcomeData.jobTitle,
+            }),
+            ...(outcomeData.salary !== undefined && {
+              salary: outcomeData.salary,
+            }),
+            ...(outcomeData.city !== undefined && {
+              city: outcomeData.city,
+            }),
+            ...(outcomeData.state !== undefined && {
+              state: outcomeData.state,
+            }),
+            ...(outcomeData.country !== undefined && {
+              country: outcomeData.country,
+            }),
+            ...(outcomeData.gradSchoolName !== undefined && {
+              grad_school_name: outcomeData.gradSchoolName,
+            }),
+            ...(outcomeData.gradSchoolProgram !== undefined && {
+              grad_school_program: outcomeData.gradSchoolProgram,
+            }),
+            ...(args.dataSource !== undefined && {
+              data_source: args.dataSource,
+            }),
           });
           results.updated++;
         } else {
@@ -1716,8 +1747,26 @@ export const createSnapshot = mutation({
       employment_rate: v.number(),
       continuing_ed_rate: v.number(),
     }),
-    breakdownByProgram: v.optional(v.any()),
-    breakdownByDegree: v.optional(v.any()),
+    breakdownByProgram: v.optional(
+      v.record(
+        v.string(),
+        v.object({
+          knowledge_rate: v.number(),
+          employment_rate: v.number(),
+          total_students: v.number(),
+        }),
+      ),
+    ),
+    breakdownByDegree: v.optional(
+      v.record(
+        v.string(),
+        v.object({
+          knowledge_rate: v.number(),
+          employment_rate: v.number(),
+          total_students: v.number(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await requireUniversityAdmin(ctx);

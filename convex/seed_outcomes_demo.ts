@@ -11,9 +11,10 @@
  * - Verification data for ~70% of known outcomes
  */
 
-import { internalMutation } from '../convex/_generated/server';
 import { v } from 'convex/values';
-import { Id } from '../convex/_generated/dataModel';
+
+import { internalMutation, internalQuery } from './_generated/server';
+import { Id } from './_generated/dataModel';
 
 // Sample data
 const PROGRAMS = [
@@ -448,7 +449,7 @@ export const seedOutcomesDemo = internalMutation({
 });
 
 // Helper mutation to list all outcomes (for verification)
-export const listDemoOutcomes = internalMutation({
+export const listDemoOutcomes = internalQuery({
   args: {
     universityId: v.id('universities'),
   },

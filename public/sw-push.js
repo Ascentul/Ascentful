@@ -57,7 +57,7 @@ self.addEventListener('notificationclick', (event) => {
         // Just close the notification (already done above)
         break;
       case 'snooze':
-        // Could send a message to the main app to snooze
+        // Send a message to the main app to snooze
         event.waitUntil(
           clients.matchAll({ type: 'window' }).then((windowClients) => {
             for (const client of windowClients) {
@@ -69,6 +69,8 @@ self.addEventListener('notificationclick', (event) => {
                 return;
               }
             }
+            // No client found to handle snooze - log for debugging
+            console.warn('Snooze action: No window client available to receive message');
           })
         );
         break;
@@ -112,6 +114,11 @@ self.addEventListener('notificationclose', (event) => {
 self.addEventListener('pushsubscriptionchange', (event) => {
   console.log('Push subscription changed');
 
+  if (!self.VAPID_PUBLIC_KEY) {
+    console.error('VAPID key not set, cannot resubscribe');
+    return;
+  }
+
   event.waitUntil(
     self.registration.pushManager
       .subscribe({
@@ -128,6 +135,9 @@ self.addEventListener('pushsubscriptionchange', (event) => {
             newSubscription: subscription.toJSON(),
           }),
         });
+      })
+      .catch((error) => {
+        console.error('Failed to resubscribe:', error);
       })
   );
 });

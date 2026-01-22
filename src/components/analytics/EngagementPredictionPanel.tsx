@@ -145,7 +145,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                 </p>
               </div>
               <Badge variant="outline" className={cn(STATUS_CONFIG.engaged.bgColor)}>
-                {((summary.engaged / summary.total) * 100).toFixed(0)}%
+                {summary.total > 0 ? ((summary.engaged / summary.total) * 100).toFixed(0) : 0}%
               </Badge>
             </div>
           </CardContent>
@@ -161,7 +161,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                 </p>
               </div>
               <Badge variant="outline" className={cn(STATUS_CONFIG.moderate.bgColor)}>
-                {((summary.moderate / summary.total) * 100).toFixed(0)}%
+                {summary.total > 0 ? ((summary.moderate / summary.total) * 100).toFixed(0) : 0}%
               </Badge>
             </div>
           </CardContent>
@@ -183,7 +183,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                   </span>
                 )}
                 <Badge variant="outline" className={cn(STATUS_CONFIG.at_risk.bgColor)}>
-                  {((summary.at_risk / summary.total) * 100).toFixed(0)}%
+                  {summary.total > 0 ? ((summary.at_risk / summary.total) * 100).toFixed(0) : 0}%
                 </Badge>
               </div>
             </div>
@@ -343,7 +343,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                       </div>
                       <div>
                         <p className="font-medium text-sm">{student.name}</p>
-                        {student.predicted_days_to_risk && (
+                        {student.predicted_days_to_risk != null && (
                           <p className="text-xs text-muted-foreground">
                             Critical in {student.predicted_days_to_risk} days
                           </p>
@@ -523,7 +523,7 @@ export function StudentPredictionCard({ studentId, compact = false }: StudentPre
         </div>
 
         {/* Days to risk */}
-        {prediction.predicted_days_to_risk && (
+        {prediction.predicted_days_to_risk != null && (
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
             <p className="text-sm text-amber-800">
               <AlertTriangle className="inline h-4 w-4 mr-1" />

@@ -1524,8 +1524,7 @@ export default function UniversityDashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {activeUsersData?.data?.slice(-7).reduce((sum, d) => {
-                        const uniqueUsers = new Set<string>();
+                      {activeUsersData?.data?.slice(-7)?.reduce((sum, d) => {
                         return Math.max(sum, d.students);
                       }, 0) ?? 0}
                     </div>

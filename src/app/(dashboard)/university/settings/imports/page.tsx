@@ -33,7 +33,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -154,7 +153,13 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
       if (char === '"') {
-        inQuotes = !inQuotes;
+        // Handle escaped quotes ("" -> literal ")
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // Skip the next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
       } else if (char === ',' && !inQuotes) {
         values.push(current.trim());
         current = '';
@@ -306,9 +311,13 @@ export default function BatchImportPage() {
 
     try {
       // Generate external outcome IDs for each row
-      const outcomesWithIds = parsedData.map((row) => {
+      const outcomesWithIds = parsedData.map((row, index) => {
         const identifier = row.externalStudentId || row.studentEmail || '';
-        const externalOutcomeId = `${selectedCohort}_${identifier.toLowerCase().trim()}`;
+        const normalizedId = identifier.toLowerCase().trim();
+        // Fall back to row index if no identifier to prevent ID collisions
+        const externalOutcomeId = normalizedId
+          ? `${selectedCohort}_${normalizedId}`
+          : `${selectedCohort}_row_${index}`;
         return {
           externalOutcomeId,
           ...row,
@@ -765,7 +774,6 @@ export default function BatchImportPage() {
             <p className="text-muted-foreground">
               Please wait while we process {parsedData.length} records.
             </p>
-            <Progress value={50} className="mt-4 w-64" />
           </CardContent>
         </Card>
       )}

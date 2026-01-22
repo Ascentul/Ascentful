@@ -2,6 +2,11 @@ import { v } from 'convex/values';
 
 import { internalMutation, mutation, query } from './_generated/server';
 import { Id } from './_generated/dataModel';
+import {
+  getAuthenticatedUser,
+  assertUserAccess,
+  assertUniversityAccess,
+} from './lib/authorization';
 
 /**
  * Push Notification Subscriptions Management
@@ -36,6 +41,10 @@ export const subscribe = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can manage this user's subscriptions
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const { userId, subscription, deviceInfo } = args;
 
     // Check if this endpoint already exists
@@ -78,12 +87,16 @@ export const unsubscribe = mutation({
     endpoint: v.string(),
   },
   handler: async (ctx, args) => {
+    // Verify the caller is authenticated
+    const actingUser = await getAuthenticatedUser(ctx);
+
     const existing = await ctx.db
       .query('push_subscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
       .first();
 
-    if (existing) {
+    // Only allow unsubscribing own subscriptions
+    if (existing && existing.user_id === actingUser._id) {
       await ctx.db.patch(existing._id, {
         is_active: false,
         updated_at: Date.now(),
@@ -102,6 +115,10 @@ export const getUserSubscriptions = query({
     userId: v.id('users'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this user's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     return await ctx.db
       .query('push_subscriptions')
       .withIndex('by_user_id', (q) => q.eq('user_id', args.userId))
@@ -118,6 +135,10 @@ export const hasActiveSubscription = query({
     userId: v.id('users'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this user's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const subscription = await ctx.db
       .query('push_subscriptions')
       .withIndex('by_user_id', (q) => q.eq('user_id', args.userId))
@@ -136,6 +157,10 @@ export const getUniversityAdvisorSubscriptions = query({
     universityId: v.id('universities'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
     // Get all advisors and university_admins for this university
     const advisors = await ctx.db
       .query('users')
@@ -145,9 +170,9 @@ export const getUniversityAdvisorSubscriptions = query({
       )
       .collect();
 
-    const advisorIds = advisors.map((a) => a._id);
-
     // Get all active subscriptions for these advisors
+    // Note: push_subscriptions lacks university_id index, so we query per advisor.
+    // Consider adding university_id to schema for bulk query optimization.
     const subscriptions: Array<{
       user_id: Id<'users'>;
       subscription: {
@@ -157,10 +182,10 @@ export const getUniversityAdvisorSubscriptions = query({
       };
     }> = [];
 
-    for (const advisorId of advisorIds) {
+    for (const advisor of advisors) {
       const advisorSubs = await ctx.db
         .query('push_subscriptions')
-        .withIndex('by_user_id', (q) => q.eq('user_id', advisorId))
+        .withIndex('by_user_id', (q) => q.eq('user_id', advisor._id))
         .filter((q) => q.eq(q.field('is_active'), true))
         .collect();
 
@@ -231,6 +256,10 @@ export const updatePushPreferences = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can manage this user's preferences
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const { userId, preferences } = args;
 
     // Get or create user preferences
@@ -282,6 +311,10 @@ export const getPushPreferences = query({
     userId: v.id('users'),
   },
   handler: async (ctx, args) => {
+    // Authorization: Verify caller can access this user's preferences
+    const actingUser = await getAuthenticatedUser(ctx);
+    await assertUserAccess(ctx, actingUser, args.userId);
+
     const prefs = await ctx.db
       .query('user_notification_preferences')
       .withIndex('by_user_id', (q) => q.eq('user_id', args.userId))

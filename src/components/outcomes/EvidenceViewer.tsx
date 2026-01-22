@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText } from 'lucide
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface EvidenceFile {
+export interface EvidenceFile {
   id: string;
   name: string;
   storage_id: string;
@@ -90,6 +90,7 @@ export function EvidenceViewer({
                       size="sm"
                       onClick={() => onViewFile(file)}
                       className="text-neutral-500 hover:text-neutral-700"
+                      aria-label={`View ${file.name}`}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -100,6 +101,7 @@ export function EvidenceViewer({
                       size="sm"
                       onClick={() => onDownloadFile(file)}
                       className="text-neutral-500 hover:text-neutral-700"
+                      aria-label={`Download ${file.name}`}
                     >
                       <Download className="h-4 w-4" />
                     </Button>

@@ -142,11 +142,13 @@ export const getRulesByType = query({
 
     const rules = await ctx.db
       .query('signal_rules')
-      .withIndex('by_signal_type', (q) => q.eq('signal_type', args.signalType))
-      .filter((q) => q.eq(q.field('university_id'), args.universityId))
+      .withIndex('by_university_signal_type', (q) =>
+        q.eq('university_id', args.universityId).eq('signal_type', args.signalType),
+      )
+      .filter((q) => q.eq(q.field('is_active'), true))
       .collect();
 
-    return rules.filter((r) => r.is_active);
+    return rules;
   },
 });
 

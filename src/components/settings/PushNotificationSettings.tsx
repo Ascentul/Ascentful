@@ -3,17 +3,7 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import {
-  Bell,
-  BellOff,
-  BellRing,
-  Check,
-  ChevronRight,
-  Loader2,
-  Smartphone,
-  Volume2,
-  X,
-} from 'lucide-react';
+import { Bell, BellOff, BellRing, Check, Loader2, Smartphone, Volume2, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -114,12 +104,28 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
 
     setIsTestingNotification(true);
     try {
-      // Send a test notification through the API
+      // Get the current subscription from the browser's PushManager
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        throw new Error('No active subscription found');
+      }
+
+      const subscriptionJson = subscription.toJSON();
+
+      // Send a test notification through the API with the actual subscription
       const response = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscriptions: [], // Will be fetched server-side for the user
+          subscriptions: [
+            {
+              endpoint: subscriptionJson.endpoint,
+              expirationTime: subscriptionJson.expirationTime,
+              keys: subscriptionJson.keys,
+            },
+          ],
           payload: {
             title: 'Test Notification',
             body: 'Push notifications are working correctly!',

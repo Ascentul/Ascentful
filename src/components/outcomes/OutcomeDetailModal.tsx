@@ -7,15 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-import { EvidenceViewer } from './EvidenceViewer';
-
-interface EvidenceFile {
-  id: string;
-  name: string;
-  storage_id: string;
-  type: 'offer_letter' | 'start_confirmation' | 'other';
-  uploaded_at: number;
-}
+import { EvidenceFile, EvidenceViewer } from './EvidenceViewer';
 
 export interface OutcomeRecord {
   _id: string;

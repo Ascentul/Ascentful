@@ -259,7 +259,7 @@ export default function SignalAnalyticsPage() {
             {/* Signal Trend Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Signal Trend (30 Days)</CardTitle>
+                <CardTitle>{`Signal Trend (${daysMap[dateRange]} Days)`}</CardTitle>
                 <CardDescription>Daily signals created vs resolved</CardDescription>
               </CardHeader>
               <CardContent>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -75,14 +74,13 @@ export function NotificationButtons({
   onNotificationsClick,
 }: NotificationButtonsProps) {
   const router = useRouter();
-  const { user: clerkUser } = useUser();
   const { user } = useAuth();
 
   // Check if user is advisor or university admin
   const isAdvisorOrAdmin = user?.role === 'advisor' || user?.role === 'university_admin';
   const userId = user?._id;
 
-  // Query notifications for the user (auth-based, no userId needed)
+  // Query notifications - endpoint uses auth context internally, skip until auth loads
   const notifications = useQuery(api.notifications.getNotifications, userId ? {} : 'skip');
 
   const markAsRead = useMutation(api.notifications.markAsRead);
@@ -98,8 +96,8 @@ export function NotificationButtons({
 
   // Handle notification click
   const handleNotificationClick = useCallback(
-    async (notificationId: Id<'notifications'>, link?: string) => {
-      await markAsRead({ notificationId });
+    (notificationId: Id<'notifications'>, link?: string) => {
+      markAsRead({ notificationId }); // Fire-and-forget for instant navigation
       if (link) {
         router.push(link);
       }

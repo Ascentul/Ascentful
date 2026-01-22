@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -86,7 +85,6 @@ const priorityColors: Record<Priority, string> = {
 };
 
 export default function AdvisorQueuePage() {
-  const { user: clerkUser } = useUser();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -102,6 +100,22 @@ export default function AdvisorQueuePage() {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [snoozeDays, setSnoozeDays] = useState(3);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  // Reset page when filters change
+  const handleStatusFilterChange = (value: Status) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+  const handleTypeFilterChange = (value: SignalType | 'all') => {
+    setTypeFilter(value);
+    setPage(1);
+  };
+  const handlePriorityFilterChange = (value: Priority | 'all') => {
+    setPriorityFilter(value);
+    setPage(1);
+  };
 
   // Queries
   const queueData = useQuery(
@@ -112,6 +126,7 @@ export default function AdvisorQueuePage() {
           status: statusFilter,
           signalType: typeFilter === 'all' ? undefined : typeFilter,
           priority: priorityFilter === 'all' ? undefined : priorityFilter,
+          limit: PAGE_SIZE * page,
         }
       : 'skip',
   );
@@ -296,7 +311,7 @@ export default function AdvisorQueuePage() {
       <div className="flex flex-wrap items-center gap-4">
         <Tabs
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as Status)}
+          onValueChange={(v) => handleStatusFilterChange(v as Status)}
           className="w-auto"
         >
           <TabsList>
@@ -306,7 +321,10 @@ export default function AdvisorQueuePage() {
           </TabsList>
         </Tabs>
 
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as SignalType | 'all')}>
+        <Select
+          value={typeFilter}
+          onValueChange={(v) => handleTypeFilterChange(v as SignalType | 'all')}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
@@ -322,7 +340,7 @@ export default function AdvisorQueuePage() {
 
         <Select
           value={priorityFilter}
-          onValueChange={(v) => setPriorityFilter(v as Priority | 'all')}
+          onValueChange={(v) => handlePriorityFilterChange(v as Priority | 'all')}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Priorities" />
@@ -463,7 +481,9 @@ export default function AdvisorQueuePage() {
 
           {queueData.hasMore && (
             <div className="flex justify-center pt-4">
-              <Button variant="outline">Load More</Button>
+              <Button variant="outline" onClick={() => setPage((p) => p + 1)}>
+                Load More
+              </Button>
             </div>
           )}
         </div>

@@ -465,8 +465,8 @@ export const evaluateStudentEngagement = query({
       throw new Error('Student is not affiliated with a university');
     }
 
-    // Super admins can access any student
-    if (sessionCtx.role !== 'super_admin' && sessionCtx.role !== 'advisor') {
+    // Super admins can access any student; advisors must be in same university
+    if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (student.university_id !== universityId) {
         throw new Error('Unauthorized: Cannot access student from another university');
@@ -576,6 +576,10 @@ export const evaluateStudentEngagement = query({
 /**
  * Get engagement analytics for a university.
  * Provides aggregated engagement metrics with optional filtering.
+ *
+ * Performance note: This query executes one DB query per student (N+1 pattern).
+ * For large universities (1000+ students), consider caching engagement scores
+ * on user records via scheduled job to avoid timeout issues.
  */
 export const getEngagementAnalytics = query({
   args: {
@@ -636,9 +640,7 @@ export const getEngagementAnalytics = query({
     // Note: cohort filtering would require joining with student_outcomes table
     // For now, we skip cohort filtering if students don't have direct cohort_id
     if (args.cohortIds && args.cohortIds.length > 0) {
-      // Cohort filtering not directly available on users table
-      // Would need to join with graduation_cohorts or student_outcomes
-      console.log('Cohort filtering requested but not available on users table');
+      // TODO: Implement cohort filtering via student_outcomes join
     }
 
     // Apply program/department filter if specified
@@ -758,6 +760,10 @@ export const getEngagementAnalytics = query({
 /**
  * Get unique engaged student statistics for leadership dashboard.
  * Returns unduplicated count of students with qualifying activity.
+ *
+ * Performance note: This query executes one DB query per student (N+1 pattern).
+ * For large universities (1000+ students), consider caching engagement scores
+ * on user records via scheduled job to avoid timeout issues.
  */
 export const getUniqueEngagedStats = query({
   args: {
@@ -821,8 +827,7 @@ export const getUniqueEngagedStats = query({
     // Apply filters
     // Note: cohort filtering not directly available on users table
     if (args.cohortIds && args.cohortIds.length > 0) {
-      // Would need to join with student_outcomes or graduation_cohorts
-      console.log('Cohort filtering requested but not available on users table');
+      // TODO: Implement cohort filtering via student_outcomes join
     }
     if (args.programIds && args.programIds.length > 0) {
       students = students.filter(

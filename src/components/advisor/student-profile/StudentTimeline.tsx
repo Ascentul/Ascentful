@@ -336,7 +336,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         {showSignals && signalsData && signalsData.length > 0 && (
           <div className="mb-6">
             <SignalList
-              signals={signalsData as Signal[]}
+              signals={signalsData}
               onSnooze={handleSnooze}
               onDismiss={handleDismiss}
               onResolve={handleResolve}

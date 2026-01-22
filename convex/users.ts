@@ -1396,6 +1396,12 @@ export const recordLogin = mutation({
     clerkId: v.string(),
   },
   handler: async (ctx, args) => {
+    // Verify caller is the authenticated user (prevents inflating other users' engagement metrics)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.clerkId) {
+      return { success: false, reason: 'unauthorized' };
+    }
+
     const user = await ctx.db
       .query('users')
       .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))

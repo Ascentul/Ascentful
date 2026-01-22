@@ -274,10 +274,18 @@ export async function POST(request: NextRequest) {
       ];
     });
 
-    // Escape CSV cells to handle commas and quotes
+    // Escape CSV cells to handle commas, quotes, and prevent CSV injection
     const escapeCSV = (field: string | number) => {
       const stringField = String(field);
-      if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+      // Prevent CSV injection by quoting cells that start with formula characters
+      const formulaChars = ['=', '+', '-', '@', '|'];
+      const startsWithFormula = formulaChars.some((char) => stringField.startsWith(char));
+      if (
+        stringField.includes(',') ||
+        stringField.includes('"') ||
+        stringField.includes('\n') ||
+        startsWithFormula
+      ) {
         return `"${stringField.replace(/"/g, '""')}"`;
       }
       return stringField;

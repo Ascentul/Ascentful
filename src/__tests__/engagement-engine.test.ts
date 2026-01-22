@@ -2,115 +2,178 @@
  * Integration tests for Engagement-to-Momentum Engine
  *
  * Tests the following functionality:
- * - Engagement scoring calculation
+ * - Engagement scoring calculation (using production utilities)
  * - Signal condition evaluation
  * - Signal explanation generation
  * - Engagement analytics aggregation
  */
 
+import {
+  calculateActiveDaysScore,
+  calculateEngagementScore,
+  calculateEventScore,
+  calculatePercentage,
+  calculateRecencyScore,
+  calculateTotalEngagementScore,
+  determineEngagementStatus,
+  RECENCY_THRESHOLDS,
+  SCORING_WEIGHTS,
+} from '../../convex/lib/engagementScoring';
 import { generateSignalExplanation } from '../components/signals/SignalCard';
 
 describe('Engagement Scoring', () => {
-  describe('Score Calculation', () => {
+  describe('Score Calculation - Using Production Utilities', () => {
     it('should calculate event score based on total events', () => {
       const totalCount = 6;
       const idealEvents = 6; // minEvents * 2
-      const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-      expect(eventScore).toBe(50);
+      const eventScore = calculateEventScore(totalCount, idealEvents);
+      expect(eventScore).toBe(SCORING_WEIGHTS.EVENT_SCORE_MAX);
     });
 
-    it('should cap event score at 50', () => {
+    it('should cap event score at max', () => {
       const totalCount = 20;
       const idealEvents = 6;
-      const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-      expect(eventScore).toBe(50);
+      const eventScore = calculateEventScore(totalCount, idealEvents);
+      expect(eventScore).toBe(SCORING_WEIGHTS.EVENT_SCORE_MAX);
+    });
+
+    it('should calculate partial event score', () => {
+      const totalCount = 3;
+      const idealEvents = 6;
+      const eventScore = calculateEventScore(totalCount, idealEvents);
+      expect(eventScore).toBe(25); // 3/6 * 50 = 25
+    });
+
+    it('should handle zero ideal events', () => {
+      const eventScore = calculateEventScore(5, 0);
+      expect(eventScore).toBe(0);
     });
 
     it('should calculate active days score', () => {
       const uniqueDays = 5;
       const idealActiveDays = 7;
-      const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+      const activeDaysScore = calculateActiveDaysScore(uniqueDays, idealActiveDays);
       expect(activeDaysScore).toBeCloseTo(21.4, 1);
     });
 
+    it('should cap active days score at max', () => {
+      const activeDaysScore = calculateActiveDaysScore(10, 7);
+      expect(activeDaysScore).toBe(SCORING_WEIGHTS.ACTIVE_DAYS_SCORE_MAX);
+    });
+
     it('should calculate recency score for recent activity', () => {
-      const daysSince = 1;
-      let recencyScore = 0;
-      if (daysSince <= 1) recencyScore = 20;
-      else if (daysSince <= 3) recencyScore = 15;
-      else if (daysSince <= 7) recencyScore = 10;
-      else if (daysSince <= 14) recencyScore = 5;
-      expect(recencyScore).toBe(20);
+      const recencyScore = calculateRecencyScore(1);
+      expect(recencyScore).toBe(RECENCY_THRESHOLDS[0].score); // 20
+    });
+
+    it('should calculate recency score for moderately recent activity', () => {
+      const recencyScore = calculateRecencyScore(3);
+      expect(recencyScore).toBe(RECENCY_THRESHOLDS[1].score); // 15
     });
 
     it('should calculate recency score for older activity', () => {
-      const daysSince = 10;
-      let recencyScore = 0;
-      if (daysSince <= 1) recencyScore = 20;
-      else if (daysSince <= 3) recencyScore = 15;
-      else if (daysSince <= 7) recencyScore = 10;
-      else if (daysSince <= 14) recencyScore = 5;
-      expect(recencyScore).toBe(5);
+      const recencyScore = calculateRecencyScore(10);
+      expect(recencyScore).toBe(RECENCY_THRESHOLDS[3].score); // 5
     });
 
     it('should return 0 recency score for very old activity', () => {
-      const daysSince = 20;
-      let recencyScore = 0;
-      if (daysSince <= 1) recencyScore = 20;
-      else if (daysSince <= 3) recencyScore = 15;
-      else if (daysSince <= 7) recencyScore = 10;
-      else if (daysSince <= 14) recencyScore = 5;
+      const recencyScore = calculateRecencyScore(20);
       expect(recencyScore).toBe(0);
+    });
+
+    it('should return 0 recency score for null activity', () => {
+      const recencyScore = calculateRecencyScore(null);
+      expect(recencyScore).toBe(0);
+    });
+
+    it('should calculate total score correctly', () => {
+      const total = calculateTotalEngagementScore(50, 30, 20);
+      expect(total).toBe(100);
+    });
+
+    it('should round total score', () => {
+      const total = calculateTotalEngagementScore(25.5, 15.3, 10.1);
+      expect(total).toBe(51);
+    });
+
+    it('should calculate full engagement score from metrics', () => {
+      const score = calculateEngagementScore(
+        { totalEventCount: 6, uniqueActiveDays: 7, daysSinceLastActivity: 1 },
+        { minEventsInPeriod: 3, periodDays: 14 },
+      );
+      expect(score).toBe(100);
+    });
+
+    it('should calculate partial engagement score from metrics', () => {
+      const score = calculateEngagementScore(
+        { totalEventCount: 3, uniqueActiveDays: 3, daysSinceLastActivity: 5 },
+        { minEventsInPeriod: 3, periodDays: 14 },
+      );
+      // 25 (events) + 12.86 (days) + 10 (recency) ≈ 48
+      expect(score).toBeGreaterThan(40);
+      expect(score).toBeLessThan(55);
     });
   });
 
-  describe('Engagement Status Determination', () => {
+  describe('Engagement Status Determination - Using Production Utilities', () => {
     const engagedThreshold = 70;
     const atRiskThreshold = 30;
 
     it('should return engaged status for high scores', () => {
-      const score = 85;
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= engagedThreshold) status = 'engaged';
-      else if (score <= atRiskThreshold) status = 'at_risk';
-      else status = 'moderate';
+      const status = determineEngagementStatus(85, engagedThreshold, atRiskThreshold);
       expect(status).toBe('engaged');
     });
 
     it('should return at_risk status for low scores', () => {
-      const score = 20;
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= engagedThreshold) status = 'engaged';
-      else if (score <= atRiskThreshold) status = 'at_risk';
-      else status = 'moderate';
+      const status = determineEngagementStatus(20, engagedThreshold, atRiskThreshold);
       expect(status).toBe('at_risk');
     });
 
     it('should return moderate status for mid-range scores', () => {
-      const score = 50;
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= engagedThreshold) status = 'engaged';
-      else if (score <= atRiskThreshold) status = 'at_risk';
-      else status = 'moderate';
+      const status = determineEngagementStatus(50, engagedThreshold, atRiskThreshold);
       expect(status).toBe('moderate');
     });
 
-    it('should handle edge case at engaged threshold', () => {
-      const score = 70;
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= engagedThreshold) status = 'engaged';
-      else if (score <= atRiskThreshold) status = 'at_risk';
-      else status = 'moderate';
+    it('should handle edge case at engaged threshold (>=)', () => {
+      const status = determineEngagementStatus(70, engagedThreshold, atRiskThreshold);
       expect(status).toBe('engaged');
     });
 
-    it('should handle edge case at at_risk threshold', () => {
-      const score = 30;
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= engagedThreshold) status = 'engaged';
-      else if (score <= atRiskThreshold) status = 'at_risk';
-      else status = 'moderate';
+    it('should handle edge case at at_risk threshold (<=)', () => {
+      const status = determineEngagementStatus(30, engagedThreshold, atRiskThreshold);
       expect(status).toBe('at_risk');
+    });
+
+    it('should handle score just above at_risk threshold', () => {
+      const status = determineEngagementStatus(31, engagedThreshold, atRiskThreshold);
+      expect(status).toBe('moderate');
+    });
+
+    it('should handle score just below engaged threshold', () => {
+      const status = determineEngagementStatus(69, engagedThreshold, atRiskThreshold);
+      expect(status).toBe('moderate');
+    });
+  });
+
+  describe('Percentage Calculation - Using Production Utilities', () => {
+    it('should calculate percentage correctly', () => {
+      const percent = calculatePercentage(65, 100);
+      expect(percent).toBe(65);
+    });
+
+    it('should handle zero total', () => {
+      const percent = calculatePercentage(0, 0);
+      expect(percent).toBe(0);
+    });
+
+    it('should round to nearest integer', () => {
+      const percent = calculatePercentage(2, 3);
+      expect(percent).toBe(67);
+    });
+
+    it('should handle 100%', () => {
+      const percent = calculatePercentage(50, 50);
+      expect(percent).toBe(100);
     });
   });
 });
@@ -325,39 +388,27 @@ describe('Signal Explanation Generation', () => {
   });
 });
 
-describe('Engagement Analytics Aggregation', () => {
+describe('Engagement Analytics Aggregation - Using Production Utilities', () => {
   describe('Unique Engaged Percentage', () => {
     it('should calculate engaged percentage correctly', () => {
-      const totalStudents = 100;
-      const engagedStudents = 65;
-      const engagedPercent =
-        totalStudents > 0 ? Math.round((engagedStudents / totalStudents) * 100) : 0;
+      const engagedPercent = calculatePercentage(65, 100);
       expect(engagedPercent).toBe(65);
     });
 
     it('should handle zero total students', () => {
-      const totalStudents = 0;
-      const engagedStudents = 0;
-      const engagedPercent =
-        totalStudents > 0 ? Math.round((engagedStudents / totalStudents) * 100) : 0;
+      const engagedPercent = calculatePercentage(0, 0);
       expect(engagedPercent).toBe(0);
     });
 
     it('should round to nearest integer', () => {
-      const totalStudents = 3;
-      const engagedStudents = 2;
-      const engagedPercent =
-        totalStudents > 0 ? Math.round((engagedStudents / totalStudents) * 100) : 0;
+      const engagedPercent = calculatePercentage(2, 3);
       expect(engagedPercent).toBe(67);
     });
   });
 
   describe('At-Risk Percentage', () => {
     it('should calculate at-risk percentage correctly', () => {
-      const totalStudents = 100;
-      const atRiskStudents = 15;
-      const atRiskPercent =
-        totalStudents > 0 ? Math.round((atRiskStudents / totalStudents) * 100) : 0;
+      const atRiskPercent = calculatePercentage(15, 100);
       expect(atRiskPercent).toBe(15);
     });
   });
@@ -374,15 +425,13 @@ describe('Engagement Analytics Aggregation', () => {
 
   describe('Program Breakdown', () => {
     it('should calculate per-program engaged percentage', () => {
-      const program = { engaged: 30, total: 40, percent: 0 };
-      program.percent = program.total > 0 ? Math.round((program.engaged / program.total) * 100) : 0;
-      expect(program.percent).toBe(75);
+      const percent = calculatePercentage(30, 40);
+      expect(percent).toBe(75);
     });
 
     it('should handle program with no students', () => {
-      const program = { engaged: 0, total: 0, percent: 0 };
-      program.percent = program.total > 0 ? Math.round((program.engaged / program.total) * 100) : 0;
-      expect(program.percent).toBe(0);
+      const percent = calculatePercentage(0, 0);
+      expect(percent).toBe(0);
     });
   });
 });
@@ -463,18 +512,20 @@ describe('Qualifying Event Filtering', () => {
 
   describe('Unique Days Calculation', () => {
     it('should count unique days with activity', () => {
-      const now = Date.now();
+      // Use a fixed base timestamp to avoid timezone/midnight edge cases
+      const baseDay = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+      const dayMs = 24 * 60 * 60 * 1000;
+
       const events = [
-        { timestamp: now - 1 * 24 * 60 * 60 * 1000 }, // Day 1
-        { timestamp: now - 1 * 24 * 60 * 60 * 1000 + 3600000 }, // Day 1 (same day)
-        { timestamp: now - 2 * 24 * 60 * 60 * 1000 }, // Day 2
-        { timestamp: now - 5 * 24 * 60 * 60 * 1000 }, // Day 5
+        { timestamp: (baseDay - 1) * dayMs + 10000 }, // Day -1
+        { timestamp: (baseDay - 1) * dayMs + 3600000 }, // Day -1 (same day, different hour)
+        { timestamp: (baseDay - 2) * dayMs + 10000 }, // Day -2
+        { timestamp: (baseDay - 5) * dayMs + 10000 }, // Day -5
       ];
 
-      const uniqueDays = new Set(events.map((e) => Math.floor(e.timestamp / (24 * 60 * 60 * 1000))))
-        .size;
+      const uniqueDays = new Set(events.map((e) => Math.floor(e.timestamp / dayMs))).size;
 
-      expect(uniqueDays).toBe(3);
+      expect(uniqueDays).toBe(3); // Days -1, -2, -5
     });
   });
 });

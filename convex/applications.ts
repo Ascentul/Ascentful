@@ -770,8 +770,24 @@ export const moveApplication = mutation({
     // Update the application
     await ctx.db.patch(args.applicationId, updates);
 
-    // Audit log for status changes
+    // Track activity and audit log for status changes
     if (statusChanged) {
+      // Track activity event for engagement scoring (consistent with updateApplication)
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED,
+        eventCategory: 'application',
+        entityType: 'application',
+        entityId: args.applicationId,
+        metadata: {
+          company: application.company,
+          previousStatus,
+          newStatus: args.newStatus,
+          source: 'kanban_drag',
+        },
+      });
+
       await safeLogAudit(ctx, {
         category: 'user_action',
         action: 'application.status_changed',

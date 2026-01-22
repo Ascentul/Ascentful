@@ -303,8 +303,8 @@ export const getSignalsByStudent = query({
       throw new Error('Student not found');
     }
 
-    // Authorization check
-    if (sessionCtx.role !== 'super_admin' && sessionCtx.role !== 'advisor') {
+    // Authorization check - advisors must also be in the same university
+    if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (student.university_id !== universityId) {
         throw new Error('Unauthorized: Cannot access signals for another university');
@@ -416,7 +416,7 @@ export const createSignal = mutation({
  * Create a signal from a rule (internal use).
  * Called by the signal evaluation system.
  */
-export const createSignalFromRule = mutation({
+export const createSignalFromRule = internalMutation({
   args: {
     ruleId: v.id('signal_rules'),
     studentId: v.id('users'),
@@ -1090,12 +1090,13 @@ async function evaluateRuleCondition(
       }
 
       // Check if current level matches the "to" level and implies a drop
+      // levelOrder: index 0 = best (engaged), index 2 = worst (at_risk)
       const levelOrder = ['engaged', 'moderate', 'at_risk'];
       const currentIdx = levelOrder.indexOf(currentLevel);
       const toIdx = levelOrder.indexOf(toLevel);
 
-      // Trigger if current level is at or below "to" level
-      if (currentLevel === toLevel || (toLevel === 'at_risk' && currentLevel === 'at_risk')) {
+      // Trigger if current level is at or worse than the target "to" level
+      if (currentIdx >= toIdx) {
         return {
           triggered: true,
           context: {

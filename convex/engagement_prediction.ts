@@ -399,7 +399,10 @@ export const getStudentsAtRiskSoon = query({
   handler: async (ctx, args) => {
     const { universityId, daysThreshold = 14, limit = 20 } = args;
 
-    const { predictions } = await computeUniversityPredictions(ctx, universityId, 100);
+    // Fetch more students than requested since we filter down after prediction
+    // Use a higher multiplier to ensure we don't miss at-risk students
+    const fetchLimit = Math.max(200, limit * 10);
+    const { predictions } = await computeUniversityPredictions(ctx, universityId, fetchLimit);
 
     // Filter to students currently engaged/moderate but predicted to drop
     const atRiskSoon = predictions

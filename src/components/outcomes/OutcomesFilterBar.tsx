@@ -142,7 +142,7 @@ export function OutcomesFilterBar({
         <SelectContent>
           <SelectItem value="all">All Programs</SelectItem>
           {programOptions.map((program) => (
-            <SelectItem key={program.id} value={program.name}>
+            <SelectItem key={program.id} value={program.id}>
               {program.name}
             </SelectItem>
           ))}

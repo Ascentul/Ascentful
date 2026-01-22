@@ -9,7 +9,7 @@
  */
 
 import { Id } from '../_generated/dataModel';
-import { MutationCtx, QueryCtx } from '../_generated/server';
+import { QueryCtx } from '../_generated/server';
 
 // ============================================================================
 // TYPES
@@ -139,11 +139,14 @@ export async function resolveStudentIdentity(
 /**
  * Find users by name with fuzzy matching within a university.
  * Returns suggestions sorted by confidence score.
+ *
+ * @param limit - Maximum students to search (default 500, increase for larger universities)
  */
 async function findUsersByNameFuzzy(
   ctx: QueryCtx,
   universityId: Id<'universities'>,
   searchName: string,
+  limit: number = 500,
 ): Promise<
   Array<{
     userId: Id<'users'>;
@@ -156,7 +159,7 @@ async function findUsersByNameFuzzy(
   const students = await ctx.db
     .query('studentProfiles')
     .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .take(500);
+    .take(limit);
 
   if (students.length === 0) {
     return [];
@@ -198,7 +201,7 @@ async function findUsersByNameFuzzy(
 /**
  * Normalize a name for matching (lowercase, remove diacritics, standardize whitespace)
  */
-function normalizeForMatching(name: string): string {
+export function normalizeForMatching(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFD')
@@ -212,7 +215,7 @@ function normalizeForMatching(name: string): string {
  * Calculate similarity between two normalized names.
  * Uses a simple token-based matching approach.
  */
-function calculateNameSimilarity(name1: string, name2: string): number {
+export function calculateNameSimilarity(name1: string, name2: string): number {
   const tokens1 = new Set(name1.split(' ').filter((t) => t.length > 0));
   const tokens2 = new Set(name2.split(' ').filter((t) => t.length > 0));
 
