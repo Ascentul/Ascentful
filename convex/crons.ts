@@ -78,4 +78,78 @@ crons.daily(
   { olderThanMs: 180 * 24 * 60 * 60 * 1000 },
 );
 
+// ============================================================================
+// ENGAGEMENT SIGNALS SYSTEM
+// ============================================================================
+
+/**
+ * Evaluate signal rules and create signals for matching students
+ *
+ * Runs every 30 minutes to detect:
+ * - Inactive students (no activity for X days)
+ * - Application stalls (stuck at a stage for X days)
+ * - Engagement drops (score fell below threshold)
+ * - No progress patterns (many rejections, no offers)
+ *
+ * Schedule: Every 30 minutes
+ *
+ * Actions taken:
+ * - Evaluates all active rules for active/trial universities
+ * - Creates signals for students matching rule conditions
+ * - Respects cooldown periods to prevent signal spam
+ *
+ * Signals created will appear in advisor action queues.
+ */
+crons.interval('evaluate signal rules', { minutes: 30 }, internal.signals.evaluateSignalRules, {});
+
+/**
+ * Reactivate snoozed signals whose snooze period has expired
+ *
+ * Runs hourly to check for snoozed signals that should be reactivated.
+ * When an advisor snoozes a signal, it's hidden until the snooze period ends.
+ *
+ * Schedule: Every hour at :15
+ *
+ * Actions taken:
+ * - Finds all snoozed signals where snoozed_until < now
+ * - Sets status back to 'active'
+ * - Clears snoozed_until field
+ */
+crons.hourly('unsnooze due signals', { minuteUTC: 15 }, internal.signals.unsnoozeDueSignals);
+
+/**
+ * Clean up old resolved/dismissed signals
+ *
+ * Runs daily to remove signals that have been resolved or dismissed
+ * for longer than the retention period (default 90 days).
+ *
+ * Schedule: Daily at 5 AM UTC
+ *
+ * Actions taken:
+ * - Deletes resolved/dismissed signals older than retention period
+ * - Keeps active and snoozed signals indefinitely
+ * - Logs count of deleted signals
+ */
+crons.daily(
+  'cleanup old signals',
+  { hourUTC: 5, minuteUTC: 0 },
+  internal.signals.cleanupOldSignals,
+  {},
+);
+
+/**
+ * Delete old activity events (data retention)
+ *
+ * Runs daily to remove activity events older than retention period.
+ * Keeps 90 days of history by default for engagement scoring.
+ *
+ * Schedule: Daily at 5:30 AM UTC
+ */
+crons.daily(
+  'activity events retention',
+  { hourUTC: 5, minuteUTC: 30 },
+  internal.activity_events.deleteOldEvents,
+  {},
+);
+
 export default crons;

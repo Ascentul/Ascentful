@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 
 // Get conversations for a user
 export const getConversations = query({
@@ -55,6 +56,19 @@ export const createConversation = mutation({
       title: args.title,
       created_at: now,
       updated_at: now,
+    });
+
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.COACH_CONVERSATION_STARTED,
+      eventCategory: 'ai_coach',
+      entityType: 'conversation',
+      entityId: conversationId,
+      metadata: {
+        title: args.title,
+      },
     });
 
     return {
@@ -154,6 +168,19 @@ export const addMessages = mutation({
     // Update conversation timestamp
     await ctx.db.patch(args.conversationId, {
       updated_at: now,
+    });
+
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.COACH_MESSAGE_SENT,
+      eventCategory: 'ai_coach',
+      entityType: 'conversation',
+      entityId: args.conversationId,
+      metadata: {
+        messageLength: args.userMessage.length,
+      },
     });
 
     return [

@@ -3,8 +3,9 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import {
+  AlertTriangle,
   Briefcase,
   Calendar,
   FileText,
@@ -16,9 +17,12 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { StudentPredictionCard } from '@/components/analytics/EngagementPredictionPanel';
+import { Signal, SignalList } from '@/components/signals/SignalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 type TimelineEventType =
   | 'application'
@@ -158,10 +162,12 @@ interface StudentTimelineProps {
 export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelineProps) {
   const { user } = useUser();
   const clerkId = user?.id;
+  const { toast } = useToast();
 
   const [selectedFilter, setSelectedFilter] = useState<TimelineEventType | 'all'>('all');
   const [cursor, setCursor] = useState<number | undefined>(undefined);
   const [allEvents, setAllEvents] = useState<TimelineEvent[]>([]);
+  const [showSignals, setShowSignals] = useState(true);
   const prevCursorRef = useRef<number | undefined>(undefined);
 
   const filters = useMemo(() => {
@@ -180,6 +186,63 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
           limit: 20,
         }
       : 'skip',
+  );
+
+  // Query signals for this student
+  const signalsData = useQuery(
+    api.signals.getSignalsByStudent,
+    studentId
+      ? {
+          studentId,
+          limit: 10,
+        }
+      : 'skip',
+  );
+
+  // Signal mutations
+  const snoozeSignalMutation = useMutation(api.signals.snoozeSignal);
+  const dismissSignalMutation = useMutation(api.signals.dismissSignal);
+  const resolveSignalMutation = useMutation(api.signals.resolveSignal);
+
+  // Signal handlers
+  const handleSnooze = useCallback(
+    async (signalId: Id<'signals'>, days: number) => {
+      try {
+        await snoozeSignalMutation({ signalId, snoozeDays: days });
+        toast({ title: 'Signal snoozed', description: `Will resurface in ${days} day(s)` });
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to snooze signal', variant: 'destructive' });
+      }
+    },
+    [snoozeSignalMutation, toast],
+  );
+
+  const handleDismiss = useCallback(
+    async (signalId: Id<'signals'>) => {
+      try {
+        await dismissSignalMutation({ signalId });
+        toast({ title: 'Signal dismissed' });
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to dismiss signal', variant: 'destructive' });
+      }
+    },
+    [dismissSignalMutation, toast],
+  );
+
+  const handleResolve = useCallback(
+    async (signalId: Id<'signals'>, notes?: string) => {
+      try {
+        await resolveSignalMutation({
+          signalId,
+          resolutionType: 'action_taken',
+          resolutionNotes: notes,
+        });
+        toast({ title: 'Signal resolved' });
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to resolve signal', variant: 'destructive' });
+      }
+    },
+    [resolveSignalMutation, toast],
   );
 
   // Accumulate events when new data arrives
@@ -214,6 +277,12 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
     return groupEventsByDate(allEvents);
   }, [allEvents]);
 
+  // Count active signals (signalsData is an array)
+  const activeSignalCount = useMemo(() => {
+    if (!signalsData) return 0;
+    return signalsData.filter((s) => s.status === 'active' || s.status === 'snoozed').length;
+  }, [signalsData]);
+
   if (!clerkId) {
     return null;
   }
@@ -224,9 +293,26 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         <CardTitle className="flex items-center gap-2 text-lg">
           <Sparkles className="h-5 w-5" />
           Activity Timeline
+          {activeSignalCount > 0 && (
+            <Badge variant="destructive" className="ml-auto">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              {activeSignalCount} Signal{activeSignalCount !== 1 ? 's' : ''}
+            </Badge>
+          )}
         </CardTitle>
         {/* Filter pills */}
         <div className="flex flex-wrap gap-1.5 pt-2">
+          {activeSignalCount > 0 && (
+            <Button
+              variant={showSignals ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setShowSignals(!showSignals)}
+            >
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Signals
+            </Button>
+          )}
           {FILTER_OPTIONS.map((option) => (
             <Button
               key={option.value}
@@ -241,17 +327,44 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         </div>
       </CardHeader>
       <CardContent className="max-h-[500px] overflow-y-auto">
+        {/* Engagement Prediction - Compact */}
+        <div className="mb-4">
+          <StudentPredictionCard studentId={studentId} compact />
+        </div>
+
+        {/* Signals Section */}
+        {showSignals && signalsData && signalsData.length > 0 && (
+          <div className="mb-6">
+            <SignalList
+              signals={signalsData as Signal[]}
+              onSnooze={handleSnooze}
+              onDismiss={handleDismiss}
+              onResolve={handleResolve}
+              showResolved
+            />
+          </div>
+        )}
+
+        {/* Activity Timeline */}
         {timelineData === undefined ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : allEvents.length === 0 ? (
+        ) : allEvents.length === 0 && (!signalsData || signalsData.length === 0) ? (
           <div className="text-center py-12">
             <Sparkles className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
             <p className="text-sm font-medium text-muted-foreground">No activity yet</p>
             <p className="text-xs text-muted-foreground mt-1">
               {selectedFilter === 'all'
                 ? 'Activity will appear here as the student works on their career'
+                : `No ${selectedFilter.replace('_', ' ')} activity found`}
+            </p>
+          </div>
+        ) : allEvents.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-muted-foreground">
+              {selectedFilter === 'all'
+                ? 'No activity events yet'
                 : `No ${selectedFilter.replace('_', ' ')} activity found`}
             </p>
           </div>

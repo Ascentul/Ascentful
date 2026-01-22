@@ -110,6 +110,8 @@ export const createNotification = internalMutation({
       v.literal('application_update'),
       v.literal('goal_reminder'),
       v.literal('system'),
+      v.literal('signal'),
+      v.literal('signal_urgent'),
     ),
     title: v.string(),
     message: v.string(),

@@ -904,6 +904,317 @@ The Ascentful Team`
 }
 
 /**
+ * Send signal alert email to advisor when urgent/high priority signal is created
+ */
+export async function sendSignalAlertEmail(
+  advisorEmail: string,
+  advisorName: string,
+  studentName: string,
+  signalTitle: string,
+  signalDescription: string,
+  priority: 'urgent' | 'high' | 'medium' | 'low',
+  signalType: string,
+  dashboardUrl: string,
+): Promise<EmailResult> {
+  const firstName = advisorName.split(' ')[0] || 'Advisor';
+  const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '📢';
+  const priorityLabel = priority.charAt(0).toUpperCase() + priority.slice(1);
+  const typeLabel = signalType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+
+  const subject = `${priorityEmoji} ${priorityLabel} Signal: ${studentName} - ${signalTitle}`;
+
+  const text = `Hi ${firstName},
+
+A new ${priorityLabel.toLowerCase()} priority signal has been created for one of your students.
+
+Student: ${studentName}
+Signal: ${signalTitle}
+Priority: ${priorityLabel}
+Type: ${typeLabel}
+
+${signalDescription || 'No additional details.'}
+
+View and take action on this signal:
+${dashboardUrl}
+
+If you have questions, contact support@ascentful.io.
+
+Best,
+The Ascentful Team`;
+
+  const priorityColor =
+    priority === 'urgent'
+      ? '#EF4444'
+      : priority === 'high'
+        ? '#F97316'
+        : priority === 'medium'
+          ? '#F59E0B'
+          : '#6B7280';
+
+  const html = `
+    <div style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #1f2937; line-height: 1.6;">
+      <div style="background: linear-gradient(135deg, #5371FF 0%, #4158D0 100%); padding: 40px 20px; margin: -40px -20px 30px -20px; text-align: center; border-radius: 0;">
+        <h1 style="color: #FFFFFF; font-size: 52px; margin: 0; font-weight: 700; letter-spacing: -0.5px; line-height: 1; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Ascentful</h1>
+        <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; margin: 8px 0 0 0; font-weight: 600; line-height: 1.2; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Signal Alert</p>
+      </div>
+
+      <div style="background-color: ${priorityColor}; color: white; padding: 12px 16px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+        <span style="font-size: 24px; margin-right: 8px;">${priorityEmoji}</span>
+        <span style="font-weight: 600; font-size: 16px;">${priorityLabel} Priority Signal</span>
+      </div>
+
+      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${firstName},</p>
+
+      <p style="font-size: 16px; margin-bottom: 24px;">A new signal requires your attention for one of your students.</p>
+
+      <div style="background-color: #F9FAFB; border-radius: 8px; padding: 20px; margin: 24px 0;">
+        <div style="margin-bottom: 16px;">
+          <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Student</p>
+          <p style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">${studentName}</p>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Signal</p>
+          <p style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${signalTitle}</p>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Type</p>
+          <p style="margin: 0; font-size: 14px; color: #374151;">${typeLabel}</p>
+        </div>
+        ${
+          signalDescription
+            ? `
+        <div>
+          <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Details</p>
+          <p style="margin: 0; font-size: 14px; color: #374151;">${signalDescription}</p>
+        </div>
+        `
+            : ''
+        }
+      </div>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${dashboardUrl}"
+           style="background-color: #5371FF;
+                  color: white;
+                  padding: 14px 32px;
+                  text-decoration: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  font-size: 16px;
+                  display: inline-block;
+                  box-shadow: 0 4px 6px rgba(83, 113, 255, 0.2);">
+          View Signal & Take Action
+        </a>
+      </div>
+
+      <p style="font-size: 14px; color: #6b7280; margin-top: 32px;">
+        You're receiving this because you have email alerts enabled for ${priorityLabel.toLowerCase()} priority signals.
+        Manage your notification preferences in your Ascentful settings.
+      </p>
+
+      <p style="font-size: 16px; margin-top: 32px;">
+        Best,<br>
+        <strong>The Ascentful Team</strong>
+      </p>
+
+      <div style="margin-top: 50px; padding-top: 25px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+        <p>© ${new Date().getFullYear()} Ascentful, Inc. All rights reserved.</p>
+        <p style="margin-top: 10px;">
+          <a href="https://ascentful.io/privacy" style="color: #6b7280; text-decoration: none; margin: 0 12px;">Privacy Policy</a> |
+          <a href="https://ascentful.io/terms" style="color: #6b7280; text-decoration: none; margin: 0 12px;">Terms of Service</a> |
+          <a href="mailto:support@ascentful.io" style="color: #6b7280; text-decoration: none; margin: 0 12px;">Support</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: advisorEmail,
+    subject,
+    text,
+    html,
+  }).catch((error) => {
+    const errorMessage = error?.message || '';
+    if (
+      errorMessage.includes('No email service configured') ||
+      errorMessage.includes('MAILGUN_SENDING_API_KEY') ||
+      errorMessage.includes('SENDGRID_API_KEY')
+    ) {
+      console.warn('Email service not configured - signal alert email not sent');
+      return {
+        id: `email_not_configured_${Date.now()}`,
+        message: 'Email service not configured',
+        status: 202,
+        skipped: true,
+      };
+    }
+    throw error;
+  });
+}
+
+/**
+ * Send daily signal digest email to advisor
+ */
+export async function sendSignalDigestEmail(
+  advisorEmail: string,
+  advisorName: string,
+  signalSummary: {
+    urgent: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+  },
+  topSignals: Array<{
+    studentName: string;
+    title: string;
+    priority: string;
+  }>,
+  dashboardUrl: string,
+): Promise<EmailResult> {
+  const firstName = advisorName.split(' ')[0] || 'Advisor';
+
+  const subject = `📊 Your Daily Signal Digest - ${signalSummary.total} Active Signals`;
+
+  const signalListText = topSignals
+    .map((s, i) => `${i + 1}. [${s.priority.toUpperCase()}] ${s.studentName}: ${s.title}`)
+    .join('\n');
+
+  const text = `Hi ${firstName},
+
+Here's your daily signal digest:
+
+Active Signals Summary:
+- Urgent: ${signalSummary.urgent}
+- High: ${signalSummary.high}
+- Medium: ${signalSummary.medium}
+- Low: ${signalSummary.low}
+- Total: ${signalSummary.total}
+
+${topSignals.length > 0 ? `Top Signals Requiring Attention:\n${signalListText}` : 'No urgent signals today.'}
+
+View your full queue: ${dashboardUrl}
+
+Best,
+The Ascentful Team`;
+
+  const signalListHtml = topSignals
+    .map((s) => {
+      const priorityColor =
+        s.priority === 'urgent'
+          ? '#EF4444'
+          : s.priority === 'high'
+            ? '#F97316'
+            : s.priority === 'medium'
+              ? '#F59E0B'
+              : '#6B7280';
+      return `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB;">
+            <span style="display: inline-block; padding: 2px 8px; background: ${priorityColor}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;">${s.priority}</span>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; font-weight: 500;">${s.studentName}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #6B7280;">${s.title}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const html = `
+    <div style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #1f2937; line-height: 1.6;">
+      <div style="background: linear-gradient(135deg, #5371FF 0%, #4158D0 100%); padding: 40px 20px; margin: -40px -20px 30px -20px; text-align: center; border-radius: 0;">
+        <h1 style="color: #FFFFFF; font-size: 52px; margin: 0; font-weight: 700; letter-spacing: -0.5px; line-height: 1;">Ascentful</h1>
+        <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; margin: 8px 0 0 0; font-weight: 600;">Daily Signal Digest</p>
+      </div>
+
+      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${firstName},</p>
+
+      <p style="font-size: 16px; margin-bottom: 24px;">Here's your daily summary of student signals requiring attention.</p>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0;">
+        <div style="text-align: center; padding: 16px; background: #FEE2E2; border-radius: 8px;">
+          <div style="font-size: 28px; font-weight: 700; color: #DC2626;">${signalSummary.urgent}</div>
+          <div style="font-size: 12px; color: #991B1B; font-weight: 600;">Urgent</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: #FFEDD5; border-radius: 8px;">
+          <div style="font-size: 28px; font-weight: 700; color: #EA580C;">${signalSummary.high}</div>
+          <div style="font-size: 12px; color: #9A3412; font-weight: 600;">High</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: #FEF3C7; border-radius: 8px;">
+          <div style="font-size: 28px; font-weight: 700; color: #D97706;">${signalSummary.medium}</div>
+          <div style="font-size: 12px; color: #92400E; font-weight: 600;">Medium</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: #F3F4F6; border-radius: 8px;">
+          <div style="font-size: 28px; font-weight: 700; color: #4B5563;">${signalSummary.low}</div>
+          <div style="font-size: 12px; color: #374151; font-weight: 600;">Low</div>
+        </div>
+      </div>
+
+      ${
+        topSignals.length > 0
+          ? `
+      <div style="margin: 32px 0;">
+        <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Top Signals Requiring Attention</h3>
+        <table style="width: 100%; border-collapse: collapse; background: #F9FAFB; border-radius: 8px; overflow: hidden;">
+          <tbody>
+            ${signalListHtml}
+          </tbody>
+        </table>
+      </div>
+      `
+          : ''
+      }
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${dashboardUrl}"
+           style="background-color: #5371FF;
+                  color: white;
+                  padding: 14px 32px;
+                  text-decoration: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  font-size: 16px;
+                  display: inline-block;">
+          View Full Queue
+        </a>
+      </div>
+
+      <p style="font-size: 14px; color: #6b7280; margin-top: 32px;">
+        You're receiving this daily digest because you have email notifications enabled.
+        Manage your notification preferences in your Ascentful settings.
+      </p>
+
+      <div style="margin-top: 50px; padding-top: 25px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+        <p>© ${new Date().getFullYear()} Ascentful, Inc. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: advisorEmail,
+    subject,
+    text,
+    html,
+  }).catch((error) => {
+    const errorMessage = error?.message || '';
+    if (
+      errorMessage.includes('No email service configured') ||
+      errorMessage.includes('MAILGUN_SENDING_API_KEY') ||
+      errorMessage.includes('SENDGRID_API_KEY')
+    ) {
+      console.warn('Email service not configured - signal digest email not sent');
+      return {
+        id: `email_not_configured_${Date.now()}`,
+        message: 'Email service not configured',
+        status: 202,
+        skipped: true,
+      };
+    }
+    throw error;
+  });
+}
+
+/**
  * Send review completion notification to student
  */
 export async function sendReviewCompletionEmail(

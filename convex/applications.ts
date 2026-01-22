@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireMembership } from './lib/roles';
 import { mapStatusToStage } from './migrate_application_status_to_stage';
@@ -129,6 +130,21 @@ export const createApplication = mutation({
     // Track activity for streak (fire-and-forget)
     await ctx.scheduler.runAfter(0, api.activity.markActionForToday, {});
 
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.APPLICATION_CREATED,
+      eventCategory: 'application',
+      entityType: 'application',
+      entityId: applicationId,
+      metadata: {
+        company: args.company,
+        job_title: args.job_title,
+        status: args.status,
+      },
+    });
+
     // Audit log: application created
     await safeLogAudit(ctx, {
       category: 'user_action',
@@ -224,6 +240,25 @@ export const updateApplication = mutation({
 
     await ctx.db.patch(args.applicationId, patchData);
 
+    // Track activity event for engagement scoring
+    const eventType = args.updates.status
+      ? ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED
+      : ACTIVITY_EVENTS.APPLICATION_UPDATED;
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType,
+      eventCategory: 'application',
+      entityType: 'application',
+      entityId: args.applicationId,
+      metadata: {
+        company: application.company,
+        previousStatus: args.updates.status ? application.status : undefined,
+        newStatus: args.updates.status,
+        updatedFields: Object.keys(args.updates),
+      },
+    });
+
     // Audit log: application updated (track status changes specifically)
     const action = args.updates.status ? 'application.status_changed' : 'application.updated';
     await safeLogAudit(ctx, {
@@ -281,6 +316,21 @@ export const deleteApplication = mutation({
     }
 
     await ctx.db.delete(args.applicationId);
+
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.APPLICATION_DELETED,
+      eventCategory: 'application',
+      entityType: 'application',
+      entityId: args.applicationId,
+      metadata: {
+        company: application.company,
+        job_title: application.job_title,
+        status: application.status,
+      },
+    });
 
     // Audit log: application deleted
     await safeLogAudit(ctx, {

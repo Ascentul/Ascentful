@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { requireMembership } from './lib/roles';
 
 // List contacts for the current user by Clerk ID
@@ -117,6 +118,21 @@ export const createContact = mutation({
 
     // Track activity for streak (fire-and-forget)
     await ctx.scheduler.runAfter(0, api.activity.markActionForToday, {});
+
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.CONTACT_ADDED,
+      eventCategory: 'networking',
+      entityType: 'contact',
+      entityId: id,
+      metadata: {
+        name: args.name,
+        company: args.company,
+        relationship: args.relationship,
+      },
+    });
 
     const doc = await ctx.db.get(id);
     return doc;

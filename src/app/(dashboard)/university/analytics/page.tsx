@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
 import {
+  AlertTriangle,
   Calendar,
   ClipboardList,
   Clock,
@@ -15,7 +16,9 @@ import {
   RefreshCw,
   Target,
   TrendingUp,
+  UserCheck,
   Users,
+  UserX,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import {
@@ -34,6 +37,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EngagementPredictionPanel } from '@/components/analytics/EngagementPredictionPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
@@ -41,9 +45,9 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 export default function UniversityAnalyticsPage() {
   const { user: clerkUser } = useUser();
   const { user, isAdmin, subscription } = useAuth();
-  const [analyticsView, setAnalyticsView] = useState<'engagement' | 'features' | 'risk'>(
-    'engagement',
-  );
+  const [analyticsView, setAnalyticsView] = useState<
+    'engagement' | 'features' | 'risk' | 'predictions'
+  >('engagement');
   const [activeUsersTimeRange, setActiveUsersTimeRange] = useState<'daily' | 'weekly' | 'monthly'>(
     'weekly',
   );
@@ -64,6 +68,38 @@ export default function UniversityAnalyticsPage() {
   const departments = useQuery(
     api.university_admin.listDepartments,
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+  );
+
+  // Engagement stats from the new engagement engine
+  const engagementStats = useQuery(
+    api.engagement_definitions.getUniqueEngagedStats,
+    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+  );
+
+  // Signal analytics for active signals count
+  const signalAnalytics = useQuery(
+    api.signals.getSignalAnalytics,
+    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+  );
+
+  // Real active users over time data
+  const activeUsersData = useQuery(
+    api.analytics.getUniversityActiveUsersOverTime,
+    user?.university_id
+      ? { universityId: user.university_id as any, timeRange: activeUsersTimeRange }
+      : 'skip',
+  );
+
+  // Real feature usage data (networking, AI coach)
+  const featureUsage = useQuery(
+    api.analytics.getUniversityFeatureUsage,
+    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+  );
+
+  // Real department analytics
+  const departmentAnalytics = useQuery(
+    api.analytics.getUniversityDepartmentAnalytics,
+    user?.university_id ? { universityId: user.university_id as any } : 'skip',
   );
 
   if (!canAccess) {
@@ -151,105 +187,153 @@ export default function UniversityAnalyticsPage() {
         >
           At-Risk Analysis
         </Button>
+        <Button
+          size="sm"
+          variant={analyticsView === 'predictions' ? 'default' : 'outline'}
+          onClick={() => setAnalyticsView('predictions')}
+          className={analyticsView === 'predictions' ? 'bg-[#0C29AB]' : ''}
+        >
+          AI Predictions
+        </Button>
       </div>
 
       {/* Student Engagement View */}
       {analyticsView === 'engagement' && (
         <>
-          {/* Engagement Metrics */}
+          {/* Primary Engagement KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+            <Card className="border-l-4 border-l-green-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Daily Active Users</CardTitle>
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                  Unique Engaged
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{Math.floor(students.length * 0.35)}</div>
-                <p className="text-xs text-green-600 mt-1">+12% from last week</p>
+                <div className="text-3xl font-bold text-green-600">
+                  {engagementStats?.engaged_percent ?? 0}%
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {engagementStats?.engaged_students ?? 0} of {engagementStats?.total_students ?? 0}{' '}
+                  students
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-amber-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Avg Session Duration</CardTitle>
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <UserX className="h-4 w-4 text-amber-600" />
+                  At-Risk Students
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">24 min</div>
-                <p className="text-xs text-green-600 mt-1">+3 min from last week</p>
+                <div className="text-3xl font-bold text-amber-600">
+                  {engagementStats?.at_risk_percent ?? 0}%
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {engagementStats?.at_risk_students ?? 0} need attention
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-red-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Return Rate</CardTitle>
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  Active Signals
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">68%</div>
-                <p className="text-xs text-green-600 mt-1">+5% from last week</p>
+                <div className="text-3xl font-bold text-red-600">
+                  {signalAnalytics?.statusCounts.active ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {signalAnalytics?.priorityCounts.urgent ?? 0} urgent,{' '}
+                  {signalAnalytics?.priorityCounts.high ?? 0} high priority
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-blue-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Actions per Session</CardTitle>
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-600" />
+                  Moderate Engagement
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">8.4</div>
-                <p className="text-xs text-green-600 mt-1">+1.2 from last week</p>
+                <div className="text-3xl font-bold text-blue-600">
+                  {engagementStats?.breakdown_by_status.moderate ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">Students with average activity</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Additional Engagement Metrics Row */}
+          {/* Signal Type Breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Total Logins</CardTitle>
+                <CardTitle className="text-base font-medium">Needs Outreach</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <LogIn className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold">{students.length * 12}</div>
+                  <Mail className="h-5 w-5 text-amber-500 mr-2" />
+                  <div className="text-2xl font-bold">
+                    {signalAnalytics?.typeCounts.needs_outreach ?? 0}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">This month</div>
+                <div className="text-xs text-muted-foreground mt-1">Students requiring contact</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Feature Usage</CardTitle>
+                <CardTitle className="text-base font-medium">Application Support</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <MousePointer className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold">85%</div>
+                  <ClipboardList className="h-5 w-5 text-blue-500 mr-2" />
+                  <div className="text-2xl font-bold">
+                    {signalAnalytics?.typeCounts.application_support ?? 0}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Average adoption rate</div>
+                <div className="text-xs text-muted-foreground mt-1">Need application help</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Goals Completed</CardTitle>
+                <CardTitle className="text-base font-medium">Signals Resolved</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <Target className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold">{analyticsData.goals.completed}</div>
+                  <Target className="h-5 w-5 text-green-500 mr-2" />
+                  <div className="text-2xl font-bold">
+                    {signalAnalytics?.statusCounts.resolved ?? 0}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Total goals completed</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {signalAnalytics?.summary?.avgResolutionTimeHours
+                    ? `Avg ${signalAnalytics.summary.avgResolutionTimeHours}h to resolve`
+                    : 'Resolution metrics'}
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Applications Submitted</CardTitle>
+                <CardTitle className="text-base font-medium">Total Students</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <ClipboardList className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold">{analyticsData.applications.submitted}</div>
+                  <GraduationCap className="h-5 w-5 text-purple-500 mr-2" />
+                  <div className="text-2xl font-bold">
+                    {engagementStats?.total_students ?? students.length}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Total applications</div>
+                <div className="text-xs text-muted-foreground mt-1">Active in your institution</div>
               </CardContent>
             </Card>
           </div>
@@ -293,73 +377,7 @@ export default function UniversityAnalyticsPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={350}>
                 <LineChart
-                  data={(() => {
-                    // Generate sample data based on time range
-                    const now = new Date();
-                    const data = [];
-
-                    if (activeUsersTimeRange === 'daily') {
-                      // Last 30 days
-                      for (let i = 29; i >= 0; i--) {
-                        const date = new Date(now);
-                        date.setDate(date.getDate() - i);
-                        const dateStr = date.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        });
-
-                        // Calculate based on student count with some variation
-                        const studentCount = students.length;
-                        const studentFactor = 0.2 + Math.sin(i / 5) * 0.15;
-                        const advisorFactor = 0.4 + Math.sin(i / 7) * 0.2;
-
-                        data.push({
-                          date: dateStr,
-                          students: Math.floor(studentCount * studentFactor),
-                          advisors: Math.floor(studentCount * 0.05 * advisorFactor), // ~5% advisors
-                        });
-                      }
-                    } else if (activeUsersTimeRange === 'weekly') {
-                      // Last 12 weeks
-                      for (let i = 11; i >= 0; i--) {
-                        const weekStart = new Date(now);
-                        weekStart.setDate(weekStart.getDate() - i * 7);
-                        const weekLabel = `Week ${12 - i}`;
-
-                        const studentCount = students.length;
-                        const studentFactor = 0.25 + Math.sin(i / 3) * 0.1;
-                        const advisorFactor = 0.5 + Math.sin(i / 4) * 0.15;
-
-                        data.push({
-                          date: weekLabel,
-                          students: Math.floor(studentCount * studentFactor),
-                          advisors: Math.floor(studentCount * 0.05 * advisorFactor),
-                        });
-                      }
-                    } else {
-                      // Last 12 months
-                      for (let i = 11; i >= 0; i--) {
-                        const monthDate = new Date(now);
-                        monthDate.setMonth(monthDate.getMonth() - i);
-                        const monthStr = monthDate.toLocaleDateString('en-US', {
-                          month: 'short',
-                          year: '2-digit',
-                        });
-
-                        const studentCount = students.length;
-                        const studentFactor = 0.3 + i * 0.05; // Growth trend
-                        const advisorFactor = 0.6 + i * 0.03;
-
-                        data.push({
-                          date: monthStr,
-                          students: Math.floor(studentCount * studentFactor),
-                          advisors: Math.floor(studentCount * 0.05 * advisorFactor),
-                        });
-                      }
-                    }
-
-                    return data;
-                  })()}
+                  data={activeUsersData?.data || []}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -403,50 +421,224 @@ export default function UniversityAnalyticsPage() {
             </CardContent>
           </Card>
 
+          {/* Engagement by Program Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Engagement by Department/Program</CardTitle>
+              <CardDescription>Student engagement percentage across programs</CardDescription>
+            </CardHeader>
+            <CardContent className="h-80">
+              {engagementStats?.by_program && Object.keys(engagementStats.by_program).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={(() => {
+                      // Get department names for the program IDs
+                      const programData = Object.entries(engagementStats.by_program)
+                        .filter(([key]) => key !== 'unknown')
+                        .map(([programId, stats]) => {
+                          const dept = departments.find((d: any) => d._id === programId);
+                          return {
+                            name: dept?.name || 'Unknown Program',
+                            engaged: stats.engaged,
+                            total: stats.total,
+                            percent: stats.percent,
+                          };
+                        })
+                        .sort((a, b) => b.percent - a.percent)
+                        .slice(0, 8); // Top 8 programs
+                      return programData;
+                    })()}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                    <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value}% (${props.payload.engaged}/${props.payload.total})`,
+                        'Engaged',
+                      ]}
+                    />
+                    <Bar dataKey="percent" fill="#10B981" name="Engaged %" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <Users className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    No program engagement data available yet
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Data will appear as students become active
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Student Engagement Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Session Duration Trends</CardTitle>
-                <CardDescription>Average time spent per session over last 7 days</CardDescription>
+                <CardTitle>Engagement Status Distribution</CardTitle>
+                <CardDescription>Current breakdown of student engagement levels</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                {/* Time-series engagement tracking coming soon */}
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <Clock className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    Session duration tracking coming soon
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Historical engagement data will appear here
-                  </p>
-                </div>
+                {engagementStats?.total_students && engagementStats.total_students > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          {
+                            name: 'Engaged',
+                            value: engagementStats.breakdown_by_status.engaged,
+                            color: '#10B981',
+                          },
+                          {
+                            name: 'Moderate',
+                            value: engagementStats.breakdown_by_status.moderate,
+                            color: '#3B82F6',
+                          },
+                          {
+                            name: 'At Risk',
+                            value: engagementStats.breakdown_by_status.at_risk,
+                            color: '#F59E0B',
+                          },
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, value, percent }) =>
+                          `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                        }
+                        labelLine
+                      >
+                        {[
+                          {
+                            name: 'Engaged',
+                            value: engagementStats.breakdown_by_status.engaged,
+                            color: '#10B981',
+                          },
+                          {
+                            name: 'Moderate',
+                            value: engagementStats.breakdown_by_status.moderate,
+                            color: '#3B82F6',
+                          },
+                          {
+                            name: 'At Risk',
+                            value: engagementStats.breakdown_by_status.at_risk,
+                            color: '#F59E0B',
+                          },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <Users className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No engagement data yet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Daily Engagement by Activity Type</CardTitle>
-                <CardDescription>Student actions breakdown</CardDescription>
+                <CardTitle>Signal Types Distribution</CardTitle>
+                <CardDescription>Active signals by category</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { activity: 'Profile', count: Math.floor(students.length * 0.4) },
-                      { activity: 'Applications', count: Math.floor(students.length * 0.6) },
-                      { activity: 'Documents', count: Math.floor(students.length * 0.3) },
-                      { activity: 'Goals', count: Math.floor(students.length * 0.25) },
-                      { activity: 'Networking', count: Math.floor(students.length * 0.15) },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="activity" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#10B981" name="Active Users" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {signalAnalytics &&
+                signalAnalytics.typeCounts.needs_outreach +
+                  signalAnalytics.typeCounts.application_support +
+                  signalAnalytics.typeCounts.document_review +
+                  signalAnalytics.typeCounts.milestone_check >
+                  0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          type: 'Needs Outreach',
+                          count: signalAnalytics.typeCounts.needs_outreach,
+                          color: '#F59E0B',
+                        },
+                        {
+                          type: 'App Support',
+                          count: signalAnalytics.typeCounts.application_support,
+                          color: '#3B82F6',
+                        },
+                        {
+                          type: 'Doc Review',
+                          count: signalAnalytics.typeCounts.document_review,
+                          color: '#8B5CF6',
+                        },
+                        {
+                          type: 'Milestone',
+                          count: signalAnalytics.typeCounts.milestone_check,
+                          color: '#10B981',
+                        },
+                        {
+                          type: 'Custom',
+                          count: signalAnalytics.typeCounts.custom,
+                          color: '#6B7280',
+                        },
+                      ].filter((d) => d.count > 0)}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="type" tick={{ fontSize: 11 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" name="Signals">
+                        {[
+                          {
+                            type: 'Needs Outreach',
+                            count: signalAnalytics.typeCounts.needs_outreach,
+                            color: '#F59E0B',
+                          },
+                          {
+                            type: 'App Support',
+                            count: signalAnalytics.typeCounts.application_support,
+                            color: '#3B82F6',
+                          },
+                          {
+                            type: 'Doc Review',
+                            count: signalAnalytics.typeCounts.document_review,
+                            color: '#8B5CF6',
+                          },
+                          {
+                            type: 'Milestone',
+                            count: signalAnalytics.typeCounts.milestone_check,
+                            color: '#10B981',
+                          },
+                          {
+                            type: 'Custom',
+                            count: signalAnalytics.typeCounts.custom,
+                            color: '#6B7280',
+                          },
+                        ]
+                          .filter((d) => d.count > 0)
+                          .map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <AlertTriangle className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No active signals yet</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      Signals will appear when conditions are triggered
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -549,12 +741,12 @@ export default function UniversityAnalyticsPage() {
                         },
                         {
                           name: 'Networking',
-                          value: Math.floor(students.length * 0.3),
+                          value: featureUsage?.networkingContacts ?? 0,
                           color: '#EC4899',
                         },
                         {
                           name: 'AI Coach',
-                          value: Math.floor(students.length * 0.2),
+                          value: featureUsage?.aiCoachConversations ?? 0,
                           color: '#8B5CF6',
                         },
                       ]}
@@ -580,12 +772,12 @@ export default function UniversityAnalyticsPage() {
                         },
                         {
                           name: 'Networking',
-                          value: Math.floor(students.length * 0.3),
+                          value: featureUsage?.networkingContacts ?? 0,
                           color: '#EC4899',
                         },
                         {
                           name: 'AI Coach',
-                          value: Math.floor(students.length * 0.2),
+                          value: featureUsage?.aiCoachConversations ?? 0,
                           color: '#8B5CF6',
                         },
                       ].map((entry, index) => (
@@ -653,55 +845,61 @@ export default function UniversityAnalyticsPage() {
       {analyticsView === 'risk' && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+            <Card className="border-l-4 border-l-orange-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">At-Risk Students</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {students?.filter(
-                    (s: any) =>
-                      s.role === 'user' &&
-                      (!s.last_active || Date.now() - s.last_active > 60 * 24 * 60 * 60 * 1000),
-                  ).length || 0}
+                <div className="text-3xl font-bold text-orange-600">
+                  {engagementStats?.at_risk_students ?? 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Inactive &gt;60 days</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {engagementStats?.at_risk_percent ?? 0}% of total students
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-amber-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Low Engagement</CardTitle>
+                <CardTitle className="text-base font-medium">Active Signals</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {Math.floor(students.length * 0.15)}
+                <div className="text-3xl font-bold text-amber-600">
+                  {signalAnalytics?.statusCounts.active ?? 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">&lt;2 sessions/week</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {signalAnalytics?.statusCounts.snoozed ?? 0} snoozed
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-red-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">No Recent Activity</CardTitle>
+                <CardTitle className="text-base font-medium">Urgent Signals</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {Math.floor(students.length * 0.08)}
+                <div className="text-3xl font-bold text-red-600">
+                  {signalAnalytics?.priorityCounts.urgent ?? 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">No activity in 30 days</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {signalAnalytics?.priorityCounts.high ?? 0} high priority
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-green-500">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Needs Support</CardTitle>
+                <CardTitle className="text-base font-medium">Signals Resolved</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600">
-                  {Math.floor(students.length * 0.12)}
+                <div className="text-3xl font-bold text-green-600">
+                  {signalAnalytics?.statusCounts.resolved ?? 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Flagged for intervention</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {signalAnalytics?.summary?.avgResolutionTimeHours
+                    ? `Avg ${signalAnalytics.summary.avgResolutionTimeHours}h resolution`
+                    : 'All time'}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -710,160 +908,227 @@ export default function UniversityAnalyticsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Risk Factor Breakdown</CardTitle>
-                <CardDescription>Primary reasons students are flagged as at-risk</CardDescription>
+                <CardTitle>Signal Type Breakdown</CardTitle>
+                <CardDescription>Categories of signals requiring attention</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        {
-                          name: 'Inactive >60d',
-                          value:
-                            students?.filter(
-                              (s: any) =>
-                                s.role === 'user' &&
-                                (!s.last_active ||
-                                  Date.now() - s.last_active > 60 * 24 * 60 * 60 * 1000),
-                            ).length || 0,
-                          color: '#F97316',
-                        },
-                        {
-                          name: 'Low Engagement',
-                          value: Math.floor(students.length * 0.15),
-                          color: '#F59E0B',
-                        },
-                        {
-                          name: 'No Recent Activity',
-                          value: Math.floor(students.length * 0.08),
-                          color: '#EF4444',
-                        },
-                        {
-                          name: 'Needs Support',
-                          value: Math.floor(students.length * 0.12),
-                          color: '#A855F7',
-                        },
-                      ]}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, value }) => `${name}: ${value}`}
-                      labelLine
-                    >
-                      {[
-                        {
-                          name: 'Inactive >60d',
-                          value:
-                            students?.filter(
-                              (s: any) =>
-                                s.role === 'user' &&
-                                (!s.last_active ||
-                                  Date.now() - s.last_active > 60 * 24 * 60 * 60 * 1000),
-                            ).length || 0,
-                          color: '#F97316',
-                        },
-                        {
-                          name: 'Low Engagement',
-                          value: Math.floor(students.length * 0.15),
-                          color: '#F59E0B',
-                        },
-                        {
-                          name: 'No Recent Activity',
-                          value: Math.floor(students.length * 0.08),
-                          color: '#EF4444',
-                        },
-                        {
-                          name: 'Needs Support',
-                          value: Math.floor(students.length * 0.12),
-                          color: '#A855F7',
-                        },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {signalAnalytics &&
+                signalAnalytics.typeCounts.needs_outreach +
+                  signalAnalytics.typeCounts.application_support +
+                  signalAnalytics.typeCounts.document_review +
+                  signalAnalytics.typeCounts.milestone_check >
+                  0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          {
+                            name: 'Needs Outreach',
+                            value: signalAnalytics.typeCounts.needs_outreach,
+                            color: '#F97316',
+                          },
+                          {
+                            name: 'Application Support',
+                            value: signalAnalytics.typeCounts.application_support,
+                            color: '#3B82F6',
+                          },
+                          {
+                            name: 'Document Review',
+                            value: signalAnalytics.typeCounts.document_review,
+                            color: '#8B5CF6',
+                          },
+                          {
+                            name: 'Milestone Check',
+                            value: signalAnalytics.typeCounts.milestone_check,
+                            color: '#10B981',
+                          },
+                        ].filter((d) => d.value > 0)}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, value }) => `${name}: ${value}`}
+                        labelLine
+                      >
+                        {[
+                          {
+                            name: 'Needs Outreach',
+                            value: signalAnalytics.typeCounts.needs_outreach,
+                            color: '#F97316',
+                          },
+                          {
+                            name: 'Application Support',
+                            value: signalAnalytics.typeCounts.application_support,
+                            color: '#3B82F6',
+                          },
+                          {
+                            name: 'Document Review',
+                            value: signalAnalytics.typeCounts.document_review,
+                            color: '#8B5CF6',
+                          },
+                          {
+                            name: 'Milestone Check',
+                            value: signalAnalytics.typeCounts.milestone_check,
+                            color: '#10B981',
+                          },
+                        ]
+                          .filter((d) => d.value > 0)
+                          .map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <AlertTriangle className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No active signals</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      All students are on track
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Intervention Success Rate</CardTitle>
-                <CardDescription>Student re-engagement after intervention</CardDescription>
+                <CardTitle>Signal Resolution Outcomes</CardTitle>
+                <CardDescription>How signals were resolved</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        status: 'Re-engaged',
-                        count: Math.floor(students.length * 0.18),
-                        color: '#10B981',
-                      },
-                      {
-                        status: 'Partially Active',
-                        count: Math.floor(students.length * 0.09),
-                        color: '#F59E0B',
-                      },
-                      {
-                        status: 'Still At-Risk',
-                        count: Math.floor(students.length * 0.05),
-                        color: '#EF4444',
-                      },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="status" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" name="Students">
-                      {[
+                {signalAnalytics && signalAnalytics.statusCounts.resolved > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
                         {
-                          status: 'Re-engaged',
-                          count: Math.floor(students.length * 0.18),
+                          status: 'Action Taken',
+                          count: signalAnalytics.resolutionCounts.action_taken,
                           color: '#10B981',
                         },
                         {
-                          status: 'Partially Active',
-                          count: Math.floor(students.length * 0.09),
+                          status: 'Auto-Resolved',
+                          count: signalAnalytics.resolutionCounts.auto_resolved,
+                          color: '#3B82F6',
+                        },
+                        {
+                          status: 'No Action Needed',
+                          count: signalAnalytics.resolutionCounts.no_action_needed,
                           color: '#F59E0B',
                         },
                         {
-                          status: 'Still At-Risk',
-                          count: Math.floor(students.length * 0.05),
-                          color: '#EF4444',
+                          status: 'Dismissed',
+                          count: signalAnalytics.resolutionCounts.dismissed,
+                          color: '#6B7280',
                         },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                      ].filter((d) => d.count > 0)}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" name="Signals">
+                        {[
+                          {
+                            status: 'Action Taken',
+                            count: signalAnalytics.resolutionCounts.action_taken,
+                            color: '#10B981',
+                          },
+                          {
+                            status: 'Auto-Resolved',
+                            count: signalAnalytics.resolutionCounts.auto_resolved,
+                            color: '#3B82F6',
+                          },
+                          {
+                            status: 'No Action Needed',
+                            count: signalAnalytics.resolutionCounts.no_action_needed,
+                            color: '#F59E0B',
+                          },
+                          {
+                            status: 'Dismissed',
+                            count: signalAnalytics.resolutionCounts.dismissed,
+                            color: '#6B7280',
+                          },
+                        ]
+                          .filter((d) => d.count > 0)
+                          .map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <Target className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No resolved signals yet</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      Resolution data will appear here
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>At-Risk Trends Over Time</CardTitle>
-              <CardDescription>Monthly at-risk student count and interventions</CardDescription>
+              <CardTitle>Signal Trends (Last 30 Days)</CardTitle>
+              <CardDescription>Daily signal creation and resolution activity</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
-              {/* At-risk tracking coming soon */}
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Users className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  At-risk student tracking coming soon
-                </p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  Monitor intervention effectiveness over time
-                </p>
-              </div>
+              {signalAnalytics?.dailyTrend && signalAnalytics.dailyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={signalAnalytics.dailyTrend}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                      }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                    <Line
+                      type="monotone"
+                      dataKey="created"
+                      stroke="#EF4444"
+                      strokeWidth={2}
+                      name="Signals Created"
+                      dot={{ fill: '#EF4444', r: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="resolved"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      name="Signals Resolved"
+                      dot={{ fill: '#10B981', r: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">No signal trend data yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Trends will appear as signals are created
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -901,6 +1166,11 @@ export default function UniversityAnalyticsPage() {
         </>
       )}
 
+      {/* AI Predictions View */}
+      {analyticsView === 'predictions' && user?.university_id && (
+        <EngagementPredictionPanel universityId={user.university_id as any} />
+      )}
+
       {/* Department Performance - Shared Across All Views */}
       <Card>
         <CardHeader>
@@ -909,39 +1179,39 @@ export default function UniversityAnalyticsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((d: any) => {
-              const deptStudents = students.filter((s: any) => s.department_id === d._id);
-              // Calculate mock data based on department size
-              const deptGoals = Math.floor(deptStudents.length * 0.7); // 70% have goals
-              const deptApps = Math.floor(deptStudents.length * 0.5); // 50% have applications
-
-              return (
-                <Card key={String(d._id)}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-lg">{d.name}</CardTitle>
-                      {d.code && <span className="text-xs text-muted-foreground">{d.code}</span>}
+            {(departmentAnalytics || []).map((dept: any) => (
+              <Card key={dept.departmentId}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-lg">{dept.departmentName}</CardTitle>
+                    {dept.departmentCode && (
+                      <span className="text-xs text-muted-foreground">{dept.departmentCode}</span>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Students</span>
+                      <span className="font-medium">{dept.studentCount}</span>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Students</span>
-                        <span className="font-medium">{deptStudents.length}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Goals Set</span>
-                        <span className="font-medium">{deptGoals}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Applications</span>
-                        <span className="font-medium">{deptApps}</span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Goals Set</span>
+                      <span className="font-medium">{dept.goalsCount}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Applications</span>
+                      <span className="font-medium">{dept.applicationsCount}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {(!departmentAnalytics || departmentAnalytics.length === 0) && (
+              <div className="col-span-full text-center text-muted-foreground py-8">
+                No departments configured yet
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

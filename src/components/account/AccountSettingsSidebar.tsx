@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Mail, ShieldCheck, User } from 'lucide-react';
+import { Bell, Download, Mail, ShieldCheck, User } from 'lucide-react';
 
 interface AccountSettingsSidebarProps {
   activeSection: string;
@@ -10,6 +10,7 @@ interface AccountSettingsSidebarProps {
 const sections = [
   { id: 'profile', label: 'Profile Settings', icon: User },
   { id: 'security', label: 'Security Settings', icon: ShieldCheck },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'auto-updates', label: 'Auto Updates', icon: Mail },
   { id: 'data-privacy', label: 'Data Privacy Rights', icon: Download },
 ];

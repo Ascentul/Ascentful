@@ -2144,3 +2144,322 @@ export const getRevenueAnalytics = query({
     };
   },
 });
+
+/**
+ * Get active users over time for a university (real data from activity_events)
+ */
+export const getUniversityActiveUsersOverTime = query({
+  args: {
+    universityId: v.id('universities'),
+    timeRange: v.union(v.literal('daily'), v.literal('weekly'), v.literal('monthly')),
+  },
+  handler: async (ctx, args) => {
+    const { universityId, timeRange } = args;
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+
+    // Get all students in this university
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIds = new Set(students.map((s) => s._id));
+
+    // Get advisors
+    const advisors = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'advisor'))
+      .collect();
+
+    const advisorIds = new Set(advisors.map((a) => a._id));
+
+    // Determine lookback period and bucket size
+    let lookbackDays: number;
+    let bucketMs: number;
+    let bucketCount: number;
+
+    if (timeRange === 'daily') {
+      lookbackDays = 30;
+      bucketMs = msPerDay;
+      bucketCount = 30;
+    } else if (timeRange === 'weekly') {
+      lookbackDays = 84; // 12 weeks
+      bucketMs = 7 * msPerDay;
+      bucketCount = 12;
+    } else {
+      lookbackDays = 365; // 12 months
+      bucketMs = 30 * msPerDay; // Approximate month
+      bucketCount = 12;
+    }
+
+    const startTime = now - lookbackDays * msPerDay;
+
+    // Get activity events for the university
+    const events = await ctx.db
+      .query('activity_events')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.gte(q.field('created_at'), startTime))
+      .collect();
+
+    // Group events by bucket and count unique users
+    const data: Array<{ date: string; students: number; advisors: number }> = [];
+
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const bucketStart = now - (i + 1) * bucketMs;
+      const bucketEnd = now - i * bucketMs;
+
+      const bucketEvents = events.filter(
+        (e) => e.created_at >= bucketStart && e.created_at < bucketEnd,
+      );
+
+      const activeStudentIds = new Set(
+        bucketEvents.filter((e) => studentIds.has(e.user_id)).map((e) => e.user_id),
+      );
+      const activeAdvisorIds = new Set(
+        bucketEvents.filter((e) => advisorIds.has(e.user_id)).map((e) => e.user_id),
+      );
+
+      // Format date label
+      let dateLabel: string;
+      const bucketDate = new Date(bucketEnd);
+
+      if (timeRange === 'daily') {
+        dateLabel = bucketDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      } else if (timeRange === 'weekly') {
+        dateLabel = `Week ${bucketCount - i}`;
+      } else {
+        dateLabel = bucketDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      }
+
+      data.push({
+        date: dateLabel,
+        students: activeStudentIds.size,
+        advisors: activeAdvisorIds.size,
+      });
+    }
+
+    return {
+      data,
+      totalStudents: students.length,
+      totalAdvisors: advisors.length,
+    };
+  },
+});
+
+/**
+ * Get feature usage stats for a university (networking contacts, AI coach)
+ */
+export const getUniversityFeatureUsage = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Get all students in this university
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIds = students.map((s) => s._id);
+
+    // Count networking contacts
+    let networkingContactsCount = 0;
+    for (const studentId of studentIds) {
+      const contacts = await ctx.db
+        .query('networking_contacts')
+        .withIndex('by_user', (q) => q.eq('user_id', studentId))
+        .collect();
+      networkingContactsCount += contacts.length;
+    }
+
+    // Count AI coach conversations
+    let aiCoachConversationsCount = 0;
+    for (const studentId of studentIds) {
+      const conversations = await ctx.db
+        .query('ai_coach_conversations')
+        .withIndex('by_user', (q) => q.eq('user_id', studentId))
+        .collect();
+      aiCoachConversationsCount += conversations.length;
+    }
+
+    return {
+      networkingContacts: networkingContactsCount,
+      aiCoachConversations: aiCoachConversationsCount,
+    };
+  },
+});
+
+/**
+ * Get department-level analytics (real goals and applications by department)
+ */
+export const getUniversityDepartmentAnalytics = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Get all departments
+    const departments = await ctx.db
+      .query('departments')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Get all students
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    // Build department stats
+    const departmentStats: Array<{
+      departmentId: string;
+      departmentName: string;
+      departmentCode?: string;
+      studentCount: number;
+      goalsCount: number;
+      applicationsCount: number;
+    }> = [];
+
+    for (const dept of departments) {
+      const deptStudents = students.filter((s) => s.department_id === dept._id);
+      const deptStudentIds = deptStudents.map((s) => s._id);
+
+      // Count goals for these students
+      let goalsCount = 0;
+      for (const studentId of deptStudentIds) {
+        const goals = await ctx.db
+          .query('goals')
+          .withIndex('by_user', (q) => q.eq('user_id', studentId))
+          .collect();
+        goalsCount += goals.length;
+      }
+
+      // Count applications for these students
+      let applicationsCount = 0;
+      for (const studentId of deptStudentIds) {
+        const apps = await ctx.db
+          .query('applications')
+          .withIndex('by_user', (q) => q.eq('user_id', studentId))
+          .collect();
+        applicationsCount += apps.length;
+      }
+
+      departmentStats.push({
+        departmentId: dept._id,
+        departmentName: dept.name,
+        departmentCode: dept.code,
+        studentCount: deptStudents.length,
+        goalsCount,
+        applicationsCount,
+      });
+    }
+
+    return departmentStats;
+  },
+});
+
+/**
+ * Get student funnel/pipeline stages (real data from applications)
+ */
+export const getUniversityStudentFunnel = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Get all students
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIds = students.map((s) => s._id);
+    const totalStudents = students.length;
+
+    // Count students at each stage
+    let withProfileComplete = 0;
+    let withApplications = 0;
+    let withInterviews = 0;
+    let withOffers = 0;
+    let withAccepted = 0;
+
+    for (const student of students) {
+      // Check if profile is complete (has key fields)
+      const hasProfile =
+        student.name && student.email && (student.bio || student.skills || student.education);
+      if (hasProfile) withProfileComplete++;
+
+      // Get applications for this student
+      const applications = await ctx.db
+        .query('applications')
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
+        .collect();
+
+      if (applications.length > 0) {
+        withApplications++;
+
+        // Check for interview stage
+        const hasInterview = applications.some(
+          (app) => app.stage === 'Interview' || app.status === 'interview',
+        );
+        if (hasInterview) withInterviews++;
+
+        // Check for offer
+        const hasOffer = applications.some(
+          (app) => app.stage === 'Offer' || app.status === 'offer',
+        );
+        if (hasOffer) withOffers++;
+
+        // Check for accepted
+        const hasAccepted = applications.some((app) => app.stage === 'Accepted');
+        if (hasAccepted) withAccepted++;
+      }
+    }
+
+    return {
+      totalStudents,
+      funnel: [
+        {
+          stage: 'Active Students',
+          count: totalStudents,
+          percent: 100,
+        },
+        {
+          stage: 'Profile Complete',
+          count: withProfileComplete,
+          percent: totalStudents > 0 ? Math.round((withProfileComplete / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Applied',
+          count: withApplications,
+          percent: totalStudents > 0 ? Math.round((withApplications / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Interviewing',
+          count: withInterviews,
+          percent: totalStudents > 0 ? Math.round((withInterviews / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Offers Received',
+          count: withOffers,
+          percent: totalStudents > 0 ? Math.round((withOffers / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Accepted',
+          count: withAccepted,
+          percent: totalStudents > 0 ? Math.round((withAccepted / totalStudents) * 100) : 0,
+        },
+      ],
+    };
+  },
+});

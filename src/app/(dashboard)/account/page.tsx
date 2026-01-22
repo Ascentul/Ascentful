@@ -6,6 +6,7 @@ import { ComponentType, Suspense, useState } from 'react';
 import { AccountSettingsSidebar } from '@/components/account/AccountSettingsSidebar';
 import { AutoUpdatesSection } from '@/components/account/sections/AutoUpdatesSection';
 import { DataPrivacySection } from '@/components/account/sections/DataPrivacySection';
+import { NotificationsSection } from '@/components/account/sections/NotificationsSection';
 import { ProfileSettingsSection } from '@/components/account/sections/ProfileSettingsSection';
 import { SecuritySettingsSection } from '@/components/account/sections/SecuritySettingsSection';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 const SECTIONS: Record<string, { title: string; component: ComponentType }> = {
   profile: { title: 'Profile Settings', component: ProfileSettingsSection },
   security: { title: 'Security Settings', component: SecuritySettingsSection },
+  notifications: { title: 'Notifications', component: NotificationsSection },
   'auto-updates': { title: 'Auto Updates', component: AutoUpdatesSection },
   'data-privacy': { title: 'Data Privacy Rights', component: DataPrivacySection },
 };

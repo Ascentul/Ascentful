@@ -253,6 +253,20 @@ export default function UniversityDashboardPage() {
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
   );
 
+  // Real student funnel data
+  const studentFunnel = useQuery(
+    api.analytics.getUniversityStudentFunnel,
+    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+  );
+
+  // Real active users data for engagement view
+  const activeUsersData = useQuery(
+    api.analytics.getUniversityActiveUsersOverTime,
+    user?.university_id
+      ? { universityId: user.university_id as any, timeRange: 'daily' as const }
+      : 'skip',
+  );
+
   // Helper function to get department ID from name
   const getDepartmentIdFromName = React.useCallback(
     (name: string): Id<'departments'> | undefined => {
@@ -1475,38 +1489,49 @@ export default function UniversityDashboardPage() {
                     <CardTitle className="text-base font-medium">Daily Active Users</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{Math.floor(students.length * 0.35)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">Daily active users</p>
+                    <div className="text-2xl font-bold">
+                      {activeUsersData?.data?.[activeUsersData.data.length - 1]?.students ?? 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      of {activeUsersData?.totalStudents ?? students?.length ?? 0} total students
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium">Avg Session Duration</CardTitle>
+                    <CardTitle className="text-base font-medium">Total Students</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">24 min</div>
-                    <p className="text-xs text-muted-foreground mt-1">Average time on platform</p>
+                    <div className="text-2xl font-bold">{students?.length ?? 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">Registered students</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium">Return Rate</CardTitle>
+                    <CardTitle className="text-base font-medium">Total Advisors</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">78%</div>
-                    <p className="text-xs text-muted-foreground mt-1">7-day return rate</p>
+                    <div className="text-2xl font-bold">{activeUsersData?.totalAdvisors ?? 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">Active advisors</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium">Actions Per Session</CardTitle>
+                    <CardTitle className="text-base font-medium">Weekly Active</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">8.4</div>
-                    <p className="text-xs text-muted-foreground mt-1">Average actions taken</p>
+                    <div className="text-2xl font-bold">
+                      {activeUsersData?.data?.slice(-7).reduce((sum, d) => {
+                        const uniqueUsers = new Set<string>();
+                        return Math.max(sum, d.students);
+                      }, 0) ?? 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Peak daily active this week
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -1682,34 +1707,19 @@ export default function UniversityDashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       layout="vertical"
-                      data={[
-                        { stage: 'Registered', count: students.length, percentage: 100 },
-                        {
-                          stage: 'Profile Complete',
-                          count: Math.floor(students.length * 0.75),
-                          percentage: 75,
-                        },
-                        {
-                          stage: 'Resume Created',
-                          count: Math.floor(students.length * 0.6),
-                          percentage: 60,
-                        },
-                        {
-                          stage: 'Applied to Jobs',
-                          count: Math.floor(students.length * 0.45),
-                          percentage: 45,
-                        },
-                        {
-                          stage: 'Interview Stage',
-                          count: Math.floor(students.length * 0.25),
-                          percentage: 25,
-                        },
-                        {
-                          stage: 'Offer Received',
-                          count: Math.floor(students.length * 0.15),
-                          percentage: 15,
-                        },
-                      ]}
+                      data={
+                        studentFunnel?.funnel.map((item) => ({
+                          stage: item.stage,
+                          count: item.count,
+                          percentage: item.percent,
+                        })) || [
+                          {
+                            stage: 'Active Students',
+                            count: students?.length || 0,
+                            percentage: 100,
+                          },
+                        ]
+                      }
                       margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />

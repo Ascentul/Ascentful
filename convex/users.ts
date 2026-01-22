@@ -1384,3 +1384,52 @@ export const reactivateUserAccount = internalMutation({
     return { success: true, userId: user._id, previousStatus };
   },
 });
+
+/**
+ * Record user login activity.
+ * Updates last_login_at and creates an activity event for engagement tracking.
+ *
+ * Called by the frontend when a user session is established.
+ */
+export const recordLogin = mutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      // User not found - might be first login before profile is created
+      return { success: false, reason: 'user_not_found' };
+    }
+
+    const now = Date.now();
+
+    // Only update if last login was more than 1 hour ago (avoid excessive writes)
+    const oneHourAgo = now - 60 * 60 * 1000;
+    if (user.last_login_at && user.last_login_at > oneHourAgo) {
+      return { success: true, skipped: true };
+    }
+
+    // Update last_login_at
+    await ctx.db.patch(user._id, {
+      last_login_at: now,
+      updated_at: now,
+    });
+
+    // Track as activity event for engagement scoring
+    await ctx.db.insert('activity_events', {
+      user_id: user._id,
+      university_id: user.university_id ?? undefined,
+      event_type: 'login',
+      event_category: 'auth',
+      occurred_at: now,
+      created_at: now,
+    });
+
+    return { success: true, userId: user._id };
+  },
+});

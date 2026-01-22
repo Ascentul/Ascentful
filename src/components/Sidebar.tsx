@@ -300,6 +300,12 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         href: '/university/departments',
       },
       {
+        id: 'university-outcomes',
+        title: 'Outcomes',
+        icon: <GraduationCap className="h-5 w-5" />,
+        href: '/university/outcomes',
+      },
+      {
         id: 'university-analytics',
         title: 'Analytics',
         icon: <BarChart className="h-5 w-5" />,

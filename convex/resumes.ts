@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireMembership } from './lib/roles';
 
@@ -90,6 +91,21 @@ export const createResume = mutation({
       content_snapshot: args.content,
       trigger: 'creation',
       created_at: now,
+    });
+
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+      eventCategory: 'document',
+      entityType: 'resume',
+      entityId: resumeId,
+      metadata: {
+        title: args.title,
+        source: args.source,
+        visibility: args.visibility,
+      },
     });
 
     // Audit log: resume created

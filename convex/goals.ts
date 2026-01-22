@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
 import { createLogContext, log, toErrorCode } from './lib/logger';
 import { requireMembership } from './lib/roles';
@@ -150,6 +151,21 @@ export const createGoal = mutation({
     // Track activity for streak (fire-and-forget)
     await ctx.scheduler.runAfter(0, api.activity.markActionForToday, {});
 
+    // Track activity event for engagement scoring
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.GOAL_CREATED,
+      eventCategory: 'goal',
+      entityType: 'goal',
+      entityId: id,
+      metadata: {
+        title: args.title,
+        category: args.category,
+        status: args.status ?? 'not_started',
+      },
+    });
+
     log('info', 'Goal created successfully', {
       ...logCtx,
       event: 'operation.success',
@@ -273,6 +289,23 @@ export const updateGoal = mutation({
 
     await ctx.db.patch(args.goalId, updates);
 
+    // Track activity event for engagement scoring
+    const wasCompleted = goal.status !== 'completed' && args.updates.status === 'completed';
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: wasCompleted ? ACTIVITY_EVENTS.GOAL_COMPLETED : ACTIVITY_EVENTS.GOAL_UPDATED,
+      eventCategory: 'goal',
+      entityType: 'goal',
+      entityId: args.goalId,
+      metadata: {
+        title: goal.title,
+        previousStatus: goal.status,
+        newStatus: args.updates.status,
+        updatedFields: Object.keys(restUpdates),
+      },
+    });
+
     log('info', 'Goal updated successfully', {
       ...logCtx,
       event: 'operation.success',
@@ -285,7 +318,6 @@ export const updateGoal = mutation({
     });
 
     // Audit log: goal updated (track completion specifically)
-    const wasCompleted = goal.status !== 'completed' && args.updates.status === 'completed';
     await safeLogAudit(ctx, {
       category: 'user_action',
       action: wasCompleted ? 'goal.completed' : 'goal.updated',

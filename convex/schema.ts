@@ -1336,6 +1336,10 @@ export default defineSchema({
     // Stores the original _id from followup_actions or advisor_follow_ups
     migrated_from_id: v.optional(v.string()),
 
+    // Engagement signal reference - links follow-up to triggering signal
+    // Use engagement_signal_id to distinguish from email_application_signals
+    engagement_signal_id: v.optional(v.id('signals')),
+
     // Timestamps
     created_at: v.number(),
     updated_at: v.number(),
@@ -1350,7 +1354,8 @@ export default defineSchema({
     .index('by_related_entity', ['related_type', 'related_id'])
     .index('by_migrated_from', ['migrated_from_id'])
     .index('by_created_by', ['created_by_id'])
-    .index('by_user_university', ['user_id', 'university_id']),
+    .index('by_user_university', ['user_id', 'university_id'])
+    .index('by_engagement_signal', ['engagement_signal_id']),
 
   // =============================================================================
   // DEPRECATED: Legacy followup_actions table
@@ -2467,6 +2472,27 @@ export default defineSchema({
 
     notes: v.optional(v.string()),
     is_active: v.optional(v.boolean()), // For soft delete
+
+    // === Idempotent Import Support ===
+    external_outcome_id: v.optional(v.string()), // External ID for import deduplication
+
+    // === Evidence Files ===
+    evidence_files: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          storage_id: v.id('_storage'),
+          type: v.union(
+            v.literal('offer_letter'),
+            v.literal('start_confirmation'),
+            v.literal('other'),
+          ),
+          uploaded_at: v.number(),
+        }),
+      ),
+    ),
+
     created_at: v.number(),
     updated_at: v.number(),
   })
@@ -2476,7 +2502,8 @@ export default defineSchema({
     .index('by_major', ['major_id'])
     .index('by_outcome_status', ['outcome_status'])
     .index('by_outcome_type', ['outcome_type'])
-    .index('by_employer', ['employer_name']),
+    .index('by_employer', ['employer_name'])
+    .index('by_external_outcome_id', ['institution_id', 'external_outcome_id']),
 
   // ============================================================================
   // EMAIL AUTO UPDATES (Gmail + Outlook)
@@ -2636,6 +2663,8 @@ export default defineSchema({
       v.literal('application_update'), // Application status changed
       v.literal('goal_reminder'), // Goal deadline approaching
       v.literal('system'), // System announcements
+      v.literal('signal'), // New signal created for advisor
+      v.literal('signal_urgent'), // Urgent signal requiring immediate attention
     ),
     title: v.string(), // Notification title
     message: v.string(), // Notification message
@@ -2983,4 +3012,351 @@ export default defineSchema({
     .index('by_student', ['student_user_id'])
     .index('by_advisor', ['advisor_user_id'])
     .index('by_conversation', ['student_user_id', 'advisor_user_id']),
+
+  // ============================================================================
+  // ENGAGEMENT SIGNALS SYSTEM
+  // Configurable rules for detecting student engagement/risk patterns and
+  // generating advisor action queue items.
+  // ============================================================================
+
+  // Engagement definitions - what constitutes "engaged" for a university
+  engagement_definitions: defineTable({
+    university_id: v.id('universities'),
+
+    // === Definition Identification ===
+    name: v.string(), // e.g., "Weekly Active", "Application Activity"
+    description: v.optional(v.string()),
+
+    // === Engagement Criteria ===
+    // JSON for flexibility. Examples:
+    // { "min_logins_per_week": 2, "min_actions_per_week": 5 }
+    // { "min_applications_active": 3, "max_days_since_activity": 14 }
+    criteria: v.any(),
+
+    // === Thresholds ===
+    engaged_threshold: v.number(), // Score >= this = engaged
+    at_risk_threshold: v.number(), // Score <= this = at-risk
+
+    // === Scope ===
+    applies_to: v.union(
+      v.literal('all_students'),
+      v.literal('undergrad'),
+      v.literal('grad'),
+      v.literal('by_major'),
+      v.literal('by_year'),
+    ),
+    scope_filter: v.optional(v.any()), // JSON: { major_ids: [...], years: [...] }
+
+    // === Status ===
+    is_active: v.boolean(),
+    is_default: v.optional(v.boolean()), // Platform default
+
+    created_by: v.id('users'),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_university_active', ['university_id', 'is_active']),
+
+  // Signal rules - conditions that trigger advisor action signals
+  signal_rules: defineTable({
+    university_id: v.id('universities'),
+
+    // === Rule Identification ===
+    name: v.string(), // e.g., "Stalled Application", "Low Engagement Alert"
+    description: v.optional(v.string()),
+
+    // === Trigger Condition ===
+    // JSON for flexibility. Examples:
+    // { "type": "inactivity", "days": 21 }
+    // { "type": "application_stall", "stage": "Interview", "days": 14 }
+    // { "type": "no_progress", "applications": 5, "no_offers": true }
+    // { "type": "engagement_drop", "definition_id": "<id>", "from": "engaged", "to": "at_risk" }
+    condition: v.any(),
+
+    // === Signal Configuration ===
+    signal_type: v.union(
+      v.literal('needs_outreach'),
+      v.literal('application_support'),
+      v.literal('document_review'),
+      v.literal('milestone_check'),
+      v.literal('custom'),
+    ),
+    priority: v.union(
+      v.literal('low'),
+      v.literal('medium'),
+      v.literal('high'),
+      v.literal('urgent'),
+    ),
+
+    // === Auto-actions ===
+    auto_create_followup: v.optional(v.boolean()),
+    followup_template: v.optional(v.string()), // Template for auto-created follow-up
+
+    // === Cooldown ===
+    cooldown_days: v.optional(v.number()), // Min days between signals of same type per student
+
+    // === Status ===
+    is_active: v.boolean(),
+    is_default: v.optional(v.boolean()),
+
+    created_by: v.id('users'),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_university_active', ['university_id', 'is_active'])
+    .index('by_signal_type', ['signal_type']),
+
+  // Signals - active signals generated by rules or manually
+  signals: defineTable({
+    university_id: v.id('universities'),
+    student_id: v.id('users'),
+
+    // === Source ===
+    rule_id: v.optional(v.id('signal_rules')), // Rule that triggered this
+    source: v.union(
+      v.literal('rule'), // Auto-generated by signal rule
+      v.literal('manual'), // Advisor manually created
+      v.literal('system'), // System-generated (e.g., deadline approaching)
+    ),
+
+    // === Signal Details ===
+    signal_type: v.union(
+      v.literal('needs_outreach'),
+      v.literal('application_support'),
+      v.literal('document_review'),
+      v.literal('milestone_check'),
+      v.literal('custom'),
+    ),
+    title: v.string(),
+    description: v.optional(v.string()),
+    priority: v.union(
+      v.literal('low'),
+      v.literal('medium'),
+      v.literal('high'),
+      v.literal('urgent'),
+    ),
+
+    // === Context ===
+    related_type: v.optional(
+      v.union(
+        v.literal('application'),
+        v.literal('goal'),
+        v.literal('resume'),
+        v.literal('session'),
+      ),
+    ),
+    related_id: v.optional(v.string()),
+    context_snapshot: v.optional(v.any()), // Snapshot of data that triggered signal
+
+    // === Status Tracking ===
+    status: v.union(
+      v.literal('active'),
+      v.literal('snoozed'),
+      v.literal('resolved'),
+      v.literal('dismissed'),
+    ),
+    snoozed_until: v.optional(v.number()),
+
+    // === Resolution ===
+    resolved_at: v.optional(v.number()),
+    resolved_by: v.optional(v.id('users')),
+    resolution_type: v.optional(
+      v.union(
+        v.literal('action_taken'),
+        v.literal('no_action_needed'),
+        v.literal('dismissed'),
+        v.literal('auto_resolved'), // Student became active again
+      ),
+    ),
+    resolution_notes: v.optional(v.string()),
+
+    // === Linked Follow-up ===
+    followup_id: v.optional(v.id('follow_ups')),
+
+    // === Timestamps ===
+    triggered_at: v.number(),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_student', ['student_id'])
+    .index('by_student_status', ['student_id', 'status'])
+    .index('by_university_status', ['university_id', 'status'])
+    .index('by_university_priority', ['university_id', 'status', 'priority'])
+    .index('by_rule', ['rule_id'])
+    .index('by_triggered_at', ['triggered_at']),
+
+  // Activity events - granular activity tracking for signal evaluation
+  activity_events: defineTable({
+    user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')),
+
+    // === Event Identification ===
+    event_type: v.string(), // e.g., "login", "application_created", "resume_updated", "goal_completed"
+    event_category: v.union(
+      v.literal('auth'),
+      v.literal('application'),
+      v.literal('document'),
+      v.literal('goal'),
+      v.literal('networking'),
+      v.literal('ai_coach'),
+      v.literal('career_explorer'),
+    ),
+
+    // === Context ===
+    entity_type: v.optional(v.string()), // e.g., "applications", "resumes"
+    entity_id: v.optional(v.string()),
+    metadata: v.optional(v.any()), // Additional event data
+
+    // === Timestamps ===
+    occurred_at: v.number(),
+    created_at: v.number(),
+  })
+    .index('by_user', ['user_id'])
+    .index('by_user_date', ['user_id', 'occurred_at'])
+    .index('by_university', ['university_id'])
+    .index('by_event_type', ['event_type', 'occurred_at']),
+
+  // ============================================================================
+  // OUTCOME SNAPSHOTS - Point-in-time outcome statistics for reporting
+  // Stores historical snapshots of outcomes analytics for leadership dashboards
+  // ============================================================================
+  outcome_snapshots: defineTable({
+    institution_id: v.id('universities'),
+    cohort_id: v.optional(v.id('graduation_cohorts')), // null = all cohorts
+
+    // === Snapshot Identification ===
+    name: v.string(), // "Q4 2024 Report", "Board Meeting Dec 2024"
+    description: v.optional(v.string()),
+    snapshot_date: v.number(), // When snapshot was taken
+
+    // === Filters Applied ===
+    filters: v.object({
+      cohort_ids: v.optional(v.array(v.id('graduation_cohorts'))),
+      degree_levels: v.optional(v.array(v.string())),
+      programs: v.optional(v.array(v.string())),
+      graduation_year: v.optional(v.number()),
+    }),
+
+    // === Computed Metrics ===
+    metrics: v.object({
+      total_students: v.number(),
+      known_outcomes: v.number(),
+      unknown_outcomes: v.number(),
+      partial_outcomes: v.number(),
+      knowledge_rate: v.number(), // (known / total) * 100
+
+      // Outcome type breakdown
+      employed_fulltime: v.number(),
+      employed_parttime: v.number(),
+      continuing_education: v.number(),
+      military: v.number(),
+      volunteer: v.number(),
+      seeking: v.number(),
+      not_seeking: v.number(),
+
+      // Computed rates
+      employment_rate: v.number(), // (employed / known) * 100
+      continuing_ed_rate: v.number(),
+    }),
+
+    // === Breakdown Data (for charts) ===
+    breakdown_by_program: v.optional(v.any()), // { "Computer Science": {...}, "Business": {...} }
+    breakdown_by_degree: v.optional(v.any()), // { "bachelors": {...}, "masters": {...} }
+
+    // === Metadata ===
+    created_by: v.id('users'),
+    created_at: v.number(),
+  })
+    .index('by_institution', ['institution_id'])
+    .index('by_institution_date', ['institution_id', 'snapshot_date'])
+    .index('by_cohort', ['cohort_id']),
+
+  // ============================================================================
+  // PUSH SUBSCRIPTIONS - Web Push notification subscriptions
+  // Stores user device subscriptions for mobile/browser push notifications
+  // ============================================================================
+  push_subscriptions: defineTable({
+    user_id: v.id('users'),
+    endpoint: v.string(), // Web Push endpoint URL
+
+    // === Subscription Data ===
+    subscription: v.object({
+      endpoint: v.string(),
+      expirationTime: v.optional(v.union(v.number(), v.null())),
+      keys: v.object({
+        p256dh: v.string(),
+        auth: v.string(),
+      }),
+    }),
+
+    // === Device Info ===
+    device_info: v.optional(
+      v.object({
+        userAgent: v.optional(v.string()),
+        platform: v.optional(v.string()),
+        deviceName: v.optional(v.string()),
+      }),
+    ),
+
+    // === Status ===
+    is_active: v.boolean(),
+    failure_count: v.optional(v.number()),
+    last_failure_at: v.optional(v.number()),
+    last_failure_reason: v.optional(v.string()),
+
+    // === Timestamps ===
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user_id', ['user_id'])
+    .index('by_endpoint', ['endpoint'])
+    .index('by_active', ['is_active']),
+
+  // ============================================================================
+  // USER NOTIFICATION PREFERENCES - Email and Push notification settings
+  // Controls what notifications users receive and through which channels
+  // ============================================================================
+  user_notification_preferences: defineTable({
+    user_id: v.id('users'),
+
+    // === Email Preferences ===
+    email_preferences: v.optional(
+      v.object({
+        signals_urgent: v.optional(v.boolean()),
+        signals_high: v.optional(v.boolean()),
+        daily_digest: v.optional(v.boolean()),
+        weekly_digest: v.optional(v.boolean()),
+      }),
+    ),
+
+    // === Push Notification Preferences ===
+    push_preferences: v.optional(
+      v.object({
+        signals_urgent: v.optional(v.boolean()),
+        signals_high: v.optional(v.boolean()),
+        signals_medium: v.optional(v.boolean()),
+        signals_low: v.optional(v.boolean()),
+        daily_digest: v.optional(v.boolean()),
+        application_updates: v.optional(v.boolean()),
+        goal_reminders: v.optional(v.boolean()),
+      }),
+    ),
+
+    // === Quiet Hours ===
+    quiet_hours: v.optional(
+      v.object({
+        enabled: v.boolean(),
+        start_hour: v.number(), // 0-23
+        end_hour: v.number(), // 0-23
+        timezone: v.string(),
+      }),
+    ),
+
+    // === Timestamps ===
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_user_id', ['user_id']),
 });
