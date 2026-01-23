@@ -336,7 +336,16 @@ function prepareScoringData(
     (app) => app.created_at && app.created_at > startTime,
   );
 
-  const lastActivityAt = student.last_login_at || student._creationTime;
+  // Use most recent activity event for accurate days-since-activity calculation
+  // Falls back to last_login_at or _creationTime only when no events exist
+  const lastEventAt =
+    activityEvents.length > 0
+      ? activityEvents.reduce(
+          (max, e) => (e.occurred_at > max ? e.occurred_at : max),
+          activityEvents[0].occurred_at,
+        )
+      : undefined;
+  const lastActivityAt = lastEventAt ?? student.last_login_at ?? student._creationTime;
   const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
 
   return {
@@ -535,9 +544,9 @@ export const predictStudentEngagement = query({
         'Unauthorized: Only administrators and advisors can access engagement predictions',
       );
     }
-    if (sessionCtx.role !== 'super_admin' && student.university_id) {
+    if (sessionCtx.role !== 'super_admin') {
       const userUniversityId = requireTenant(sessionCtx);
-      if (userUniversityId !== student.university_id) {
+      if (!student.university_id || userUniversityId !== student.university_id) {
         throw new Error('Unauthorized: Cannot access predictions for another university');
       }
     }

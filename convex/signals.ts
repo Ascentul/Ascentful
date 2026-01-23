@@ -247,7 +247,13 @@ export const getQueueStats = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
-    // Authorization check
+    // Role check: Only advisors and admins can access queue stats
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Advisor or admin access required');
+    }
+
+    // Tenant check: Non-super-admins can only access their own university
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (universityId !== args.universityId) {
@@ -387,6 +393,14 @@ export const getSignalsByStudent = query({
         throw new Error('Unauthorized: Cannot access signals for another university');
       }
     }
+
+    // Verify student has a university association
+    if (!student.university_id) {
+      throw new Error('Student is not associated with a university');
+    }
+
+    // Role-scoped access - advisors can only access signals for their assigned students
+    await assertSignalAccessForStudent(ctx, sessionCtx, student.university_id, student._id);
 
     let query;
     if (args.status) {
@@ -1100,6 +1114,10 @@ async function evaluateRuleCondition(
   const condition = rule.condition as Record<string, unknown>;
   const conditionType = condition.type as string;
 
+  // Helper to normalize stage/status for case-insensitive comparison
+  // (legacy status is lowercase, stage is Title Case)
+  const normalizeStage = (value?: string) => value?.toLowerCase();
+
   switch (conditionType) {
     case 'inactivity': {
       const days = condition.days as number;
@@ -1156,8 +1174,9 @@ async function evaluateRuleCondition(
         .collect();
 
       // Filter by stage if specified (use stage with fallback to legacy status)
+      const stageNorm = normalizeStage(stage);
       const stalledApps = stage
-        ? applications.filter((app: any) => (app.stage ?? app.status) === stage)
+        ? applications.filter((app: any) => normalizeStage(app.stage ?? app.status) === stageNorm)
         : applications;
 
       if (stalledApps.length > 0) {
@@ -1254,9 +1273,11 @@ async function evaluateRuleCondition(
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .collect();
 
-      const rejections = applications.filter((app: any) => app.status === 'Rejected').length;
-      const offers = applications.filter(
-        (app: any) => app.status === 'Offer' || app.status === 'Accepted',
+      const rejections = applications.filter(
+        (app: any) => normalizeStage(app.stage ?? app.status) === 'rejected',
+      ).length;
+      const offers = applications.filter((app: any) =>
+        ['offer', 'accepted'].includes(normalizeStage(app.stage ?? app.status) ?? ''),
       ).length;
 
       if (rejections >= rejectionsMin && offers <= offersMax) {
@@ -1442,10 +1463,13 @@ async function evaluateRuleCondition(
         .collect();
 
       // Filter by specific stage if not 'any' (use stage with fallback to legacy status)
+      const targetStageNorm = normalizeStage(targetStage);
       const stageFiltered =
         targetStage === 'any'
           ? applications
-          : applications.filter((app: any) => (app.stage ?? app.status) === targetStage);
+          : applications.filter(
+              (app: any) => normalizeStage(app.stage ?? app.status) === targetStageNorm,
+            );
 
       // Check which applications haven't had a stage change recently
       const stuckApps = [];
@@ -1471,7 +1495,7 @@ async function evaluateRuleCondition(
             application_id: app._id,
             company: app.company ?? 'Unknown',
             position: app.job_title ?? 'Unknown',
-            stage: app.status,
+            stage: app.stage ?? app.status,
             days_stuck: daysSinceUpdate,
           });
         }

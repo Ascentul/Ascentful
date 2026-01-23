@@ -411,7 +411,7 @@ export default function SignalRulesPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/u/admin/settings">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Back to settings">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
@@ -489,7 +489,12 @@ export default function SignalRulesPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label="Rule actions"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

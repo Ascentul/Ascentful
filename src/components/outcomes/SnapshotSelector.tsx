@@ -68,10 +68,14 @@ export function SnapshotSelector({
   const handleCreateSnapshot = async () => {
     if (!snapshotName.trim()) return;
 
-    await onCreateSnapshot(snapshotName.trim(), snapshotDescription.trim() || undefined);
-    setSnapshotName('');
-    setSnapshotDescription('');
-    setIsCreateDialogOpen(false);
+    try {
+      await onCreateSnapshot(snapshotName.trim(), snapshotDescription.trim() || undefined);
+      setSnapshotName('');
+      setSnapshotDescription('');
+      setIsCreateDialogOpen(false);
+    } catch {
+      // Error handling (e.g., toast) is delegated to parent; keep dialog open for retry
+    }
   };
 
   const handleSelectLive = () => {
