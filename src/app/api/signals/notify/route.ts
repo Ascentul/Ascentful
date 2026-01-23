@@ -52,8 +52,15 @@ export async function POST(request: NextRequest) {
       dashboardUrl,
     } = body;
 
-    // Validate required fields
-    if (!advisorEmail || !studentName || !signalTitle || !priority || !signalType) {
+    // Validate required fields and email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!advisorEmail || !emailRegex.test(advisorEmail)) {
+      return NextResponse.json(
+        { success: false, error: 'Missing or invalid advisor email' },
+        { status: 400 },
+      );
+    }
+    if (!studentName || !signalTitle || !priority || !signalType) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 },
@@ -77,7 +84,8 @@ export async function POST(request: NextRequest) {
       signalDescription || '',
       priority,
       signalType,
-      dashboardUrl || 'https://app.ascentful.io/advisor/queue',
+      dashboardUrl ||
+        `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io'}/advisor/queue`,
     );
 
     return NextResponse.json({

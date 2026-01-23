@@ -9,7 +9,7 @@
 
 import { v } from 'convex/values';
 
-import { internalMutation } from './_generated/server';
+import { internalMutation, internalQuery } from './_generated/server';
 
 const EVENT_TYPES = [
   { type: 'login', category: 'auth' as const, weight: 3 },
@@ -24,6 +24,9 @@ const EVENT_TYPES = [
 ];
 
 function randomElement<T>(arr: T[]): T {
+  if (arr.length === 0) {
+    throw new Error('Cannot select from empty array');
+  }
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
@@ -78,9 +81,10 @@ export const seedActivityEvents = internalMutation({
       };
     }
 
-    // Optionally clear existing activity events for these students
+    // Optionally clear existing seeded activity events for these students
     if (clearExisting) {
-      console.log('Clearing existing activity events...');
+      console.log('Clearing existing seeded activity events...');
+      let cleared = 0;
       for (const student of students) {
         const existing = await ctx.db
           .query('activity_events')
@@ -88,10 +92,15 @@ export const seedActivityEvents = internalMutation({
           .collect();
 
         for (const event of existing) {
-          await ctx.db.delete(event._id);
+          // Only delete seeded events to avoid destroying production data
+          const metadata = event.metadata as { source?: string } | undefined;
+          if (metadata?.source === 'seed_script') {
+            await ctx.db.delete(event._id);
+            cleared++;
+          }
         }
       }
-      console.log('Cleared existing events');
+      console.log(`Cleared ${cleared} seeded events`);
     }
 
     // Define engagement profiles
@@ -192,7 +201,7 @@ export const seedActivityEvents = internalMutation({
 });
 
 // Helper to list universities (for finding the ID)
-export const listUniversities = internalMutation({
+export const listUniversities = internalQuery({
   args: {},
   handler: async (ctx) => {
     const universities = await ctx.db.query('universities').take(10);

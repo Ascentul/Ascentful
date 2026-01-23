@@ -1556,9 +1556,11 @@ export const getOutcomesAnalytics = query({
     // Filter by program (major) if specified
     if (args.programs && args.programs.length > 0) {
       const programSet = new Set(args.programs.map((p) => p.toLowerCase()));
-      // Get majors to map major_id to name
-      const majorIds = outcomes.filter((o) => o.major_id).map((o) => o.major_id!);
-      const majors = await Promise.all(majorIds.map((id) => ctx.db.get(id)));
+      // Get unique majors to map major_id to name (deduplicate to avoid redundant fetches)
+      const uniqueMajorIds = [
+        ...new Set(outcomes.filter((o) => o.major_id).map((o) => o.major_id!)),
+      ];
+      const majors = await Promise.all(uniqueMajorIds.map((id) => ctx.db.get(id)));
       const majorNameMap = new Map<string, string>();
       majors.forEach((m) => {
         if (m) majorNameMap.set(m._id, m.name.toLowerCase());

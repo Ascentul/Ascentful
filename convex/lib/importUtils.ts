@@ -140,6 +140,12 @@ export async function resolveStudentIdentity(
  * Find users by name with fuzzy matching within a university.
  * Returns suggestions sorted by confidence score.
  *
+ * **Scalability notes:**
+ * - Fetches up to `limit` students, then loads user records individually via Promise.all
+ * - For universities with >500 students, increase the limit to avoid missing matches
+ * - The N individual db.get() calls are acceptable for import workflows but not for
+ *   high-frequency queries. Consider a denormalized index if this becomes a bottleneck.
+ *
  * @param limit - Maximum students to search (default 500, increase for larger universities)
  */
 async function findUsersByNameFuzzy(

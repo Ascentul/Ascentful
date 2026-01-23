@@ -316,8 +316,8 @@ export default function AdminEngagementPage() {
                       }
                       labelLine
                     >
-                      {engagementDistributionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {engagementDistributionData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip />

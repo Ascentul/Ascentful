@@ -306,9 +306,10 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
             ) : (
               <div className="space-y-3">
                 {atRiskSoon.students.map((student) => (
-                  <div
+                  <Link
                     key={student.student_id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    href={`/u/students/${student.student_id}`}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
@@ -330,7 +331,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -357,9 +358,10 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
             ) : (
               <div className="space-y-3">
                 {forecast.high_risk_students.map((student) => (
-                  <div
+                  <Link
                     key={student.id}
-                    className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 p-3"
+                    href={`/u/students/${student.id}`}
+                    className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 p-3 hover:bg-red-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
@@ -380,7 +382,7 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
                       </div>
                       <span className="text-sm font-bold text-red-600">{student.risk_score}%</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

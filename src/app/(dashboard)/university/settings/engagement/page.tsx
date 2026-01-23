@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -85,7 +84,6 @@ const defaultFormData: DefinitionFormData = {
 };
 
 export default function EngagementDefinitionsPage() {
-  const { user: clerkUser } = useUser();
   const { user } = useAuth();
   const { toast } = useToast();
 

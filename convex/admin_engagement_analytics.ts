@@ -147,6 +147,10 @@ export const getCrossUniversityEngagement = query({
       totalEngaged: universityMetrics.reduce((sum, u) => sum + u.engagedStudents, 0),
       totalAtRisk: universityMetrics.reduce((sum, u) => sum + u.atRiskStudents, 0),
       totalActiveSignals: universityMetrics.reduce((sum, u) => sum + u.activeSignals, 0),
+      // NOTE: These averages are intentionally unweighted - each university contributes
+      // equally regardless of student count. This measures "typical university performance"
+      // rather than platform-wide student health. For weighted metrics, use
+      // totalEngaged/totalStudents and totalAtRisk/totalStudents above.
       avgEngagedPercent:
         universityMetrics.length > 0
           ? Math.round(

@@ -472,7 +472,7 @@ export default function AdvisorQueuePage() {
 
                 {statusFilter === 'resolved' && (
                   <Badge variant="secondary">
-                    {signal.resolution_type?.replace('_', ' ') || 'Resolved'}
+                    {signal.resolution_type?.replace(/_/g, ' ') || 'Resolved'}
                   </Badge>
                 )}
               </CardContent>

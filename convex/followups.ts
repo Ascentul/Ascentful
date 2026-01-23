@@ -270,6 +270,15 @@ export const createFollowupFromSignal = internalMutation({
     dueInDays: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Idempotency check: prevent duplicate follow-ups for the same signal
+    const existing = await ctx.db
+      .query('follow_ups')
+      .withIndex('by_engagement_signal', (q) => q.eq('engagement_signal_id', args.signalId))
+      .first();
+    if (existing) {
+      return existing._id;
+    }
+
     const now = Date.now();
 
     // Calculate due date if specified

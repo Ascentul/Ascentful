@@ -418,6 +418,14 @@ describe('Engagement Analytics Aggregation - Using Production Utilities', () => 
   });
 });
 
+/**
+ * Qualifying Event Filtering Tests
+ *
+ * These tests document the expected filtering algorithms used in production.
+ * The actual implementation lives in convex/engagement_definitions.ts (getQualifyingEvents),
+ * which is a Convex server-side function that can't be directly imported into Jest.
+ * These tests ensure the algorithm expectations are captured and verified.
+ */
 describe('Qualifying Event Filtering', () => {
   describe('Event Type Filtering', () => {
     it('should filter events by qualifying types', () => {

@@ -174,14 +174,10 @@ export function hasUniversityAdminAccess(role: string | undefined | null): boole
 }
 
 /**
- * Filter navigation items based on user role
- * (Currently returns all items - admin items are marked but visible)
+ * Filter navigation items based on user role.
+ * Currently returns all items - route-level guards handle actual access control
+ * and admin items display a lock badge in the UI.
  */
-export function getVisibleNavItems(
-  items: UniversityNavItem[],
-  _isAdmin: boolean,
-): UniversityNavItem[] {
-  // For now, return all items - admin items will show lock badge
-  // Route-level guards handle actual access control
+export function getVisibleNavItems(items: UniversityNavItem[]): UniversityNavItem[] {
   return items;
 }

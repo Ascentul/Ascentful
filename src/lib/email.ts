@@ -1133,24 +1133,27 @@ The Ascentful Team`;
 
       <p style="font-size: 16px; margin-bottom: 24px;">Here's your daily summary of student signals requiring attention.</p>
 
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0;">
-        <div style="text-align: center; padding: 16px; background: #FEE2E2; border-radius: 8px;">
-          <div style="font-size: 28px; font-weight: 700; color: #DC2626;">${signalSummary.urgent}</div>
-          <div style="font-size: 12px; color: #991B1B; font-weight: 600;">Urgent</div>
-        </div>
-        <div style="text-align: center; padding: 16px; background: #FFEDD5; border-radius: 8px;">
-          <div style="font-size: 28px; font-weight: 700; color: #EA580C;">${signalSummary.high}</div>
-          <div style="font-size: 12px; color: #9A3412; font-weight: 600;">High</div>
-        </div>
-        <div style="text-align: center; padding: 16px; background: #FEF3C7; border-radius: 8px;">
-          <div style="font-size: 28px; font-weight: 700; color: #D97706;">${signalSummary.medium}</div>
-          <div style="font-size: 12px; color: #92400E; font-weight: 600;">Medium</div>
-        </div>
-        <div style="text-align: center; padding: 16px; background: #F3F4F6; border-radius: 8px;">
-          <div style="font-size: 28px; font-weight: 700; color: #4B5563;">${signalSummary.low}</div>
-          <div style="font-size: 12px; color: #374151; font-weight: 600;">Low</div>
-        </div>
-      </div>
+      <!-- Signal summary using table for email client compatibility (Outlook doesn't support CSS Grid) -->
+      <table style="width: 100%; border-collapse: separate; border-spacing: 12px; margin: 24px 0;">
+        <tr>
+          <td style="width: 25%; text-align: center; padding: 16px; background: #FEE2E2; border-radius: 8px;">
+            <div style="font-size: 28px; font-weight: 700; color: #DC2626;">${signalSummary.urgent}</div>
+            <div style="font-size: 12px; color: #991B1B; font-weight: 600;">Urgent</div>
+          </td>
+          <td style="width: 25%; text-align: center; padding: 16px; background: #FFEDD5; border-radius: 8px;">
+            <div style="font-size: 28px; font-weight: 700; color: #EA580C;">${signalSummary.high}</div>
+            <div style="font-size: 12px; color: #9A3412; font-weight: 600;">High</div>
+          </td>
+          <td style="width: 25%; text-align: center; padding: 16px; background: #FEF3C7; border-radius: 8px;">
+            <div style="font-size: 28px; font-weight: 700; color: #D97706;">${signalSummary.medium}</div>
+            <div style="font-size: 12px; color: #92400E; font-weight: 600;">Medium</div>
+          </td>
+          <td style="width: 25%; text-align: center; padding: 16px; background: #F3F4F6; border-radius: 8px;">
+            <div style="font-size: 28px; font-weight: 700; color: #4B5563;">${signalSummary.low}</div>
+            <div style="font-size: 12px; color: #374151; font-weight: 600;">Low</div>
+          </td>
+        </tr>
+      </table>
 
       ${
         topSignals.length > 0

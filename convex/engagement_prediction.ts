@@ -9,6 +9,20 @@ import { getCurrentUser, requireTenant } from './advisor_auth';
  *
  * Analyzes historical engagement patterns to predict future engagement levels
  * and identify students at risk of disengagement.
+ *
+ * SCORING APPROACH: Risk-Based Prediction
+ * Uses a factor-based risk scoring (0-100, higher = more at risk) with:
+ * - Activity trend analysis (increasing/stable/decreasing)
+ * - Days since last activity
+ * - Application momentum (recent applications)
+ * - Active pipeline status
+ * - Predicted days until at-risk status
+ *
+ * This differs from engagement_definitions.ts which uses a score-based evaluation
+ * (0-100, higher = better) for current state based on university-defined thresholds.
+ *
+ * Use this module for: Predictive analytics, at-risk forecasting, trend analysis
+ * Use engagement_definitions.ts for: Current engagement status evaluation
  */
 
 interface ActivityTrend {
@@ -81,273 +95,43 @@ interface BatchPredictionData {
 }
 
 /**
- * Internal helper to compute prediction for a student using pre-fetched data.
- * This avoids N+1 queries when processing multiple students.
+ * Prepared input data for the shared scoring algorithm.
+ * Both batch and single-student functions prepare this before scoring.
  */
-function computePredictionWithData(
-  student: Doc<'users'>,
-  lookbackWeeks: number,
-  batchData: BatchPredictionData,
-): EngagementPrediction | null {
-  const now = Date.now();
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const lookbackMs = lookbackWeeks * msPerWeek;
-  const startTime = now - lookbackMs;
-
-  // Get pre-fetched activity events for this student
-  const allActivityEvents = batchData.activityEventsByUser.get(student._id) || [];
-  const activityEvents = allActivityEvents.filter((e) => e.created_at >= startTime);
-
-  // Group by week
-  const weeklyActivityCounts: number[] = Array(lookbackWeeks).fill(0);
-  for (const event of activityEvents) {
-    const weekIndex = Math.floor((now - event.created_at) / msPerWeek);
-    if (weekIndex >= 0 && weekIndex < lookbackWeeks) {
-      weeklyActivityCounts[lookbackWeeks - 1 - weekIndex]++; // Oldest first
-    }
-  }
-
-  const trend = calculateTrend(weeklyActivityCounts);
-
-  // Get pre-fetched applications for this student
-  const applications = batchData.applicationsByUser.get(student._id) || [];
-  const activeApplications = applications.filter(
-    (app) => !['rejected', 'withdrawn', 'accepted'].includes(app.status),
-  );
-  const recentApplications = applications.filter(
-    (app) => app.created_at && app.created_at > startTime,
-  );
-
-  // Calculate days since last activity
-  const lastActivityAt = student.last_login_at || student._creationTime;
-  const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
-
-  // Determine current status based on activity
-  let currentStatus: 'engaged' | 'moderate' | 'at_risk';
-  const recentWeekActivity = weeklyActivityCounts[weeklyActivityCounts.length - 1] || 0;
-  const avgActivity = weeklyActivityCounts.reduce((a, b) => a + b, 0) / weeklyActivityCounts.length;
-
-  if (daysSinceActivity > 14 || recentWeekActivity === 0) {
-    currentStatus = 'at_risk';
-  } else if (recentWeekActivity >= avgActivity && daysSinceActivity <= 3) {
-    currentStatus = 'engaged';
-  } else {
-    currentStatus = 'moderate';
-  }
-
-  // Build risk factors
-  const factors: EngagementPrediction['factors'] = [];
-
-  // Factor 1: Activity trend
-  if (trend.trend === 'decreasing') {
-    factors.push({
-      factor: 'Activity Trend',
-      impact: 'negative',
-      weight: 25,
-      description: `Activity has decreased by ${Math.abs(trend.velocity).toFixed(0)}% per week`,
-    });
-  } else if (trend.trend === 'increasing') {
-    factors.push({
-      factor: 'Activity Trend',
-      impact: 'positive',
-      weight: 20,
-      description: `Activity has increased by ${trend.velocity.toFixed(0)}% per week`,
-    });
-  } else {
-    factors.push({
-      factor: 'Activity Trend',
-      impact: 'neutral',
-      weight: 5,
-      description: 'Activity level is stable',
-    });
-  }
-
-  // Factor 2: Days since last activity
-  if (daysSinceActivity > 14) {
-    factors.push({
-      factor: 'Recent Activity',
-      impact: 'negative',
-      weight: 30,
-      description: `No activity in ${daysSinceActivity} days`,
-    });
-  } else if (daysSinceActivity > 7) {
-    factors.push({
-      factor: 'Recent Activity',
-      impact: 'negative',
-      weight: 15,
-      description: `Last active ${daysSinceActivity} days ago`,
-    });
-  } else {
-    factors.push({
-      factor: 'Recent Activity',
-      impact: 'positive',
-      weight: 15,
-      description: 'Recently active',
-    });
-  }
-
-  // Factor 3: Application momentum
-  if (recentApplications.length === 0 && applications.length > 0) {
-    factors.push({
-      factor: 'Application Momentum',
-      impact: 'negative',
-      weight: 20,
-      description: 'No new applications in past 8 weeks',
-    });
-  } else if (recentApplications.length >= 3) {
-    factors.push({
-      factor: 'Application Momentum',
-      impact: 'positive',
-      weight: 15,
-      description: `${recentApplications.length} new applications recently`,
-    });
-  }
-
-  // Factor 4: Active pipeline
-  if (activeApplications.length === 0 && applications.length > 0) {
-    factors.push({
-      factor: 'Active Pipeline',
-      impact: 'negative',
-      weight: 15,
-      description: 'No active applications in pipeline',
-    });
-  } else if (activeApplications.length >= 5) {
-    factors.push({
-      factor: 'Active Pipeline',
-      impact: 'positive',
-      weight: 10,
-      description: `${activeApplications.length} active applications`,
-    });
-  }
-
-  // Calculate risk score
-  let riskScore = 30; // Base risk
-  for (const factor of factors) {
-    if (factor.impact === 'negative') {
-      riskScore += factor.weight;
-    } else if (factor.impact === 'positive') {
-      riskScore -= factor.weight * 0.7;
-    }
-  }
-  riskScore = Math.max(0, Math.min(100, riskScore));
-
-  // Predict future status
-  let predictedStatus: 'engaged' | 'moderate' | 'at_risk';
-  if (riskScore >= 60) {
-    predictedStatus = 'at_risk';
-  } else if (riskScore >= 35) {
-    predictedStatus = 'moderate';
-  } else {
-    predictedStatus = 'engaged';
-  }
-
-  // Adjust based on trend
-  if (trend.trend === 'decreasing' && currentStatus === 'engaged') {
-    predictedStatus = 'moderate';
-  }
-  if (trend.trend === 'increasing' && currentStatus === 'at_risk') {
-    predictedStatus = 'moderate';
-  }
-
-  // Calculate confidence based on data availability
-  let confidence = 60; // Base confidence
-  if (activityEvents.length > 20) confidence += 15;
-  if (activityEvents.length > 50) confidence += 10;
-  if (weeklyActivityCounts.filter((c) => c > 0).length >= 4) confidence += 10;
-  if (applications.length > 0) confidence += 5;
-  confidence = Math.min(95, confidence);
-
-  // Calculate days to risk if decreasing
-  let predictedDaysToRisk: number | undefined;
-  if (trend.trend === 'decreasing' && currentStatus !== 'at_risk') {
-    // Rough estimate based on velocity
-    const weeksToRisk = Math.abs(50 / trend.velocity);
-    predictedDaysToRisk = Math.max(7, Math.round(weeksToRisk * 7));
-  }
-
-  // Generate recommendations
-  const recommendations: string[] = [];
-  if (daysSinceActivity > 7) {
-    recommendations.push('Schedule a check-in to understand any blockers');
-  }
-  if (trend.trend === 'decreasing') {
-    recommendations.push('Review engagement strategy and career goals');
-  }
-  if (activeApplications.length === 0 && applications.length > 0) {
-    recommendations.push('Discuss application pipeline and next steps');
-  }
-  if (recentApplications.length === 0) {
-    recommendations.push('Help identify new job opportunities to apply for');
-  }
-  if (riskScore > 50) {
-    recommendations.push('Prioritize outreach before student becomes fully disengaged');
-  }
-
-  return {
-    current_status: currentStatus,
-    predicted_status: predictedStatus,
-    confidence,
-    risk_score: Math.round(riskScore),
-    factors,
-    recommendations,
-    predicted_days_to_risk: predictedDaysToRisk,
-  };
+interface ScoringInputData {
+  weeklyActivityCounts: number[];
+  activityEventCount: number;
+  applications: Doc<'applications'>[];
+  activeApplications: Doc<'applications'>[];
+  recentApplications: Doc<'applications'>[];
+  daysSinceActivity: number;
+  trend: ActivityTrend;
 }
 
 /**
- * Internal helper to compute prediction for a single student (makes DB queries).
- * Use computePredictionWithData for batch operations.
+ * Shared scoring algorithm for engagement prediction.
+ * Computes risk factors, scores, status, and recommendations from prepared data.
+ *
+ * This function contains the core prediction logic used by both:
+ * - computePredictionWithData (batch operations with pre-fetched data)
+ * - computePredictionForStudent (single student with DB queries)
  */
-async function computePredictionForStudent(
-  ctx: QueryCtx,
-  student: Doc<'users'>,
-  lookbackWeeks: number,
-): Promise<EngagementPrediction | null> {
-  const now = Date.now();
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const lookbackMs = lookbackWeeks * msPerWeek;
-  const startTime = now - lookbackMs;
-
-  // Get activity events for the lookback period
-  const activityEvents = await ctx.db
-    .query('activity_events')
-    .withIndex('by_user', (q) => q.eq('user_id', student._id))
-    .filter((q) => q.gte(q.field('created_at'), startTime))
-    .collect();
-
-  // Group by week
-  const weeklyActivityCounts: number[] = Array(lookbackWeeks).fill(0);
-  for (const event of activityEvents) {
-    const weekIndex = Math.floor((now - event.created_at) / msPerWeek);
-    if (weekIndex >= 0 && weekIndex < lookbackWeeks) {
-      weeklyActivityCounts[lookbackWeeks - 1 - weekIndex]++; // Oldest first
-    }
-  }
-
-  const trend = calculateTrend(weeklyActivityCounts);
-
-  // Get application data
-  const applications = await ctx.db
-    .query('applications')
-    .withIndex('by_user', (q) => q.eq('user_id', student._id))
-    .collect();
-
-  const activeApplications = applications.filter(
-    (app) => !['rejected', 'withdrawn', 'accepted'].includes(app.status),
-  );
-  const recentApplications = applications.filter(
-    (app) => app.created_at && app.created_at > startTime,
-  );
-
-  // Calculate days since last activity
-  const lastActivityAt = student.last_login_at || student._creationTime;
-  const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
+function computePredictionFromScoringData(data: ScoringInputData): EngagementPrediction {
+  const {
+    weeklyActivityCounts,
+    activityEventCount,
+    applications,
+    activeApplications,
+    recentApplications,
+    daysSinceActivity,
+    trend,
+  } = data;
 
   // Determine current status based on activity
-  let currentStatus: 'engaged' | 'moderate' | 'at_risk';
   const recentWeekActivity = weeklyActivityCounts[weeklyActivityCounts.length - 1] || 0;
   const avgActivity = weeklyActivityCounts.reduce((a, b) => a + b, 0) / weeklyActivityCounts.length;
 
+  let currentStatus: 'engaged' | 'moderate' | 'at_risk';
   if (daysSinceActivity > 14 || recentWeekActivity === 0) {
     currentStatus = 'at_risk';
   } else if (recentWeekActivity >= avgActivity && daysSinceActivity <= 3) {
@@ -406,6 +190,7 @@ async function computePredictionForStudent(
       description: 'Recently active',
     });
   }
+  // Days 3-7: No factor added (neutral range)
 
   // Factor 3: Application momentum
   if (recentApplications.length === 0 && applications.length > 0) {
@@ -472,8 +257,8 @@ async function computePredictionForStudent(
 
   // Calculate confidence based on data availability
   let confidence = 60; // Base confidence
-  if (activityEvents.length > 20) confidence += 15;
-  if (activityEvents.length > 50) confidence += 10;
+  if (activityEventCount > 20) confidence += 15;
+  if (activityEventCount > 50) confidence += 10;
   if (weeklyActivityCounts.filter((c) => c > 0).length >= 4) confidence += 10;
   if (applications.length > 0) confidence += 5;
   confidence = Math.min(95, confidence);
@@ -516,6 +301,100 @@ async function computePredictionForStudent(
 }
 
 /**
+ * Prepare scoring data from a student and their activity/application data.
+ * Shared helper to transform raw data into the format needed for scoring.
+ */
+function prepareScoringData(
+  student: Doc<'users'>,
+  activityEvents: Doc<'activity_events'>[],
+  applications: Doc<'applications'>[],
+  lookbackWeeks: number,
+): ScoringInputData {
+  const now = Date.now();
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const lookbackMs = lookbackWeeks * msPerWeek;
+  const startTime = now - lookbackMs;
+
+  // Filter events within lookback period
+  const filteredEvents = activityEvents.filter((e) => e.created_at >= startTime);
+
+  // Group by week
+  const weeklyActivityCounts: number[] = Array(lookbackWeeks).fill(0);
+  for (const event of filteredEvents) {
+    const weekIndex = Math.floor((now - event.created_at) / msPerWeek);
+    if (weekIndex >= 0 && weekIndex < lookbackWeeks) {
+      weeklyActivityCounts[lookbackWeeks - 1 - weekIndex]++; // Oldest first
+    }
+  }
+
+  const trend = calculateTrend(weeklyActivityCounts);
+
+  const activeApplications = applications.filter(
+    (app) => !['rejected', 'withdrawn', 'accepted'].includes(app.status),
+  );
+  const recentApplications = applications.filter(
+    (app) => app.created_at && app.created_at > startTime,
+  );
+
+  const lastActivityAt = student.last_login_at || student._creationTime;
+  const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
+
+  return {
+    weeklyActivityCounts,
+    activityEventCount: filteredEvents.length,
+    applications,
+    activeApplications,
+    recentApplications,
+    daysSinceActivity,
+    trend,
+  };
+}
+
+/**
+ * Internal helper to compute prediction for a student using pre-fetched data.
+ * This avoids N+1 queries when processing multiple students.
+ */
+function computePredictionWithData(
+  student: Doc<'users'>,
+  lookbackWeeks: number,
+  batchData: BatchPredictionData,
+): EngagementPrediction | null {
+  // Get pre-fetched data for this student
+  const activityEvents = batchData.activityEventsByUser.get(student._id) || [];
+  const applications = batchData.applicationsByUser.get(student._id) || [];
+
+  // Prepare and compute using shared algorithm
+  const scoringData = prepareScoringData(student, activityEvents, applications, lookbackWeeks);
+  return computePredictionFromScoringData(scoringData);
+}
+
+/**
+ * Internal helper to compute prediction for a single student (makes DB queries).
+ * Use computePredictionWithData for batch operations.
+ */
+async function computePredictionForStudent(
+  ctx: QueryCtx,
+  student: Doc<'users'>,
+  lookbackWeeks: number,
+): Promise<EngagementPrediction | null> {
+  // Fetch activity events for this student
+  const activityEvents = await ctx.db
+    .query('activity_events')
+    .withIndex('by_user', (q) => q.eq('user_id', student._id))
+    .collect();
+
+  // Fetch applications for this student
+  const applications = await ctx.db
+    .query('applications')
+    .withIndex('by_user', (q) => q.eq('user_id', student._id))
+    .collect();
+
+  // Prepare and compute using shared algorithm
+  const scoringData = prepareScoringData(student, activityEvents, applications, lookbackWeeks);
+  return computePredictionFromScoringData(scoringData);
+}
+
+/**
  * Internal helper to get predictions for all students in a university.
  * Uses batch fetching for O(3) queries instead of O(n*2) queries.
  */
@@ -538,19 +417,26 @@ async function computeUniversityPredictions(
     };
   }
 
-  // Batch fetch: Get all activity events for the university
-  // This is O(1) query instead of O(n) queries
+  // Calculate lookback period to filter data at query time (avoid loading years of history)
+  const lookbackWeeks = 8;
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const startTime = Date.now() - lookbackWeeks * msPerWeek;
+
+  // Batch fetch: Get activity events within the lookback period
+  // This is O(1) query instead of O(n) queries, filtered to avoid loading all historical data
   const studentIds = new Set(students.map((s) => s._id));
   const allActivityEvents = await ctx.db
     .query('activity_events')
     .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .filter((q) => q.gte(q.field('created_at'), startTime))
     .collect();
 
-  // Batch fetch: Get all applications for these students
+  // Batch fetch: Get applications within the lookback period
   // Query by university and filter to student IDs
   const allApplications = await ctx.db
     .query('applications')
     .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .filter((q) => q.gte(q.field('created_at'), startTime))
     .collect();
 
   // Group data by user_id for efficient lookup
@@ -637,6 +523,21 @@ export const predictStudentEngagement = query({
 
     const student = await ctx.db.get(studentId);
     if (!student) return null;
+
+    // Authorization: Only advisors, admins, or super_admin can access predictions
+    const sessionCtx = await getCurrentUser(ctx);
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error(
+        'Unauthorized: Only administrators and advisors can access engagement predictions',
+      );
+    }
+    if (sessionCtx.role !== 'super_admin' && student.university_id) {
+      const userUniversityId = requireTenant(sessionCtx);
+      if (userUniversityId !== student.university_id) {
+        throw new Error('Unauthorized: Cannot access predictions for another university');
+      }
+    }
 
     return computePredictionForStudent(ctx, student, lookbackWeeks);
   },

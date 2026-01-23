@@ -4,13 +4,25 @@
  * Manages engagement definitions for universities.
  * Engagement definitions specify what constitutes "engaged" vs "at-risk" for students.
  *
+ * SCORING APPROACH: Current State Evaluation
+ * Uses a score-based approach (0-100) with three components:
+ * - Event count score (50% weight) - qualifying events in period
+ * - Active days score (30% weight) - unique days with activity
+ * - Recency score (20% weight) - how recently student was active
+ *
+ * This differs from engagement_prediction.ts which uses a risk-based prediction
+ * algorithm with trend analysis for forecasting future engagement drops.
+ *
+ * Use this module for: Current engagement status based on university-defined thresholds
+ * Use engagement_prediction.ts for: Predictive analytics and at-risk forecasting
+ *
  * All mutations require university_admin role with tenant isolation.
  */
 
 import { v } from 'convex/values';
 
-import { Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { Doc, Id } from './_generated/dataModel';
+import { mutation, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
 
@@ -384,11 +396,11 @@ export const DEFAULT_QUALIFYING_EVENT_TYPES = [
  * Helper to get qualifying events for a student within a period.
  */
 async function getQualifyingEvents(
-  ctx: { db: any },
+  ctx: QueryCtx,
   studentId: Id<'users'>,
   criteria: EngagementCriteria,
 ): Promise<{
-  events: any[];
+  events: Doc<'activity_events'>[];
   totalCount: number;
   uniqueDays: number;
   lastEventAt: number | null;
@@ -846,7 +858,6 @@ export const getUniqueEngagedStats = query({
     }
 
     // Calculate engagement for each student and track by group
-    const byCohort: Record<string, { engaged: number; total: number; percent: number }> = {};
     const byProgram: Record<string, { engaged: number; total: number; percent: number }> = {};
     let engaged = 0;
     let moderate = 0;
@@ -904,12 +915,6 @@ export const getUniqueEngagedStats = query({
     }
 
     // Calculate percentages
-    for (const key of Object.keys(byCohort)) {
-      byCohort[key].percent =
-        byCohort[key].total > 0
-          ? Math.round((byCohort[key].engaged / byCohort[key].total) * 100)
-          : 0;
-    }
     for (const key of Object.keys(byProgram)) {
       byProgram[key].percent =
         byProgram[key].total > 0
@@ -926,7 +931,8 @@ export const getUniqueEngagedStats = query({
       at_risk_students: atRisk,
       at_risk_percent: totalStudents > 0 ? Math.round((atRisk / totalStudents) * 100) : 0,
       breakdown_by_status: { engaged, moderate, at_risk: atRisk },
-      by_cohort: byCohort,
+      // TODO: Implement when student-cohort relationships are available
+      by_cohort: {},
       by_program: byProgram,
     };
   },

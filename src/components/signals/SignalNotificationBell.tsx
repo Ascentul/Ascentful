@@ -3,7 +3,7 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { AlertTriangle, Bell, Check, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Bell, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -18,17 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface Notification {
-  _id: Id<'notifications'>;
-  type: string;
-  title: string;
-  message: string;
-  link?: string;
-  related_id?: string;
-  read: boolean;
-  created_at: number;
-}
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
@@ -51,7 +40,6 @@ export function SignalNotificationBell() {
   const prevUnreadCountRef = useRef<number>(0);
 
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: false });
-  const unreadCount = useQuery(api.notifications.getUnreadCount);
   const markAsRead = useMutation(api.notifications.markAsRead);
 
   // Filter to only signal notifications
@@ -145,7 +133,7 @@ export function SignalNotificationBell() {
               <DropdownMenuItem
                 key={notification._id}
                 className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                  !notification.read ? 'bg-amber-50' : ''
+                  !notification.read ? 'bg-amber-50 dark:bg-amber-950' : ''
                 }`}
                 onClick={() => {
                   if (!notification.read) {

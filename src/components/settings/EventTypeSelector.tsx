@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import { Badge } from '@/components/ui/badge';

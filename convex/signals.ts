@@ -23,7 +23,7 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { internalMutation, mutation, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
@@ -961,8 +961,8 @@ export const evaluateSignalRules = internalMutation({
  * Returns { triggered: boolean, context?: object }
  */
 async function evaluateRuleCondition(
-  ctx: { db: any },
-  rule: { condition: any },
+  ctx: QueryCtx,
+  rule: { condition: unknown },
   student: { _id: Id<'users'>; last_login_at?: number; university_id?: Id<'universities'> | null },
   now: number,
 ): Promise<{ triggered: boolean; context?: Record<string, unknown> }> {
@@ -1011,7 +1011,7 @@ async function evaluateRuleCondition(
       // Query applications for this student
       const applications = await ctx.db
         .query('applications')
-        .withIndex('by_user_id', (q: any) => q.eq('user_id', student._id))
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .filter((q: any) =>
           q.and(
             // Not in terminal state
@@ -1119,7 +1119,7 @@ async function evaluateRuleCondition(
 
       const applications = await ctx.db
         .query('applications')
-        .withIndex('by_user_id', (q: any) => q.eq('user_id', student._id))
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .collect();
 
       const rejections = applications.filter((app: any) => app.status === 'Rejected').length;
@@ -1265,7 +1265,7 @@ async function evaluateRuleCondition(
         // Also check follow_ups table for scheduled sessions
         const recentFollowups = await ctx.db
           .query('follow_ups')
-          .withIndex('by_student', (q: any) => q.eq('student_id', student._id))
+          .withIndex('by_user', (q) => q.eq('user_id', student._id))
           .filter((q: any) =>
             q.and(
               q.gte(q.field('scheduled_date'), appointmentCutoff),
@@ -1301,7 +1301,7 @@ async function evaluateRuleCondition(
       // Get applications for this student
       const applications = await ctx.db
         .query('applications')
-        .withIndex('by_user_id', (q: any) => q.eq('user_id', student._id))
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .filter((q: any) =>
           q.and(
             // Not in terminal state
@@ -1340,8 +1340,8 @@ async function evaluateRuleCondition(
           const daysSinceUpdate = Math.floor((now - app.updated_at) / (1000 * 60 * 60 * 24));
           stuckApps.push({
             application_id: app._id,
-            company: app.company_name ?? app.company ?? 'Unknown',
-            position: app.job_title ?? app.position ?? 'Unknown',
+            company: app.company ?? 'Unknown',
+            position: app.job_title ?? 'Unknown',
             stage: app.status,
             days_stuck: daysSinceUpdate,
           });

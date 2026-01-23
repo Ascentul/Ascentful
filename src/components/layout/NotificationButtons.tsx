@@ -47,8 +47,6 @@ export interface NotificationButtonsProps {
   hasUnreadNotifications?: boolean;
   /** Click handler for messages button */
   onMessagesClick?: () => void;
-  /** Click handler for notifications button */
-  onNotificationsClick?: () => void;
 }
 
 /**
@@ -63,7 +61,6 @@ export interface NotificationButtonsProps {
  *   hasUnreadMessages={unreadCount > 0}
  *   hasUnreadNotifications={notificationCount > 0}
  *   onMessagesClick={() => router.push('/messages')}
- *   onNotificationsClick={() => setNotificationsOpen(true)}
  * />
  * ```
  */
@@ -71,7 +68,6 @@ export function NotificationButtons({
   hasUnreadMessages = false,
   hasUnreadNotifications: hasUnreadNotificationsProp = false,
   onMessagesClick,
-  onNotificationsClick,
 }: NotificationButtonsProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -122,7 +118,8 @@ export function NotificationButtons({
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
   };
 
   return (

@@ -174,7 +174,7 @@ export function OutcomeDetailModal({
                     </span>
                   </div>
                 )}
-                {outcome.salary && (
+                {outcome.salary != null && (
                   <div className="text-sm text-neutral-600">
                     Salary: ${outcome.salary.toLocaleString()}/year
                   </div>

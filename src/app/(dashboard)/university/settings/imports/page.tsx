@@ -278,10 +278,15 @@ export default function BatchImportPage() {
 
     try {
       // Generate external outcome IDs for each row
+      // NOTE: When rows lack both externalStudentId and studentEmail, we fall back to
+      // position-based IDs (row_${index}). This means:
+      // - Re-importing the same unmodified file will correctly match existing records
+      // - Re-importing a modified file (rows added/removed) could create duplicates or
+      //   miss updates for position-dependent records
+      // The preview step validates and warns users about rows missing identifiers.
       const outcomesWithIds = parsedData.map((row, index) => {
         const identifier = row.externalStudentId || row.studentEmail || '';
         const normalizedId = identifier.toLowerCase().trim();
-        // Fall back to row index if no identifier to prevent ID collisions
         const externalOutcomeId = normalizedId
           ? `${selectedCohort}_${normalizedId}`
           : `${selectedCohort}_row_${index}`;

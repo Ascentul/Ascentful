@@ -53,7 +53,10 @@ export function escapeCSV(field: string | number | undefined | null): string {
  * @returns The complete CSV content as a string
  */
 export function toCSV(headers: string[], rows: (string | number)[][]): string {
-  return [headers.join(','), ...rows.map((row) => row.map(escapeCSV).join(','))].join('\n');
+  return [
+    headers.map(escapeCSV).join(','),
+    ...rows.map((row) => row.map(escapeCSV).join(',')),
+  ].join('\n');
 }
 
 /**

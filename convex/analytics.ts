@@ -2472,7 +2472,7 @@ export const getUniversityStudentFunnel = query({
         );
         if (hasOffer) withOffers++;
 
-        // Check for accepted
+        // Check for accepted (stage field is the canonical source)
         const hasAccepted = applications.some((app) => app.stage === 'Accepted');
         if (hasAccepted) withAccepted++;
       }

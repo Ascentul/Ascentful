@@ -99,10 +99,11 @@ export const createContact = mutation({
     //   }
     // }
 
+    const contactUniversityId = membership?.university_id ?? user.university_id;
     const now = Date.now();
     const id = await ctx.db.insert('networking_contacts', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: contactUniversityId,
       name: args.name,
       company: args.company,
       position: args.position,
@@ -122,7 +123,7 @@ export const createContact = mutation({
     // Track activity event for engagement scoring
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: contactUniversityId,
       eventType: ACTIVITY_EVENTS.CONTACT_ADDED,
       eventCategory: 'networking',
       entityType: 'contact',

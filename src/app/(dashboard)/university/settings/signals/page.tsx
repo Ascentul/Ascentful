@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -196,7 +195,6 @@ const priorityColors: Record<Priority, string> = {
 };
 
 export default function SignalRulesPage() {
-  const { user: clerkUser } = useUser();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -531,9 +529,9 @@ export default function SignalRulesPage() {
 
         <TabsContent value="templates" className="mt-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {templates?.map((template, index) => (
+            {templates?.map((template) => (
               <Card
-                key={index}
+                key={`${template.name}-${template.signalType}`}
                 className="cursor-pointer hover:border-primary-500 transition-colors"
               >
                 <CardHeader className="pb-2">

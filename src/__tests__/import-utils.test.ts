@@ -238,11 +238,18 @@ describe('Identity Resolution', () => {
     };
   }
 
+  /**
+   * resolveStudentIdentity tests
+   *
+   * The actual resolveStudentIdentity function is a Convex server-side function
+   * that requires QueryCtx (Convex runtime context) which can't be mocked in Jest.
+   * These tests validate the expected matching logic patterns to document behavior
+   * and catch regressions in the algorithm understanding.
+   *
+   * For full integration testing, use Convex's test framework or E2E tests.
+   */
   describe('resolveStudentIdentity', () => {
     it('should match by external_student_id (exact match)', async () => {
-      // This test validates the resolution logic conceptually
-      // The actual function requires Convex context, so we test the logic pattern
-
       const mockUser: MockUser = {
         _id: 'user_1',
         name: 'John Doe',

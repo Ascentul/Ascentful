@@ -114,39 +114,48 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
 
       const subscriptionJson = subscription.toJSON();
 
-      // Send a test notification through the API with the actual subscription
-      const response = await fetch('/api/push/send', {
+      // Validate subscription data before sending
+      if (
+        !subscriptionJson.endpoint ||
+        !subscriptionJson.keys?.p256dh ||
+        !subscriptionJson.keys?.auth
+      ) {
+        throw new Error('Invalid push subscription data');
+      }
+
+      // Send a test notification through the user-accessible test endpoint
+      const response = await fetch('/api/push/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscriptions: [
-            {
-              endpoint: subscriptionJson.endpoint,
-              expirationTime: subscriptionJson.expirationTime,
-              keys: subscriptionJson.keys,
-            },
-          ],
-          payload: {
-            title: 'Test Notification',
-            body: 'Push notifications are working correctly!',
-            url: '/account/settings',
-            tag: 'test-notification',
+          subscription: {
+            endpoint: subscriptionJson.endpoint,
+            expirationTime: subscriptionJson.expirationTime,
+            keys: subscriptionJson.keys,
           },
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
         toast({
           title: 'Test Sent',
           description: 'Check your device for the test notification.',
         });
+      } else if (data.expired) {
+        toast({
+          title: 'Subscription Expired',
+          description: 'Please disable and re-enable notifications.',
+          variant: 'destructive',
+        });
       } else {
-        throw new Error('Failed to send test notification');
+        throw new Error(data.error || 'Failed to send test notification');
       }
     } catch (error) {
       toast({
         title: 'Test Failed',
-        description: 'Could not send test notification.',
+        description: error instanceof Error ? error.message : 'Could not send test notification.',
         variant: 'destructive',
       });
     } finally {

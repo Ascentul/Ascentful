@@ -8,6 +8,8 @@
  */
 
 import { useUser } from '@clerk/nextjs';
+import { api } from 'convex/_generated/api';
+import { useQuery } from 'convex/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart,
@@ -87,6 +89,9 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   const pathname = usePathname();
   const { user } = useUser();
   const sidebarContext = useSidebarOptional();
+
+  // Fetch viewer data to get university name
+  const viewer = useQuery(api.viewer.getViewer, user ? {} : 'skip');
 
   // Get user role from Clerk metadata
   const userRole = user?.publicMetadata?.role as string | undefined;
@@ -352,7 +357,9 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
                 <GraduationCap className="h-5 w-5 text-primary-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">University Workspace</p>
+                <p className="text-sm font-medium text-slate-900 truncate">
+                  {viewer?.university?.universityName || 'University Workspace'}
+                </p>
                 <p className="text-xs text-slate-500">{isAdmin ? 'Administrator' : 'Advisor'}</p>
               </div>
             </div>

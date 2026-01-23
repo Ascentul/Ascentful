@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, mutation, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, query, QueryCtx } from './_generated/server';
 import { STAGE_TRANSITIONS } from './advisor_constants';
 import { safeLogAudit } from './lib/auditLogger';
 import { auth } from './lib/authorization';
@@ -37,20 +37,22 @@ function isTransitionAllowed(currentStage: ApplicationStage, newStage: Applicati
 }
 
 async function getTopSortOrderForStatus(
-  ctx: { db: any },
+  ctx: QueryCtx,
   userId: Id<'users'>,
   status: string,
   excludeApplicationId?: Id<'applications'>,
 ): Promise<number> {
   const apps = await ctx.db
     .query('applications')
-    .withIndex('by_user_status_order', (q: any) => q.eq('user_id', userId).eq('status', status))
+    .withIndex('by_user_status_order', (q) =>
+      q.eq('user_id', userId).eq('status', status as Doc<'applications'>['status']),
+    )
     .collect();
 
   const orders = apps
-    .filter((a: any) => a._id !== excludeApplicationId)
-    .map((a: any) => a.sort_order)
-    .filter((o: any) => typeof o === 'number');
+    .filter((a) => a._id !== excludeApplicationId)
+    .map((a) => a.sort_order)
+    .filter((o): o is number => typeof o === 'number');
 
   const min = orders.length > 0 ? Math.min(...orders) : 0;
   return min - SORT_ORDER_GAP;
