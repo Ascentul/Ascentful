@@ -2,7 +2,7 @@
  * Seed Demo Outcomes Data
  *
  * Creates sample graduation cohorts and outcomes for demo purposes.
- * Run via: npx convex run scripts/seed-outcomes-demo:seedOutcomesDemo
+ * Run via: npx convex run seed_outcomes_demo:seedOutcomesDemo
  *
  * Creates:
  * - 3 cohorts (2023, 2024, 2025)

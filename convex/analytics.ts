@@ -2285,17 +2285,14 @@ export const getUniversityFeatureUsage = query({
       studentIdSet.has(c.user_id.toString()),
     ).length;
 
-    // Count AI coach conversations
-    // Note: ai_coach_conversations table lacks university_id field/index,
-    // so we must query per-student. Consider adding university_id to schema for optimization.
-    let aiCoachConversationsCount = 0;
-    for (const student of students) {
-      const conversations = await ctx.db
-        .query('ai_coach_conversations')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .collect();
-      aiCoachConversationsCount += conversations.length;
-    }
+    // Bulk fetch AI coach conversations for the university
+    const allConversations = await ctx.db
+      .query('ai_coach_conversations')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const aiCoachConversationsCount = allConversations.filter((c) =>
+      studentIdSet.has(c.user_id.toString()),
+    ).length;
 
     return {
       networkingContacts: networkingContactsCount,

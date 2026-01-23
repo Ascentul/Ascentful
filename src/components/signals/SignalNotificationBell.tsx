@@ -18,21 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return new Date(timestamp).toLocaleDateString();
-}
+import { formatRelativeTime } from '@/lib/date-utils';
 
 export function SignalNotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -206,8 +192,8 @@ export function useSignalNotificationToast() {
       // New notification arrived - could trigger toast here
       const newNotification = signalNotifications[0];
       if (newNotification) {
-        // In a real implementation, this would use the toast system
-        console.log('[Signal] New notification:', newNotification.title);
+        // TODO: Integrate with toast system when ready
+        // toast({ title: 'New Signal', description: newNotification.title });
       }
     }
 

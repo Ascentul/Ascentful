@@ -224,6 +224,17 @@ export default function BatchImportPage() {
       const file = event.target.files?.[0];
       if (!file) return;
 
+      // Validate file size (10MB limit mentioned in UI)
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_SIZE) {
+        toast({
+          title: 'File Too Large',
+          description: 'Please upload a CSV file under 10MB.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;

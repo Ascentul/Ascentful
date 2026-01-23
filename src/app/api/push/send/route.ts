@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 
@@ -14,6 +15,15 @@ import webpush from 'web-push';
  */
 
 const INTERNAL_SERVICE_TOKEN = process.env.CONVEX_INTERNAL_SERVICE_TOKEN;
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Returns false early if lengths differ (acceptable since length is not secret).
+ */
+function safeTokenCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 // Configure VAPID keys
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -55,7 +65,9 @@ export async function POST(request: Request) {
     const serviceToken = authHeader?.replace('Bearer ', '');
 
     const isInternalRequest =
-      INTERNAL_SERVICE_TOKEN && serviceToken && serviceToken === INTERNAL_SERVICE_TOKEN;
+      INTERNAL_SERVICE_TOKEN &&
+      serviceToken &&
+      safeTokenCompare(serviceToken, INTERNAL_SERVICE_TOKEN);
 
     if (!isInternalRequest) {
       // Fall back to user authentication - require super_admin

@@ -152,4 +152,30 @@ crons.daily(
   {},
 );
 
+// ============================================================================
+// ENGAGEMENT CACHE
+// ============================================================================
+
+/**
+ * Refresh engagement score cache for university students
+ *
+ * Runs every 6 hours to pre-compute engagement scores on user records.
+ * This enables O(1) analytics queries instead of O(N) per-student calculations.
+ *
+ * Schedule: Every 6 hours
+ *
+ * Actions taken:
+ * - Finds universities with stale engagement data (>6 hours old)
+ * - Recalculates engagement scores for up to 50 students per run
+ * - Caches status/score on user records for fast analytics queries
+ *
+ * See: convex/engagement_cache.ts for scoring algorithm
+ */
+crons.interval(
+  'refresh engagement cache',
+  { hours: 6 },
+  internal.engagement_cache.refreshEngagementCacheJob,
+  {},
+);
+
 export default crons;

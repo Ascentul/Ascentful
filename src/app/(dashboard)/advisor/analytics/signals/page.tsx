@@ -138,9 +138,9 @@ export default function SignalAnalyticsPage() {
   }));
 
   const sourceData = [
-    { name: 'Rule-based', value: analytics.sourceCounts.rule, fill: '#3b82f6' },
-    { name: 'Manual', value: analytics.sourceCounts.manual, fill: '#8b5cf6' },
-    { name: 'System', value: analytics.sourceCounts.system, fill: '#10b981' },
+    { name: 'Rule-based', value: analytics.sourceCounts.rule ?? 0, fill: '#3b82f6' },
+    { name: 'Manual', value: analytics.sourceCounts.manual ?? 0, fill: '#8b5cf6' },
+    { name: 'System', value: analytics.sourceCounts.system ?? 0, fill: '#10b981' },
   ];
 
   const statusData = Object.entries(analytics.statusCounts).map(([name, value]) => ({

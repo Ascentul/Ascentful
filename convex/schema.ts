@@ -261,6 +261,12 @@ export default defineSchema({
     // Advisor engagement tracking
     outreach_snoozed_until: v.optional(v.number()), // Timestamp when "needs outreach" snooze expires
     advisor_tags: v.optional(v.array(v.string())), // Max 5 tags, enforced in updateStudentTags mutation (e.g., "At-risk", "International")
+    // CACHED ENGAGEMENT DATA: Recalculated periodically by scheduled job for O(1) analytics queries
+    engagement_status: v.optional(
+      v.union(v.literal('engaged'), v.literal('moderate'), v.literal('at_risk')),
+    ),
+    engagement_score: v.optional(v.number()), // 0-100 score
+    engagement_calculated_at: v.optional(v.number()), // Timestamp of last calculation
     created_at: v.number(),
     updated_at: v.number(),
   })
@@ -272,7 +278,8 @@ export default defineSchema({
     .index('by_account_status', ['account_status'])
     .index('by_is_test_user', ['is_test_user'])
     // SECURITY: Index for efficient activation token lookup (avoids full table scan)
-    .index('by_activation_token', ['activation_token']),
+    .index('by_activation_token', ['activation_token'])
+    .index('by_university_engagement', ['university_id', 'engagement_status']),
 
   // Universities table for institutional licensing
   universities: defineTable({
@@ -1502,12 +1509,14 @@ export default defineSchema({
   // AI Coach conversations table
   ai_coach_conversations: defineTable({
     user_id: v.id('users'),
+    university_id: v.optional(v.id('universities')), // For bulk analytics queries
     title: v.string(),
     created_at: v.number(),
     updated_at: v.number(),
   })
     .index('by_user', ['user_id'])
-    .index('by_created_at', ['created_at']),
+    .index('by_created_at', ['created_at'])
+    .index('by_university', ['university_id']),
 
   // AI Coach messages table
   ai_coach_messages: defineTable({

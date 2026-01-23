@@ -53,6 +53,7 @@ export const createConversation = mutation({
     const now = Date.now();
     const conversationId = await ctx.db.insert('ai_coach_conversations', {
       user_id: user._id,
+      university_id: user.university_id,
       title: args.title,
       created_at: now,
       updated_at: now,

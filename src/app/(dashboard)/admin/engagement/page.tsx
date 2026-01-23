@@ -337,8 +337,8 @@ export default function AdminEngagementPage() {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
+              {(() => {
+                const statusData = [
                   {
                     status: 'Active',
                     count: signalAnalytics.statusCounts.active,
@@ -359,23 +359,21 @@ export default function AdminEngagementPage() {
                     count: signalAnalytics.statusCounts.dismissed,
                     color: '#6B7280',
                   },
-                ]}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="status" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" name="Signals">
-                  {[
-                    { status: 'Active', color: '#EF4444' },
-                    { status: 'Snoozed', color: '#F59E0B' },
-                    { status: 'Resolved', color: '#10B981' },
-                    { status: 'Dismissed', color: '#6B7280' },
-                  ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
+                ];
+                return (
+                  <BarChart data={statusData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="status" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Signals">
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                );
+              })()}
             </ResponsiveContainer>
           </CardContent>
         </Card>

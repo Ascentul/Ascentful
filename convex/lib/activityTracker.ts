@@ -127,5 +127,8 @@ export async function safeTrackActivity(
     return;
   }
 
-  await trackActivity(ctx as any, args);
+  await trackActivity(
+    ctx as { scheduler: { runAfter: (delay: number, fn: any, args: any) => Promise<any> } },
+    args,
+  );
 }

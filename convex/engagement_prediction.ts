@@ -520,6 +520,9 @@ export const predictStudentEngagement = query({
   },
   handler: async (ctx, args): Promise<EngagementPrediction | null> => {
     const { studentId, lookbackWeeks = 8 } = args;
+    if (lookbackWeeks <= 0) {
+      throw new Error('lookbackWeeks must be >= 1');
+    }
 
     const student = await ctx.db.get(studentId);
     if (!student) return null;

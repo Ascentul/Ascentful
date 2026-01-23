@@ -1407,6 +1407,11 @@ export const previewOutcomeImport = query({
         }
       }
 
+      // Mark invalid rows as skip to keep willCreate/willUpdate counts accurate
+      if (validationErrors.length > 0) {
+        action = 'skip';
+      }
+
       // Get matched user details if found
       let userName: string | undefined;
       let userEmail: string | undefined;

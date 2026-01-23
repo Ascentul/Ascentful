@@ -152,7 +152,11 @@ export function SnapshotSelector({
                   aria-label={`Delete snapshot ${snapshot.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteSnapshot(snapshot._id);
+                    if (
+                      window.confirm(`Delete snapshot "${snapshot.name}"? This cannot be undone.`)
+                    ) {
+                      onDeleteSnapshot(snapshot._id);
+                    }
                   }}
                 >
                   <Trash2 className="h-3 w-3" />

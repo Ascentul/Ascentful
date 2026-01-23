@@ -76,7 +76,7 @@ export const notifyAdvisorsForSignal = internalMutation({
   handler: async (ctx, args) => {
     // Get student info
     const student = await ctx.db.get(args.studentId);
-    if (!student) return { notified: 0 };
+    if (!student) return { notified: 0, recipients: [], studentName: 'Unknown' };
 
     const studentName = student.name || student.email || 'Unknown Student';
 
@@ -326,14 +326,19 @@ export const getUnreadSignalNotifications = query({
 
     const limit = args.limit ?? 20;
 
+    // Fetch all unread notifications, then filter by type and apply limit
+    // This ensures we return up to `limit` signal notifications even if
+    // there are many non-signal notifications mixed in
     const notifications = await ctx.db
       .query('notifications')
       .withIndex('by_user_read', (q) => q.eq('user_id', args.userId).eq('read', false))
       .order('desc')
-      .take(limit);
+      .collect();
 
-    // Filter to only signal notifications
-    return notifications.filter((n) => n.type === 'signal' || n.type === 'signal_urgent');
+    // Filter to only signal notifications and apply limit
+    return notifications
+      .filter((n) => n.type === 'signal' || n.type === 'signal_urgent')
+      .slice(0, limit);
   },
 });
 

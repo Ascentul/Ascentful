@@ -22,6 +22,7 @@ interface PushNotificationSettingsProps {
 export function PushNotificationSettings({ userId }: PushNotificationSettingsProps) {
   const { toast } = useToast();
   const [isTestingNotification, setIsTestingNotification] = useState(false);
+  const [savingPreference, setSavingPreference] = useState<string | null>(null);
 
   // Push notification hook
   const {
@@ -81,6 +82,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
     key: keyof NonNullable<typeof preferences>,
     value: boolean,
   ) => {
+    setSavingPreference(key);
     try {
       await updatePreferences({
         userId,
@@ -96,6 +98,8 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
         description: 'Failed to update preferences.',
         variant: 'destructive',
       });
+    } finally {
+      setSavingPreference(null);
     }
   };
 
@@ -270,6 +274,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
                 <Switch
                   checked={preferences.signals_urgent ?? true}
                   onCheckedChange={(checked) => handlePreferenceChange('signals_urgent', checked)}
+                  disabled={savingPreference === 'signals_urgent'}
                 />
               </div>
 
@@ -291,6 +296,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
                 <Switch
                   checked={preferences.signals_high ?? true}
                   onCheckedChange={(checked) => handlePreferenceChange('signals_high', checked)}
+                  disabled={savingPreference === 'signals_high'}
                 />
               </div>
 
@@ -312,6 +318,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
                 <Switch
                   checked={preferences.signals_medium ?? true}
                   onCheckedChange={(checked) => handlePreferenceChange('signals_medium', checked)}
+                  disabled={savingPreference === 'signals_medium'}
                 />
               </div>
 
@@ -330,6 +337,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
                   onCheckedChange={(checked) =>
                     handlePreferenceChange('application_updates', checked)
                   }
+                  disabled={savingPreference === 'application_updates'}
                 />
               </div>
 
@@ -346,6 +354,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
                 <Switch
                   checked={preferences.goal_reminders ?? true}
                   onCheckedChange={(checked) => handlePreferenceChange('goal_reminders', checked)}
+                  disabled={savingPreference === 'goal_reminders'}
                 />
               </div>
             </div>

@@ -111,13 +111,16 @@ export async function resolveStudentIdentity(
         .withIndex('by_user_id', (q) => q.eq('user_id', user._id))
         .first();
 
-      return {
-        matched: true,
-        userId: user._id,
-        studentProfileId: profile?._id,
-        confidence: 'exact',
-        matchedBy: 'email',
-      };
+      // Only match students with profiles to avoid attaching outcomes to advisors/admins
+      if (user.role === 'student' && profile) {
+        return {
+          matched: true,
+          userId: user._id,
+          studentProfileId: profile._id,
+          confidence: 'exact',
+          matchedBy: 'email',
+        };
+      }
     }
   }
 

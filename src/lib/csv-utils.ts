@@ -77,6 +77,9 @@ export function csvFilename(prefix: string): string {
  * - Escaped quotes (doubled "")
  * - Both \r\n and \n line endings
  *
+ * Limitations:
+ * - Does NOT handle newlines within quoted fields (assumes one record per line)
+ *
  * @param text - The raw CSV text content
  * @returns Object with headers array and rows array of arrays
  */

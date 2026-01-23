@@ -977,7 +977,7 @@ async function evaluateRuleCondition(
       // Check activity_events for recent activity
       const recentActivity = await ctx.db
         .query('activity_events')
-        .withIndex('by_user_date', (q: any) =>
+        .withIndex('by_user_date', (q) =>
           q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
         )
         .first();
@@ -1012,7 +1012,7 @@ async function evaluateRuleCondition(
       const applications = await ctx.db
         .query('applications')
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             // Not in terminal state
             q.neq(q.field('status'), 'Accepted'),
@@ -1057,11 +1057,12 @@ async function evaluateRuleCondition(
 
       // Get the university's default engagement definition
       if (!student.university_id) return { triggered: false };
+      const universityId = student.university_id;
 
       const definitions = await ctx.db
         .query('engagement_definitions')
-        .withIndex('by_university_active', (q: any) =>
-          q.eq('university_id', student.university_id).eq('is_active', true),
+        .withIndex('by_university_active', (q) =>
+          q.eq('university_id', universityId).eq('is_active', true),
         )
         .collect();
 
@@ -1072,7 +1073,7 @@ async function evaluateRuleCondition(
       const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
       const recentEvents = await ctx.db
         .query('activity_events')
-        .withIndex('by_user_date', (q: any) =>
+        .withIndex('by_user_date', (q) =>
           q.eq('user_id', student._id).gte('occurred_at', fourteenDaysAgo),
         )
         .collect();
@@ -1176,7 +1177,7 @@ async function evaluateRuleCondition(
       // Check for qualifying activity in the period
       const recentEvents = await ctx.db
         .query('activity_events')
-        .withIndex('by_user_date', (q: any) =>
+        .withIndex('by_user_date', (q) =>
           q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
         )
         .collect();
@@ -1190,7 +1191,7 @@ async function evaluateRuleCondition(
         // Find the last qualifying event ever
         const allEvents = await ctx.db
           .query('activity_events')
-          .withIndex('by_user_date', (q: any) => q.eq('user_id', student._id))
+          .withIndex('by_user_date', (q) => q.eq('user_id', student._id))
           .order('desc')
           .take(100);
 
@@ -1230,10 +1231,10 @@ async function evaluateRuleCondition(
       // Count applications created in period
       const applicationEvents = await ctx.db
         .query('activity_events')
-        .withIndex('by_user_date', (q: any) =>
+        .withIndex('by_user_date', (q) =>
           q.eq('user_id', student._id).gte('occurred_at', applicationCutoff),
         )
-        .filter((q: any) => q.eq(q.field('event_type'), 'application_created'))
+        .filter((q) => q.eq(q.field('event_type'), 'application_created'))
         .collect();
 
       const applicationCount = applicationEvents.length;
@@ -1253,7 +1254,7 @@ async function evaluateRuleCondition(
 
         const appointmentEvents = await ctx.db
           .query('activity_events')
-          .withIndex('by_user_date', (q: any) =>
+          .withIndex('by_user_date', (q) =>
             q.eq('user_id', student._id).gte('occurred_at', appointmentCutoff),
           )
           .collect();
@@ -1266,11 +1267,8 @@ async function evaluateRuleCondition(
         const recentFollowups = await ctx.db
           .query('follow_ups')
           .withIndex('by_user', (q) => q.eq('user_id', student._id))
-          .filter((q: any) =>
-            q.and(
-              q.gte(q.field('scheduled_date'), appointmentCutoff),
-              q.eq(q.field('type'), 'meeting'),
-            ),
+          .filter((q) =>
+            q.and(q.gte(q.field('due_at'), appointmentCutoff), q.eq(q.field('type'), 'meeting')),
           )
           .first();
 
@@ -1302,7 +1300,7 @@ async function evaluateRuleCondition(
       const applications = await ctx.db
         .query('applications')
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .filter((q: any) =>
+        .filter((q) =>
           q.and(
             // Not in terminal state
             q.neq(q.field('status'), 'Accepted'),
@@ -1324,10 +1322,10 @@ async function evaluateRuleCondition(
         // Check application_stage_events for recent changes
         const recentStageChange = await ctx.db
           .query('activity_events')
-          .withIndex('by_user_date', (q: any) =>
+          .withIndex('by_user_date', (q) =>
             q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
           )
-          .filter((q: any) =>
+          .filter((q) =>
             q.and(
               q.eq(q.field('event_type'), 'application_stage_changed'),
               q.eq(q.field('entity_id'), app._id.toString()),

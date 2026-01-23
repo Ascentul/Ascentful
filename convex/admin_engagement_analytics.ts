@@ -205,7 +205,6 @@ export const getCrossUniversityTrends = query({
       date: string;
       signalsCreated: number;
       signalsResolved: number;
-      activeUsers: number;
     }> = [];
 
     for (let i = days - 1; i >= 0; i--) {
@@ -225,12 +224,10 @@ export const getCrossUniversityTrends = query({
           s.resolved_at < dayEnd,
       ).length;
 
-      // Count unique active users (simplified - would need separate aggregation in production)
       dailyTrend.push({
         date,
         signalsCreated,
         signalsResolved,
-        activeUsers: 0, // Placeholder - would need activity_events aggregation
       });
     }
 
@@ -302,11 +299,14 @@ export const getUniversityEngagementRanking = query({
       const totalStudents = students.length;
       if (totalStudents === 0) continue;
 
+      // Limit to first 500 students for performance (consistent with getCrossUniversityEngagement)
+      const studentsToProcess = students.slice(0, 500);
+
       let engagedCount = 0;
       let atRiskCount = 0;
       let totalScore = 0;
 
-      for (const student of students) {
+      for (const student of studentsToProcess) {
         const events = await ctx.db
           .query('activity_events')
           .withIndex('by_user_date', (q) =>
@@ -321,14 +321,15 @@ export const getUniversityEngagementRanking = query({
         else if (score <= 30) atRiskCount++;
       }
 
+      const processedCount = studentsToProcess.length;
       rankings.push({
         rank: 0, // Will be set after sorting
         universityId: university._id,
         universityName: university.name,
         totalStudents,
-        engagedPercent: Math.round((engagedCount / totalStudents) * 100),
-        atRiskPercent: Math.round((atRiskCount / totalStudents) * 100),
-        avgScore: Math.round(totalScore / totalStudents),
+        engagedPercent: Math.round((engagedCount / processedCount) * 100),
+        atRiskPercent: Math.round((atRiskCount / processedCount) * 100),
+        avgScore: Math.round(totalScore / processedCount),
         trend: 'stable', // Would need historical data to calculate
       });
     }

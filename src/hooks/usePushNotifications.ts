@@ -96,10 +96,12 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
         // Wait for service worker to be ready before sending message
         await navigator.serviceWorker.ready;
-        reg.active?.postMessage({
-          type: 'SET_VAPID_KEY',
-          key: urlBase64ToUint8Array(vapidPublicKey),
-        });
+        if (reg.active) {
+          reg.active.postMessage({
+            type: 'SET_VAPID_KEY',
+            key: urlBase64ToUint8Array(vapidPublicKey),
+          });
+        }
 
         // Check current permission
         const permission = Notification.permission;

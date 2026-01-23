@@ -668,7 +668,8 @@ export const getEngagementAnalytics = query({
       );
     }
 
-    // Calculate engagement for each student
+    // Use cached engagement scores for O(1) analytics (vs O(N) per-student queries)
+    // Scores are recalculated periodically via scheduled job in engagement_cache.ts
     const engagementResults: Array<{
       studentId: Id<'users'>;
       status: 'engaged' | 'moderate' | 'at_risk';
@@ -678,48 +679,64 @@ export const getEngagementAnalytics = query({
     }> = [];
 
     for (const student of students) {
-      const { totalCount, uniqueDays, lastEventAt } = await getQualifyingEvents(
-        ctx,
-        student._id,
-        criteria,
-      );
+      // Use cached engagement status/score if available and fresh (< 24 hours old)
+      const cacheAge = student.engagement_calculated_at
+        ? Date.now() - student.engagement_calculated_at
+        : Infinity;
+      const isCacheFresh = cacheAge < 24 * 60 * 60 * 1000; // 24 hours
 
-      // Calculate score (simplified version)
-      const periodDays = criteria.period_days || 14;
-      const minEvents = criteria.min_events_in_period || 3;
-      const idealEvents = minEvents * 2;
-
-      const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-      const idealActiveDays = Math.min(periodDays, 7);
-      const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-      let recencyScore = 0;
-      if (lastEventAt) {
-        const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
-        if (daysSince <= 1) recencyScore = 20;
-        else if (daysSince <= 3) recencyScore = 15;
-        else if (daysSince <= 7) recencyScore = 10;
-        else if (daysSince <= 14) recencyScore = 5;
-      }
-
-      const score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-      let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= definition.engaged_threshold) {
-        status = 'engaged';
-      } else if (score <= definition.at_risk_threshold) {
-        status = 'at_risk';
+      if (student.engagement_status && student.engagement_score !== undefined && isCacheFresh) {
+        engagementResults.push({
+          studentId: student._id,
+          status: student.engagement_status,
+          score: student.engagement_score,
+          cohortId: undefined,
+          programId: student.department_id?.toString(),
+        });
       } else {
-        status = 'moderate';
-      }
+        // Fallback to real-time calculation for students without cached data
+        const { totalCount, uniqueDays, lastEventAt } = await getQualifyingEvents(
+          ctx,
+          student._id,
+          criteria,
+        );
 
-      engagementResults.push({
-        studentId: student._id,
-        status,
-        score,
-        cohortId: undefined, // Users don't have cohort_id directly
-        programId: student.department_id?.toString(),
-      });
+        const periodDays = criteria.period_days || 14;
+        const minEvents = criteria.min_events_in_period || 3;
+        const idealEvents = minEvents * 2;
+
+        const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
+        const idealActiveDays = Math.min(periodDays, 7);
+        const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+
+        let recencyScore = 0;
+        if (lastEventAt) {
+          const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
+          if (daysSince <= 1) recencyScore = 20;
+          else if (daysSince <= 3) recencyScore = 15;
+          else if (daysSince <= 7) recencyScore = 10;
+          else if (daysSince <= 14) recencyScore = 5;
+        }
+
+        const score = Math.round(eventScore + activeDaysScore + recencyScore);
+
+        let status: 'engaged' | 'moderate' | 'at_risk';
+        if (score >= definition.engaged_threshold) {
+          status = 'engaged';
+        } else if (score <= definition.at_risk_threshold) {
+          status = 'at_risk';
+        } else {
+          status = 'moderate';
+        }
+
+        engagementResults.push({
+          studentId: student._id,
+          status,
+          score,
+          cohortId: undefined,
+          programId: student.department_id?.toString(),
+        });
+      }
     }
 
     // Calculate summary metrics

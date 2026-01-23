@@ -6,7 +6,7 @@
 import formData from 'form-data';
 import Mailgun from 'mailgun.js';
 
-import { escapeHtml } from '../../convex/lib/sanitizeHtml';
+import { escapeHtml } from './utils';
 
 const DEFAULT_DOMAIN = 'mail.ascentful.io';
 const DEFAULT_FROM = 'Ascentful <no-reply@mail.ascentful.io>';
@@ -918,7 +918,7 @@ export async function sendSignalAlertEmail(
   signalType: string,
   dashboardUrl: string,
 ): Promise<EmailResult> {
-  const firstName = advisorName.split(' ')[0] || 'Advisor';
+  const firstName = escapeHtml(advisorName.split(' ')[0] || 'Advisor');
   const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '📢';
   const priorityLabel = priority.charAt(0).toUpperCase() + priority.slice(1);
   const typeLabel = signalType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
@@ -1074,7 +1074,7 @@ export async function sendSignalDigestEmail(
   }>,
   dashboardUrl: string,
 ): Promise<EmailResult> {
-  const firstName = advisorName.split(' ')[0] || 'Advisor';
+  const firstName = escapeHtml(advisorName.split(' ')[0] || 'Advisor');
 
   const subject = `📊 Your Daily Signal Digest - ${signalSummary.total} Active Signals`;
 
