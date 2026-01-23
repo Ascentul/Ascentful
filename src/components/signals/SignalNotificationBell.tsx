@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/date-utils';
 
 export function SignalNotificationBell() {
@@ -178,8 +179,10 @@ export function SignalNotificationBell() {
  * Shows a toast when new urgent/high signals arrive.
  */
 export function useSignalNotificationToast() {
+  const { toast } = useToast();
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: true });
   const [lastSeenCount, setLastSeenCount] = useState<number | null>(null);
+  const lastNotificationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!notifications) return;
@@ -188,17 +191,23 @@ export function useSignalNotificationToast() {
       (n) => (n.type === 'signal' || n.type === 'signal_urgent') && !n.read,
     );
 
+    // Only show toast if count increased and it's a new notification we haven't seen
     if (lastSeenCount !== null && signalNotifications.length > lastSeenCount) {
-      // New notification arrived - could trigger toast here
       const newNotification = signalNotifications[0];
-      if (newNotification) {
-        // TODO: Integrate with toast system when ready
-        // toast({ title: 'New Signal', description: newNotification.title });
+      if (newNotification && newNotification._id !== lastNotificationIdRef.current) {
+        lastNotificationIdRef.current = newNotification._id;
+
+        const isUrgent = newNotification.type === 'signal_urgent';
+        toast({
+          title: isUrgent ? '🚨 Urgent Signal' : '📢 New Signal',
+          description: newNotification.title,
+          variant: isUrgent ? 'destructive' : 'default',
+        });
       }
     }
 
     setLastSeenCount(signalNotifications.length);
-  }, [notifications, lastSeenCount]);
+  }, [notifications, lastSeenCount, toast]);
 
   return {
     unreadCount:

@@ -202,7 +202,14 @@ export default function OutcomesDashboardPage() {
   // Handlers
   const handleCreateSnapshot = useCallback(
     async (name: string, description?: string) => {
-      if (!universityId || !displayData.summary) return;
+      if (!universityId || !displayData.summary) {
+        toast({
+          title: 'Cannot create snapshot',
+          description: 'Analytics data is not yet loaded.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setIsCreatingSnapshot(true);
       try {

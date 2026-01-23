@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { api } from './_generated/api';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { logPermissionChange } from './lib/auditLogger';
 import { isServiceRequest } from './lib/roles';
 
@@ -1426,14 +1427,12 @@ export const recordLogin = mutation({
       updated_at: now,
     });
 
-    // Track as activity event for engagement scoring
-    await ctx.db.insert('activity_events', {
-      user_id: user._id,
-      university_id: user.university_id ?? undefined,
-      event_type: 'login',
-      event_category: 'auth',
-      occurred_at: now,
-      created_at: now,
+    // Track as activity event for engagement scoring (fire-and-forget)
+    await trackActivity(ctx, {
+      userId: user._id,
+      universityId: user.university_id,
+      eventType: ACTIVITY_EVENTS.LOGIN,
+      eventCategory: 'auth',
     });
 
     return { success: true, userId: user._id };

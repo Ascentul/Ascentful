@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
+import { Id } from 'convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import {
   AlertTriangle,
@@ -52,6 +53,9 @@ export default function UniversityAnalyticsPage() {
     'weekly',
   );
 
+  // Type university_id once at the top for all queries
+  const universityId = user?.university_id as Id<'universities'> | undefined;
+
   // Access control: Only university_admin, advisor, or super_admin can access
   // subscription.isUniversity is NOT sufficient - it includes regular students
   const canAccess =
@@ -73,33 +77,31 @@ export default function UniversityAnalyticsPage() {
   // Engagement stats from the new engagement engine
   const engagementStats = useQuery(
     api.engagement_definitions.getUniqueEngagedStats,
-    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+    universityId ? { universityId } : 'skip',
   );
 
   // Signal analytics for active signals count
   const signalAnalytics = useQuery(
     api.signals.getSignalAnalytics,
-    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+    universityId ? { universityId } : 'skip',
   );
 
   // Real active users over time data
   const activeUsersData = useQuery(
     api.analytics.getUniversityActiveUsersOverTime,
-    user?.university_id
-      ? { universityId: user.university_id as any, timeRange: activeUsersTimeRange }
-      : 'skip',
+    universityId ? { universityId, timeRange: activeUsersTimeRange } : 'skip',
   );
 
   // Real feature usage data (networking, AI coach)
   const featureUsage = useQuery(
     api.analytics.getUniversityFeatureUsage,
-    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+    universityId ? { universityId } : 'skip',
   );
 
   // Real department analytics
   const departmentAnalytics = useQuery(
     api.analytics.getUniversityDepartmentAnalytics,
-    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+    universityId ? { universityId } : 'skip',
   );
 
   if (!canAccess) {
@@ -486,60 +488,49 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 {engagementStats?.total_students && engagementStats.total_students > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: 'Engaged',
-                            value: engagementStats.breakdown_by_status.engaged,
-                            color: '#10B981',
-                          },
-                          {
-                            name: 'Moderate',
-                            value: engagementStats.breakdown_by_status.moderate,
-                            color: '#3B82F6',
-                          },
-                          {
-                            name: 'At Risk',
-                            value: engagementStats.breakdown_by_status.at_risk,
-                            color: '#F59E0B',
-                          },
-                        ]}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ name, value, percent }) =>
-                          `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
-                        }
-                        labelLine
-                      >
-                        {[
-                          {
-                            name: 'Engaged',
-                            value: engagementStats.breakdown_by_status.engaged,
-                            color: '#10B981',
-                          },
-                          {
-                            name: 'Moderate',
-                            value: engagementStats.breakdown_by_status.moderate,
-                            color: '#3B82F6',
-                          },
-                          {
-                            name: 'At Risk',
-                            value: engagementStats.breakdown_by_status.at_risk,
-                            color: '#F59E0B',
-                          },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  (() => {
+                    const engagementData = [
+                      {
+                        name: 'Engaged',
+                        value: engagementStats.breakdown_by_status.engaged,
+                        color: '#10B981',
+                      },
+                      {
+                        name: 'Moderate',
+                        value: engagementStats.breakdown_by_status.moderate,
+                        color: '#3B82F6',
+                      },
+                      {
+                        name: 'At Risk',
+                        value: engagementStats.breakdown_by_status.at_risk,
+                        color: '#F59E0B',
+                      },
+                    ];
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={engagementData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={({ name, value, percent }) =>
+                              `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                            }
+                            labelLine
+                          >
+                            {engagementData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    );
+                  })()
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <Users className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -561,75 +552,50 @@ export default function UniversityAnalyticsPage() {
                   signalAnalytics.typeCounts.document_review +
                   signalAnalytics.typeCounts.milestone_check >
                   0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        {
-                          type: 'Needs Outreach',
-                          count: signalAnalytics.typeCounts.needs_outreach,
-                          color: '#F59E0B',
-                        },
-                        {
-                          type: 'App Support',
-                          count: signalAnalytics.typeCounts.application_support,
-                          color: '#3B82F6',
-                        },
-                        {
-                          type: 'Doc Review',
-                          count: signalAnalytics.typeCounts.document_review,
-                          color: '#8B5CF6',
-                        },
-                        {
-                          type: 'Milestone',
-                          count: signalAnalytics.typeCounts.milestone_check,
-                          color: '#10B981',
-                        },
-                        {
-                          type: 'Custom',
-                          count: signalAnalytics.typeCounts.custom,
-                          color: '#6B7280',
-                        },
-                      ].filter((d) => d.count > 0)}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="type" tick={{ fontSize: 11 }} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" name="Signals">
-                        {[
-                          {
-                            type: 'Needs Outreach',
-                            count: signalAnalytics.typeCounts.needs_outreach,
-                            color: '#F59E0B',
-                          },
-                          {
-                            type: 'App Support',
-                            count: signalAnalytics.typeCounts.application_support,
-                            color: '#3B82F6',
-                          },
-                          {
-                            type: 'Doc Review',
-                            count: signalAnalytics.typeCounts.document_review,
-                            color: '#8B5CF6',
-                          },
-                          {
-                            type: 'Milestone',
-                            count: signalAnalytics.typeCounts.milestone_check,
-                            color: '#10B981',
-                          },
-                          {
-                            type: 'Custom',
-                            count: signalAnalytics.typeCounts.custom,
-                            color: '#6B7280',
-                          },
-                        ]
-                          .filter((d) => d.count > 0)
-                          .map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  (() => {
+                    const signalBarData = [
+                      {
+                        type: 'Needs Outreach',
+                        count: signalAnalytics.typeCounts.needs_outreach,
+                        color: '#F59E0B',
+                      },
+                      {
+                        type: 'App Support',
+                        count: signalAnalytics.typeCounts.application_support,
+                        color: '#3B82F6',
+                      },
+                      {
+                        type: 'Doc Review',
+                        count: signalAnalytics.typeCounts.document_review,
+                        color: '#8B5CF6',
+                      },
+                      {
+                        type: 'Milestone',
+                        count: signalAnalytics.typeCounts.milestone_check,
+                        color: '#10B981',
+                      },
+                      {
+                        type: 'Custom',
+                        count: signalAnalytics.typeCounts.custom,
+                        color: '#6B7280',
+                      },
+                    ].filter((d) => d.count > 0);
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={signalBarData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="type" tick={{ fontSize: 11 }} />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="count" name="Signals">
+                            {signalBarData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    );
+                  })()
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <AlertTriangle className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -724,70 +690,53 @@ export default function UniversityAnalyticsPage() {
                 <CardDescription>Platform features adoption by students</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        {
-                          name: 'Applications',
-                          value: analyticsData.applications.total,
-                          color: '#4F46E5',
-                        },
-                        { name: 'Goals', value: analyticsData.goals.total, color: '#10B981' },
-                        {
-                          name: 'Documents',
-                          value: analyticsData.documents.total,
-                          color: '#F59E0B',
-                        },
-                        {
-                          name: 'Networking',
-                          value: featureUsage?.networkingContacts ?? 0,
-                          color: '#EC4899',
-                        },
-                        {
-                          name: 'AI Coach',
-                          value: featureUsage?.aiCoachConversations ?? 0,
-                          color: '#8B5CF6',
-                        },
-                      ]}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine
-                    >
-                      {[
-                        {
-                          name: 'Applications',
-                          value: analyticsData.applications.total,
-                          color: '#4F46E5',
-                        },
-                        { name: 'Goals', value: analyticsData.goals.total, color: '#10B981' },
-                        {
-                          name: 'Documents',
-                          value: analyticsData.documents.total,
-                          color: '#F59E0B',
-                        },
-                        {
-                          name: 'Networking',
-                          value: featureUsage?.networkingContacts ?? 0,
-                          color: '#EC4899',
-                        },
-                        {
-                          name: 'AI Coach',
-                          value: featureUsage?.aiCoachConversations ?? 0,
-                          color: '#8B5CF6',
-                        },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const featureData = [
+                    {
+                      name: 'Applications',
+                      value: analyticsData.applications.total,
+                      color: '#4F46E5',
+                    },
+                    { name: 'Goals', value: analyticsData.goals.total, color: '#10B981' },
+                    {
+                      name: 'Documents',
+                      value: analyticsData.documents.total,
+                      color: '#F59E0B',
+                    },
+                    {
+                      name: 'Networking',
+                      value: featureUsage?.networkingContacts ?? 0,
+                      color: '#EC4899',
+                    },
+                    {
+                      name: 'AI Coach',
+                      value: featureUsage?.aiCoachConversations ?? 0,
+                      color: '#8B5CF6',
+                    },
+                  ];
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={featureData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine
+                        >
+                          {featureData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -918,70 +867,52 @@ export default function UniversityAnalyticsPage() {
                   signalAnalytics.typeCounts.document_review +
                   signalAnalytics.typeCounts.milestone_check >
                   0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: 'Needs Outreach',
-                            value: signalAnalytics.typeCounts.needs_outreach,
-                            color: '#F97316',
-                          },
-                          {
-                            name: 'Application Support',
-                            value: signalAnalytics.typeCounts.application_support,
-                            color: '#3B82F6',
-                          },
-                          {
-                            name: 'Document Review',
-                            value: signalAnalytics.typeCounts.document_review,
-                            color: '#8B5CF6',
-                          },
-                          {
-                            name: 'Milestone Check',
-                            value: signalAnalytics.typeCounts.milestone_check,
-                            color: '#10B981',
-                          },
-                        ].filter((d) => d.value > 0)}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ name, value }) => `${name}: ${value}`}
-                        labelLine
-                      >
-                        {[
-                          {
-                            name: 'Needs Outreach',
-                            value: signalAnalytics.typeCounts.needs_outreach,
-                            color: '#F97316',
-                          },
-                          {
-                            name: 'Application Support',
-                            value: signalAnalytics.typeCounts.application_support,
-                            color: '#3B82F6',
-                          },
-                          {
-                            name: 'Document Review',
-                            value: signalAnalytics.typeCounts.document_review,
-                            color: '#8B5CF6',
-                          },
-                          {
-                            name: 'Milestone Check',
-                            value: signalAnalytics.typeCounts.milestone_check,
-                            color: '#10B981',
-                          },
-                        ]
-                          .filter((d) => d.value > 0)
-                          .map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  (() => {
+                    const signalTypeData = [
+                      {
+                        name: 'Needs Outreach',
+                        value: signalAnalytics.typeCounts.needs_outreach,
+                        color: '#F97316',
+                      },
+                      {
+                        name: 'Application Support',
+                        value: signalAnalytics.typeCounts.application_support,
+                        color: '#3B82F6',
+                      },
+                      {
+                        name: 'Document Review',
+                        value: signalAnalytics.typeCounts.document_review,
+                        color: '#8B5CF6',
+                      },
+                      {
+                        name: 'Milestone Check',
+                        value: signalAnalytics.typeCounts.milestone_check,
+                        color: '#10B981',
+                      },
+                    ].filter((d) => d.value > 0);
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={signalTypeData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={({ name, value }) => `${name}: ${value}`}
+                            labelLine
+                          >
+                            {signalTypeData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    );
+                  })()
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <AlertTriangle className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -1001,65 +932,45 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 {signalAnalytics && signalAnalytics.statusCounts.resolved > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        {
-                          status: 'Action Taken',
-                          count: signalAnalytics.resolutionCounts.action_taken,
-                          color: '#10B981',
-                        },
-                        {
-                          status: 'Auto-Resolved',
-                          count: signalAnalytics.resolutionCounts.auto_resolved,
-                          color: '#3B82F6',
-                        },
-                        {
-                          status: 'No Action Needed',
-                          count: signalAnalytics.resolutionCounts.no_action_needed,
-                          color: '#F59E0B',
-                        },
-                        {
-                          status: 'Dismissed',
-                          count: signalAnalytics.resolutionCounts.dismissed,
-                          color: '#6B7280',
-                        },
-                      ].filter((d) => d.count > 0)}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="status" tick={{ fontSize: 11 }} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" name="Signals">
-                        {[
-                          {
-                            status: 'Action Taken',
-                            count: signalAnalytics.resolutionCounts.action_taken,
-                            color: '#10B981',
-                          },
-                          {
-                            status: 'Auto-Resolved',
-                            count: signalAnalytics.resolutionCounts.auto_resolved,
-                            color: '#3B82F6',
-                          },
-                          {
-                            status: 'No Action Needed',
-                            count: signalAnalytics.resolutionCounts.no_action_needed,
-                            color: '#F59E0B',
-                          },
-                          {
-                            status: 'Dismissed',
-                            count: signalAnalytics.resolutionCounts.dismissed,
-                            color: '#6B7280',
-                          },
-                        ]
-                          .filter((d) => d.count > 0)
-                          .map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  (() => {
+                    const resolutionData = [
+                      {
+                        status: 'Action Taken',
+                        count: signalAnalytics.resolutionCounts.action_taken,
+                        color: '#10B981',
+                      },
+                      {
+                        status: 'Auto-Resolved',
+                        count: signalAnalytics.resolutionCounts.auto_resolved,
+                        color: '#3B82F6',
+                      },
+                      {
+                        status: 'No Action Needed',
+                        count: signalAnalytics.resolutionCounts.no_action_needed,
+                        color: '#F59E0B',
+                      },
+                      {
+                        status: 'Dismissed',
+                        count: signalAnalytics.resolutionCounts.dismissed,
+                        color: '#6B7280',
+                      },
+                    ].filter((d) => d.count > 0);
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={resolutionData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="count" name="Signals">
+                            {resolutionData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    );
+                  })()
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <Target className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -1167,8 +1078,8 @@ export default function UniversityAnalyticsPage() {
       )}
 
       {/* AI Predictions View */}
-      {analyticsView === 'predictions' && user?.university_id && (
-        <EngagementPredictionPanel universityId={user.university_id as any} />
+      {analyticsView === 'predictions' && universityId && (
+        <EngagementPredictionPanel universityId={universityId} />
       )}
 
       {/* Department Performance - Shared Across All Views */}

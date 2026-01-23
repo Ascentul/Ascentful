@@ -81,7 +81,7 @@ export function KPICard({
           >
             {trend.direction === 'up' && '+'}
             {trend.direction === 'down' && '-'}
-            {trend.value.toFixed(1)}%
+            {Math.abs(trend.value).toFixed(1)}%
           </div>
         )}
       </div>

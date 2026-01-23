@@ -316,12 +316,12 @@ function prepareScoringData(
   const startTime = now - lookbackMs;
 
   // Filter events within lookback period
-  const filteredEvents = activityEvents.filter((e) => e.created_at >= startTime);
+  const filteredEvents = activityEvents.filter((e) => e.occurred_at >= startTime);
 
   // Group by week
   const weeklyActivityCounts: number[] = Array(lookbackWeeks).fill(0);
   for (const event of filteredEvents) {
-    const weekIndex = Math.floor((now - event.created_at) / msPerWeek);
+    const weekIndex = Math.floor((now - event.occurred_at) / msPerWeek);
     if (weekIndex >= 0 && weekIndex < lookbackWeeks) {
       weeklyActivityCounts[lookbackWeeks - 1 - weekIndex]++; // Oldest first
     }

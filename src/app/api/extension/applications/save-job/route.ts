@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get('Authorization');
-    const extensionToken = authHeader?.replace('Bearer ', '');
+    const extensionToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
     if (!extensionToken) {
       log.warn('Missing authorization header', { event: 'auth.failed' });

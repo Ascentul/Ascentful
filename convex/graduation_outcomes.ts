@@ -1001,6 +1001,13 @@ export const upsertOutcome = mutation({
       .first();
 
     if (existing) {
+      // Guard against cross-cohort collision: external_outcome_id must belong to same cohort
+      if (existing.cohort_id !== args.cohortId) {
+        throw new Error(
+          `external_outcome_id "${args.externalOutcomeId}" is already used by a different cohort`,
+        );
+      }
+
       // Check if we should skip manually edited records
       if (args.skipIfManuallyEdited) {
         const manualSources = ['advisor_input', 'student_self_report'];
@@ -1179,6 +1186,16 @@ export const bulkUpsertOutcomes = mutation({
           .first();
 
         if (existing) {
+          // Guard against cross-cohort collision: external_outcome_id must belong to same cohort
+          if (existing.cohort_id !== args.cohortId) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: `external_outcome_id is already used by a different cohort`,
+            });
+            continue;
+          }
+
           // Check if we should skip manually edited records
           if (args.skipIfManuallyEdited) {
             const manualSources = ['advisor_input', 'student_self_report'];

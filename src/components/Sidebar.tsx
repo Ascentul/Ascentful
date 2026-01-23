@@ -150,23 +150,31 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [hoverSection, setHoverSection] = useState<string | null>(null);
   // Use context state if available, otherwise fall back to local state
-  const [localExpanded, setLocalExpanded] = useState<boolean>(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebarExpanded') !== 'false' : true,
-  );
+  // Initialize with default to avoid hydration mismatch
+  const [localExpanded, setLocalExpanded] = useState<boolean>(true);
   // Prefer context state, fall back to local state
   const expanded = sidebarContext?.isExpanded ?? localExpanded;
   const setExpanded = sidebarContext?.setExpanded ?? setLocalExpanded;
   const [menuPositions, setMenuPositions] = useState<Record<string, number>>({});
-  // Persisted collapsed state per section id
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('sidebarCollapsedSections');
-        return saved ? JSON.parse(saved) : {};
-      } catch {}
+  // Persisted collapsed state per section id - initialize with default to avoid hydration mismatch
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  // Sync from localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    const savedExpanded = localStorage.getItem('sidebarExpanded');
+    if (savedExpanded !== null) {
+      setLocalExpanded(savedExpanded !== 'false');
     }
-    return {};
-  });
+
+    try {
+      const savedCollapsed = localStorage.getItem('sidebarCollapsedSections');
+      if (savedCollapsed) {
+        setCollapsedSections(JSON.parse(savedCollapsed));
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, []);
 
   // Support ticket related state
   const [showSupportModal, setShowSupportModal] = useState(false);

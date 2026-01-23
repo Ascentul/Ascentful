@@ -205,5 +205,28 @@ reviews:
         - "Reusability" and "testability" arguments are weak for one-off logic with no actual reuse
         - Only suggest extraction when: logic is used multiple times, is complex (>10 lines), or has independent meaning
 
+        ### Convex Query Pagination Constraints
+        - Don't suggest pushing all filters to DB when role-based filtering requires in-memory Sets
+        - Convex `.paginate()` follows index order, not custom sort orders like `priority + triggered_at`
+        - Role-scoped access control (e.g., `allowedStudentIds` Set) cannot be expressed as index queries
+        - In-memory filtering after `.collect()` is acceptable when:
+          - Role-based filtering requires computed Sets of allowed IDs
+          - Custom multi-field sorting is needed (not directly indexable)
+          - Dataset size is bounded (e.g., signals per university are dozens to low hundreds)
+        - Only suggest pagination optimization when there's evidence of actual performance issues at scale
+
+        ### One-Time Migration Scripts
+        - Migration scripts in `convex/migrations/` are intentionally isolated and may duplicate patterns
+        - Don't suggest DRY refactoring for migrations - isolation prevents cascading breakage
+        - Don't flag query inefficiency in migrations unless processing millions of records
+        - Migration utilities run once and are then archived - optimize for correctness over elegance
+        - Pattern: `collect()` + in-memory processing is acceptable for bounded migration datasets
+
+        ### Fuzzy Matching Edge Cases
+        - Jaccard similarity returning 0 for empty sets is acceptable conservative behavior
+        - Don't suggest special-casing edge cases in fuzzy matching unless it causes incorrect results
+        - Conservative fallback to 0 similarity for edge cases prevents false positive matches
+        - Pattern: `if (union === 0) return 0` is intentional - no tokens means no similarity
+
 chat:
   auto_reply: true

@@ -181,6 +181,12 @@ export const recalculateUniversityEngagement = internalMutation({
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .filter((q) => q.eq(q.field('role'), 'student'));
 
+    // Apply cursor-based pagination if cursor provided
+    if (args.cursor) {
+      const cursorId = args.cursor as Id<'users'>;
+      query = query.filter((q) => q.gt(q.field('_id'), cursorId));
+    }
+
     const students = await query.take(batchSize + 1); // Take one extra to check if there's more
 
     const hasMore = students.length > batchSize;
@@ -252,7 +258,7 @@ export const getUniversitiesNeedingRecalculation = internalQuery({
  * Scheduled job: Refresh engagement cache for all universities.
  *
  * Called by cron every 6 hours. Processes one university per run to stay within
- * time limits. If more universities need processing, schedules itself to continue.
+ * time limits. Remaining universities will be processed in subsequent cron runs.
  */
 export const refreshEngagementCacheJob = internalMutation({
   args: {},

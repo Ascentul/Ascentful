@@ -32,6 +32,8 @@ const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:support@ascentul.com';
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else if (VAPID_PUBLIC_KEY || VAPID_PRIVATE_KEY) {
+  console.warn('Push notifications partially configured - both VAPID keys required');
 }
 
 interface PushSubscription {
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
   try {
     // Authentication: Require internal service token or super_admin
     const authHeader = request.headers.get('Authorization');
-    const serviceToken = authHeader?.replace('Bearer ', '');
+    const serviceToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
     const isInternalRequest =
       INTERNAL_SERVICE_TOKEN &&

@@ -17,6 +17,8 @@ const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:support@ascentul.com';
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else if (VAPID_PUBLIC_KEY || VAPID_PRIVATE_KEY) {
+  console.warn('Push notifications partially configured - both VAPID keys required');
 }
 
 interface PushSubscription {

@@ -412,16 +412,14 @@ async function getQualifyingEvents(
   // Get all events for the student in the period
   const allEvents = await ctx.db
     .query('activity_events')
-    .withIndex('by_user_date', (q: any) =>
-      q.eq('user_id', studentId).gte('occurred_at', cutoffTime),
-    )
+    .withIndex('by_user_date', (q) => q.eq('user_id', studentId).gte('occurred_at', cutoffTime))
     .collect();
 
   // Filter to qualifying events
   const qualifyingEventTypes = criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
   const qualifyingCategories = criteria.qualifying_event_categories || [];
 
-  const qualifyingEvents = allEvents.filter((event: any) => {
+  const qualifyingEvents = allEvents.filter((event) => {
     // Check if event type matches
     if (qualifyingEventTypes.includes(event.event_type)) {
       return true;
@@ -443,7 +441,7 @@ async function getQualifyingEvents(
   // Find last qualifying event
   const lastEvent =
     qualifyingEvents.length > 0
-      ? qualifyingEvents.reduce((latest: any, event: any) =>
+      ? qualifyingEvents.reduce((latest, event) =>
           event.occurred_at > latest.occurred_at ? event : latest,
         )
       : null;
@@ -881,41 +879,62 @@ export const getUniqueEngagedStats = query({
     let atRisk = 0;
 
     for (const student of students) {
-      const { totalCount, uniqueDays, lastEventAt } = await getQualifyingEvents(
-        ctx,
-        student._id,
-        criteria,
-      );
-
-      // Calculate score
-      const periodDays = criteria.period_days || 14;
-      const minEvents = criteria.min_events_in_period || 3;
-      const idealEvents = minEvents * 2;
-
-      const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-      const idealActiveDays = Math.min(periodDays, 7);
-      const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-      let recencyScore = 0;
-      if (lastEventAt) {
-        const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
-        if (daysSince <= 1) recencyScore = 20;
-        else if (daysSince <= 3) recencyScore = 15;
-        else if (daysSince <= 7) recencyScore = 10;
-        else if (daysSince <= 14) recencyScore = 5;
-      }
-
-      const score = Math.round(eventScore + activeDaysScore + recencyScore);
+      // Use cached engagement status/score if available and fresh (< 24 hours old)
+      const cacheAge = student.engagement_calculated_at
+        ? Date.now() - student.engagement_calculated_at
+        : Infinity;
+      const isCacheFresh = cacheAge < 24 * 60 * 60 * 1000;
 
       let status: 'engaged' | 'moderate' | 'at_risk';
-      if (score >= definition.engaged_threshold) {
-        status = 'engaged';
+      let score: number;
+
+      if (student.engagement_status && student.engagement_score !== undefined && isCacheFresh) {
+        // Use cached values
+        status = student.engagement_status as 'engaged' | 'moderate' | 'at_risk';
+        score = student.engagement_score;
+      } else {
+        // Fallback to real-time calculation
+        const { totalCount, uniqueDays, lastEventAt } = await getQualifyingEvents(
+          ctx,
+          student._id,
+          criteria,
+        );
+
+        // Calculate score
+        const periodDays = criteria.period_days || 14;
+        const minEvents = criteria.min_events_in_period || 3;
+        const idealEvents = minEvents * 2;
+
+        const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
+        const idealActiveDays = Math.min(periodDays, 7);
+        const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+
+        let recencyScore = 0;
+        if (lastEventAt) {
+          const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
+          if (daysSince <= 1) recencyScore = 20;
+          else if (daysSince <= 3) recencyScore = 15;
+          else if (daysSince <= 7) recencyScore = 10;
+          else if (daysSince <= 14) recencyScore = 5;
+        }
+
+        score = Math.round(eventScore + activeDaysScore + recencyScore);
+
+        if (score >= definition.engaged_threshold) {
+          status = 'engaged';
+        } else if (score <= definition.at_risk_threshold) {
+          status = 'at_risk';
+        } else {
+          status = 'moderate';
+        }
+      }
+
+      // Count by status
+      if (status === 'engaged') {
         engaged++;
-      } else if (score <= definition.at_risk_threshold) {
-        status = 'at_risk';
+      } else if (status === 'at_risk') {
         atRisk++;
       } else {
-        status = 'moderate';
         moderate++;
       }
 

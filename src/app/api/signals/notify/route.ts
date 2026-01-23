@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     // Authentication: Require internal service token or super_admin
     const authHeader = request.headers.get('Authorization');
-    const serviceToken = authHeader?.replace('Bearer ', '');
+    const serviceToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
     const isInternalRequest =
       INTERNAL_SERVICE_TOKEN &&

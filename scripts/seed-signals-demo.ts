@@ -537,12 +537,35 @@ export const seedSignalsDemo = internalMutation({
 
 /**
  * Cleanup function to remove seeded demo data.
+ *
+ * SAFETY: This will delete ALL signals, rules, and definitions for the university.
+ * Only runs on test universities (is_test: true) to prevent accidental data loss.
+ * For activity events, only seeded records (with source: 'seed_script') are deleted.
  */
 export const cleanupSignalsDemo = internalMutation({
   args: {
     universityId: v.id('universities'),
+    forceDelete: v.optional(v.boolean()), // Override safety check - use with caution
   },
   handler: async (ctx, args) => {
+    // Safety check: Only allow cleanup on test universities unless forced
+    const university = await ctx.db.get(args.universityId);
+    if (!university) {
+      throw new Error('University not found');
+    }
+
+    if (!university.is_test && !args.forceDelete) {
+      throw new Error(
+        'Safety check: Cannot cleanup signals demo on a non-test university. ' +
+          'This would delete ALL signals, rules, and definitions. ' +
+          'Set forceDelete: true to override (use with extreme caution).',
+      );
+    }
+
+    if (args.forceDelete && !university.is_test) {
+      console.warn('⚠️ WARNING: Force deleting demo data on non-test university!');
+    }
+
     console.log('Cleaning up Engagement Signals demo data...');
 
     // Delete signals

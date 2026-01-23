@@ -97,27 +97,30 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   const userRole = user?.publicMetadata?.role as string | undefined;
   const isAdmin = hasUniversityAdminAccess(userRole);
 
-  // Sidebar expanded/collapsed state
-  const [localExpanded, setLocalExpanded] = useState<boolean>(
-    typeof window !== 'undefined'
-      ? localStorage.getItem('universitySidebarExpanded') !== 'false'
-      : true,
-  );
+  // Sidebar expanded/collapsed state - initialize with default to avoid hydration mismatch
+  const [localExpanded, setLocalExpanded] = useState<boolean>(true);
   const expanded = sidebarContext?.isExpanded ?? localExpanded;
   const setExpanded = sidebarContext?.setExpanded ?? setLocalExpanded;
 
-  // Collapsed sections state
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('universitySidebarCollapsed');
-        return saved ? JSON.parse(saved) : {};
-      } catch {
-        return {};
-      }
+  // Collapsed sections state - initialize with default to avoid hydration mismatch
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  // Sync from localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    const savedExpanded = localStorage.getItem('universitySidebarExpanded');
+    if (savedExpanded !== null) {
+      setLocalExpanded(savedExpanded !== 'false');
     }
-    return {};
-  });
+
+    try {
+      const savedCollapsed = localStorage.getItem('universitySidebarCollapsed');
+      if (savedCollapsed) {
+        setCollapsedSections(JSON.parse(savedCollapsed));
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, []);
 
   // Check if a path is active
   const isActive = useCallback(

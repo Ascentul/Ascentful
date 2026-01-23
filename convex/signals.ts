@@ -71,6 +71,67 @@ const relatedTypeValidator = v.union(
 );
 
 // ============================================================================
+// ROLE-SCOPED ACCESS HELPERS
+// ============================================================================
+
+/**
+ * Get the set of student IDs that the current user can access signals for.
+ * Returns null if user has full access (super_admin, university_admin).
+ *
+ * - super_admin / university_admin: full access to university signals
+ * - advisor: only signals for assigned students (via student_advisors)
+ * - student: only their own signals
+ */
+async function getAllowedStudentIds(
+  ctx: QueryCtx,
+  sessionCtx: { role: string; userId: Id<'users'> },
+  universityId: Id<'universities'>,
+): Promise<Set<Id<'users'>> | null> {
+  // Super admin and university admin have full access
+  if (sessionCtx.role === 'super_admin' || sessionCtx.role === 'university_admin') {
+    return null; // null means full access
+  }
+
+  // Advisors can only access signals for their assigned students
+  if (sessionCtx.role === 'advisor') {
+    const assignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+      .filter((q) => q.eq(q.field('university_id'), universityId))
+      .collect();
+    return new Set(assignments.map((a) => a.student_id));
+  }
+
+  // Students can only access their own signals
+  if (sessionCtx.role === 'student') {
+    return new Set([sessionCtx.userId]);
+  }
+
+  // Any other role: no access
+  return new Set();
+}
+
+/**
+ * Check if the current user can access a specific student's signals.
+ * Throws an error if access is denied.
+ */
+async function assertSignalAccessForStudent(
+  ctx: QueryCtx,
+  sessionCtx: { role: string; userId: Id<'users'> },
+  universityId: Id<'universities'>,
+  studentId: Id<'users'>,
+): Promise<void> {
+  const allowedIds = await getAllowedStudentIds(ctx, sessionCtx, universityId);
+
+  // null means full access
+  if (allowedIds === null) return;
+
+  if (!allowedIds.has(studentId)) {
+    throw new Error('Unauthorized: Cannot access signals for this student');
+  }
+}
+
+// ============================================================================
 // QUEUE QUERIES (Advisor Action Queue)
 // ============================================================================
 
@@ -92,12 +153,20 @@ export const getAdvisorQueue = query({
     const sessionCtx = await getCurrentUser(ctx);
     const limit = args.limit ?? 50;
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (universityId !== args.universityId) {
         throw new Error('Unauthorized: Cannot access signals for another university');
       }
+    }
+
+    // Role-scoped access - get allowed student IDs for this user
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
+    // If requesting a specific student, verify access
+    if (args.studentId && allowedStudentIds !== null && !allowedStudentIds.has(args.studentId)) {
+      throw new Error('Unauthorized: Cannot access signals for this student');
     }
 
     // Build query based on filters
@@ -110,8 +179,13 @@ export const getAdvisorQueue = query({
     // Get all matching signals
     const allSignals = await query.collect();
 
+    // Apply role-scoped filtering (advisors see only their students, students see only their own)
+    let filtered =
+      allowedStudentIds === null
+        ? allSignals
+        : allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+
     // Apply additional filters
-    let filtered = allSignals;
     if (args.signalType) {
       filtered = filtered.filter((s) => s.signal_type === args.signalType);
     }
@@ -253,13 +327,16 @@ export const getSignal = query({
       throw new Error('Signal not found');
     }
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (signal.university_id !== universityId) {
         throw new Error('Unauthorized: Signal is not in your university');
       }
     }
+
+    // Role-scoped access - verify user can access this student's signals
+    await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
     // Enrich with student and rule info
     const student = await ctx.db.get(signal.student_id);
@@ -505,18 +582,26 @@ export const resolveSignal = mutation({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Students cannot resolve signals
+    if (sessionCtx.role === 'student') {
+      throw new Error('Unauthorized: Students cannot resolve signals');
+    }
+
     const signal = await ctx.db.get(args.signalId);
     if (!signal) {
       throw new Error('Signal not found');
     }
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (signal.university_id !== universityId) {
         throw new Error('Unauthorized: Signal is not in your university');
       }
     }
+
+    // Role-scoped access - advisors can only resolve signals for their assigned students
+    await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
     const now = Date.now();
 
@@ -563,18 +648,26 @@ export const dismissSignal = mutation({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Students cannot dismiss signals
+    if (sessionCtx.role === 'student') {
+      throw new Error('Unauthorized: Students cannot dismiss signals');
+    }
+
     const signal = await ctx.db.get(args.signalId);
     if (!signal) {
       throw new Error('Signal not found');
     }
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (signal.university_id !== universityId) {
         throw new Error('Unauthorized: Signal is not in your university');
       }
     }
+
+    // Role-scoped access - advisors can only dismiss signals for their assigned students
+    await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
     const now = Date.now();
 
@@ -621,6 +714,11 @@ export const snoozeSignal = mutation({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Students cannot snooze signals
+    if (sessionCtx.role === 'student') {
+      throw new Error('Unauthorized: Students cannot snooze signals');
+    }
+
     if (args.snoozeDays <= 0 || args.snoozeDays > 30) {
       throw new Error('Snooze duration must be between 1 and 30 days');
     }
@@ -630,13 +728,16 @@ export const snoozeSignal = mutation({
       throw new Error('Signal not found');
     }
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (signal.university_id !== universityId) {
         throw new Error('Unauthorized: Signal is not in your university');
       }
     }
+
+    // Role-scoped access - advisors can only snooze signals for their assigned students
+    await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
     const now = Date.now();
     const snoozedUntil = now + args.snoozeDays * 24 * 60 * 60 * 1000;
@@ -679,6 +780,11 @@ export const unsnoozeSignal = mutation({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Students cannot unsnooze signals
+    if (sessionCtx.role === 'student') {
+      throw new Error('Unauthorized: Students cannot unsnooze signals');
+    }
+
     const signal = await ctx.db.get(args.signalId);
     if (!signal) {
       throw new Error('Signal not found');
@@ -688,13 +794,16 @@ export const unsnoozeSignal = mutation({
       throw new Error('Signal is not snoozed');
     }
 
-    // Authorization check
+    // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (signal.university_id !== universityId) {
         throw new Error('Unauthorized: Signal is not in your university');
       }
     }
+
+    // Role-scoped access - advisors can only unsnooze signals for their assigned students
+    await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
     await ctx.db.patch(args.signalId, {
       status: 'active',
@@ -718,12 +827,29 @@ export const bulkResolveSignals = mutation({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Students cannot resolve signals
+    if (sessionCtx.role === 'student') {
+      throw new Error('Unauthorized: Students cannot resolve signals');
+    }
+
     if (args.signalIds.length === 0) {
       return { resolved: 0 };
     }
 
     if (args.signalIds.length > 50) {
       throw new Error('Cannot bulk resolve more than 50 signals at once');
+    }
+
+    // Pre-compute allowed student IDs for advisors (avoids repeated DB queries)
+    let allowedStudentIds: Set<Id<'users'>> | null = null;
+    if (sessionCtx.role === 'advisor') {
+      const universityId = requireTenant(sessionCtx);
+      const assignments = await ctx.db
+        .query('student_advisors')
+        .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+        .filter((q) => q.eq(q.field('university_id'), universityId))
+        .collect();
+      allowedStudentIds = new Set(assignments.map((a) => a.student_id));
     }
 
     const now = Date.now();
@@ -733,10 +859,15 @@ export const bulkResolveSignals = mutation({
       const signal = await ctx.db.get(signalId);
       if (!signal) continue;
 
-      // Authorization check
+      // Authorization check - university membership
       if (sessionCtx.role !== 'super_admin') {
         const universityId = requireTenant(sessionCtx);
         if (signal.university_id !== universityId) continue;
+      }
+
+      // Role-scoped access - advisors can only resolve signals for their assigned students
+      if (allowedStudentIds !== null && !allowedStudentIds.has(signal.student_id)) {
+        continue; // Skip signals for unassigned students
       }
 
       await ctx.db.patch(signalId, {
@@ -1014,19 +1145,19 @@ async function evaluateRuleCondition(
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .filter((q) =>
           q.and(
-            // Not in terminal state
-            q.neq(q.field('status'), 'Accepted'),
-            q.neq(q.field('status'), 'Rejected'),
-            q.neq(q.field('status'), 'Withdrawn'),
+            // Not in terminal state (stage is the primary Title Case field)
+            q.neq(q.field('stage'), 'Accepted'),
+            q.neq(q.field('stage'), 'Rejected'),
+            q.neq(q.field('stage'), 'Withdrawn'),
             // Stage hasn't changed recently
             q.lt(q.field('updated_at'), cutoffTime),
           ),
         )
         .collect();
 
-      // Filter by stage if specified
+      // Filter by stage if specified (use stage with fallback to legacy status)
       const stalledApps = stage
-        ? applications.filter((app: any) => app.status === stage)
+        ? applications.filter((app: any) => (app.stage ?? app.status) === stage)
         : applications;
 
       if (stalledApps.length > 0) {
@@ -1302,19 +1433,19 @@ async function evaluateRuleCondition(
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
         .filter((q) =>
           q.and(
-            // Not in terminal state
-            q.neq(q.field('status'), 'Accepted'),
-            q.neq(q.field('status'), 'Rejected'),
-            q.neq(q.field('status'), 'Withdrawn'),
+            // Not in terminal state (stage is the primary Title Case field)
+            q.neq(q.field('stage'), 'Accepted'),
+            q.neq(q.field('stage'), 'Rejected'),
+            q.neq(q.field('stage'), 'Withdrawn'),
           ),
         )
         .collect();
 
-      // Filter by specific stage if not 'any'
+      // Filter by specific stage if not 'any' (use stage with fallback to legacy status)
       const stageFiltered =
         targetStage === 'any'
           ? applications
-          : applications.filter((app: any) => app.status === targetStage);
+          : applications.filter((app: any) => (app.stage ?? app.status) === targetStage);
 
       // Check which applications haven't had a stage change recently
       const stuckApps = [];

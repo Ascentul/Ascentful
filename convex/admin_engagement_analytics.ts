@@ -64,53 +64,31 @@ export const getCrossUniversityEngagement = query({
 
       const totalStudents = students.length;
 
-      // Get engagement definition
-      const definitions = await ctx.db
-        .query('engagement_definitions')
-        .withIndex('by_university_active', (q) =>
-          q.eq('university_id', university._id).eq('is_active', true),
-        )
-        .collect();
-      const definition = definitions.find((d) => d.is_default) || definitions[0];
-
-      // Default thresholds
-      const engagedThreshold = definition?.engaged_threshold ?? 70;
-      const atRiskThreshold = definition?.at_risk_threshold ?? 30;
-
-      // Calculate engagement for each student (simplified - based on activity events)
-      // NOTE: This has O(n) queries where n = number of students. For universities with
-      // many students (500+), consider pre-computing engagement scores via scheduled job
-      // or adding a compound index. Acceptable for admin analytics with moderate student counts.
+      // Use pre-computed engagement scores from users table (cached by engagement_cache.ts)
+      // Thresholds are already applied by the cache system when computing engagement_status
+      // This avoids O(n) activity_events queries per student
       let engagedCount = 0;
       let atRiskCount = 0;
       let totalScore = 0;
 
-      const now = Date.now();
-      const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
-
-      // Limit to first 500 students for performance (sample-based for very large universities)
-      const studentsToProcess = students.slice(0, 500);
-      const isSampled = students.length > 500;
-
-      for (const student of studentsToProcess) {
-        // Get recent activity events
-        const events = await ctx.db
-          .query('activity_events')
-          .withIndex('by_user_date', (q) =>
-            q.eq('user_id', student._id).gte('occurred_at', fourteenDaysAgo),
-          )
-          .take(50);
-
-        // Simple scoring based on event count
-        const score = Math.min(100, events.length * 10);
-        totalScore += score;
-
-        if (score >= engagedThreshold) {
-          engagedCount++;
-        } else if (score <= atRiskThreshold) {
-          atRiskCount++;
+      for (const student of students) {
+        // Use cached engagement data if available
+        if (student.engagement_status) {
+          if (student.engagement_status === 'engaged') {
+            engagedCount++;
+          } else if (student.engagement_status === 'at_risk') {
+            atRiskCount++;
+          }
+          totalScore += student.engagement_score ?? 0;
+        } else {
+          // Fallback for students without cached engagement (newly created)
+          // Count as moderate (neither engaged nor at-risk) with score 0
+          // The scheduled job will populate their scores within 6 hours
         }
       }
+
+      // No sampling needed when using cached scores - we process all students efficiently
+      const isSampled = false;
 
       // Get active signals count
       const activeSignals = await ctx.db
@@ -120,8 +98,8 @@ export const getCrossUniversityEngagement = query({
         )
         .collect();
 
-      // Use sampled count for percentage calculations when sampling is applied
-      const processedCount = studentsToProcess.length;
+      // Use total student count for percentage calculations (no sampling needed with cached scores)
+      const processedCount = totalStudents;
       universityMetrics.push({
         universityId: university._id,
         universityName: university.name,
@@ -299,6 +277,17 @@ export const getUniversityEngagementRanking = query({
       const totalStudents = students.length;
       if (totalStudents === 0) continue;
 
+      // Get engagement definition for consistent thresholds
+      const definitions = await ctx.db
+        .query('engagement_definitions')
+        .withIndex('by_university_active', (q) =>
+          q.eq('university_id', university._id).eq('is_active', true),
+        )
+        .collect();
+      const definition = definitions.find((d) => d.is_default) || definitions[0];
+      const engagedThreshold = definition?.engaged_threshold ?? 70;
+      const atRiskThreshold = definition?.at_risk_threshold ?? 30;
+
       // Limit to first 500 students for performance (consistent with getCrossUniversityEngagement)
       const studentsToProcess = students.slice(0, 500);
 
@@ -317,8 +306,8 @@ export const getUniversityEngagementRanking = query({
         const score = Math.min(100, events.length * 10);
         totalScore += score;
 
-        if (score >= 70) engagedCount++;
-        else if (score <= 30) atRiskCount++;
+        if (score >= engagedThreshold) engagedCount++;
+        else if (score <= atRiskThreshold) atRiskCount++;
       }
 
       const processedCount = studentsToProcess.length;

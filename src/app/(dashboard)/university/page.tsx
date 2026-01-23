@@ -1503,7 +1503,9 @@ export default function UniversityDashboardPage() {
                     <CardTitle className="text-base font-medium">Total Students</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{students?.length ?? 0}</div>
+                    <div className="text-2xl font-bold">
+                      {activeUsersData?.totalStudents ?? overview?.totalStudents ?? 0}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">Registered students</p>
                   </CardContent>
                 </Card>
@@ -1707,17 +1709,20 @@ export default function UniversityDashboardPage() {
                     <BarChart
                       layout="vertical"
                       data={
-                        studentFunnel?.funnel.map((item) => ({
-                          stage: item.stage,
-                          count: item.count,
-                          percentage: item.percent,
-                        })) || [
-                          {
-                            stage: 'Active Students',
-                            count: students?.length || 0,
-                            percentage: 100,
-                          },
-                        ]
+                        studentFunnel?.funnel?.length
+                          ? studentFunnel.funnel.map((item) => ({
+                              stage: item.stage,
+                              count: item.count,
+                              percentage: item.percent,
+                            }))
+                          : [
+                              {
+                                stage: 'Active Students',
+                                count:
+                                  activeUsersData?.totalStudents ?? overview?.totalStudents ?? 0,
+                                percentage: 100,
+                              },
+                            ]
                       }
                       margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
                     >

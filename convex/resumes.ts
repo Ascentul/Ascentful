@@ -67,10 +67,11 @@ export const createResume = mutation({
         : null;
 
     const now = Date.now();
+    const universityId = membership?.university_id ?? user.university_id;
 
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: universityId,
       title: args.title,
       content: args.content,
       visibility: args.visibility,
@@ -96,7 +97,7 @@ export const createResume = mutation({
     // Track activity event for engagement scoring
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId,
       eventType: ACTIVITY_EVENTS.RESUME_CREATED,
       eventCategory: 'document',
       entityType: 'resume',
@@ -114,7 +115,7 @@ export const createResume = mutation({
       action: 'resume.created',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: universityId,
       targetType: 'resume',
       targetId: resumeId,
       metadata: {
@@ -352,11 +353,12 @@ export const createResumeFromFunnel = mutation({
         : null;
 
     const now = Date.now();
+    const universityId = membership?.university_id ?? user.university_id;
 
     // Create the resume
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: universityId,
       title: args.title,
       content: args.content,
       visibility: 'private',
@@ -398,7 +400,7 @@ export const createResumeFromFunnel = mutation({
       action: 'resume.created_from_funnel',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: universityId,
       targetType: 'resume',
       targetId: resumeId,
       metadata: {
@@ -412,7 +414,7 @@ export const createResumeFromFunnel = mutation({
     // Track activity event for engagement scoring
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId,
       eventType: ACTIVITY_EVENTS.RESUME_CREATED,
       eventCategory: 'document',
       entityType: 'resume',
