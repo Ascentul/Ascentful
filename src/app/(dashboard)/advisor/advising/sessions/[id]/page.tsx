@@ -92,7 +92,7 @@ export default function SessionDetailPage() {
                 to it.
               </p>
               <Button asChild>
-                <Link href="/advisor/advising/sessions">
+                <Link href="/u/advising/sessions">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Sessions
                 </Link>
@@ -130,7 +130,7 @@ export default function SessionDetailPage() {
                 The session you're looking for doesn't exist or you don't have access to it.
               </p>
               <Button asChild>
-                <Link href="/advisor/advising/sessions">
+                <Link href="/u/advising/sessions">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Sessions
                 </Link>
@@ -331,13 +331,13 @@ export default function SessionDetailPage() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/advisor/advising/sessions">
+                      <Link href="/u/advising/sessions">
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Sessions
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/advisor/advising/calendar">
+                      <Link href="/u/advising/calendar">
                         <Calendar className="h-4 w-4 mr-2" />
                         View Calendar
                       </Link>

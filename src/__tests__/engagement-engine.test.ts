@@ -19,6 +19,11 @@ import {
   RECENCY_THRESHOLDS,
   SCORING_WEIGHTS,
 } from '../../convex/lib/engagementScoring';
+import {
+  checkHighIntentLowConversionCondition,
+  checkInactivityCondition,
+  checkStageStuckCondition,
+} from '../../convex/lib/signalConditions';
 import { generateSignalExplanation } from '../components/signals/SignalCard';
 
 describe('Engagement Scoring', () => {
@@ -178,85 +183,62 @@ describe('Engagement Scoring', () => {
   });
 });
 
-describe('Signal Conditions', () => {
-  describe('STALLED Condition', () => {
+describe('Signal Conditions - Using Production Utilities', () => {
+  describe('STALLED/Inactivity Condition', () => {
     it('should trigger when days since activity exceeds threshold', () => {
-      const daysSinceActivity = 16;
-      const thresholdDays = 14;
-      const shouldTrigger = daysSinceActivity > thresholdDays;
-      expect(shouldTrigger).toBe(true);
+      expect(checkInactivityCondition(16, 14)).toBe(true);
     });
 
     it('should not trigger when activity is within threshold', () => {
-      const daysSinceActivity = 10;
-      const thresholdDays = 14;
-      const shouldTrigger = daysSinceActivity > thresholdDays;
-      expect(shouldTrigger).toBe(false);
+      expect(checkInactivityCondition(10, 14)).toBe(false);
     });
 
     it('should not trigger at exactly the threshold', () => {
-      const daysSinceActivity = 14;
-      const thresholdDays = 14;
-      const shouldTrigger = daysSinceActivity > thresholdDays;
-      expect(shouldTrigger).toBe(false);
+      expect(checkInactivityCondition(14, 14)).toBe(false);
+    });
+
+    it('should trigger when no activity ever recorded (null)', () => {
+      expect(checkInactivityCondition(null, 14)).toBe(true);
     });
   });
 
   describe('HIGH_INTENT_LOW_CONVERSION Condition', () => {
     it('should trigger when applications exceed threshold and no appointments', () => {
-      const applicationCount = 5;
-      const applicationsThreshold = 3;
-      const hasAppointment = false;
-      const shouldTrigger = applicationCount >= applicationsThreshold && !hasAppointment;
-      expect(shouldTrigger).toBe(true);
+      expect(checkHighIntentLowConversionCondition(5, 3, false)).toBe(true);
     });
 
     it('should not trigger when applications below threshold', () => {
-      const applicationCount = 2;
-      const applicationsThreshold = 3;
-      const hasAppointment = false;
-      const shouldTrigger = applicationCount >= applicationsThreshold && !hasAppointment;
-      expect(shouldTrigger).toBe(false);
+      expect(checkHighIntentLowConversionCondition(2, 3, false)).toBe(false);
     });
 
     it('should not trigger when has appointment scheduled', () => {
-      const applicationCount = 5;
-      const applicationsThreshold = 3;
-      const hasAppointment = true;
-      const shouldTrigger = applicationCount >= applicationsThreshold && !hasAppointment;
-      expect(shouldTrigger).toBe(false);
+      expect(checkHighIntentLowConversionCondition(5, 3, true)).toBe(false);
+    });
+
+    it('should trigger at exactly the threshold', () => {
+      expect(checkHighIntentLowConversionCondition(3, 3, false)).toBe(true);
     });
   });
 
   describe('STAGE_STUCK Condition', () => {
     it('should trigger when stage duration exceeds threshold', () => {
-      const daysInStage = 20;
-      const thresholdDays = 14;
-      const currentStage: string = 'Interview';
-      const targetStage: string = 'Interview';
-      const shouldTrigger =
-        (targetStage === 'any' || currentStage === targetStage) && daysInStage > thresholdDays;
-      expect(shouldTrigger).toBe(true);
+      expect(checkStageStuckCondition('Interview', 'Interview', 20, 14)).toBe(true);
     });
 
     it('should not trigger for different stage', () => {
-      const daysInStage = 20;
-      const thresholdDays = 14;
-      const currentStage: string = 'Applied';
-      const targetStage: string = 'Interview';
-      const shouldTrigger =
-        (targetStage === 'any' || currentStage === targetStage) && daysInStage > thresholdDays;
-      expect(shouldTrigger).toBe(false);
+      expect(checkStageStuckCondition('Applied', 'Interview', 20, 14)).toBe(false);
     });
 
     it('should trigger for any stage when target is "any"', () => {
-      const daysInStage = 20;
-      const thresholdDays = 14;
-      const currentStage: string = 'Applied';
-      const targetStage: string = 'any';
-      const shouldTrigger =
-        (targetStage === 'any' || currentStage === targetStage) && daysInStage > thresholdDays;
-      expect(shouldTrigger).toBe(true);
+      expect(checkStageStuckCondition('Applied', 'any', 20, 14)).toBe(true);
+    });
+
+    it('should not trigger when days within threshold', () => {
+      expect(checkStageStuckCondition('Interview', 'Interview', 10, 14)).toBe(false);
+    });
+
+    it('should not trigger at exactly the threshold', () => {
+      expect(checkStageStuckCondition('Interview', 'Interview', 14, 14)).toBe(false);
     });
   });
 });

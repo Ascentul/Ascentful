@@ -1,7 +1,6 @@
 import { v } from 'convex/values';
 
 import { internalMutation, mutation, query } from './_generated/server';
-import { Id } from './_generated/dataModel';
 import {
   getAuthenticatedUser,
   assertUserAccess,
@@ -47,6 +46,10 @@ export const subscribe = mutation({
 
     const { userId, subscription, deviceInfo } = args;
 
+    // Get user to extract university_id for efficient bulk queries
+    const user = await ctx.db.get(userId);
+    const universityId = user?.university_id;
+
     // Check if this endpoint already exists
     const existing = await ctx.db
       .query('push_subscriptions')
@@ -54,10 +57,16 @@ export const subscribe = mutation({
       .first();
 
     if (existing) {
-      // Update existing subscription
+      // Verify the acting user owns this subscription
+      if (existing.user_id !== userId) {
+        throw new Error('Subscription endpoint already registered to another user');
+      }
+
+      // Update existing subscription (including university_id in case it changed)
       await ctx.db.patch(existing._id, {
         subscription,
         device_info: deviceInfo,
+        university_id: universityId,
         updated_at: Date.now(),
         is_active: true,
       });
@@ -70,6 +79,7 @@ export const subscribe = mutation({
       endpoint: subscription.endpoint,
       subscription,
       device_info: deviceInfo,
+      university_id: universityId,
       is_active: true,
       created_at: Date.now(),
       updated_at: Date.now(),
@@ -162,6 +172,7 @@ export const getUniversityAdvisorSubscriptions = query({
     assertUniversityAccess(actingUser, args.universityId);
 
     // Get all advisors and university_admins for this university
+    // Get advisor/admin user IDs for filtering
     const advisors = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
@@ -170,32 +181,23 @@ export const getUniversityAdvisorSubscriptions = query({
       )
       .collect();
 
-    // Get all active subscriptions for these advisors
-    // Note: push_subscriptions lacks university_id index, so we query per advisor.
-    // Consider adding university_id to schema for bulk query optimization.
-    const subscriptions: Array<{
-      user_id: Id<'users'>;
-      subscription: {
-        endpoint: string;
-        expirationTime?: number | null;
-        keys: { p256dh: string; auth: string };
-      };
-    }> = [];
+    const advisorIds = new Set(advisors.map((a) => a._id));
 
-    for (const advisor of advisors) {
-      const advisorSubs = await ctx.db
-        .query('push_subscriptions')
-        .withIndex('by_user_id', (q) => q.eq('user_id', advisor._id))
-        .filter((q) => q.eq(q.field('is_active'), true))
-        .collect();
+    // Batch query: Get all active subscriptions for this university in O(1)
+    const allUniversitySubs = await ctx.db
+      .query('push_subscriptions')
+      .withIndex('by_university_active', (q) =>
+        q.eq('university_id', args.universityId).eq('is_active', true),
+      )
+      .collect();
 
-      for (const sub of advisorSubs) {
-        subscriptions.push({
-          user_id: sub.user_id,
-          subscription: sub.subscription,
-        });
-      }
-    }
+    // Filter to only advisor/admin subscriptions
+    const subscriptions = allUniversitySubs
+      .filter((sub) => advisorIds.has(sub.user_id))
+      .map((sub) => ({
+        user_id: sub.user_id,
+        subscription: sub.subscription,
+      }));
 
     return subscriptions;
   },

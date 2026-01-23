@@ -4,6 +4,17 @@
  * Handles incoming push notifications and user interactions.
  */
 
+/**
+ * Convert a base64 URL-safe string to a Uint8Array.
+ * Required for pushManager.subscribe applicationServerKey.
+ */
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 // Listen for push events
 self.addEventListener('push', (event) => {
   if (!event.data) {
@@ -123,7 +134,10 @@ self.addEventListener('pushsubscriptionchange', (event) => {
     self.registration.pushManager
       .subscribe({
         userVisibleOnly: true,
-        applicationServerKey: self.VAPID_PUBLIC_KEY,
+        applicationServerKey:
+          typeof self.VAPID_PUBLIC_KEY === 'string'
+            ? urlBase64ToUint8Array(self.VAPID_PUBLIC_KEY)
+            : self.VAPID_PUBLIC_KEY,
       })
       .then((subscription) => {
         // Send new subscription to server

@@ -412,7 +412,7 @@ export default function SignalRulesPage() {
     <div className="container mx-auto space-y-6 py-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/university/settings">
+        <Link href="/u/admin/settings">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

@@ -51,6 +51,7 @@ export const getCrossUniversityEngagement = query({
       atRiskPercent: number;
       activeSignals: number;
       avgEngagementScore: number;
+      isSampled?: boolean;
     }> = [];
 
     for (const university of universities) {
@@ -77,6 +78,9 @@ export const getCrossUniversityEngagement = query({
       const atRiskThreshold = definition?.at_risk_threshold ?? 30;
 
       // Calculate engagement for each student (simplified - based on activity events)
+      // NOTE: This has O(n) queries where n = number of students. For universities with
+      // many students (500+), consider pre-computing engagement scores via scheduled job
+      // or adding a compound index. Acceptable for admin analytics with moderate student counts.
       let engagedCount = 0;
       let atRiskCount = 0;
       let totalScore = 0;
@@ -84,7 +88,11 @@ export const getCrossUniversityEngagement = query({
       const now = Date.now();
       const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
 
-      for (const student of students) {
+      // Limit to first 500 students for performance (sample-based for very large universities)
+      const studentsToProcess = students.slice(0, 500);
+      const isSampled = students.length > 500;
+
+      for (const student of studentsToProcess) {
         // Get recent activity events
         const events = await ctx.db
           .query('activity_events')
@@ -112,6 +120,8 @@ export const getCrossUniversityEngagement = query({
         )
         .collect();
 
+      // Use sampled count for percentage calculations when sampling is applied
+      const processedCount = studentsToProcess.length;
       universityMetrics.push({
         universityId: university._id,
         universityName: university.name,
@@ -119,10 +129,11 @@ export const getCrossUniversityEngagement = query({
         totalStudents,
         engagedStudents: engagedCount,
         atRiskStudents: atRiskCount,
-        engagedPercent: totalStudents > 0 ? Math.round((engagedCount / totalStudents) * 100) : 0,
-        atRiskPercent: totalStudents > 0 ? Math.round((atRiskCount / totalStudents) * 100) : 0,
+        engagedPercent: processedCount > 0 ? Math.round((engagedCount / processedCount) * 100) : 0,
+        atRiskPercent: processedCount > 0 ? Math.round((atRiskCount / processedCount) * 100) : 0,
         activeSignals: activeSignals.length,
-        avgEngagementScore: totalStudents > 0 ? Math.round(totalScore / totalStudents) : 0,
+        avgEngagementScore: processedCount > 0 ? Math.round(totalScore / processedCount) : 0,
+        ...(isSampled && { isSampled: true }),
       });
     }
 
@@ -176,12 +187,14 @@ export const getCrossUniversityTrends = query({
 
     const days = args.days ?? 30;
     const now = Date.now();
-
-    // Get all signals for trend analysis
-    const allSignals = await ctx.db.query('signals').collect();
-
-    // Get all activity events for trend analysis
     const cutoff = now - days * 24 * 60 * 60 * 1000;
+
+    // Get signals within the analysis period (avoid unbounded query)
+    // Note: Signals created before cutoff but resolved during period won't be counted in resolved trend
+    const allSignals = await ctx.db
+      .query('signals')
+      .filter((q) => q.gte(q.field('created_at'), cutoff))
+      .collect();
 
     // Build daily trend data
     const dailyTrend: Array<{
@@ -357,16 +370,26 @@ export const getUniversityEngagementRanking = query({
  * Super admin only.
  */
 export const getCrossUniversitySignalAnalytics = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    days: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
 
     if (user.role !== 'super_admin') {
       throw new Error('Unauthorized: Super admin access required');
     }
 
-    // Get all signals
-    const allSignals = await ctx.db.query('signals').collect();
+    // Apply time-based filter to avoid unbounded query
+    // Defaults to 90 days for broader analytics view
+    const days = args.days ?? 90;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    // Get signals within the analysis period
+    const allSignals = await ctx.db
+      .query('signals')
+      .filter((q) => q.gte(q.field('created_at'), cutoff))
+      .collect();
 
     // Status breakdown
     const statusCounts = {

@@ -59,13 +59,14 @@ export function KPICard({
   return (
     <div
       className={cn(
-        'rounded-card bg-white p-6 shadow-card transition-shadow hover:shadow-md',
+        'rounded-card p-6 shadow-card transition-shadow hover:shadow-md',
+        colorScheme === 'neutral' ? 'bg-white' : colors.bg,
         className,
       )}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-neutral-500">{title}</p>
+          <p className={cn('text-sm font-medium', colors.text)}>{title}</p>
           <p className={cn('mt-2 text-3xl font-semibold', colors.valueText)}>{formattedValue}</p>
           {subtitle && <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>}
         </div>

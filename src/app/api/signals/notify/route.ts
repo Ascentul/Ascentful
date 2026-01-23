@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
       if (!userId || userRole !== 'super_admin') {
         return NextResponse.json(
-          { error: 'Unauthorized: Internal service or super_admin required' },
+          { success: false, error: 'Unauthorized: Internal service or super_admin required' },
           { status: 401 },
         );
       }
@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!advisorEmail || !studentName || !signalTitle || !priority || !signalType) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 },
+      );
     }
 
     // Only send emails for urgent and high priority signals by default
@@ -84,6 +87,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Signal notification error:', error);
-    return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to send notification' },
+      { status: 500 },
+    );
   }
 }

@@ -396,6 +396,10 @@ function validateRuleCondition(condition: unknown): void {
     'engagement_drop',
     'no_progress',
     'custom',
+    // New engagement-to-momentum engine types
+    'stalled',
+    'high_intent_low_conversion',
+    'stage_stuck',
   ];
   if (!validTypes.includes(cond.type)) {
     throw new Error(
@@ -435,6 +439,51 @@ function validateRuleCondition(condition: unknown): void {
 
     case 'custom':
       // Custom conditions are flexible, just ensure it's a valid object
+      break;
+
+    case 'stalled':
+      // Stalled uses days (optional, defaults to 14 in signals.ts)
+      if (cond.days !== undefined && (typeof cond.days !== 'number' || cond.days <= 0)) {
+        throw new Error('Stalled condition "days" must be a positive number if provided');
+      }
+      break;
+
+    case 'high_intent_low_conversion':
+      // High intent low conversion uses thresholds (all optional with defaults)
+      if (
+        cond.applications_threshold !== undefined &&
+        (typeof cond.applications_threshold !== 'number' || cond.applications_threshold <= 0)
+      ) {
+        throw new Error(
+          'High intent condition "applications_threshold" must be a positive number if provided',
+        );
+      }
+      if (
+        cond.application_period_days !== undefined &&
+        (typeof cond.application_period_days !== 'number' || cond.application_period_days <= 0)
+      ) {
+        throw new Error(
+          'High intent condition "application_period_days" must be a positive number if provided',
+        );
+      }
+      if (
+        cond.appointment_days !== undefined &&
+        (typeof cond.appointment_days !== 'number' || cond.appointment_days <= 0)
+      ) {
+        throw new Error(
+          'High intent condition "appointment_days" must be a positive number if provided',
+        );
+      }
+      break;
+
+    case 'stage_stuck':
+      // Stage stuck requires a stage and optional days
+      if (!cond.stage || typeof cond.stage !== 'string') {
+        throw new Error('Stage stuck condition must have a "stage" string field');
+      }
+      if (cond.days !== undefined && (typeof cond.days !== 'number' || cond.days <= 0)) {
+        throw new Error('Stage stuck condition "days" must be a positive number if provided');
+      }
       break;
   }
 }

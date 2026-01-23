@@ -182,6 +182,9 @@ const CITIES = [
 
 // Helper functions
 function randomElement<T>(arr: T[]): T {
+  if (arr.length === 0) {
+    throw new Error('Cannot select random element from empty array');
+  }
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
@@ -275,15 +278,19 @@ export const seedOutcomesDemo = internalMutation({
     // Distribution: 60% known, 25% unknown, 15% partial
     // Among known: 65% employed, 20% continuing ed, 15% other
     const totalOutcomes = 400;
-    const outcomesPerCohort = Math.floor(totalOutcomes / cohortIds.length);
+    const baseOutcomesPerCohort = Math.floor(totalOutcomes / cohortIds.length);
+    const remainder = totalOutcomes % cohortIds.length;
 
     let createdCount = 0;
 
     for (let c = 0; c < cohortIds.length; c++) {
       const cohortId = cohortIds[c];
       const cohortYear = cohortConfigs[c].year;
+      // Distribute remainder across first cohorts to ensure exactly totalOutcomes
+      const outcomesForThisCohort =
+        c < remainder ? baseOutcomesPerCohort + 1 : baseOutcomesPerCohort;
 
-      for (let i = 0; i < outcomesPerCohort; i++) {
+      for (let i = 0; i < outcomesForThisCohort; i++) {
         const firstName = randomElement(FIRST_NAMES);
         const lastName = randomElement(LAST_NAMES);
         const email = generateEmail(firstName, lastName);
@@ -434,7 +441,7 @@ export const seedOutcomesDemo = internalMutation({
         createdCount++;
       }
 
-      console.log(`Created ${outcomesPerCohort} outcomes for cohort ${cohortYear}`);
+      console.log(`Created ${outcomesForThisCohort} outcomes for cohort ${cohortYear}`);
     }
 
     console.log(`\nSeed completed! Created ${createdCount} outcomes.`);

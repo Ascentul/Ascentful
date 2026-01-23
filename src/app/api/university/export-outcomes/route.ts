@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { convexServer } from '@/lib/convex-server';
+import { csvFilename, toCSV } from '@/lib/csv-utils';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -260,29 +261,8 @@ export async function POST(request: NextRequest) {
       outcome.updated_at ? new Date(outcome.updated_at).toISOString().split('T')[0] : '',
     ]);
 
-    // Escape CSV cells to handle commas, quotes, and prevent CSV injection
-    const escapeCSV = (field: string | number) => {
-      const stringField = String(field);
-      // Prevent CSV injection by quoting cells that start with formula characters
-      const formulaChars = ['=', '+', '-', '@', '|'];
-      const startsWithFormula = formulaChars.some((char) => stringField.startsWith(char));
-      if (
-        stringField.includes(',') ||
-        stringField.includes('"') ||
-        stringField.includes('\n') ||
-        startsWithFormula
-      ) {
-        return `"${stringField.replace(/"/g, '""')}"`;
-      }
-      return stringField;
-    };
-
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map((row) => row.map(escapeCSV).join(',')),
-    ].join('\n');
-
-    const filename = `outcomes-export-${new Date().toISOString().split('T')[0]}.csv`;
+    const csvContent = toCSV(csvHeaders, csvRows);
+    const filename = csvFilename('outcomes-export');
 
     const durationMs = Date.now() - startTime;
     log.info('Export outcomes completed', {

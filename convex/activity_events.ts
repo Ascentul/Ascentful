@@ -156,12 +156,13 @@ export const getUserRecentEvents = query({
 
     // Use composite index when category is specified for accurate pagination
     if (args.category) {
+      const category = args.category; // TypeScript narrowing
       return await ctx.db
         .query('activity_events')
         .withIndex('by_user_category_date', (q) =>
           q
             .eq('user_id', args.userId)
-            .eq('event_category', args.category)
+            .eq('event_category', category)
             .gte('occurred_at', cutoffTime),
         )
         .order('desc')
@@ -235,8 +236,13 @@ export const getUserActivitySummary = query({
       uniqueDays.add(new Date(event.occurred_at).toISOString().slice(0, 10));
     }
 
-    // Find most recent event
-    const lastEvent = events.length > 0 ? events[0] : null;
+    // Find most recent event (events are unordered from collect())
+    const lastEvent =
+      events.length > 0
+        ? events.reduce((latest, event) =>
+            event.occurred_at > latest.occurred_at ? event : latest,
+          )
+        : null;
     const lastEventAt = lastEvent?.occurred_at ?? null;
     const daysSinceLastEvent = lastEventAt
       ? Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24))

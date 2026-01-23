@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { query, QueryCtx } from './_generated/server';
 import { Id, Doc } from './_generated/dataModel';
+import { getCurrentUser, requireTenant } from './advisor_auth';
 
 /**
  * Engagement Prediction Engine
@@ -72,7 +73,230 @@ function calculateTrend(weeklyActivityCounts: number[]): ActivityTrend {
 }
 
 /**
- * Internal helper to compute prediction for a student
+ * Pre-fetched data for batch prediction computation
+ */
+interface BatchPredictionData {
+  activityEventsByUser: Map<string, Doc<'activity_events'>[]>;
+  applicationsByUser: Map<string, Doc<'applications'>[]>;
+}
+
+/**
+ * Internal helper to compute prediction for a student using pre-fetched data.
+ * This avoids N+1 queries when processing multiple students.
+ */
+function computePredictionWithData(
+  student: Doc<'users'>,
+  lookbackWeeks: number,
+  batchData: BatchPredictionData,
+): EngagementPrediction | null {
+  const now = Date.now();
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const lookbackMs = lookbackWeeks * msPerWeek;
+  const startTime = now - lookbackMs;
+
+  // Get pre-fetched activity events for this student
+  const allActivityEvents = batchData.activityEventsByUser.get(student._id) || [];
+  const activityEvents = allActivityEvents.filter((e) => e.created_at >= startTime);
+
+  // Group by week
+  const weeklyActivityCounts: number[] = Array(lookbackWeeks).fill(0);
+  for (const event of activityEvents) {
+    const weekIndex = Math.floor((now - event.created_at) / msPerWeek);
+    if (weekIndex >= 0 && weekIndex < lookbackWeeks) {
+      weeklyActivityCounts[lookbackWeeks - 1 - weekIndex]++; // Oldest first
+    }
+  }
+
+  const trend = calculateTrend(weeklyActivityCounts);
+
+  // Get pre-fetched applications for this student
+  const applications = batchData.applicationsByUser.get(student._id) || [];
+  const activeApplications = applications.filter(
+    (app) => !['rejected', 'withdrawn', 'accepted'].includes(app.status),
+  );
+  const recentApplications = applications.filter(
+    (app) => app.created_at && app.created_at > startTime,
+  );
+
+  // Calculate days since last activity
+  const lastActivityAt = student.last_login_at || student._creationTime;
+  const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
+
+  // Determine current status based on activity
+  let currentStatus: 'engaged' | 'moderate' | 'at_risk';
+  const recentWeekActivity = weeklyActivityCounts[weeklyActivityCounts.length - 1] || 0;
+  const avgActivity = weeklyActivityCounts.reduce((a, b) => a + b, 0) / weeklyActivityCounts.length;
+
+  if (daysSinceActivity > 14 || recentWeekActivity === 0) {
+    currentStatus = 'at_risk';
+  } else if (recentWeekActivity >= avgActivity && daysSinceActivity <= 3) {
+    currentStatus = 'engaged';
+  } else {
+    currentStatus = 'moderate';
+  }
+
+  // Build risk factors
+  const factors: EngagementPrediction['factors'] = [];
+
+  // Factor 1: Activity trend
+  if (trend.trend === 'decreasing') {
+    factors.push({
+      factor: 'Activity Trend',
+      impact: 'negative',
+      weight: 25,
+      description: `Activity has decreased by ${Math.abs(trend.velocity).toFixed(0)}% per week`,
+    });
+  } else if (trend.trend === 'increasing') {
+    factors.push({
+      factor: 'Activity Trend',
+      impact: 'positive',
+      weight: 20,
+      description: `Activity has increased by ${trend.velocity.toFixed(0)}% per week`,
+    });
+  } else {
+    factors.push({
+      factor: 'Activity Trend',
+      impact: 'neutral',
+      weight: 5,
+      description: 'Activity level is stable',
+    });
+  }
+
+  // Factor 2: Days since last activity
+  if (daysSinceActivity > 14) {
+    factors.push({
+      factor: 'Recent Activity',
+      impact: 'negative',
+      weight: 30,
+      description: `No activity in ${daysSinceActivity} days`,
+    });
+  } else if (daysSinceActivity > 7) {
+    factors.push({
+      factor: 'Recent Activity',
+      impact: 'negative',
+      weight: 15,
+      description: `Last active ${daysSinceActivity} days ago`,
+    });
+  } else {
+    factors.push({
+      factor: 'Recent Activity',
+      impact: 'positive',
+      weight: 15,
+      description: 'Recently active',
+    });
+  }
+
+  // Factor 3: Application momentum
+  if (recentApplications.length === 0 && applications.length > 0) {
+    factors.push({
+      factor: 'Application Momentum',
+      impact: 'negative',
+      weight: 20,
+      description: 'No new applications in past 8 weeks',
+    });
+  } else if (recentApplications.length >= 3) {
+    factors.push({
+      factor: 'Application Momentum',
+      impact: 'positive',
+      weight: 15,
+      description: `${recentApplications.length} new applications recently`,
+    });
+  }
+
+  // Factor 4: Active pipeline
+  if (activeApplications.length === 0 && applications.length > 0) {
+    factors.push({
+      factor: 'Active Pipeline',
+      impact: 'negative',
+      weight: 15,
+      description: 'No active applications in pipeline',
+    });
+  } else if (activeApplications.length >= 5) {
+    factors.push({
+      factor: 'Active Pipeline',
+      impact: 'positive',
+      weight: 10,
+      description: `${activeApplications.length} active applications`,
+    });
+  }
+
+  // Calculate risk score
+  let riskScore = 30; // Base risk
+  for (const factor of factors) {
+    if (factor.impact === 'negative') {
+      riskScore += factor.weight;
+    } else if (factor.impact === 'positive') {
+      riskScore -= factor.weight * 0.7;
+    }
+  }
+  riskScore = Math.max(0, Math.min(100, riskScore));
+
+  // Predict future status
+  let predictedStatus: 'engaged' | 'moderate' | 'at_risk';
+  if (riskScore >= 60) {
+    predictedStatus = 'at_risk';
+  } else if (riskScore >= 35) {
+    predictedStatus = 'moderate';
+  } else {
+    predictedStatus = 'engaged';
+  }
+
+  // Adjust based on trend
+  if (trend.trend === 'decreasing' && currentStatus === 'engaged') {
+    predictedStatus = 'moderate';
+  }
+  if (trend.trend === 'increasing' && currentStatus === 'at_risk') {
+    predictedStatus = 'moderate';
+  }
+
+  // Calculate confidence based on data availability
+  let confidence = 60; // Base confidence
+  if (activityEvents.length > 20) confidence += 15;
+  if (activityEvents.length > 50) confidence += 10;
+  if (weeklyActivityCounts.filter((c) => c > 0).length >= 4) confidence += 10;
+  if (applications.length > 0) confidence += 5;
+  confidence = Math.min(95, confidence);
+
+  // Calculate days to risk if decreasing
+  let predictedDaysToRisk: number | undefined;
+  if (trend.trend === 'decreasing' && currentStatus !== 'at_risk') {
+    // Rough estimate based on velocity
+    const weeksToRisk = Math.abs(50 / trend.velocity);
+    predictedDaysToRisk = Math.max(7, Math.round(weeksToRisk * 7));
+  }
+
+  // Generate recommendations
+  const recommendations: string[] = [];
+  if (daysSinceActivity > 7) {
+    recommendations.push('Schedule a check-in to understand any blockers');
+  }
+  if (trend.trend === 'decreasing') {
+    recommendations.push('Review engagement strategy and career goals');
+  }
+  if (activeApplications.length === 0 && applications.length > 0) {
+    recommendations.push('Discuss application pipeline and next steps');
+  }
+  if (recentApplications.length === 0) {
+    recommendations.push('Help identify new job opportunities to apply for');
+  }
+  if (riskScore > 50) {
+    recommendations.push('Prioritize outreach before student becomes fully disengaged');
+  }
+
+  return {
+    current_status: currentStatus,
+    predicted_status: predictedStatus,
+    confidence,
+    risk_score: Math.round(riskScore),
+    factors,
+    recommendations,
+    predicted_days_to_risk: predictedDaysToRisk,
+  };
+}
+
+/**
+ * Internal helper to compute prediction for a single student (makes DB queries).
+ * Use computePredictionWithData for batch operations.
  */
 async function computePredictionForStudent(
   ctx: QueryCtx,
@@ -292,7 +516,8 @@ async function computePredictionForStudent(
 }
 
 /**
- * Internal helper to get predictions for all students in a university
+ * Internal helper to get predictions for all students in a university.
+ * Uses batch fetching for O(3) queries instead of O(n*2) queries.
  */
 async function computeUniversityPredictions(
   ctx: QueryCtx,
@@ -306,6 +531,49 @@ async function computeUniversityPredictions(
     .filter((q) => q.eq(q.field('role'), 'student'))
     .take(limit);
 
+  if (students.length === 0) {
+    return {
+      predictions: [],
+      summary: { total: 0, at_risk: 0, moderate: 0, engaged: 0, avg_risk_score: 0 },
+    };
+  }
+
+  // Batch fetch: Get all activity events for the university
+  // This is O(1) query instead of O(n) queries
+  const studentIds = new Set(students.map((s) => s._id));
+  const allActivityEvents = await ctx.db
+    .query('activity_events')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .collect();
+
+  // Batch fetch: Get all applications for these students
+  // Query by university and filter to student IDs
+  const allApplications = await ctx.db
+    .query('applications')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .collect();
+
+  // Group data by user_id for efficient lookup
+  const activityEventsByUser = new Map<string, Doc<'activity_events'>[]>();
+  for (const event of allActivityEvents) {
+    if (studentIds.has(event.user_id)) {
+      const existing = activityEventsByUser.get(event.user_id) || [];
+      existing.push(event);
+      activityEventsByUser.set(event.user_id, existing);
+    }
+  }
+
+  const applicationsByUser = new Map<string, Doc<'applications'>[]>();
+  for (const app of allApplications) {
+    if (studentIds.has(app.user_id)) {
+      const existing = applicationsByUser.get(app.user_id) || [];
+      existing.push(app);
+      applicationsByUser.set(app.user_id, existing);
+    }
+  }
+
+  const batchData: BatchPredictionData = { activityEventsByUser, applicationsByUser };
+
   const predictions: Array<{
     student_id: Id<'users'>;
     student_name: string;
@@ -313,8 +581,9 @@ async function computeUniversityPredictions(
     prediction: EngagementPrediction;
   }> = [];
 
+  // Compute predictions using pre-fetched data (no additional DB queries)
   for (const student of students) {
-    const prediction = await computePredictionForStudent(ctx, student, 8);
+    const prediction = computePredictionWithData(student, 8, batchData);
 
     if (prediction) {
       predictions.push({
@@ -383,6 +652,22 @@ export const getUniversityEngagementPredictions = query({
   },
   handler: async (ctx, args) => {
     const { universityId, limit = 50 } = args;
+
+    // Authorization: Only university_admin, advisor, or super_admin can access predictions
+    const sessionCtx = await getCurrentUser(ctx);
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error(
+        'Unauthorized: Only administrators and advisors can access engagement predictions',
+      );
+    }
+    if (sessionCtx.role !== 'super_admin') {
+      const userUniversityId = requireTenant(sessionCtx);
+      if (userUniversityId !== universityId) {
+        throw new Error('Unauthorized: Cannot access predictions for another university');
+      }
+    }
+
     return computeUniversityPredictions(ctx, universityId, limit);
   },
 });
@@ -398,6 +683,21 @@ export const getStudentsAtRiskSoon = query({
   },
   handler: async (ctx, args) => {
     const { universityId, daysThreshold = 14, limit = 20 } = args;
+
+    // Authorization: Only university_admin, advisor, or super_admin can access at-risk data
+    const sessionCtx = await getCurrentUser(ctx);
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error(
+        'Unauthorized: Only administrators and advisors can access at-risk predictions',
+      );
+    }
+    if (sessionCtx.role !== 'super_admin') {
+      const userUniversityId = requireTenant(sessionCtx);
+      if (userUniversityId !== universityId) {
+        throw new Error('Unauthorized: Cannot access predictions for another university');
+      }
+    }
 
     // Fetch more students than requested since we filter down after prediction
     // Use a higher multiplier to ensure we don't miss at-risk students
@@ -434,6 +734,21 @@ export const getEngagementForecast = query({
   },
   handler: async (ctx, args) => {
     const { universityId, weeksAhead = 4 } = args;
+
+    // Authorization: Only university_admin, advisor, or super_admin can access forecasts
+    const sessionCtx = await getCurrentUser(ctx);
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error(
+        'Unauthorized: Only administrators and advisors can access engagement forecasts',
+      );
+    }
+    if (sessionCtx.role !== 'super_admin') {
+      const userUniversityId = requireTenant(sessionCtx);
+      if (userUniversityId !== universityId) {
+        throw new Error('Unauthorized: Cannot access forecasts for another university');
+      }
+    }
 
     const { predictions, summary } = await computeUniversityPredictions(ctx, universityId, 200);
 

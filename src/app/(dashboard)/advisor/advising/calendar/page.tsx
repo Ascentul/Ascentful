@@ -102,7 +102,7 @@ export default function AdvisorCalendarPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Export .ics
               </Button>
-              <Link href="/advisor/advising/sessions?action=new">
+              <Link href="/u/advising/sessions?action=new">
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Schedule Session

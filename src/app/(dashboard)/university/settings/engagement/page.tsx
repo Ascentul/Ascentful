@@ -128,14 +128,14 @@ export default function EngagementDefinitionsPage() {
       appliesTo: def.applies_to,
       criteria: {
         // New activity-based scoring fields
-        qualifying_event_types: criteria?.qualifying_event_types || DEFAULT_QUALIFYING_EVENTS,
-        period_days: criteria?.period_days || 14,
-        min_events_in_period: criteria?.min_events_in_period || 3,
+        qualifying_event_types: criteria?.qualifying_event_types ?? DEFAULT_QUALIFYING_EVENTS,
+        period_days: criteria?.period_days ?? 14,
+        min_events_in_period: criteria?.min_events_in_period ?? 3,
         // Legacy fields
-        min_logins_per_week: criteria?.min_logins_per_week || 2,
-        min_actions_per_week: criteria?.min_actions_per_week || 5,
-        min_applications_active: criteria?.min_applications_active || 0,
-        max_days_since_activity: criteria?.max_days_since_activity || 14,
+        min_logins_per_week: criteria?.min_logins_per_week ?? 2,
+        min_actions_per_week: criteria?.min_actions_per_week ?? 5,
+        min_applications_active: criteria?.min_applications_active ?? 0,
+        max_days_since_activity: criteria?.max_days_since_activity ?? 14,
       },
     });
     setIsDialogOpen(true);
@@ -256,8 +256,8 @@ export default function EngagementDefinitionsPage() {
     <div className="container mx-auto space-y-6 py-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/university/settings">
-          <Button variant="ghost" size="icon">
+        <Link href="/u/admin/settings">
+          <Button variant="ghost" size="icon" aria-label="Back to settings">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
@@ -306,7 +306,12 @@ export default function EngagementDefinitionsPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Open definition actions"
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>

@@ -149,6 +149,7 @@ export function SnapshotSelector({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-neutral-400 hover:text-red-500"
+                  aria-label={`Delete snapshot ${snapshot.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteSnapshot(snapshot._id);

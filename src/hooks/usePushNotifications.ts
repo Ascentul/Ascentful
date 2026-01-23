@@ -94,10 +94,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         const reg = await navigator.serviceWorker.register('/sw-push.js');
         setRegistration(reg);
 
-        // Wait for service worker to be available (may be installing, waiting, or active)
-        const sw = reg.active || reg.waiting || reg.installing;
-        // Send VAPID key to service worker
-        sw?.postMessage({
+        // Wait for service worker to be ready before sending message
+        await navigator.serviceWorker.ready;
+        reg.active?.postMessage({
           type: 'SET_VAPID_KEY',
           key: urlBase64ToUint8Array(vapidPublicKey),
         });
@@ -168,14 +167,24 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
       // Save subscription to Convex
       const subscriptionJson = subscription.toJSON();
+
+      // Validate subscription data (toJSON() may return incomplete data on some browsers)
+      if (
+        !subscriptionJson.endpoint ||
+        !subscriptionJson.keys?.p256dh ||
+        !subscriptionJson.keys?.auth
+      ) {
+        throw new Error('Invalid push subscription data received from browser');
+      }
+
       await subscribe({
         userId,
         subscription: {
-          endpoint: subscriptionJson.endpoint!,
+          endpoint: subscriptionJson.endpoint,
           expirationTime: subscriptionJson.expirationTime ?? null,
           keys: {
-            p256dh: subscriptionJson.keys!.p256dh,
-            auth: subscriptionJson.keys!.auth,
+            p256dh: subscriptionJson.keys.p256dh,
+            auth: subscriptionJson.keys.auth,
           },
         },
         deviceInfo: {

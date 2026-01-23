@@ -5,7 +5,6 @@ import { Id } from 'convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import {
   AlertTriangle,
-  ArrowDown,
   ArrowLeft,
   ArrowUp,
   BarChart3,
@@ -155,7 +154,7 @@ export default function SignalAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/advisor/analytics">
+          <Link href="/u/insights">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>

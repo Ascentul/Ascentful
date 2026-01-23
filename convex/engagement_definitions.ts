@@ -586,14 +586,20 @@ export const getEngagementAnalytics = query({
     universityId: v.id('universities'),
     cohortIds: v.optional(v.array(v.string())),
     programIds: v.optional(v.array(v.string())),
-    dateFrom: v.optional(v.number()),
-    dateTo: v.optional(v.number()),
     groupBy: v.optional(v.union(v.literal('cohort'), v.literal('program'))),
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
-    // Authorization check
+    // Authorization: Only university_admin, advisor, or super_admin can access analytics
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error(
+        'Unauthorized: Only administrators and advisors can access engagement analytics',
+      );
+    }
+
+    // University scope check for non-super_admin
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (universityId !== args.universityId) {
@@ -770,14 +776,18 @@ export const getUniqueEngagedStats = query({
     universityId: v.id('universities'),
     cohortIds: v.optional(v.array(v.string())),
     programIds: v.optional(v.array(v.string())),
-    dateFrom: v.optional(v.number()),
-    dateTo: v.optional(v.number()),
     definitionId: v.optional(v.id('engagement_definitions')),
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
-    // Authorization check
+    // Authorization: Only university_admin, advisor, or super_admin can access stats
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Only administrators and advisors can access engagement stats');
+    }
+
+    // University scope check for non-super_admin
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (universityId !== args.universityId) {

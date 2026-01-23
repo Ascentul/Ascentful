@@ -256,14 +256,14 @@ export default function UniversityDashboardPage() {
   // Real student funnel data
   const studentFunnel = useQuery(
     api.analytics.getUniversityStudentFunnel,
-    user?.university_id ? { universityId: user.university_id as any } : 'skip',
+    user?.university_id ? { universityId: user.university_id as Id<'universities'> } : 'skip',
   );
 
   // Real active users data for engagement view
   const activeUsersData = useQuery(
     api.analytics.getUniversityActiveUsersOverTime,
     user?.university_id
-      ? { universityId: user.university_id as any, timeRange: 'daily' as const }
+      ? { universityId: user.university_id as Id<'universities'>, timeRange: 'daily' as const }
       : 'skip',
   );
 

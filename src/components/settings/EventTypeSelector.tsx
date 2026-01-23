@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, X } from 'lucide-react';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,6 +104,8 @@ interface EventTypeSelectorProps {
 }
 
 export function EventTypeSelector({ selectedEvents, onChange, className }: EventTypeSelectorProps) {
+  const allEventTypes = useMemo(() => getAllEventTypes(), []);
+
   const handleToggle = (eventType: string) => {
     if (selectedEvents.includes(eventType)) {
       onChange(selectedEvents.filter((e) => e !== eventType));
@@ -113,8 +115,7 @@ export function EventTypeSelector({ selectedEvents, onChange, className }: Event
   };
 
   const handleSelectAll = () => {
-    const allEvents = getAllEventTypes();
-    onChange(allEvents);
+    onChange(allEventTypes);
   };
 
   const handleSelectNone = () => {
@@ -125,7 +126,7 @@ export function EventTypeSelector({ selectedEvents, onChange, className }: Event
     onChange(DEFAULT_QUALIFYING_EVENTS);
   };
 
-  const allSelected = selectedEvents.length === getAllEventTypes().length;
+  const allSelected = selectedEvents.length === allEventTypes.length;
   const noneSelected = selectedEvents.length === 0;
 
   return (

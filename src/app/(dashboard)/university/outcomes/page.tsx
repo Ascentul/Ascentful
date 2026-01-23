@@ -283,13 +283,16 @@ export default function OutcomesDashboardPage() {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `outcomes-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `outcomes-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        window.URL.revokeObjectURL(url);
+      }
 
       toast({
         title: 'Export complete',
@@ -438,7 +441,10 @@ export default function OutcomesDashboardPage() {
                 </CardDescription>
               </div>
               {!selectedSnapshotId && (
-                <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
+                <Select
+                  value={groupBy}
+                  onValueChange={(v) => setGroupBy(v as 'cohort' | 'program' | 'degree_level')}
+                >
                   <SelectTrigger className="w-[160px]">
                     <SelectValue />
                   </SelectTrigger>

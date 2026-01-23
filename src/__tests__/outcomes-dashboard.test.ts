@@ -8,6 +8,8 @@
  * - CSV export format
  */
 
+import { escapeCSV } from '@/lib/csv-utils';
+
 describe('Outcomes Dashboard KPI Computation', () => {
   describe('Knowledge Rate', () => {
     it('should calculate knowledge rate as (known / total) * 100', () => {
@@ -152,8 +154,13 @@ describe('Outcomes Filtering', () => {
   });
 
   it('should return all when no filters applied', () => {
-    const filter = {};
-    const filtered = mockOutcomes;
+    const filter: { cohortIds?: string[]; programs?: string[]; degreeLevels?: string[] } = {};
+    const filtered = mockOutcomes.filter((o) => {
+      const cohortMatch = !filter.cohortIds || filter.cohortIds.includes(o.cohort_id);
+      const programMatch = !filter.programs || filter.programs.includes(o.major_name);
+      const degreeLevelMatch = !filter.degreeLevels || filter.degreeLevels.includes(o.degree_level);
+      return cohortMatch && programMatch && degreeLevelMatch;
+    });
     expect(filtered.length).toBe(4);
   });
 });
@@ -286,15 +293,6 @@ describe('CSV Export Format', () => {
     updated_at: Date.now(),
   };
 
-  const escapeCSV = (field: string | number | undefined): string => {
-    if (field === undefined || field === null) return '';
-    const stringField = String(field);
-    if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
-      return `"${stringField.replace(/"/g, '""')}"`;
-    }
-    return stringField;
-  };
-
   it('should include all required columns', () => {
     const headers = [
       'external_student_id',
@@ -334,6 +332,14 @@ describe('CSV Export Format', () => {
     const emptyField = undefined;
     const escaped = escapeCSV(emptyField);
     expect(escaped).toBe('');
+  });
+
+  it('should protect against CSV injection with formula characters', () => {
+    // Formula characters that could trigger Excel/Sheets formula execution
+    expect(escapeCSV('=SUM(A1:A10)')).toBe('"\t=SUM(A1:A10)"');
+    expect(escapeCSV('+1234567890')).toBe('"\t+1234567890"');
+    expect(escapeCSV('-cmd|calc')).toBe('"\t-cmd|calc"');
+    expect(escapeCSV('@SUM(A1)')).toBe('"\t@SUM(A1)"');
   });
 
   it('should count evidence files correctly', () => {

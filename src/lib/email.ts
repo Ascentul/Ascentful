@@ -6,6 +6,8 @@
 import formData from 'form-data';
 import Mailgun from 'mailgun.js';
 
+import { escapeHtml } from '../../convex/lib/sanitizeHtml';
+
 const DEFAULT_DOMAIN = 'mail.ascentful.io';
 const DEFAULT_FROM = 'Ascentful <no-reply@mail.ascentful.io>';
 
@@ -970,22 +972,22 @@ The Ascentful Team`;
       <div style="background-color: #F9FAFB; border-radius: 8px; padding: 20px; margin: 24px 0;">
         <div style="margin-bottom: 16px;">
           <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Student</p>
-          <p style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">${studentName}</p>
+          <p style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">${escapeHtml(studentName)}</p>
         </div>
         <div style="margin-bottom: 16px;">
           <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Signal</p>
-          <p style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${signalTitle}</p>
+          <p style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(signalTitle)}</p>
         </div>
         <div style="margin-bottom: 16px;">
           <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Type</p>
-          <p style="margin: 0; font-size: 14px; color: #374151;">${typeLabel}</p>
+          <p style="margin: 0; font-size: 14px; color: #374151;">${escapeHtml(typeLabel)}</p>
         </div>
         ${
           signalDescription
             ? `
         <div>
           <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; font-weight: 600;">Details</p>
-          <p style="margin: 0; font-size: 14px; color: #374151;">${signalDescription}</p>
+          <p style="margin: 0; font-size: 14px; color: #374151;">${escapeHtml(signalDescription)}</p>
         </div>
         `
             : ''
@@ -1111,10 +1113,10 @@ The Ascentful Team`;
       return `
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #E5E7EB;">
-            <span style="display: inline-block; padding: 2px 8px; background: ${priorityColor}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;">${s.priority}</span>
+            <span style="display: inline-block; padding: 2px 8px; background: ${priorityColor}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;">${escapeHtml(s.priority)}</span>
           </td>
-          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; font-weight: 500;">${s.studentName}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #6B7280;">${s.title}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; font-weight: 500;">${escapeHtml(s.studentName)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #E5E7EB; color: #6B7280;">${escapeHtml(s.title)}</td>
         </tr>
       `;
     })

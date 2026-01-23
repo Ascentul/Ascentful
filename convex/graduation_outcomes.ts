@@ -1816,6 +1816,7 @@ export const listSnapshots = query({
     const snapshots = await ctx.db
       .query('outcome_snapshots')
       .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
+      .filter((q) => q.neq(q.field('is_active'), false)) // Exclude soft-deleted snapshots
       .order('desc')
       .collect();
 
@@ -1846,6 +1847,11 @@ export const getSnapshot = query({
       throw new Error('Snapshot not found');
     }
 
+    // Check if snapshot is soft deleted
+    if (snapshot.is_active === false) {
+      throw new Error('Snapshot not found'); // Don't reveal it was deleted
+    }
+
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (snapshot.institution_id !== universityId) {
@@ -1864,7 +1870,7 @@ export const getSnapshot = query({
 });
 
 /**
- * Delete a snapshot
+ * Delete a snapshot (soft delete for audit trail)
  */
 export const deleteSnapshot = mutation({
   args: {
@@ -1878,9 +1884,19 @@ export const deleteSnapshot = mutation({
       throw new Error('Snapshot not found');
     }
 
+    // Don't allow deleting already deleted snapshots
+    if (snapshot.is_active === false) {
+      throw new Error('Snapshot is already deleted');
+    }
+
     assertUniversityAccess(user, snapshot.institution_id);
 
-    await ctx.db.delete(args.snapshotId);
+    // Soft delete - preserve for audit trail
+    await ctx.db.patch(args.snapshotId, {
+      is_active: false,
+      deleted_at: Date.now(),
+      deleted_by: user._id,
+    });
     return { success: true };
   },
 });

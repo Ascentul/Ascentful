@@ -158,6 +158,7 @@ export const seedActivityEvents = internalMutation({
             event_category: eventType.category,
             occurred_at: eventTime,
             created_at: eventTime,
+            metadata: { source: 'seed_script' },
           });
 
           totalEvents++;
@@ -203,6 +204,15 @@ export const listUniversities = internalMutation({
   },
 });
 
+// Mask email for debug output (e.g., "john.doe@example.com" → "joh***@example.com")
+function maskEmail(email: string | undefined): string {
+  if (!email) return '(no email)';
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  const visibleChars = Math.min(3, local.length);
+  return `${local.slice(0, visibleChars)}***@${domain}`;
+}
+
 // Debug: Check users and activity events for a university
 export const debugUniversityData = internalMutation({
   args: {
@@ -227,15 +237,25 @@ export const debugUniversityData = internalMutation({
 
     return {
       studentCount: students.length,
-      students: students.map((s) => ({ id: s._id, name: s.name, email: s.email, role: s.role })),
+      students: students.map((s) => ({
+        id: s._id,
+        name: s.name,
+        email: maskEmail(s.email),
+        role: s.role,
+      })),
       allUserCount: allUsers.length,
-      allUsers: allUsers.map((u) => ({ id: u._id, name: u.name, email: u.email, role: u.role })),
+      allUsers: allUsers.map((u) => ({
+        id: u._id,
+        name: u.name,
+        email: maskEmail(u.email),
+        role: u.role,
+      })),
       activityEventCount: events.length,
     };
   },
 });
 
-// Helper to clear all test data
+// Helper to clear seeded test data (only deletes events created by seed script)
 export const clearActivityEvents = internalMutation({
   args: {
     universityId: v.id('universities'),
@@ -246,11 +266,19 @@ export const clearActivityEvents = internalMutation({
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
 
+    let deleted = 0;
     for (const event of events) {
-      await ctx.db.delete(event._id);
+      // Only delete events created by the seed script to avoid destroying production data
+      const metadata = event.metadata as { source?: string } | undefined;
+      if (metadata?.source === 'seed_script') {
+        await ctx.db.delete(event._id);
+        deleted++;
+      }
     }
 
-    console.log(`Deleted ${events.length} activity events`);
-    return { deleted: events.length };
+    console.log(
+      `Deleted ${deleted} seeded activity events (${events.length - deleted} production events preserved)`,
+    );
+    return { deleted, preserved: events.length - deleted };
   },
 });

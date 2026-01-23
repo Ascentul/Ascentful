@@ -94,7 +94,7 @@ export default function AdvisorQueuePage() {
   const [statusFilter, setStatusFilter] = useState<Status>('active');
   const [typeFilter, setTypeFilter] = useState<SignalType | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
-  const [selectedSignal, setSelectedSignal] = useState<string | null>(null);
+  const [selectedSignal, setSelectedSignal] = useState<Id<'signals'> | null>(null);
   const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
   const [isSnoozeDialogOpen, setIsSnoozeDialogOpen] = useState(false);
   const [resolutionNotes, setResolutionNotes] = useState('');
@@ -145,7 +145,7 @@ export default function AdvisorQueuePage() {
     setLoading(true);
     try {
       await resolveSignal({
-        signalId: selectedSignal as Id<'signals'>,
+        signalId: selectedSignal,
         resolutionType,
         resolutionNotes: resolutionNotes || undefined,
       });
@@ -167,10 +167,10 @@ export default function AdvisorQueuePage() {
     }
   };
 
-  const handleDismiss = async (signalId: string) => {
+  const handleDismiss = async (signalId: Id<'signals'>) => {
     try {
       await dismissSignal({
-        signalId: signalId as Id<'signals'>,
+        signalId,
       });
       toast({
         title: 'Signal Dismissed',
@@ -191,7 +191,7 @@ export default function AdvisorQueuePage() {
     setLoading(true);
     try {
       await snoozeSignal({
-        signalId: selectedSignal as Id<'signals'>,
+        signalId: selectedSignal,
         snoozeDays,
       });
       toast({
@@ -211,10 +211,10 @@ export default function AdvisorQueuePage() {
     }
   };
 
-  const handleUnsnooze = async (signalId: string) => {
+  const handleUnsnooze = async (signalId: Id<'signals'>) => {
     try {
       await unsnoozeSignal({
-        signalId: signalId as Id<'signals'>,
+        signalId,
       });
       toast({
         title: 'Signal Unsnoozed',

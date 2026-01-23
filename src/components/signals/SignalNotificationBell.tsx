@@ -1,10 +1,11 @@
 'use client';
 
 import { api } from 'convex/_generated/api';
+import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { AlertTriangle, Bell, Check, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Notification {
-  _id: string;
+  _id: Id<'notifications'>;
   type: string;
   title: string;
   message: string;
@@ -47,6 +48,7 @@ function formatRelativeTime(timestamp: number): string {
 export function SignalNotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewNotification, setHasNewNotification] = useState(false);
+  const prevUnreadCountRef = useRef<number>(0);
 
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: false });
   const unreadCount = useQuery(api.notifications.getUnreadCount);
@@ -58,19 +60,21 @@ export function SignalNotificationBell() {
 
   const unreadSignalCount = signalNotifications.filter((n) => !n.read).length;
 
-  // Animate bell when new notification arrives
+  // Animate bell only when new notifications arrive (count increases)
   useEffect(() => {
-    if (unreadSignalCount > 0) {
+    if (unreadSignalCount > prevUnreadCountRef.current) {
       setHasNewNotification(true);
       const timer = setTimeout(() => setHasNewNotification(false), 3000);
+      prevUnreadCountRef.current = unreadSignalCount;
       return () => clearTimeout(timer);
     }
+    prevUnreadCountRef.current = unreadSignalCount;
   }, [unreadSignalCount]);
 
   const handleMarkAsRead = useCallback(
-    async (notificationId: string) => {
+    async (notificationId: Id<'notifications'>) => {
       try {
-        await markAsRead({ notificationId: notificationId as any });
+        await markAsRead({ notificationId });
       } catch (error) {
         console.error('Failed to mark notification as read:', error);
       }
@@ -82,7 +86,7 @@ export function SignalNotificationBell() {
     try {
       // Only mark signal notifications as read, not all notification types
       const unreadSignals = signalNotifications.filter((n) => !n.read);
-      await Promise.all(unreadSignals.map((n) => markAsRead({ notificationId: n._id as any })));
+      await Promise.all(unreadSignals.map((n) => markAsRead({ notificationId: n._id })));
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }

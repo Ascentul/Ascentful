@@ -3289,10 +3289,16 @@ export default defineSchema({
     // === Metadata ===
     created_by: v.id('users'),
     created_at: v.number(),
+
+    // === Soft Delete (for audit trail) ===
+    is_active: v.optional(v.boolean()), // undefined or true = active, false = deleted
+    deleted_at: v.optional(v.number()),
+    deleted_by: v.optional(v.id('users')),
   })
     .index('by_institution', ['institution_id'])
     .index('by_institution_date', ['institution_id', 'snapshot_date'])
-    .index('by_cohort', ['cohort_id']),
+    .index('by_cohort', ['cohort_id'])
+    .index('by_institution_active', ['institution_id', 'is_active']),
 
   // ============================================================================
   // PUSH SUBSCRIPTIONS - Web Push notification subscriptions
@@ -3301,6 +3307,9 @@ export default defineSchema({
   push_subscriptions: defineTable({
     user_id: v.id('users'),
     endpoint: v.string(), // Web Push endpoint URL
+
+    // === University (for bulk querying advisor subscriptions) ===
+    university_id: v.optional(v.id('universities')),
 
     // === Subscription Data ===
     subscription: v.object({
@@ -3333,7 +3342,8 @@ export default defineSchema({
   })
     .index('by_user_id', ['user_id'])
     .index('by_endpoint', ['endpoint'])
-    .index('by_active', ['is_active']),
+    .index('by_active', ['is_active'])
+    .index('by_university_active', ['university_id', 'is_active']),
 
   // ============================================================================
   // USER NOTIFICATION PREFERENCES - Email and Push notification settings

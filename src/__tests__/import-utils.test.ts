@@ -10,6 +10,8 @@
 
 import { Id } from 'convex/_generated/dataModel';
 
+import { parseCSV } from '@/lib/csv-utils';
+
 import {
   calculateNameSimilarity,
   generateExternalOutcomeId,
@@ -331,41 +333,6 @@ describe('Identity Resolution', () => {
 });
 
 describe('CSV Parsing', () => {
-  // Simulated CSV parsing logic
-  function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length === 0) return { headers: [], rows: [] };
-
-    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''));
-    const rows = lines.slice(1).map((line) => {
-      const values: string[] = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          // Handle escaped quotes ("" -> literal ")
-          if (inQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++; // Skip the next quote
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      values.push(current.trim());
-      return values;
-    });
-
-    return { headers, rows };
-  }
-
   it('should parse simple CSV', () => {
     const csv = `name,email,status
 John Doe,john@test.com,known

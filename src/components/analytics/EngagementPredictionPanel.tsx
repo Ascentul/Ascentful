@@ -17,6 +17,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import {
   Area,
   AreaChart,
@@ -77,6 +78,29 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
     daysThreshold: 14,
     limit: 10,
   });
+
+  // Memoize factor aggregation - must be called before any early returns (Rules of Hooks)
+  const topRiskFactors = useMemo(() => {
+    if (!predictions?.predictions) return [];
+
+    const factorCounts: Record<string, { negative: number; positive: number }> = {};
+    predictions.predictions.forEach((p) => {
+      p.prediction.factors.forEach((f) => {
+        if (!factorCounts[f.factor]) {
+          factorCounts[f.factor] = { negative: 0, positive: 0 };
+        }
+        if (f.impact === 'negative') {
+          factorCounts[f.factor].negative++;
+        } else if (f.impact === 'positive') {
+          factorCounts[f.factor].positive++;
+        }
+      });
+    });
+
+    return Object.entries(factorCounts)
+      .sort((a, b) => b[1].negative - a[1].negative)
+      .slice(0, 3);
+  }, [predictions?.predictions]);
 
   if (!predictions || !forecast) {
     return (
@@ -374,41 +398,21 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {(() => {
-              // Aggregate risk factors
-              const factorCounts: Record<string, { negative: number; positive: number }> = {};
-              predictions.predictions.forEach((p) => {
-                p.prediction.factors.forEach((f) => {
-                  if (!factorCounts[f.factor]) {
-                    factorCounts[f.factor] = { negative: 0, positive: 0 };
-                  }
-                  if (f.impact === 'negative') {
-                    factorCounts[f.factor].negative++;
-                  } else if (f.impact === 'positive') {
-                    factorCounts[f.factor].positive++;
-                  }
-                });
-              });
-
-              return Object.entries(factorCounts)
-                .sort((a, b) => b[1].negative - a[1].negative)
-                .slice(0, 3)
-                .map(([factor, counts]) => (
-                  <div key={factor} className="rounded-lg border p-4">
-                    <h4 className="font-medium">{factor}</h4>
-                    <div className="mt-2 flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <ArrowDown className="h-4 w-4 text-red-500" />
-                        <span className="text-sm text-red-600">{counts.negative} negative</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ArrowUp className="h-4 w-4 text-green-500" />
-                        <span className="text-sm text-green-600">{counts.positive} positive</span>
-                      </div>
-                    </div>
+            {topRiskFactors.map(([factor, counts]) => (
+              <div key={factor} className="rounded-lg border p-4">
+                <h4 className="font-medium">{factor}</h4>
+                <div className="mt-2 flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <ArrowDown className="h-4 w-4 text-red-500" />
+                    <span className="text-sm text-red-600">{counts.negative} negative</span>
                   </div>
-                ));
-            })()}
+                  <div className="flex items-center gap-1">
+                    <ArrowUp className="h-4 w-4 text-green-500" />
+                    <span className="text-sm text-green-600">{counts.positive} positive</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

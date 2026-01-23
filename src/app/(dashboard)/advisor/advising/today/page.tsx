@@ -186,13 +186,13 @@ export default function AdvisorTodayPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Link href="/advisor/advising/sessions?action=new">
+              <Link href="/u/advising/sessions?action=new">
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Schedule Session
                 </Button>
               </Link>
-              <Link href="/advisor/advising/calendar">
+              <Link href="/u/advising/calendar">
                 <Button variant="outline">
                   <Calendar className="h-4 w-4 mr-2" />
                   View Calendar
@@ -259,7 +259,7 @@ export default function AdvisorTodayPage() {
                     <div className="border rounded-lg p-12 text-center">
                       <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">No sessions scheduled for today</p>
-                      <Link href="/advisor/advising/sessions?action=new">
+                      <Link href="/u/advising/sessions?action=new">
                         <Button variant="outline" size="sm">
                           <Plus className="h-4 w-4 mr-2" />
                           Schedule Session

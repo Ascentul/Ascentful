@@ -104,11 +104,12 @@ export function OutcomesFilterBar({
     onFiltersChange({});
   }, [onFiltersChange]);
 
-  const hasActiveFilters =
+  const hasActiveFilters = !!(
     filters.cohortIds?.length ||
     filters.degreeLevels?.length ||
     filters.programs?.length ||
-    filters.graduationYear;
+    filters.graduationYear
+  );
 
   return (
     <div

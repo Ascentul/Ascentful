@@ -278,63 +278,63 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
     [],
   );
 
-  // University sections - streamlined for University Admins
+  // University sections - redirect to unified /u/* workspace
   const universitySections: SidebarSection[] = useMemo(
     () => [
       {
         id: 'university-dashboard',
         title: 'Dashboard',
         icon: <School className="h-5 w-5" />,
-        href: '/university',
+        href: '/u/admin/dashboard',
       },
       {
         id: 'university-students',
         title: 'Students',
         icon: <UserIcon className="h-5 w-5" />,
-        href: '/university/students',
+        href: '/u/admin/students',
       },
       {
         id: 'university-departments',
         title: 'Departments',
         icon: <Building className="h-5 w-5" />,
-        href: '/university/departments',
+        href: '/u/admin/departments',
       },
       {
         id: 'university-outcomes',
         title: 'Outcomes',
         icon: <GraduationCap className="h-5 w-5" />,
-        href: '/university/outcomes',
+        href: '/u/outcomes',
       },
       {
         id: 'university-analytics',
         title: 'Analytics',
         icon: <BarChart className="h-5 w-5" />,
-        href: '/university/analytics',
+        href: '/u/admin/analytics',
       },
       {
         id: 'university-support',
         title: 'Support',
         icon: <HelpCircle className="h-5 w-5" />,
-        href: '/support',
+        href: '/u/support',
       },
     ],
     [],
   );
 
-  // Advisor sections - for career advisors
+  // Advisor sections - redirect to unified /u/* workspace
   const advisorSections: SidebarSection[] = useMemo(
     () => [
       {
         id: 'advisor-dashboard',
         title: 'Dashboard',
         icon: <LayoutDashboard className="h-5 w-5" />,
-        href: '/advisor',
+        href: '/u/advising/today',
       },
       {
         id: 'advisor-students',
         title: 'Students',
         icon: <UserIcon className="h-5 w-5" />,
-        href: '/advisor/students',
+        href: '/u/students',
       },
       {
         id: 'advisor-advising',
@@ -342,22 +342,22 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         icon: <Calendar className="h-5 w-5" />,
         items: [
           {
-            href: '/advisor/advising/today',
+            href: '/u/advising/today',
             icon: <Clock className="h-4 w-4" />,
             label: 'Today',
           },
           {
-            href: '/advisor/advising/calendar',
+            href: '/u/advising/calendar',
             icon: <Calendar className="h-4 w-4" />,
             label: 'Calendar',
           },
           {
-            href: '/advisor/advising/sessions',
+            href: '/u/advising/sessions',
             icon: <Mic className="h-4 w-4" />,
             label: 'Sessions',
           },
           {
-            href: '/advisor/advising/reviews',
+            href: '/u/advising/reviews',
             icon: <FileEdit className="h-4 w-4" />,
             label: 'Reviews',
           },
@@ -367,19 +367,19 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         id: 'advisor-applications',
         title: 'Applications',
         icon: <ClipboardList className="h-5 w-5" />,
-        href: '/advisor/applications',
+        href: '/u/applications',
       },
       {
         id: 'advisor-analytics',
         title: 'Analytics',
         icon: <LineChart className="h-5 w-5" />,
-        href: '/advisor/analytics',
+        href: '/u/insights',
       },
       {
         id: 'advisor-support',
         title: 'Support',
         icon: <HelpCircle className="h-5 w-5" />,
-        href: '/advisor/support',
+        href: '/u/support',
       },
     ],
     [],

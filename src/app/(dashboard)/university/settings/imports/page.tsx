@@ -51,6 +51,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { parseCSV } from '@/lib/csv-utils';
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete';
 
@@ -139,40 +140,6 @@ const OUTCOME_TYPE_MAP: Record<string, ParsedRow['outcomeType']> = {
   not_seeking: 'not_seeking',
   not_seeking_employment: 'not_seeking',
 };
-
-function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length === 0) return { headers: [], rows: [] };
-
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''));
-  const rows = lines.slice(1).map((line) => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        // Handle escaped quotes ("" -> literal ")
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++; // Skip the next quote
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    return values;
-  });
-
-  return { headers, rows };
-}
 
 function mapRowToData(headers: string[], row: string[]): ParsedRow {
   const data: Partial<ParsedRow> = {};
@@ -412,7 +379,7 @@ export default function BatchImportPage() {
     <div className="container mx-auto space-y-6 py-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/university/settings">
+        <Link href="/u/admin/settings">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

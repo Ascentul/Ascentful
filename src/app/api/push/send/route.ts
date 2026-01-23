@@ -120,18 +120,22 @@ export async function POST(request: Request) {
       } catch (error: any) {
         // Handle specific error codes
         let errorMessage = error.message || 'Unknown error';
+        let shouldRemove = false;
 
         if (error.statusCode === 410) {
           // Subscription has expired or is no longer valid
           errorMessage = 'Subscription expired';
+          shouldRemove = true;
         } else if (error.statusCode === 404) {
           errorMessage = 'Subscription not found';
+          shouldRemove = true;
         }
 
         return {
           endpoint: subscription.endpoint,
           success: false as const,
           error: errorMessage,
+          shouldRemove,
         };
       }
     });

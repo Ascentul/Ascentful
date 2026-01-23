@@ -61,6 +61,7 @@ export default function AdminEngagementPage() {
   });
   const signalAnalytics = useQuery(
     api.admin_engagement_analytics.getCrossUniversitySignalAnalytics,
+    {},
   );
   const trends = useQuery(api.admin_engagement_analytics.getCrossUniversityTrends, { days: 30 });
 
@@ -279,66 +280,52 @@ export default function AdminEngagementPage() {
             <CardDescription>Student engagement levels across all universities</CardDescription>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={[
-                    {
-                      name: 'Engaged',
-                      value: crossUniversityData.summary.totalEngaged,
-                      color: '#10B981',
-                    },
-                    {
-                      name: 'Moderate',
-                      value:
-                        crossUniversityData.summary.totalStudents -
-                        crossUniversityData.summary.totalEngaged -
-                        crossUniversityData.summary.totalAtRisk,
-                      color: '#3B82F6',
-                    },
-                    {
-                      name: 'At Risk',
-                      value: crossUniversityData.summary.totalAtRisk,
-                      color: '#F59E0B',
-                    },
-                  ]}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, value, percent }) =>
-                    `${name}: ${value.toLocaleString()} (${(percent * 100).toFixed(0)}%)`
-                  }
-                  labelLine
-                >
-                  {[
-                    {
-                      name: 'Engaged',
-                      value: crossUniversityData.summary.totalEngaged,
-                      color: '#10B981',
-                    },
-                    {
-                      name: 'Moderate',
-                      value:
-                        crossUniversityData.summary.totalStudents -
-                        crossUniversityData.summary.totalEngaged -
-                        crossUniversityData.summary.totalAtRisk,
-                      color: '#3B82F6',
-                    },
-                    {
-                      name: 'At Risk',
-                      value: crossUniversityData.summary.totalAtRisk,
-                      color: '#F59E0B',
-                    },
-                  ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {(() => {
+              const engagementDistributionData = [
+                {
+                  name: 'Engaged',
+                  value: crossUniversityData.summary.totalEngaged,
+                  color: '#10B981',
+                },
+                {
+                  name: 'Moderate',
+                  value:
+                    crossUniversityData.summary.totalStudents -
+                    crossUniversityData.summary.totalEngaged -
+                    crossUniversityData.summary.totalAtRisk,
+                  color: '#3B82F6',
+                },
+                {
+                  name: 'At Risk',
+                  value: crossUniversityData.summary.totalAtRisk,
+                  color: '#F59E0B',
+                },
+              ];
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={engagementDistributionData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, value, percent }) =>
+                        `${name}: ${value.toLocaleString()} (${(percent * 100).toFixed(0)}%)`
+                      }
+                      labelLine
+                    >
+                      {engagementDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              );
+            })()}
           </CardContent>
         </Card>
 
