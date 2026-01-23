@@ -138,13 +138,17 @@ export const getUserRecentEvents = query({
       throw new Error('User not found');
     }
 
-    // Authorization: only advisor+ can view other users' events
+    // Authorization: only university_admin/advisor+ can view other users' events
     if (sessionCtx.userId !== args.userId) {
-      if (sessionCtx.role !== 'super_admin' && sessionCtx.role !== 'advisor') {
+      if (
+        sessionCtx.role !== 'super_admin' &&
+        sessionCtx.role !== 'university_admin' &&
+        sessionCtx.role !== 'advisor'
+      ) {
         throw new Error('Unauthorized: Cannot view events for other users');
       }
-      // Additional check for advisor - must be same university
-      if (sessionCtx.role === 'advisor') {
+      // Additional check for university-scoped roles - must be same university
+      if (sessionCtx.role === 'advisor' || sessionCtx.role === 'university_admin') {
         const universityId = requireTenant(sessionCtx);
         if (user.university_id !== universityId) {
           throw new Error('Unauthorized: User is not in your university');
@@ -198,10 +202,15 @@ export const getUserActivitySummary = query({
 
     // Authorization check
     if (sessionCtx.userId !== args.userId) {
-      if (sessionCtx.role !== 'super_admin' && sessionCtx.role !== 'advisor') {
+      if (
+        sessionCtx.role !== 'super_admin' &&
+        sessionCtx.role !== 'university_admin' &&
+        sessionCtx.role !== 'advisor'
+      ) {
         throw new Error('Unauthorized: Cannot view activity for other users');
       }
-      if (sessionCtx.role === 'advisor') {
+      // Additional check for university-scoped roles - must be same university
+      if (sessionCtx.role === 'advisor' || sessionCtx.role === 'university_admin') {
         const universityId = requireTenant(sessionCtx);
         if (user.university_id !== universityId) {
           throw new Error('Unauthorized: User is not in your university');

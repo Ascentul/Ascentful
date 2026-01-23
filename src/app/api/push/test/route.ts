@@ -61,7 +61,12 @@ export async function POST(request: Request) {
     }
     const { subscription }: { subscription: PushSubscription } = body;
 
-    if (!subscription || !subscription.endpoint || !subscription.keys) {
+    if (
+      !subscription ||
+      !subscription.endpoint ||
+      !subscription.keys?.p256dh ||
+      !subscription.keys?.auth
+    ) {
       return NextResponse.json(
         { success: false, error: 'Invalid subscription data' },
         { status: 400 },

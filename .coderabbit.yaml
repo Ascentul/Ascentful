@@ -334,5 +334,23 @@ reviews:
         - Pattern: `// TODO: Implement X` indicates acknowledged future work, not a bug
         - Offering to "help implement" a TODO is a feature request, not a code quality issue
 
+        ### Data Integrity Checks vs Authorization Checks
+        - Don't confuse data integrity checks with authorization checks
+        - Authorization is handled via `assertUserAccess`, `assertUniversityAccess`, etc. at the top of handlers
+        - Subsequent checks like `existing.user_id !== userId` are data integrity checks, not security checks
+        - Pattern: After `assertUserAccess(ctx, actingUser, args.userId)`, comparing against `args.userId` is correct
+        - This pattern prevents data collisions (e.g., one push endpoint registered to multiple users)
+        - The authorization layer already verified the acting user can manage the target userId
+        - Don't suggest replacing `userId` with `actingUser._id` when checking for existing resource ownership
+        - Misleading comments (e.g., "acting user owns") don't mean the code logic is wrong
+
+        ### Mutually Exclusive Status Aggregates
+        - Don't suggest `Math.max(0, ...)` guards for derived counts from mutually exclusive statuses
+        - Pattern: `totalModerate = totalStudents - totalEngaged - totalAtRisk` is guaranteed non-negative
+        - Engagement status is determined by a single deterministic function - students can't be in multiple categories
+        - "Data issues" or "overlapping definitions" can't happen when the data model enforces exclusivity
+        - Adding defensive guards would mask bugs rather than surface them
+        - If aggregates somehow don't add up, it's a serious data integrity issue to investigate, not hide
+
 chat:
   auto_reply: true

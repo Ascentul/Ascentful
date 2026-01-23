@@ -440,7 +440,7 @@ async function computeUniversityPredictions(
   const allActivityEvents = await ctx.db
     .query('activity_events')
     .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .filter((q) => q.gte(q.field('created_at'), startTime))
+    .filter((q) => q.gte(q.field('occurred_at'), startTime))
     .collect();
 
   // Batch fetch: Get applications within the lookback period
