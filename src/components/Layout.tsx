@@ -113,19 +113,8 @@ export function Layout({ children }: LayoutProps) {
     }
   }, [isLoaded, user, router]);
 
-  if (!isLoaded || shouldRedirect === null) {
-    return (
-      <>
-        <AuroraBackground />
-        <div className="relative flex h-screen items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary-500" />
-        </div>
-      </>
-    );
-  }
-
-  // University users are redirected, don't render old layout
-  if (shouldRedirect) {
+  // Show loading spinner during initial load, redirect determination, or active redirect
+  if (!isLoaded || shouldRedirect === null || shouldRedirect) {
     return (
       <>
         <AuroraBackground />

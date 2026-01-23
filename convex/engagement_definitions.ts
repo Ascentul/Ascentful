@@ -242,6 +242,16 @@ export const updateDefinition = mutation({
     const now = Date.now();
     const updates: Record<string, unknown> = { updated_at: now };
 
+    // Prevent inactive definitions from being default
+    if (args.isActive === false) {
+      if (args.isDefault === true) {
+        throw new Error('Default definition must remain active');
+      }
+      if (definition.is_default) {
+        updates.is_default = false;
+      }
+    }
+
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
     if (args.criteria !== undefined) updates.criteria = args.criteria;

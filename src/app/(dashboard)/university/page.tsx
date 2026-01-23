@@ -231,7 +231,7 @@ export default function UniversityDashboardPage() {
   // Compute department ID for analytics filter
   const usageDepartmentId = React.useMemo(() => {
     if (usageProgramFilter === 'All Programs' || !departments) return undefined;
-    const dept = departments.find((d: any) => d.name === usageProgramFilter);
+    const dept = departments.find((d) => d.name === usageProgramFilter);
     return dept?._id;
   }, [usageProgramFilter, departments]);
 
@@ -271,7 +271,7 @@ export default function UniversityDashboardPage() {
   const getDepartmentIdFromName = React.useCallback(
     (name: string): Id<'departments'> | undefined => {
       if (!departments || name === 'All Programs') return undefined;
-      const dept = departments.find((d: any) => d.name === name);
+      const dept = departments.find((d) => d.name === name);
       return dept?._id;
     },
     [departments],
@@ -2053,7 +2053,7 @@ export default function UniversityDashboardPage() {
                         {students
                           .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
                           .map((s: any) => {
-                            const dept = departments.find((d: any) => d._id === s.department_id);
+                            const dept = departments.find((d) => d._id === s.department_id);
                             return (
                               <TableRow key={s._id}>
                                 <TableCell>

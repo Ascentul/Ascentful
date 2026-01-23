@@ -49,10 +49,21 @@ reviews:
         ### Idempotent Operations
         - Session cancellation is idempotent - status check is sufficient, no version check needed
         - Soft delete operations are idempotent - can be called multiple times safely
+        - Don't suggest loading states to prevent double-clicks on idempotent button handlers
+        - Dismiss/unsnooze/mark-as-read operations are safe to call multiple times
+        - Adding loading states for idempotent operations is over-engineering
+        - Don't suggest client-side refs to track if a mutation was called when backend handles deduplication
+        - Example: Login tracking with "deduplication for sessions < 1 hour" doesn't need a `hasRecordedLoginRef`
 
         ### Performance
         - Don't suggest index optimizations without evidence of actual performance issues
         - Don't flag one-time migration scripts for pagination unless dataset is large
+        - Don't suggest batching Promise.all calls into single mutations without evidence of performance issues
+        - Per-user notification counts are small (dozens) - batch mutations are premature optimization
+        - Promise.all is parallel, so latency is max of individual calls, not sum
+        - Don't suggest converting dynamic imports to static imports in Convex handlers
+        - Dynamic imports are cached after first call - "latency per invocation" claim is misleading
+        - Module caching persists for isolate lifetime, so only cold starts have any overhead
 
         ### Testing
         - Mock implementations in `__mocks__/` are intentionally simplified
@@ -84,12 +95,20 @@ reviews:
         - Example: `handleQuickAction() { handleAsync(); }` is fine if `handleAsync` sets loading state first
         - Don't suggest adding `await` to wrapper functions that just trigger async operations
         - The synchronous state update disables buttons before any async work begins
+        - Don't suggest adding `void` prefix to fire-and-forget calls - it's stylistic with no functional benefit
+        - Callback handlers (onClick, onDelete) that delegate to parent don't need await or loading states
 
         ### React Query (TanStack Query)
         - `useMutation` return objects are stable references - safe to include in useEffect dependencies
         - Don't suggest extracting `.mutate` to separate refs - the mutation object itself is stable
         - Guards like `!mutation.isPending` in useEffect conditions prevent re-calling during pending state
         - React Query mutations do NOT cause infinite loops when included in dependency arrays
+
+        ### Transient UI State
+        - Don't suggest persisting transient UI state (toast counts, last seen counts) to localStorage
+        - Component re-mount resetting state is normal and acceptable React behavior
+        - localStorage adds complexity (sync issues, stale data across tabs) for minor UX edge cases
+        - Toast timing edge cases on navigation are acceptable - users see the UI directly
 
         ### React State Patterns
         - Functional updates `setState((prev) => ...)` execute synchronously within the same tick
@@ -143,6 +162,13 @@ reviews:
         - Don't suggest tying UI state to "actual completion" when the operation runs asynchronously via scheduled jobs
         - Convex reactive queries automatically update the UI when background jobs write results to the database
         - Toast messages already set user expectations (e.g., "Results will appear shortly")
+
+        ### Service Worker Notification Actions
+        - Service workers can't make authenticated API calls without a client window
+        - Silent fail with warning log is acceptable when `clients.matchAll()` returns no clients
+        - Don't suggest IndexedDB storage for pending notification actions - adds complexity for rare edge case
+        - Don't suggest opening app URL as fallback - user loses context about original action
+        - Users can handle missed notification actions via in-app UI when they next open the app
 
         ### Suspense Boundaries
         - Suspense wrappers around page content are intentional even when Convex queries don't suspend
@@ -204,6 +230,20 @@ reviews:
         - Inline code is often clearer than jumping to a named function for simple transformations
         - "Reusability" and "testability" arguments are weak for one-off logic with no actual reuse
         - Only suggest extraction when: logic is used multiple times, is complex (>10 lines), or has independent meaning
+        - Simple aggregation loops (count/sum patterns) within the same file don't need extraction
+        - For ~10 line loops that are duplicated 2-3 times in one file, inline is still acceptable if the pattern is clear
+
+        ### Internal Component API Contracts
+        - Don't suggest adding defensive validation for internal component props
+        - Internal components don't need extensive API documentation for theoretical misuse
+        - Example: A trend badge with `{ value, direction }` doesn't need guards against `{ value: -5, direction: 'up' }`
+        - Trust that internal callers use props as intended - add validation only when actual bugs occur
+
+        ### Intentional Fallback Patterns
+        - Don't suggest making fields required when code has intentional fallbacks like `value || 'Default'`
+        - Pattern `advisorName || 'Advisor'` means the field is intentionally optional with graceful degradation
+        - Fallbacks provide better UX than rejecting requests for missing optional data
+        - Making optional fields required would be a breaking change for existing callers
 
         ### Convex Query Pagination Constraints
         - Don't suggest pushing all filters to DB when role-based filtering requires in-memory Sets
@@ -214,6 +254,14 @@ reviews:
           - Custom multi-field sorting is needed (not directly indexable)
           - Dataset size is bounded (e.g., signals per university are dozens to low hundreds)
         - Only suggest pagination optimization when there's evidence of actual performance issues at scale
+
+        ### Batch Processing Cursor Patterns
+        - Internal batch jobs (internalMutation/internalAction) using `_id > cursor` pattern are intentional
+        - Don't suggest replacing manual ID-based cursors with `.paginate()` for scheduled/cron jobs
+        - Convex `.paginate()` returns opaque cursors designed for client-facing APIs, not batch processing
+        - Pattern: `filter((q) => q.gt(q.field('_id'), cursorId))` is valid for batch continuation
+        - Returning `lastProcessedId` for scheduler continuation is preferred over opaque cursors
+        - Manual cursors give explicit control needed for scheduled job retries and monitoring
 
         ### One-Time Migration Scripts
         - Migration scripts in `convex/migrations/` are intentionally isolated and may duplicate patterns
@@ -227,6 +275,19 @@ reviews:
         - Don't suggest special-casing edge cases in fuzzy matching unless it causes incorrect results
         - Conservative fallback to 0 similarity for edge cases prevents false positive matches
         - Pattern: `if (union === 0) return 0` is intentional - no tokens means no similarity
+
+        ### Signal Evaluation Logic
+        - Read the FULL evaluation logic before suggesting edge case fixes
+        - Engagement drop evaluations already handle undefined previousLevel via index checks
+        - Pattern: `prevIdx >= 0 && ...` ensures we only trigger when previous state is known
+        - Don't suggest adding `return false` for edge cases that are already handled by existing guards
+
+        ### Dialog Error Retry Pattern
+        - When a dialog action fails (delete, update), NOT resetting state (e.g., `deletingId`) is intentional
+        - Dialog stays open on error so user can see the error toast and retry
+        - Resetting tracking IDs in catch blocks would break retry functionality
+        - Pattern: Success path resets state + closes dialog; error path shows toast only
+        - Don't suggest adding state resets in catch blocks for dialog confirmation handlers
 
 chat:
   auto_reply: true

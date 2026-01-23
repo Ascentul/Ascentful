@@ -4,17 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import {
-  BarChart3,
-  Briefcase,
-  Download,
-  Eye,
-  GraduationCap,
-  HelpCircle,
-  Loader2,
-  Search,
-  Users,
-} from 'lucide-react';
+import { BarChart3, Download, Eye, Loader2, Search } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Bar,

@@ -438,7 +438,7 @@ export default function UniversityAnalyticsPage() {
                       const programData = Object.entries(engagementStats.by_program)
                         .filter(([key]) => key !== 'unknown')
                         .map(([programId, stats]) => {
-                          const dept = departments.find((d: any) => d._id === programId);
+                          const dept = departments.find((d) => d._id === programId);
                           return {
                             name: dept?.name || 'Unknown Program',
                             engaged: stats.engaged,
@@ -1090,7 +1090,7 @@ export default function UniversityAnalyticsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(departmentAnalytics || []).map((dept: any) => (
+            {(departmentAnalytics || []).map((dept) => (
               <Card key={dept.departmentId}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between gap-2">

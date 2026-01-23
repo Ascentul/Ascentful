@@ -358,10 +358,14 @@ export const markSignalNotificationsRead = mutation({
     const now = Date.now();
 
     if (args.notificationIds && args.notificationIds.length > 0) {
-      // Mark specific notifications as read
+      // Mark specific signal notifications as read
       for (const id of args.notificationIds) {
         const notification = await ctx.db.get(id);
-        if (notification && notification.user_id === args.userId) {
+        if (
+          notification &&
+          notification.user_id === args.userId &&
+          (notification.type === 'signal' || notification.type === 'signal_urgent')
+        ) {
           await ctx.db.patch(id, { read: true, read_at: now });
         }
       }

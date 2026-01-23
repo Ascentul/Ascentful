@@ -1108,7 +1108,12 @@ export const evaluateSignalRules = internalMutation({
 async function evaluateRuleCondition(
   ctx: QueryCtx,
   rule: { condition: unknown },
-  student: { _id: Id<'users'>; last_login_at?: number; university_id?: Id<'universities'> | null },
+  student: {
+    _id: Id<'users'>;
+    last_login_at?: number;
+    university_id?: Id<'universities'> | null;
+    engagement_status?: 'engaged' | 'moderate' | 'at_risk';
+  },
   now: number,
 ): Promise<{ triggered: boolean; context?: Record<string, unknown> }> {
   const condition = rule.condition as Record<string, unknown>;
@@ -1199,11 +1204,12 @@ async function evaluateRuleCondition(
     }
 
     case 'engagement_drop': {
-      // For engagement drop, we need to compare previous and current engagement levels
-      // This requires stored engagement history or comparing against thresholds
+      // For engagement drop, we compare previous (cached) and current engagement levels
+      // Only trigger on actual downward transitions to avoid spamming advisors
 
       const fromLevel = condition.from as string;
       const toLevel = condition.to as string;
+      const previousLevel = student.engagement_status;
 
       // Get the university's default engagement definition
       if (!student.university_id) return { triggered: false };
@@ -1240,18 +1246,31 @@ async function evaluateRuleCondition(
         currentLevel = 'moderate';
       }
 
-      // Check if current level matches the "to" level and implies a drop
       // levelOrder: index 0 = best (engaged), index 2 = worst (at_risk)
       const levelOrder = ['engaged', 'moderate', 'at_risk'];
       const currentIdx = levelOrder.indexOf(currentLevel);
       const toIdx = levelOrder.indexOf(toLevel);
+      const fromIdx = levelOrder.indexOf(fromLevel);
+      const prevIdx = previousLevel ? levelOrder.indexOf(previousLevel) : -1;
 
-      // Trigger if current level is at or worse than the target "to" level
-      if (currentIdx >= toIdx) {
+      // Only trigger on actual downward transition:
+      // - Must have a valid previous level
+      // - Previous level must be at or better than "from" level
+      // - Current level must be at or worse than "to" level
+      // - Current level must be worse than previous level (actual drop)
+      if (
+        prevIdx >= 0 &&
+        fromIdx >= 0 &&
+        toIdx >= 0 &&
+        currentIdx > prevIdx && // Actually dropped
+        prevIdx <= fromIdx && // Was at or better than "from"
+        currentIdx >= toIdx // Now at or worse than "to"
+      ) {
         return {
           triggered: true,
           context: {
             currentLevel,
+            previousLevel,
             targetFromLevel: fromLevel,
             targetToLevel: toLevel,
             activityScore,
@@ -1596,7 +1615,8 @@ export function generateSignalExplanation(
 
     case 'engagement_drop': {
       const current = context.currentLevel as string;
-      const from = context.targetFromLevel as string;
+      const previous = context.previousLevel as string | undefined;
+      const from = previous || (context.targetFromLevel as string);
       return `Engagement level dropped from ${from} to ${current}. May need check-in.`;
     }
 

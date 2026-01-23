@@ -3,7 +3,7 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { Activity, ArrowLeft, Copy, Edit, MoreHorizontal, Plus, Power, Trash2 } from 'lucide-react';
+import { Activity, ArrowLeft, Copy, Edit, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import React, { useState } from 'react';
 

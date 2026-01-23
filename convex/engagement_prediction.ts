@@ -129,7 +129,10 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
 
   // Determine current status based on activity
   const recentWeekActivity = weeklyActivityCounts[weeklyActivityCounts.length - 1] || 0;
-  const avgActivity = weeklyActivityCounts.reduce((a, b) => a + b, 0) / weeklyActivityCounts.length;
+  const avgActivity =
+    weeklyActivityCounts.length > 0
+      ? weeklyActivityCounts.reduce((a, b) => a + b, 0) / weeklyActivityCounts.length
+      : 0;
 
   let currentStatus: 'engaged' | 'moderate' | 'at_risk';
   if (daysSinceActivity > 14 || recentWeekActivity === 0) {

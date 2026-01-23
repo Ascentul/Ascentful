@@ -3,7 +3,7 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { Bell, MessageCircle } from 'lucide-react';
+import { Bell, Loader2, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
@@ -137,7 +137,11 @@ export function NotificationButtons({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          {!notifications || notifications.length === 0 ? (
+          {!notifications ? (
+            <div className="p-4 text-center">
+              <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
           ) : (
             <div className="max-h-80 overflow-y-auto">
