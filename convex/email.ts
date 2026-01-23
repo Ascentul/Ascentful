@@ -451,8 +451,9 @@ export const sendUrgentSignalNotificationEmail = action({
     const { sendEmail } = await import('../src/lib/email');
 
     const priorityEmoji = args.signalPriority === 'urgent' ? '🚨' : '⚠️';
-    const priorityLabel =
+    const priorityLabelRaw =
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
+    const priorityLabel = escapeHtml(priorityLabelRaw);
 
     const subject = `${priorityEmoji} ${priorityLabel} Signal: ${args.signalTitle} - ${args.studentName}`;
 
@@ -495,7 +496,7 @@ The Ascentul Team`;
 
         <p>Hello ${safeAdvisorName},</p>
 
-        <p>A ${args.signalPriority} priority signal requires your attention:</p>
+        <p>A ${priorityLabel.toLowerCase()} priority signal requires your attention:</p>
 
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
           <tr>

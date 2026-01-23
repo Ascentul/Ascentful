@@ -51,7 +51,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { parseCSV } from '@/lib/csv-utils';
+import { parseCSV, toCSV } from '@/lib/csv-utils';
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete';
 
@@ -371,7 +371,7 @@ export default function BatchImportPage() {
       '',
     ];
 
-    const csv = [headers.join(','), sampleRow.join(',')].join('\n');
+    const csv = toCSV(headers, [sampleRow]);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

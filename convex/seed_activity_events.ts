@@ -223,7 +223,7 @@ function maskEmail(email: string | undefined): string {
 }
 
 // Debug: Check users and activity events for a university
-export const debugUniversityData = internalMutation({
+export const debugUniversityData = internalQuery({
   args: {
     universityId: v.id('universities'),
   },

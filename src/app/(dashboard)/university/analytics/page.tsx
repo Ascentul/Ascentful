@@ -550,7 +550,8 @@ export default function UniversityAnalyticsPage() {
                 signalAnalytics.typeCounts.needs_outreach +
                   signalAnalytics.typeCounts.application_support +
                   signalAnalytics.typeCounts.document_review +
-                  signalAnalytics.typeCounts.milestone_check >
+                  signalAnalytics.typeCounts.milestone_check +
+                  signalAnalytics.typeCounts.custom >
                   0 ? (
                   (() => {
                     const signalBarData = [
@@ -714,6 +715,15 @@ export default function UniversityAnalyticsPage() {
                       color: '#8B5CF6',
                     },
                   ];
+                  const total = featureData.reduce((sum, f) => sum + f.value, 0);
+                  if (total === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">No feature usage data yet</p>
+                      </div>
+                    );
+                  }
                   return (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -865,7 +875,8 @@ export default function UniversityAnalyticsPage() {
                 signalAnalytics.typeCounts.needs_outreach +
                   signalAnalytics.typeCounts.application_support +
                   signalAnalytics.typeCounts.document_review +
-                  signalAnalytics.typeCounts.milestone_check >
+                  signalAnalytics.typeCounts.milestone_check +
+                  signalAnalytics.typeCounts.custom >
                   0 ? (
                   (() => {
                     const signalTypeData = [
@@ -888,6 +899,11 @@ export default function UniversityAnalyticsPage() {
                         name: 'Milestone Check',
                         value: signalAnalytics.typeCounts.milestone_check,
                         color: '#10B981',
+                      },
+                      {
+                        name: 'Custom',
+                        value: signalAnalytics.typeCounts.custom,
+                        color: '#6B7280',
                       },
                     ].filter((d) => d.value > 0);
                     return (

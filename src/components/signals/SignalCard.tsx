@@ -278,6 +278,7 @@ export function SignalCard({
             size="sm"
             className="h-6 w-6 p-0"
             onClick={() => setIsExpanded(!isExpanded)}
+            aria-label={isExpanded ? 'Collapse signal details' : 'Expand signal details'}
           >
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>

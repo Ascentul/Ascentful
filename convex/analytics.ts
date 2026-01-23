@@ -2202,10 +2202,11 @@ export const getUniversityActiveUsersOverTime = query({
     const startTime = now - lookbackDays * msPerDay;
 
     // Get activity events for the university
+    // Use occurred_at (canonical timestamp) for filtering, not created_at
     const events = await ctx.db
       .query('activity_events')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.gte(q.field('created_at'), startTime))
+      .filter((q) => q.gte(q.field('occurred_at'), startTime))
       .collect();
 
     // Group events by bucket and count unique users
@@ -2216,7 +2217,7 @@ export const getUniversityActiveUsersOverTime = query({
       const bucketEnd = now - i * bucketMs;
 
       const bucketEvents = events.filter(
-        (e) => e.created_at >= bucketStart && e.created_at < bucketEnd,
+        (e) => e.occurred_at >= bucketStart && e.occurred_at < bucketEnd,
       );
 
       const activeStudentIds = new Set(

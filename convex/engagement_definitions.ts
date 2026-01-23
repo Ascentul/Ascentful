@@ -403,6 +403,58 @@ export const DEFAULT_QUALIFYING_EVENT_TYPES = [
 ];
 
 /**
+ * Calculate engagement score from activity metrics.
+ * Centralizes the scoring algorithm used across all engagement queries.
+ *
+ * Score breakdown:
+ * - Event count score (0-50): Based on qualifying events vs ideal count
+ * - Active days score (0-30): Based on unique days with activity
+ * - Recency score (0-20): Based on days since last activity
+ */
+function calculateEngagementScore(
+  totalCount: number,
+  uniqueDays: number,
+  lastEventAt: number | null,
+  criteria: EngagementCriteria,
+): number {
+  const periodDays = criteria.period_days || 14;
+  const minEvents = criteria.min_events_in_period || 3;
+  const idealEvents = minEvents * 2;
+
+  // Event count score (0-50)
+  const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
+
+  // Active days score (0-30)
+  const idealActiveDays = Math.min(periodDays, 7);
+  const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+
+  // Recency score (0-20)
+  let recencyScore = 0;
+  if (lastEventAt !== null) {
+    const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
+    if (daysSince <= 1) recencyScore = 20;
+    else if (daysSince <= 3) recencyScore = 15;
+    else if (daysSince <= 7) recencyScore = 10;
+    else if (daysSince <= 14) recencyScore = 5;
+  }
+
+  return Math.round(eventScore + activeDaysScore + recencyScore);
+}
+
+/**
+ * Determine engagement status based on score and thresholds.
+ */
+function determineEngagementStatus(
+  score: number,
+  engagedThreshold: number,
+  atRiskThreshold: number,
+): 'engaged' | 'moderate' | 'at_risk' {
+  if (score >= engagedThreshold) return 'engaged';
+  if (score <= atRiskThreshold) return 'at_risk';
+  return 'moderate';
+}
+
+/**
  * Helper to get qualifying events for a student within a period.
  */
 async function getQualifyingEvents(
@@ -536,48 +588,17 @@ export const evaluateStudentEngagement = query({
     );
 
     // Calculate days since last activity
-    const now = Date.now();
     const daysSinceActivity = lastEventAt
-      ? Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24))
+      ? Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24))
       : null;
 
-    // Calculate engagement score (0-100)
-    // Score is based on:
-    // - Number of qualifying events (50% weight)
-    // - Number of unique active days (30% weight)
-    // - Recency of last activity (20% weight)
-    const periodDays = criteria.period_days || 14;
-    const minEvents = criteria.min_events_in_period || 3;
-    const idealEvents = minEvents * 2; // Target for 100% on events component
-
-    // Event count score (0-50)
-    const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-
-    // Active days score (0-30) - based on having activity on different days
-    const idealActiveDays = Math.min(periodDays, 7); // At least half the days
-    const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-    // Recency score (0-20) - based on how recently they were active
-    let recencyScore = 0;
-    if (daysSinceActivity !== null) {
-      if (daysSinceActivity <= 1) recencyScore = 20;
-      else if (daysSinceActivity <= 3) recencyScore = 15;
-      else if (daysSinceActivity <= 7) recencyScore = 10;
-      else if (daysSinceActivity <= 14) recencyScore = 5;
-      else recencyScore = 0;
-    }
-
-    const score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-    // Determine engagement status based on thresholds
-    let status: 'engaged' | 'moderate' | 'at_risk';
-    if (score >= definition.engaged_threshold) {
-      status = 'engaged';
-    } else if (score <= definition.at_risk_threshold) {
-      status = 'at_risk';
-    } else {
-      status = 'moderate';
-    }
+    // Calculate engagement score and status using shared helpers
+    const score = calculateEngagementScore(totalCount, uniqueDays, lastEventAt, criteria);
+    const status = determineEngagementStatus(
+      score,
+      definition.engaged_threshold,
+      definition.at_risk_threshold,
+    );
 
     return {
       score,
@@ -586,7 +607,7 @@ export const evaluateStudentEngagement = query({
       last_qualifying_event: lastEventAt,
       days_since_activity: daysSinceActivity,
       unique_active_days: uniqueDays,
-      period_days: periodDays,
+      period_days: criteria.period_days || 14,
       definition_id: definition._id,
       definition_name: definition.name,
     };
@@ -709,33 +730,12 @@ export const getEngagementAnalytics = query({
           criteria,
         );
 
-        const periodDays = criteria.period_days || 14;
-        const minEvents = criteria.min_events_in_period || 3;
-        const idealEvents = minEvents * 2;
-
-        const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-        const idealActiveDays = Math.min(periodDays, 7);
-        const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-        let recencyScore = 0;
-        if (lastEventAt) {
-          const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
-          if (daysSince <= 1) recencyScore = 20;
-          else if (daysSince <= 3) recencyScore = 15;
-          else if (daysSince <= 7) recencyScore = 10;
-          else if (daysSince <= 14) recencyScore = 5;
-        }
-
-        const score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-        let status: 'engaged' | 'moderate' | 'at_risk';
-        if (score >= definition.engaged_threshold) {
-          status = 'engaged';
-        } else if (score <= definition.at_risk_threshold) {
-          status = 'at_risk';
-        } else {
-          status = 'moderate';
-        }
+        const score = calculateEngagementScore(totalCount, uniqueDays, lastEventAt, criteria);
+        const status = determineEngagementStatus(
+          score,
+          definition.engaged_threshold,
+          definition.at_risk_threshold,
+        );
 
         engagementResults.push({
           studentId: student._id,
@@ -910,33 +910,12 @@ export const getUniqueEngagedStats = query({
           criteria,
         );
 
-        // Calculate score
-        const periodDays = criteria.period_days || 14;
-        const minEvents = criteria.min_events_in_period || 3;
-        const idealEvents = minEvents * 2;
-
-        const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-        const idealActiveDays = Math.min(periodDays, 7);
-        const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-        let recencyScore = 0;
-        if (lastEventAt) {
-          const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
-          if (daysSince <= 1) recencyScore = 20;
-          else if (daysSince <= 3) recencyScore = 15;
-          else if (daysSince <= 7) recencyScore = 10;
-          else if (daysSince <= 14) recencyScore = 5;
-        }
-
-        score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-        if (score >= definition.engaged_threshold) {
-          status = 'engaged';
-        } else if (score <= definition.at_risk_threshold) {
-          status = 'at_risk';
-        } else {
-          status = 'moderate';
-        }
+        score = calculateEngagementScore(totalCount, uniqueDays, lastEventAt, criteria);
+        status = determineEngagementStatus(
+          score,
+          definition.engaged_threshold,
+          definition.at_risk_threshold,
+        );
       }
 
       // Count by status

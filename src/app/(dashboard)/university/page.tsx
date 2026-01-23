@@ -1490,7 +1490,7 @@ export default function UniversityDashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {activeUsersData?.data?.[activeUsersData.data.length - 1]?.students ?? 0}
+                      {activeUsersData?.data?.slice(-1)?.[0]?.students ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       of {activeUsersData?.totalStudents ?? students?.length ?? 0} total students

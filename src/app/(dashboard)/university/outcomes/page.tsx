@@ -64,8 +64,6 @@ const OUTCOME_TYPE_LABELS: Record<string, string> = {
   not_seeking: 'Not Seeking',
 };
 
-const CHART_COLORS = ['#5371FF', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
-
 export default function OutcomesDashboardPage() {
   const { user: clerkUser } = useUser();
   const { user, isAdmin } = useAuth();

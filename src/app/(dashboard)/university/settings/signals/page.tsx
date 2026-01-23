@@ -153,7 +153,8 @@ const QUALIFYING_EVENT_OPTIONS = [
   { value: 'cover_letter_created', label: 'Cover Letter Created' },
   { value: 'goal_created', label: 'Goal Created' },
   { value: 'goal_completed', label: 'Goal Completed' },
-  { value: 'ai_coach_session', label: 'AI Coach Session' },
+  { value: 'coach_conversation_started', label: 'AI Coach Conversation Started' },
+  { value: 'coach_message_sent', label: 'AI Coach Message Sent' },
   { value: 'appointment_scheduled', label: 'Appointment Scheduled' },
 ];
 

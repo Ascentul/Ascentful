@@ -239,12 +239,13 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
 
       return (
         <div key={item.id} className="space-y-1">
-          <div
+          <button
+            type="button"
             className={`
               flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium cursor-pointer select-none transition-colors min-h-[40px] px-3
+              w-full text-left bg-transparent border-0
               ${hasActiveChild ? 'text-slate-900' : 'text-[#576879] hover:bg-white/50 hover:text-slate-800'}
             `}
-            role="button"
             aria-expanded={!isCollapsed}
             onClick={() => toggleSection(item.id)}
           >
@@ -260,7 +261,7 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
                 />
               </>
             )}
-          </div>
+          </button>
           <AnimatePresence initial={false}>
             {!isCollapsed && item.children && (
               <motion.div

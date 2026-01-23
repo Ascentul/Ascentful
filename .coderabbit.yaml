@@ -263,12 +263,22 @@ reviews:
         - Returning `lastProcessedId` for scheduler continuation is preferred over opaque cursors
         - Manual cursors give explicit control needed for scheduled job retries and monitoring
 
-        ### One-Time Migration Scripts
+        ### Bounded Analytics Queries
+        - Analytics queries intentionally filter by `created_at` to bound the query scope
+        - Don't suggest widening fetches to include all historical records for resolution/update tracking
+        - Comment patterns like "avoid unbounded query" indicate intentional performance tradeoffs
+        - Tracking "created and resolved in period" is acceptable approximation vs fetching entire table
+        - For exact resolution tracking across all time, would need separate `resolved_at` index + query
+        - The marginal accuracy improvement rarely justifies the query cost at scale
+
+        ### One-Time Migration Scripts & Seed Scripts
         - Migration scripts in `convex/migrations/` are intentionally isolated and may duplicate patterns
-        - Don't suggest DRY refactoring for migrations - isolation prevents cascading breakage
+        - Seed scripts (e.g., `seed_activity_events.ts`) are development tooling with similar isolation
+        - Don't suggest DRY refactoring for migrations/seeds - isolation prevents cascading breakage
         - Don't flag query inefficiency in migrations unless processing millions of records
-        - Migration utilities run once and are then archived - optimize for correctness over elegance
+        - Migration/seed utilities run infrequently - optimize for correctness over elegance
         - Pattern: `collect()` + in-memory processing is acceptable for bounded migration datasets
+        - Don't suggest importing shared constants into seed scripts to avoid circular dependencies
 
         ### Fuzzy Matching Edge Cases
         - Jaccard similarity returning 0 for empty sets is acceptable conservative behavior
@@ -288,6 +298,41 @@ reviews:
         - Resetting tracking IDs in catch blocks would break retry functionality
         - Pattern: Success path resets state + closes dialog; error path shows toast only
         - Don't suggest adding state resets in catch blocks for dialog confirmation handlers
+
+        ### 'use client' Directive Consistency
+        - Don't suggest removing `'use client'` from presentational components for "minor optimization"
+        - Keeping the directive on all client-side components ensures consistency across the codebase
+        - Components may later add hooks, event handlers, or browser APIs - the directive future-proofs them
+        - The SSR benefit of removing it is marginal for small presentational components
+        - Pattern: If a component lives in a client-side feature folder, keep `'use client'` for consistency
+
+        ### Self-Documenting API Response Fields
+        - Don't suggest adding comments or documentation for clearly-named response fields
+        - Pattern: `shouldRemove: true` in API responses is self-explanatory - callers should remove the item
+        - Metadata flags like `expired`, `shouldRetry`, `shouldRemove` don't need inline documentation
+        - API response contracts are established by field names - callers understand their responsibility
+        - Don't suggest "document that callers must handle X" when the field name makes intent clear
+
+        ### Simple Delete Confirmations
+        - `window.confirm` is acceptable for simple delete operations inside dropdowns/menus
+        - Don't suggest replacing window.confirm with custom dialog components unless UX requires it
+        - Dropdown closing before confirmation appears is expected behavior, not a bug
+        - Users don't need dropdown context during confirmation - they know what they clicked
+        - Simpler implementations are preferred over custom dialog state management for basic confirms
+
+        ### Deprecated APIs in Telemetry/Diagnostic Code
+        - Don't flag deprecated APIs when used for non-critical telemetry or diagnostic data
+        - Pattern: `navigator.platform` in device info collection is acceptable - it's informational only
+        - Replacement APIs (e.g., `navigator.userAgentData`) may have limited browser support
+        - Low-priority deprecation warnings for diagnostic data don't justify breaking changes
+        - Focus deprecation concerns on business-critical code paths, not telemetry
+
+        ### TODO Comments Are Not Actionable Suggestions
+        - Don't suggest implementing features described in TODO comments as part of PR review
+        - TODOs are intentional placeholders for planned future work, not oversights
+        - Feature requests should come from product requirements, not code review
+        - Pattern: `// TODO: Implement X` indicates acknowledged future work, not a bug
+        - Offering to "help implement" a TODO is a feature request, not a code quality issue
 
 chat:
   auto_reply: true

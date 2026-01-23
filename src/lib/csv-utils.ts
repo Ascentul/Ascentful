@@ -70,6 +70,42 @@ export function csvFilename(prefix: string): string {
 }
 
 /**
+ * Parse a single CSV line into an array of values.
+ *
+ * Handles:
+ * - Quoted fields with commas inside
+ * - Escaped quotes (doubled "")
+ *
+ * @param line - A single line of CSV content
+ * @returns Array of parsed values
+ */
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      // Handle escaped quotes ("" -> literal ")
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++; // Skip the next quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+/**
  * Parse CSV content into headers and rows.
  *
  * Handles:
@@ -87,32 +123,8 @@ export function parseCSV(text: string): { headers: string[]; rows: string[][] } 
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return { headers: [], rows: [] };
 
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''));
-  const rows = lines.slice(1).map((line) => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        // Handle escaped quotes ("" -> literal ")
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++; // Skip the next quote
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    return values;
-  });
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const rows = lines.slice(1).map(parseCSVLine);
 
   return { headers, rows };
 }
