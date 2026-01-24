@@ -14,25 +14,7 @@ import { v } from 'convex/values';
 
 import { Doc, Id } from '../_generated/dataModel';
 import { internalMutation, internalQuery, QueryCtx } from '../_generated/server';
-
-// Default qualifying event types for engagement scoring
-const DEFAULT_QUALIFYING_EVENT_TYPES = [
-  'login',
-  'application_created',
-  'application_updated',
-  'application_stage_changed',
-  'resume_created',
-  'resume_updated',
-  'cover_letter_created',
-  'cover_letter_updated',
-  'goal_created',
-  'goal_updated',
-  'goal_completed',
-  'coach_conversation_started',
-  'coach_message_sent',
-  'contact_added',
-  'project_created',
-];
+import { DEFAULT_QUALIFYING_EVENT_TYPES } from '../lib/engagementScoring';
 
 interface EngagementCriteria {
   period_days: number;

@@ -94,7 +94,10 @@ export function NotificationButtons({
   // Handle notification click
   const handleNotificationClick = useCallback(
     (notificationId: Id<'notifications'>, link?: string) => {
-      markAsRead({ notificationId }); // Fire-and-forget for instant navigation
+      // Fire-and-forget for instant navigation UX
+      markAsRead({ notificationId }).catch(() => {
+        // Silent fail is acceptable - navigation takes priority
+      });
       if (link) {
         router.push(link);
       }
@@ -105,7 +108,11 @@ export function NotificationButtons({
   // Handle mark all as read
   const handleMarkAllAsRead = useCallback(async () => {
     if (userId) {
-      await markAllAsRead({});
+      try {
+        await markAllAsRead({});
+      } catch (error) {
+        console.error('Failed to mark notifications as read:', error);
+      }
     }
   }, [markAllAsRead, userId]);
 
@@ -168,6 +175,11 @@ export function NotificationButtons({
                   </span>
                 </DropdownMenuItem>
               ))}
+              {notifications.length > 10 && (
+                <div className="p-2 text-center text-xs text-muted-foreground border-t">
+                  +{notifications.length - 10} more notifications
+                </div>
+              )}
             </div>
           )}
 

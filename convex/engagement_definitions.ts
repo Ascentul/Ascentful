@@ -24,7 +24,15 @@ import { v } from 'convex/values';
 import { Doc, Id } from './_generated/dataModel';
 import { mutation, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
+import {
+  calculateEngagementScore as calculateEngagementScoreLib,
+  DEFAULT_QUALIFYING_EVENT_TYPES,
+  determineEngagementStatus,
+} from './lib/engagementScoring';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
+
+// Re-export for backward compatibility
+export { DEFAULT_QUALIFYING_EVENT_TYPES };
 
 // ============================================================================
 // VALIDATORS
@@ -388,30 +396,12 @@ export interface EngagementCriteria {
 }
 
 /**
- * Default qualifying event types for engagement scoring.
- */
-export const DEFAULT_QUALIFYING_EVENT_TYPES = [
-  'login',
-  'application_created',
-  'application_updated',
-  'application_stage_changed',
-  'resume_created',
-  'resume_updated',
-  'goal_created',
-  'goal_updated',
-  'goal_completed',
-  'coach_conversation_started',
-  'coach_message_sent',
-];
-
-/**
  * Calculate engagement score from activity metrics.
- * Centralizes the scoring algorithm used across all engagement queries.
+ * Thin wrapper around lib/engagementScoring.ts for local signature compatibility.
  *
- * Score breakdown:
- * - Event count score (0-50): Based on qualifying events vs ideal count
- * - Active days score (0-30): Based on unique days with activity
- * - Recency score (0-20): Based on days since last activity
+ * This function converts the local signature (with lastEventAt timestamp) to the
+ * lib function signature (with daysSinceLastActivity). The actual scoring logic
+ * is centralized in lib/engagementScoring.ts as the single source of truth.
  */
 function calculateEngagementScore(
   totalCount: number,
@@ -419,41 +409,22 @@ function calculateEngagementScore(
   lastEventAt: number | null,
   criteria: EngagementCriteria,
 ): number {
-  const periodDays = criteria.period_days || 14;
-  const minEvents = criteria.min_events_in_period || 3;
-  const idealEvents = minEvents * 2;
+  // Calculate days since last activity from timestamp
+  const daysSinceLastActivity =
+    lastEventAt !== null ? Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24)) : null;
 
-  // Event count score (0-50)
-  const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-
-  // Active days score (0-30)
-  const idealActiveDays = Math.min(periodDays, 7);
-  const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
-
-  // Recency score (0-20)
-  let recencyScore = 0;
-  if (lastEventAt !== null) {
-    const daysSince = Math.floor((Date.now() - lastEventAt) / (1000 * 60 * 60 * 24));
-    if (daysSince <= 1) recencyScore = 20;
-    else if (daysSince <= 3) recencyScore = 15;
-    else if (daysSince <= 7) recencyScore = 10;
-    else if (daysSince <= 14) recencyScore = 5;
-  }
-
-  return Math.round(eventScore + activeDaysScore + recencyScore);
-}
-
-/**
- * Determine engagement status based on score and thresholds.
- */
-function determineEngagementStatus(
-  score: number,
-  engagedThreshold: number,
-  atRiskThreshold: number,
-): 'engaged' | 'moderate' | 'at_risk' {
-  if (score >= engagedThreshold) return 'engaged';
-  if (score <= atRiskThreshold) return 'at_risk';
-  return 'moderate';
+  // Delegate to centralized scoring function
+  return calculateEngagementScoreLib(
+    {
+      totalEventCount: totalCount,
+      uniqueActiveDays: uniqueDays,
+      daysSinceLastActivity,
+    },
+    {
+      minEventsInPeriod: criteria.min_events_in_period || 3,
+      periodDays: criteria.period_days || 14,
+    },
+  );
 }
 
 /**

@@ -99,7 +99,7 @@ export default function AdvisorQueuePage() {
   const [isSnoozeDialogOpen, setIsSnoozeDialogOpen] = useState(false);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [snoozeDays, setSnoozeDays] = useState(3);
-  const [loading, setLoading] = useState(false);
+  const [loadingSignalId, setLoadingSignalId] = useState<Id<'signals'> | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
@@ -142,7 +142,7 @@ export default function AdvisorQueuePage() {
   const handleResolve = async (resolutionType: 'action_taken' | 'no_action_needed') => {
     if (!selectedSignal) return;
 
-    setLoading(true);
+    setLoadingSignalId(selectedSignal);
     try {
       await resolveSignal({
         signalId: selectedSignal,
@@ -163,12 +163,12 @@ export default function AdvisorQueuePage() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setLoadingSignalId(null);
     }
   };
 
   const handleDismiss = async (signalId: Id<'signals'>) => {
-    setLoading(true);
+    setLoadingSignalId(signalId);
     try {
       await dismissSignal({
         signalId,
@@ -184,14 +184,14 @@ export default function AdvisorQueuePage() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setLoadingSignalId(null);
     }
   };
 
   const handleSnooze = async () => {
     if (!selectedSignal) return;
 
-    setLoading(true);
+    setLoadingSignalId(selectedSignal);
     try {
       await snoozeSignal({
         signalId: selectedSignal,
@@ -210,12 +210,12 @@ export default function AdvisorQueuePage() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setLoadingSignalId(null);
     }
   };
 
   const handleUnsnooze = async (signalId: Id<'signals'>) => {
-    setLoading(true);
+    setLoadingSignalId(signalId);
     try {
       await unsnoozeSignal({
         signalId,
@@ -231,7 +231,7 @@ export default function AdvisorQueuePage() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setLoadingSignalId(null);
     }
   };
 
@@ -460,7 +460,7 @@ export default function AdvisorQueuePage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600"
-                          disabled={loading}
+                          disabled={loadingSignalId === signal._id}
                           onClick={() => handleDismiss(signal._id)}
                         >
                           <X className="mr-2 h-4 w-4" />
@@ -475,10 +475,10 @@ export default function AdvisorQueuePage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={loading}
+                    disabled={loadingSignalId === signal._id}
                     onClick={() => handleUnsnooze(signal._id)}
                   >
-                    Unsnooze
+                    {loadingSignalId === signal._id ? 'Unsnoozing...' : 'Unsnooze'}
                   </Button>
                 )}
 
@@ -531,12 +531,15 @@ export default function AdvisorQueuePage() {
             <Button
               variant="secondary"
               onClick={() => handleResolve('no_action_needed')}
-              disabled={loading}
+              disabled={loadingSignalId !== null}
             >
               No Action Needed
             </Button>
-            <Button onClick={() => handleResolve('action_taken')} disabled={loading}>
-              {loading ? 'Saving...' : 'Action Taken'}
+            <Button
+              onClick={() => handleResolve('action_taken')}
+              disabled={loadingSignalId !== null}
+            >
+              {loadingSignalId !== null ? 'Saving...' : 'Action Taken'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -555,7 +558,10 @@ export default function AdvisorQueuePage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="snoozeDays">Snooze for</Label>
-              <Select value={String(snoozeDays)} onValueChange={(v) => setSnoozeDays(parseInt(v))}>
+              <Select
+                value={String(snoozeDays)}
+                onValueChange={(v) => setSnoozeDays(parseInt(v, 10))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -574,8 +580,8 @@ export default function AdvisorQueuePage() {
             <Button variant="outline" onClick={() => setIsSnoozeDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSnooze} disabled={loading}>
-              {loading ? 'Snoozing...' : 'Snooze'}
+            <Button onClick={handleSnooze} disabled={loadingSignalId !== null}>
+              {loadingSignalId !== null ? 'Snoozing...' : 'Snooze'}
             </Button>
           </DialogFooter>
         </DialogContent>

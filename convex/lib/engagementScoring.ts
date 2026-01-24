@@ -11,6 +11,28 @@
  */
 
 /**
+ * Default event types that count toward engagement scoring.
+ * This is the single source of truth - import this constant in all modules.
+ */
+export const DEFAULT_QUALIFYING_EVENT_TYPES = [
+  'login',
+  'application_created',
+  'application_updated',
+  'application_stage_changed',
+  'resume_created',
+  'resume_updated',
+  'cover_letter_created',
+  'cover_letter_updated',
+  'goal_created',
+  'goal_updated',
+  'goal_completed',
+  'coach_conversation_started',
+  'coach_message_sent',
+  'contact_added',
+  'project_created',
+] as const;
+
+/**
  * Scoring weights configuration
  */
 export const SCORING_WEIGHTS = {

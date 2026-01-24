@@ -170,6 +170,21 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Verify snapshot belongs to user's university
+        if (snapshot.institution_id !== user.university_id) {
+          log.warn('Snapshot institution mismatch', {
+            event: 'auth.forbidden',
+            errorCode: 'FORBIDDEN',
+          });
+          return NextResponse.json(
+            { error: 'Access denied to this snapshot' },
+            {
+              status: 403,
+              headers: { 'x-correlation-id': correlationId },
+            },
+          );
+        }
+
         // For snapshot export, we need to re-fetch the outcomes with the snapshot's filters
         const analytics = await convexServer.query(
           api.graduation_outcomes.getOutcomesAnalytics,

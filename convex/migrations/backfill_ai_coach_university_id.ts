@@ -4,12 +4,13 @@
  * This migration populates the university_id field on existing ai_coach_conversations
  * by looking up the user's university_id.
  *
- * Run via: npx convex run migrations/backfill_ai_coach_university_id:backfillUniversityId
+ * Run via Convex Dashboard or schedule from another internal function.
+ * Internal mutations cannot be invoked directly via `npx convex run`.
  *
  * This enables bulk queries for analytics instead of per-student loops.
  */
 
-import { internalMutation } from '../_generated/server';
+import { internalMutation, internalQuery } from '../_generated/server';
 
 /**
  * Backfill university_id on ai_coach_conversations from the user's university_id.
@@ -54,21 +55,33 @@ export const backfillUniversityId = internalMutation({
 });
 
 /**
- * Get stats on backfill progress
+ * Get stats on backfill progress.
+ * Uses pagination to avoid loading entire table into memory.
  */
-export const getBackfillStats = internalMutation({
+export const getBackfillStats = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const total = await ctx.db.query('ai_coach_conversations').collect();
-    const withUniversityId = total.filter((c) => c.university_id !== undefined);
-    const withoutUniversityId = total.filter((c) => c.university_id === undefined);
+    let total = 0;
+    let withoutUniversityId = 0;
+
+    let cursor: string | null = null;
+    do {
+      const page = await ctx.db
+        .query('ai_coach_conversations')
+        .paginate({ cursor, numItems: 1000 });
+
+      total += page.page.length;
+      withoutUniversityId += page.page.filter((c) => c.university_id === undefined).length;
+      cursor = page.isDone ? null : page.continueCursor;
+    } while (cursor);
+
+    const withUniversityId = total - withoutUniversityId;
 
     return {
-      total: total.length,
-      withUniversityId: withUniversityId.length,
-      withoutUniversityId: withoutUniversityId.length,
-      percentComplete:
-        total.length > 0 ? Math.round((withUniversityId.length / total.length) * 100) : 100,
+      total,
+      withUniversityId,
+      withoutUniversityId,
+      percentComplete: total > 0 ? Math.round((withUniversityId / total) * 100) : 100,
     };
   },
 });

@@ -13,26 +13,11 @@ import { v } from 'convex/values';
 
 import { Doc, Id } from './_generated/dataModel';
 import { internalMutation, internalQuery, QueryCtx } from './_generated/server';
-import { calculateEngagementScore, determineEngagementStatus } from './lib/engagementScoring';
-
-// Default qualifying event types for engagement scoring
-const DEFAULT_QUALIFYING_EVENT_TYPES = [
-  'login',
-  'application_created',
-  'application_updated',
-  'application_stage_changed',
-  'resume_created',
-  'resume_updated',
-  'cover_letter_created',
-  'cover_letter_updated',
-  'goal_created',
-  'goal_updated',
-  'goal_completed',
-  'coach_conversation_started',
-  'coach_message_sent',
-  'contact_added',
-  'project_created',
-];
+import {
+  calculateEngagementScore,
+  DEFAULT_QUALIFYING_EVENT_TYPES,
+  determineEngagementStatus,
+} from './lib/engagementScoring';
 
 interface EngagementCriteria {
   period_days: number;
@@ -158,7 +143,7 @@ export const recalculateUniversityEngagement = internalMutation({
   args: {
     universityId: v.id('universities'),
     batchSize: v.optional(v.number()),
-    cursor: v.optional(v.string()), // Last processed student ID for pagination
+    cursor: v.optional(v.number()), // Last processed _creationTime for pagination
   },
   handler: async (ctx, args) => {
     const batchSize = args.batchSize || 100;
@@ -178,10 +163,9 @@ export const recalculateUniversityEngagement = internalMutation({
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .filter((q) => q.eq(q.field('role'), 'student'));
 
-    // Apply cursor-based pagination if cursor provided
+    // Apply cursor-based pagination using _creationTime (guaranteed chronological)
     if (args.cursor) {
-      const cursorId = args.cursor as Id<'users'>;
-      query = query.filter((q) => q.gt(q.field('_id'), cursorId));
+      query = query.filter((q) => q.gt(q.field('_creationTime'), args.cursor!));
     }
 
     const students = await query.take(batchSize + 1); // Take one extra to check if there's more
@@ -204,7 +188,7 @@ export const recalculateUniversityEngagement = internalMutation({
     return {
       updated,
       hasMore,
-      lastProcessedId: studentsToProcess[studentsToProcess.length - 1]?._id,
+      nextCursor: studentsToProcess[studentsToProcess.length - 1]?._creationTime,
     };
   },
 });
