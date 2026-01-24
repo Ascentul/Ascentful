@@ -25,6 +25,10 @@ export function isValidHttpUrl(url: string): boolean {
  *
  * Escapes: & < > " '
  *
+ * NOTE: Intentionally duplicated in convex/lib/sanitizeHtml.ts for server-side use.
+ * Convex runtime isolation prevents sharing code between environments.
+ * Keep implementations in sync if changes are needed.
+ *
  * @param text - Plain text to escape
  * @returns HTML-safe string with entities escaped
  */

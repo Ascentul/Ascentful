@@ -114,9 +114,9 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
 
   const { summary } = predictions;
 
-  // Calculate trend from forecast
-  const currentAtRisk = forecast.forecast[0]?.at_risk || 0;
-  const projectedAtRisk = forecast.forecast[forecast.forecast.length - 1]?.at_risk || 0;
+  // Calculate trend from forecast (guard against empty array, use ?? to preserve 0)
+  const currentAtRisk = forecast.forecast?.[0]?.at_risk ?? 0;
+  const projectedAtRisk = forecast.forecast?.[forecast.forecast.length - 1]?.at_risk ?? 0;
   const atRiskTrend = projectedAtRisk - currentAtRisk;
 
   return (

@@ -2,7 +2,14 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, mutation, query, QueryCtx } from './_generated/server';
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  MutationCtx,
+  query,
+  QueryCtx,
+} from './_generated/server';
 import { STAGE_TRANSITIONS } from './advisor_constants';
 import { safeLogAudit } from './lib/auditLogger';
 import { auth } from './lib/authorization';
@@ -1356,7 +1363,7 @@ export const ingestScanResults = internalMutation({
 });
 
 async function applyStageChangeFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     applicationId: Id<'applications'>;
@@ -1484,7 +1491,7 @@ async function applyStageChangeFromSignal(
  * This is the enhanced version for the new tiered routing system.
  */
 async function applyStageChangeFromSignalWithAudit(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     applicationId: Id<'applications'>;
@@ -1706,7 +1713,7 @@ async function applyStageChangeFromSignalWithAudit(
 }
 
 async function createApplicationFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     userId: Id<'users'>;
@@ -1842,7 +1849,7 @@ async function createApplicationFromSignal(
  * Similar to createApplicationFromSignal but with auto-update specific fields.
  */
 async function autoCreateApplicationFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     userId: Id<'users'>;
@@ -2020,7 +2027,7 @@ async function autoCreateApplicationFromSignal(
  * Used for undo support and tracking.
  */
 async function createAutoUpdateAudit(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     userId: Id<'users'>;
     provider: EmailProvider;
@@ -2065,7 +2072,7 @@ async function createAutoUpdateAudit(
  * Emit a notification for auto-add actions.
  */
 async function emitAutoAddNotification(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     userId: Id<'users'>;
     applicationId: Id<'applications'>;

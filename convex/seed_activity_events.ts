@@ -62,6 +62,18 @@ export const seedActivityEvents = internalMutation({
 
     console.log('Starting activity events seed...');
 
+    // Check if university is marked as test - only test universities can have last_login_at updated
+    const university = await ctx.db.get(universityId);
+    if (!university) {
+      return {
+        success: false,
+        error: 'University not found',
+        studentsProcessed: 0,
+        eventsCreated: 0,
+      };
+    }
+    const isTestUniversity = university.is_test === true;
+
     // Get all students for this university
     const students = await ctx.db
       .query('users')
@@ -175,23 +187,26 @@ export const seedActivityEvents = internalMutation({
       }
 
       // Update last_login_at based on most recent activity by occurred_at
-      // Note: .order('desc') orders by _creationTime, not occurred_at
-      const allStudentEvents = await ctx.db
-        .query('activity_events')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .collect();
+      // GUARD: Only update last_login_at for test universities to avoid corrupting production analytics
+      if (isTestUniversity) {
+        // Note: .order('desc') orders by _creationTime, not occurred_at
+        const allStudentEvents = await ctx.db
+          .query('activity_events')
+          .withIndex('by_user', (q) => q.eq('user_id', student._id))
+          .collect();
 
-      const lastActivity =
-        allStudentEvents.length > 0
-          ? allStudentEvents.reduce((latest, e) =>
-              e.occurred_at > latest.occurred_at ? e : latest,
-            )
-          : null;
+        const lastActivity =
+          allStudentEvents.length > 0
+            ? allStudentEvents.reduce((latest, e) =>
+                e.occurred_at > latest.occurred_at ? e : latest,
+              )
+            : null;
 
-      if (lastActivity) {
-        await ctx.db.patch(student._id, {
-          last_login_at: lastActivity.occurred_at,
-        });
+        if (lastActivity) {
+          await ctx.db.patch(student._id, {
+            last_login_at: lastActivity.occurred_at,
+          });
+        }
       }
     }
 

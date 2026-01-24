@@ -918,14 +918,15 @@ export async function sendSignalAlertEmail(
   signalType: string,
   dashboardUrl: string,
 ): Promise<EmailResult> {
-  const firstName = escapeHtml(advisorName.split(' ')[0] || 'Advisor');
+  const rawFirstName = advisorName.split(' ')[0] || 'Advisor';
+  const safeFirstName = escapeHtml(rawFirstName);
   const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '📢';
   const priorityLabel = priority.charAt(0).toUpperCase() + priority.slice(1);
   const typeLabel = signalType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
   const subject = `${priorityEmoji} ${priorityLabel} Signal: ${studentName} - ${signalTitle}`;
 
-  const text = `Hi ${firstName},
+  const text = `Hi ${rawFirstName},
 
 A new ${priorityLabel.toLowerCase()} priority signal has been created for one of your students.
 
@@ -965,7 +966,7 @@ The Ascentful Team`;
         <span style="font-weight: 600; font-size: 16px;">${priorityLabel} Priority Signal</span>
       </div>
 
-      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${firstName},</p>
+      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${safeFirstName},</p>
 
       <p style="font-size: 16px; margin-bottom: 24px;">A new signal requires your attention for one of your students.</p>
 
@@ -1074,7 +1075,8 @@ export async function sendSignalDigestEmail(
   }>,
   dashboardUrl: string,
 ): Promise<EmailResult> {
-  const firstName = escapeHtml(advisorName.split(' ')[0] || 'Advisor');
+  const rawFirstName = advisorName.split(' ')[0] || 'Advisor';
+  const safeFirstName = escapeHtml(rawFirstName);
 
   const subject = `📊 Your Daily Signal Digest - ${signalSummary.total} Active Signals`;
 
@@ -1082,7 +1084,7 @@ export async function sendSignalDigestEmail(
     .map((s, i) => `${i + 1}. [${s.priority.toUpperCase()}] ${s.studentName}: ${s.title}`)
     .join('\n');
 
-  const text = `Hi ${firstName},
+  const text = `Hi ${rawFirstName},
 
 Here's your daily signal digest:
 
@@ -1129,7 +1131,7 @@ The Ascentful Team`;
         <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; margin: 8px 0 0 0; font-weight: 600;">Daily Signal Digest</p>
       </div>
 
-      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${firstName},</p>
+      <p style="font-size: 16px; margin-bottom: 24px;">Hi ${safeFirstName},</p>
 
       <p style="font-size: 16px; margin-bottom: 24px;">Here's your daily summary of student signals requiring attention.</p>
 

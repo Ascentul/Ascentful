@@ -68,7 +68,8 @@ function calculateTrend(weeklyActivityCounts: number[]): ActivityTrend {
     sumX2 += i * i;
   }
 
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const denominator = n * sumX2 - sumX * sumX;
+  const slope = denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 0;
   const avgActivity = sumY / n;
 
   // Normalize velocity as percentage change per week

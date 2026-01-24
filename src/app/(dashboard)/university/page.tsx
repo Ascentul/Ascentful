@@ -1493,7 +1493,12 @@ export default function UniversityDashboardPage() {
                       {activeUsersData?.data?.slice(-1)?.[0]?.students ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      of {activeUsersData?.totalStudents ?? students?.length ?? 0} total students
+                      of{' '}
+                      {activeUsersData?.totalStudents ??
+                        overview?.totalStudents ??
+                        students?.length ??
+                        0}{' '}
+                      total students
                     </p>
                   </CardContent>
                 </Card>

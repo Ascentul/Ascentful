@@ -400,5 +400,16 @@ reviews:
         - Error boundaries should be at app/layout level, not individual components
         - Don't suggest timeouts/fallbacks for "stuck loading" - Convex handles retries automatically
 
+        ### Data Retention Policy Is Intentional
+        - Don't suggest preventing hard deletes in retention jobs without evidence of compliance requirements
+        - Pattern: 90-day archive + 365-day purge is an industry-standard retention window
+        - Gating deletes to only test universities would cause unbounded data growth
+        - If audit/compliance requirements arise, proper solutions are:
+          - Export to cold storage before purge
+          - Dedicated audit log tables with longer retention
+          - Not preventing all production deletes indefinitely
+        - Signals older than 365 days have already been archived for 275+ days - data is preserved long enough
+        - Retention policies balance compliance, performance, and storage costs
+
 chat:
   auto_reply: true

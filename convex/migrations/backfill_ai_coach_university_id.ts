@@ -32,12 +32,18 @@ export const backfillUniversityId = internalMutation({
     let updated = 0;
     for (const conversation of conversations) {
       const user = await ctx.db.get(conversation.user_id);
-      if (user?.university_id) {
+      // If user doesn't exist or has no university_id, explicitly set to null
+      // to prevent endless backfill (undefined records would be re-processed)
+      if (!user || !user.university_id) {
         await ctx.db.patch(conversation._id, {
-          university_id: user.university_id,
+          university_id: null,
         });
-        updated++;
+        continue;
       }
+      await ctx.db.patch(conversation._id, {
+        university_id: user.university_id,
+      });
+      updated++;
     }
 
     // Check if there are more to process

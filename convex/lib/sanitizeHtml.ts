@@ -140,6 +140,10 @@ export function sanitizeCommentBody(body: string): string {
  *
  * Use for: Email template interpolation, text display in HTML
  *
+ * NOTE: Intentionally duplicated in src/lib/utils.ts for client-side use.
+ * Convex runtime isolation prevents importing from src/ safely.
+ * Keep implementations in sync if changes are needed.
+ *
  * @param text - Plain text to escape
  * @returns HTML-safe string with entities escaped
  */

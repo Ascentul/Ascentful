@@ -170,7 +170,7 @@ export const getCrossUniversityTrends = query({
     // Note: Signals created before cutoff but resolved during period won't be counted in resolved trend
     const allSignals = await ctx.db
       .query('signals')
-      .filter((q) => q.gte(q.field('created_at'), cutoff))
+      .withIndex('by_created_at', (q) => q.gte('created_at', cutoff))
       .collect();
 
     // Build daily trend data
@@ -361,7 +361,7 @@ export const getCrossUniversitySignalAnalytics = query({
     // Get signals within the analysis period
     const allSignals = await ctx.db
       .query('signals')
-      .filter((q) => q.gte(q.field('created_at'), cutoff))
+      .withIndex('by_created_at', (q) => q.gte('created_at', cutoff))
       .collect();
 
     // Status breakdown

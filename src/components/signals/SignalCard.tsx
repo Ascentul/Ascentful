@@ -224,8 +224,8 @@ export function SignalCard({
   const [isExpanded, setIsExpanded] = useState(!compact);
 
   const typeConfig = SIGNAL_TYPE_CONFIG[signal.signal_type] || SIGNAL_TYPE_CONFIG.custom;
-  const priorityConfig = PRIORITY_CONFIG[signal.priority];
-  const statusConfig = STATUS_CONFIG[signal.status];
+  const priorityConfig = PRIORITY_CONFIG[signal.priority] || PRIORITY_CONFIG.low;
+  const statusConfig = STATUS_CONFIG[signal.status] || STATUS_CONFIG.active;
   const StatusIcon = statusConfig.icon;
 
   // Get explanation from context

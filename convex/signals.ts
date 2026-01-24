@@ -343,8 +343,10 @@ export const getAdvisorQueue = query({
       .order('asc')
       .collect();
 
-    // Apply role-scoped filtering
-    let filtered = allSignals.filter((s) => allowedStudentIds!.has(s.student_id));
+    // Apply role-scoped filtering (skip for full-access users)
+    let filtered = hasFullAccess
+      ? allSignals
+      : allSignals.filter((s) => allowedStudentIds!.has(s.student_id));
 
     // Apply additional filters
     if (args.signalType) {
@@ -609,6 +611,9 @@ export const createSignal = mutation({
     const student = await ctx.db.get(args.studentId);
     if (!student) {
       throw new Error('Student not found');
+    }
+    if (student.role !== 'student') {
+      throw new Error('Signals can only be created for student users');
     }
     if (student.university_id !== args.universityId) {
       throw new Error('Student is not in this university');

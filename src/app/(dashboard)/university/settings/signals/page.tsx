@@ -612,7 +612,20 @@ export default function SignalRulesPage() {
                   onValueChange={(v) =>
                     setFormData({
                       ...formData,
-                      condition: { type: v as ConditionType },
+                      condition:
+                        v === 'inactivity'
+                          ? { type: 'inactivity', days: 14 }
+                          : v === 'stalled'
+                            ? {
+                                type: 'stalled',
+                                days: 14,
+                                qualifying_event_types: [
+                                  'login',
+                                  'application_created',
+                                  'application_updated',
+                                ],
+                              }
+                            : { type: v as ConditionType },
                     })
                   }
                 >

@@ -51,7 +51,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const url = event.notification.data?.url || '/';
+  // Validate URL is same-origin to prevent navigation to malicious external sites
+  let url = '/';
+  try {
+    const parsed = new URL(event.notification.data?.url || '/', self.location.origin);
+    url = parsed.origin === self.location.origin ? parsed.href : '/';
+  } catch {
+    url = '/';
+  }
   const action = event.action;
 
   // Handle action buttons

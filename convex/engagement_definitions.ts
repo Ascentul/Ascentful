@@ -516,6 +516,19 @@ export const evaluateStudentEngagement = query({
       if (student.university_id !== universityId) {
         throw new Error('Unauthorized: Cannot access student from another university');
       }
+      // Advisors can only access their assigned students
+      if (sessionCtx.role === 'advisor') {
+        const assignment = await ctx.db
+          .query('student_advisors')
+          .withIndex('by_advisor', (q) =>
+            q.eq('advisor_id', sessionCtx.userId).eq('university_id', universityId),
+          )
+          .filter((q) => q.eq(q.field('student_id'), args.studentId))
+          .first();
+        if (!assignment) {
+          throw new Error('Unauthorized: Student is not assigned to you');
+        }
+      }
     }
 
     // Get the definition to use
