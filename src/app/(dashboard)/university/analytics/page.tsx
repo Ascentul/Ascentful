@@ -248,11 +248,11 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-red-600">
-                  {signalAnalytics?.statusCounts.active ?? 0}
+                  {signalAnalytics?.statusCounts?.active ?? 0}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {signalAnalytics?.priorityCounts.urgent ?? 0} urgent,{' '}
-                  {signalAnalytics?.priorityCounts.high ?? 0} high priority
+                  {signalAnalytics?.priorityCounts?.urgent ?? 0} urgent,{' '}
+                  {signalAnalytics?.priorityCounts?.high ?? 0} high priority
                 </p>
               </CardContent>
             </Card>
@@ -266,7 +266,7 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-blue-600">
-                  {engagementStats?.breakdown_by_status.moderate ?? 0}
+                  {engagementStats?.breakdown_by_status?.moderate ?? 0}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">Students with average activity</p>
               </CardContent>
@@ -283,7 +283,7 @@ export default function UniversityAnalyticsPage() {
                 <div className="flex items-center">
                   <Mail className="h-5 w-5 text-amber-500 mr-2" />
                   <div className="text-2xl font-bold">
-                    {signalAnalytics?.typeCounts.needs_outreach ?? 0}
+                    {signalAnalytics?.typeCounts?.needs_outreach ?? 0}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Students requiring contact</div>
@@ -298,7 +298,7 @@ export default function UniversityAnalyticsPage() {
                 <div className="flex items-center">
                   <ClipboardList className="h-5 w-5 text-blue-500 mr-2" />
                   <div className="text-2xl font-bold">
-                    {signalAnalytics?.typeCounts.application_support ?? 0}
+                    {signalAnalytics?.typeCounts?.application_support ?? 0}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Need application help</div>
@@ -313,7 +313,7 @@ export default function UniversityAnalyticsPage() {
                 <div className="flex items-center">
                   <Target className="h-5 w-5 text-green-500 mr-2" />
                   <div className="text-2xl font-bold">
-                    {signalAnalytics?.statusCounts.resolved ?? 0}
+                    {signalAnalytics?.statusCounts?.resolved ?? 0}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
@@ -492,17 +492,17 @@ export default function UniversityAnalyticsPage() {
                     const engagementData = [
                       {
                         name: 'Engaged',
-                        value: engagementStats.breakdown_by_status.engaged,
+                        value: engagementStats.breakdown_by_status?.engaged ?? 0,
                         color: '#10B981',
                       },
                       {
                         name: 'Moderate',
-                        value: engagementStats.breakdown_by_status.moderate,
+                        value: engagementStats.breakdown_by_status?.moderate ?? 0,
                         color: '#3B82F6',
                       },
                       {
                         name: 'At Risk',
-                        value: engagementStats.breakdown_by_status.at_risk,
+                        value: engagementStats.breakdown_by_status?.at_risk ?? 0,
                         color: '#F59E0B',
                       },
                     ];
@@ -824,10 +824,10 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-amber-600">
-                  {signalAnalytics?.statusCounts.active ?? 0}
+                  {signalAnalytics?.statusCounts?.active ?? 0}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {signalAnalytics?.statusCounts.snoozed ?? 0} snoozed
+                  {signalAnalytics?.statusCounts?.snoozed ?? 0} snoozed
                 </div>
               </CardContent>
             </Card>
@@ -838,10 +838,10 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-red-600">
-                  {signalAnalytics?.priorityCounts.urgent ?? 0}
+                  {signalAnalytics?.priorityCounts?.urgent ?? 0}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {signalAnalytics?.priorityCounts.high ?? 0} high priority
+                  {signalAnalytics?.priorityCounts?.high ?? 0} high priority
                 </div>
               </CardContent>
             </Card>
@@ -852,7 +852,7 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-600">
-                  {signalAnalytics?.statusCounts.resolved ?? 0}
+                  {signalAnalytics?.statusCounts?.resolved ?? 0}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {signalAnalytics?.summary?.avgResolutionTimeHours

@@ -183,7 +183,8 @@ export function SignalNotificationBell() {
 export function useSignalNotificationToast() {
   const { toast } = useToast();
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: true });
-  const [lastSeenCount, setLastSeenCount] = useState<number | null>(null);
+  // Use refs for synchronous tracking to avoid race conditions with rapid notification arrivals
+  const lastSeenCountRef = useRef<number | null>(null);
   const lastNotificationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -194,7 +195,10 @@ export function useSignalNotificationToast() {
       .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 
     // Only show toast if count increased and it's a new notification we haven't seen
-    if (lastSeenCount !== null && signalNotifications.length > lastSeenCount) {
+    if (
+      lastSeenCountRef.current !== null &&
+      signalNotifications.length > lastSeenCountRef.current
+    ) {
       const newNotification = signalNotifications[0];
       if (newNotification && newNotification._id !== lastNotificationIdRef.current) {
         lastNotificationIdRef.current = newNotification._id;
@@ -208,8 +212,8 @@ export function useSignalNotificationToast() {
       }
     }
 
-    setLastSeenCount(signalNotifications.length);
-  }, [notifications, lastSeenCount, toast]);
+    lastSeenCountRef.current = signalNotifications.length;
+  }, [notifications, toast]);
 
   return {
     unreadCount:

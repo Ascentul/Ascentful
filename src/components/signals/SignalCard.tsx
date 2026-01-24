@@ -13,7 +13,7 @@ import {
   MessageSquare,
   XCircle,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -244,6 +244,11 @@ export function SignalCard({
   className,
 }: SignalCardProps) {
   const [isExpanded, setIsExpanded] = useState(!compact);
+
+  // Sync expansion state when compact prop changes
+  useEffect(() => {
+    setIsExpanded(!compact);
+  }, [compact]);
 
   const typeConfig = SIGNAL_TYPE_CONFIG[signal.signal_type] || SIGNAL_TYPE_CONFIG.custom;
   const priorityConfig = PRIORITY_CONFIG[signal.priority] || PRIORITY_CONFIG.low;

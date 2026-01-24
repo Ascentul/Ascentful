@@ -40,6 +40,14 @@ function validateAppUrl(url: string, fallbackPath: string): string {
 }
 
 /**
+ * Sanitizes a string for use in email subject lines.
+ * Strips newlines and control characters to prevent email header injection.
+ */
+function sanitizeSubject(input: string): string {
+  return input.replace(/[\r\n\x00-\x1F\x7F]/g, ' ').trim();
+}
+
+/**
  * Send activation email to newly created user with magic link
  * This is an action because it calls external email service
  */
@@ -486,7 +494,10 @@ export const sendUrgentSignalNotificationEmail = action({
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
     const priorityLabel = escapeHtml(priorityLabelRaw);
 
-    const subject = `${priorityEmoji} ${priorityLabel} Signal: ${args.signalTitle} - ${args.studentName}`;
+    // Sanitize user-provided content to prevent email header injection
+    const safeSubjectTitle = sanitizeSubject(args.signalTitle);
+    const safeSubjectName = sanitizeSubject(args.studentName);
+    const subject = `${priorityEmoji} ${priorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
 
     const text = `Hello ${args.advisorName},
 

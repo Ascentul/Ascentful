@@ -8,70 +8,67 @@
  * - CSV export format
  */
 
+import {
+  calculateContinuingEdRate,
+  calculateEmploymentRate,
+  calculateKnowledgeRate,
+  computeOutcomeMetrics,
+  countByStatus,
+  countByType,
+  countEmployed,
+  OutcomeRecord,
+} from 'convex/lib/outcomeMetrics';
+
 import { escapeCSV } from '@/lib/csv-utils';
 
 describe('Outcomes Dashboard KPI Computation', () => {
   describe('Knowledge Rate', () => {
     it('should calculate knowledge rate as (known / total) * 100', () => {
-      const total = 100;
-      const known = 60;
-      const knowledgeRate = (known / total) * 100;
-      expect(knowledgeRate).toBe(60);
+      const rate = calculateKnowledgeRate(60, 100);
+      expect(rate).toBe(60);
     });
 
     it('should return 0 when total is 0', () => {
-      const total = 0;
-      const known = 0;
-      const knowledgeRate = total > 0 ? (known / total) * 100 : 0;
-      expect(knowledgeRate).toBe(0);
+      const rate = calculateKnowledgeRate(0, 0);
+      expect(rate).toBe(0);
     });
 
     it('should handle decimal precision correctly', () => {
-      const total = 3;
-      const known = 1;
-      const knowledgeRate = Math.round((known / total) * 1000) / 10;
-      expect(knowledgeRate).toBeCloseTo(33.3, 1);
+      const rate = calculateKnowledgeRate(1, 3);
+      expect(rate).toBeCloseTo(33.3, 1);
     });
   });
 
   describe('Employment Rate', () => {
     it('should calculate employment rate as (employed / known) * 100', () => {
-      const known = 60;
-      const employed = 40;
-      const employmentRate = (employed / known) * 100;
-      expect(employmentRate).toBeCloseTo(66.7, 1);
+      const rate = calculateEmploymentRate(40, 60);
+      expect(rate).toBeCloseTo(66.7, 1);
     });
 
     it('should count both fulltime and parttime as employed', () => {
-      const outcomes = [
+      const outcomes: OutcomeRecord[] = [
         { outcome_status: 'known', outcome_type: 'employed_fulltime' },
         { outcome_status: 'known', outcome_type: 'employed_parttime' },
         { outcome_status: 'known', outcome_type: 'continuing_education' },
         { outcome_status: 'unknown', outcome_type: undefined },
       ];
 
-      const known = outcomes.filter((o) => o.outcome_status === 'known');
-      const employed = known.filter(
-        (o) => o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime',
-      );
+      const statusCounts = countByStatus(outcomes);
+      const employed = countEmployed(outcomes);
 
-      expect(known.length).toBe(3);
-      expect(employed.length).toBe(2);
+      expect(statusCounts.known).toBe(3);
+      expect(employed).toBe(2);
     });
 
     it('should return 0 when no known outcomes', () => {
-      const known = 0;
-      const employed = 0;
-      const employmentRate = known > 0 ? (employed / known) * 100 : 0;
-      expect(employmentRate).toBe(0);
+      const rate = calculateEmploymentRate(0, 0);
+      expect(rate).toBe(0);
     });
   });
 
   describe('Continuing Education Rate', () => {
     it('should calculate continuing ed rate correctly', () => {
-      const known = 60;
-      const continuingEd = 10;
-      const rate = (continuingEd / known) * 100;
+      const rate = calculateContinuingEdRate(10, 60);
       expect(rate).toBeCloseTo(16.7, 1);
     });
   });
@@ -166,7 +163,7 @@ describe('Outcomes Filtering', () => {
 });
 
 describe('Outcome Status Distribution', () => {
-  const mockOutcomes = [
+  const mockOutcomes: OutcomeRecord[] = [
     { outcome_status: 'known' },
     { outcome_status: 'known' },
     { outcome_status: 'known' },
@@ -176,23 +173,23 @@ describe('Outcome Status Distribution', () => {
   ];
 
   it('should count known outcomes correctly', () => {
-    const known = mockOutcomes.filter((o) => o.outcome_status === 'known').length;
-    expect(known).toBe(3);
+    const counts = countByStatus(mockOutcomes);
+    expect(counts.known).toBe(3);
   });
 
   it('should count unknown outcomes correctly', () => {
-    const unknown = mockOutcomes.filter((o) => o.outcome_status === 'unknown').length;
-    expect(unknown).toBe(2);
+    const counts = countByStatus(mockOutcomes);
+    expect(counts.unknown).toBe(2);
   });
 
   it('should count partial outcomes correctly', () => {
-    const partial = mockOutcomes.filter((o) => o.outcome_status === 'partial').length;
-    expect(partial).toBe(1);
+    const counts = countByStatus(mockOutcomes);
+    expect(counts.partial).toBe(1);
   });
 });
 
 describe('Outcome Type Distribution', () => {
-  const mockOutcomes = [
+  const mockOutcomes: OutcomeRecord[] = [
     { outcome_status: 'known', outcome_type: 'employed_fulltime' },
     { outcome_status: 'known', outcome_type: 'employed_fulltime' },
     { outcome_status: 'known', outcome_type: 'employed_parttime' },
@@ -205,20 +202,18 @@ describe('Outcome Type Distribution', () => {
   ];
 
   it('should count employed fulltime correctly', () => {
-    const count = mockOutcomes.filter((o) => o.outcome_type === 'employed_fulltime').length;
-    expect(count).toBe(2);
+    const counts = countByType(mockOutcomes);
+    expect(counts.employed_fulltime).toBe(2);
   });
 
   it('should count total employed (fulltime + parttime)', () => {
-    const count = mockOutcomes.filter(
-      (o) => o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime',
-    ).length;
+    const count = countEmployed(mockOutcomes);
     expect(count).toBe(3);
   });
 
   it('should count continuing education correctly', () => {
-    const count = mockOutcomes.filter((o) => o.outcome_type === 'continuing_education').length;
-    expect(count).toBe(2);
+    const counts = countByType(mockOutcomes);
+    expect(counts.continuing_education).toBe(2);
   });
 });
 
@@ -386,7 +381,7 @@ describe('Evidence Validation', () => {
 });
 
 describe('Metrics Aggregation by Group', () => {
-  const mockOutcomes = [
+  const mockOutcomes: (OutcomeRecord & { program: string })[] = [
     { program: 'CS', outcome_status: 'known', outcome_type: 'employed_fulltime' },
     { program: 'CS', outcome_status: 'known', outcome_type: 'employed_fulltime' },
     { program: 'CS', outcome_status: 'unknown', outcome_type: undefined },
@@ -408,22 +403,17 @@ describe('Metrics Aggregation by Group', () => {
     expect(groups.get('Business')!.length).toBe(2);
   });
 
-  it('should calculate knowledge rate per group', () => {
+  it('should calculate knowledge rate per group using computeOutcomeMetrics', () => {
     const csOutcomes = mockOutcomes.filter((o) => o.program === 'CS');
-    const csKnown = csOutcomes.filter((o) => o.outcome_status === 'known').length;
-    const csKnowledgeRate = (csKnown / csOutcomes.length) * 100;
+    const metrics = computeOutcomeMetrics(csOutcomes);
 
-    expect(csKnowledgeRate).toBeCloseTo(66.7, 1);
+    expect(metrics.knowledge_rate).toBeCloseTo(66.7, 1);
   });
 
-  it('should calculate employment rate per group', () => {
+  it('should calculate employment rate per group using computeOutcomeMetrics', () => {
     const businessOutcomes = mockOutcomes.filter((o) => o.program === 'Business');
-    const businessKnown = businessOutcomes.filter((o) => o.outcome_status === 'known');
-    const businessEmployed = businessKnown.filter(
-      (o) => o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime',
-    ).length;
-    const businessEmploymentRate = (businessEmployed / businessKnown.length) * 100;
+    const metrics = computeOutcomeMetrics(businessOutcomes);
 
-    expect(businessEmploymentRate).toBe(50);
+    expect(metrics.employment_rate).toBe(50);
   });
 });

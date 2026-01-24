@@ -273,7 +273,13 @@ export const createFollowupFromSignal = internalMutation({
     // Defensive: verify signal exists before creating follow-up
     const signal = await ctx.db.get(args.signalId);
     if (!signal) {
-      throw new Error('Signal not found');
+      throw new ConvexError({ message: 'Signal not found', code: 'NOT_FOUND' });
+    }
+
+    // Defensive: verify student exists
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new ConvexError({ message: 'Student not found', code: 'NOT_FOUND' });
     }
 
     // Idempotency check: prevent duplicate follow-ups for the same signal

@@ -8,7 +8,7 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import {
   getAuthenticatedUser,
   assertUserAccess,
@@ -80,10 +80,12 @@ export const notifyAdvisorsForSignal = internalMutation({
 
     const studentName = student.name || student.email || 'Unknown Student';
 
-    // Get advisors assigned to this student
+    // Get advisors assigned to this student (scoped to university for tenant isolation)
     const advisorAssignments = await ctx.db
       .query('student_advisors')
-      .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
+      .withIndex('by_student', (q) =>
+        q.eq('student_id', args.studentId).eq('university_id', args.universityId),
+      )
       .collect();
 
     // Get university admins as fallback
@@ -238,16 +240,13 @@ export const updateNotificationPreferences = mutation({
 /**
  * Get signal digest data for email.
  * Called by cron job to generate daily/weekly digests.
+ * Internal query - no auth required since cron jobs run in system context.
  */
-export const getSignalDigestData = query({
+export const getSignalDigestData = internalQuery({
   args: {
     universityId: v.id('universities'),
   },
   handler: async (ctx, args) => {
-    // Authorization: Verify caller can access this university's data
-    const actingUser = await getAuthenticatedUser(ctx);
-    assertUniversityAccess(actingUser, args.universityId);
-
     // Get all active signals
     const activeSignals = await ctx.db
       .query('signals')

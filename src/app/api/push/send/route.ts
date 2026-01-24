@@ -1,7 +1,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
-import webpush from 'web-push';
+
+import { isPushConfigured, PushSubscription, webpush } from '@/lib/push-config';
 
 /**
  * Web Push Notification API
@@ -31,26 +32,6 @@ function safeTokenCompare(a: string, b: string): boolean {
   // Perform timing-safe comparison first, then check lengths
   const isEqual = timingSafeEqual(paddedA, paddedB);
   return isEqual && bufA.length === bufB.length;
-}
-
-// Configure VAPID keys
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:support@ascentul.com';
-
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} else if (VAPID_PUBLIC_KEY || VAPID_PRIVATE_KEY) {
-  console.warn('Push notifications partially configured - both VAPID keys required');
-}
-
-interface PushSubscription {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
 }
 
 interface PushPayload {
@@ -94,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     // Check if VAPID keys are configured
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    if (!isPushConfigured) {
       return NextResponse.json(
         {
           success: false,
