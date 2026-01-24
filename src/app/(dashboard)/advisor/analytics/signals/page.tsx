@@ -435,70 +435,75 @@ export default function SignalAnalyticsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rule</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Total</TableHead>
-                    <TableHead className="text-center">Active</TableHead>
-                    <TableHead className="text-center">Action Taken</TableHead>
-                    <TableHead className="text-center">No Action</TableHead>
-                    <TableHead className="text-center">Dismissed</TableHead>
-                    <TableHead className="text-center">Avg Resolution</TableHead>
-                    <TableHead>Effectiveness</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ruleEffectiveness?.map((rule) => (
-                    <TableRow key={rule.ruleId}>
-                      <TableCell className="font-medium">{rule.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={rule.isActive ? 'default' : 'secondary'}>
-                          {rule.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">{rule.totalSignals}</TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-blue-600">{rule.activeSignals}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-green-600">{rule.resolvedWithAction}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-neutral-500">{rule.resolvedNoAction}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-red-600">{rule.dismissedCount}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {rule.avgResolutionHours !== null ? `${rule.avgResolutionHours}h` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={rule.effectivenessRate} className="w-20" />
-                          <span
-                            className={`text-sm font-medium ${
-                              rule.effectivenessRate >= 70
-                                ? 'text-green-600'
-                                : rule.effectivenessRate >= 40
-                                  ? 'text-yellow-600'
-                                  : 'text-red-600'
-                            }`}
-                          >
-                            {rule.effectivenessRate}%
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {(!ruleEffectiveness || ruleEffectiveness.length === 0) && (
+              {ruleEffectiveness === undefined ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+                </div>
+              ) : ruleEffectiveness.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <BarChart3 className="mb-4 h-12 w-12 text-muted-foreground" />
                   <p className="text-muted-foreground">No rule data available yet.</p>
                 </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rule</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Total</TableHead>
+                      <TableHead className="text-center">Active</TableHead>
+                      <TableHead className="text-center">Action Taken</TableHead>
+                      <TableHead className="text-center">No Action</TableHead>
+                      <TableHead className="text-center">Dismissed</TableHead>
+                      <TableHead className="text-center">Avg Resolution</TableHead>
+                      <TableHead>Effectiveness</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ruleEffectiveness?.map((rule) => (
+                      <TableRow key={rule.ruleId}>
+                        <TableCell className="font-medium">{rule.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={rule.isActive ? 'default' : 'secondary'}>
+                            {rule.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{rule.totalSignals}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-blue-600">{rule.activeSignals}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-green-600">{rule.resolvedWithAction}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-neutral-500">{rule.resolvedNoAction}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-red-600">{rule.dismissedCount}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {rule.avgResolutionHours !== null ? `${rule.avgResolutionHours}h` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Progress value={rule.effectivenessRate} className="w-20" />
+                            <span
+                              className={`text-sm font-medium ${
+                                rule.effectivenessRate >= 70
+                                  ? 'text-green-600'
+                                  : rule.effectivenessRate >= 40
+                                    ? 'text-yellow-600'
+                                    : 'text-red-600'
+                              }`}
+                            >
+                              {rule.effectivenessRate}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

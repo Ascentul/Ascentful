@@ -237,7 +237,15 @@ export default function BatchImportPage() {
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
+        const text = e.target?.result;
+        if (typeof text !== 'string') {
+          toast({
+            title: 'Read Error',
+            description: 'Could not read file content.',
+            variant: 'destructive',
+          });
+          return;
+        }
         const { headers, rows } = parseCSV(text);
 
         if (headers.length === 0) {

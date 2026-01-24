@@ -366,12 +366,14 @@ reviews:
         - Algorithm guards like `if (n < 2) return null` already handle degenerate cases
         - Adding redundant Math guards clutters code and masks real logic bugs
 
-        ### Internal Migration Utilities Have Different Constraints
-        - Don't apply production-level query limits to internal migration scripts
+        ### Internal Migration and Seed Utilities Have Different Constraints
+        - Don't apply production-level performance optimizations to internal scripts
         - Pattern: `internalQuery`/`internalMutation` in `convex/migrations/` are developer tools
+        - Pattern: `seed_*.ts` files are for populating test/dev data, not production workloads
         - Adding arbitrary `.take(N)` limits to stat functions produces incorrect statistics
         - Clipping results (e.g., `.take(100000)`) silently gives wrong percentages/counts
         - Convex query time limits already provide natural bounds for runaway queries
+        - Seed scripts run on small dev datasets where sequential processing is acceptable
         - If large-scale aggregation is truly needed, suggest restructuring, not arbitrary limits
 
         ### Time-Series Data Ordering Is Guaranteed by Construction
@@ -380,6 +382,14 @@ reviews:
         - APIs that construct arrays chronologically via iteration don't need post-sort
         - `slice(-1)` and `slice(-7)` are correct when the underlying data is built oldest-first
         - Check the data source before suggesting defensive sorting
+
+        ### TypeScript Union Types Guarantee Object Key Lookups
+        - Don't suggest fallbacks for object lookups when the key type exactly matches the object's keys
+        - Pattern: `CONFIG[status]` where status is `'a' | 'b' | 'c'` and CONFIG has keys `{a, b, c}`
+        - TypeScript enforces at compile time that only valid keys can be used
+        - Convex validators further enforce at runtime for API data
+        - Adding `?? fallback` would hide bugs - invalid keys should surface errors, not default silently
+        - If types match keys exactly, the lookup is guaranteed safe
 
 chat:
   auto_reply: true

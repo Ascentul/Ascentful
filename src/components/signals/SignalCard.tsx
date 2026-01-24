@@ -3,6 +3,7 @@
 import { Id } from 'convex/_generated/dataModel';
 import {
   AlertTriangle,
+  Archive,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -70,6 +71,7 @@ const STATUS_CONFIG = {
   snoozed: { label: 'Snoozed', icon: Clock, color: 'text-blue-600' },
   resolved: { label: 'Resolved', icon: CheckCircle2, color: 'text-green-600' },
   dismissed: { label: 'Dismissed', icon: XCircle, color: 'text-slate-400' },
+  archived: { label: 'Archived', icon: Archive, color: 'text-slate-300' },
 };
 
 /**
@@ -186,10 +188,11 @@ export interface Signal {
   title: string;
   description?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'active' | 'snoozed' | 'resolved' | 'dismissed';
+  status: 'active' | 'snoozed' | 'resolved' | 'dismissed' | 'archived';
   context_snapshot?: Record<string, unknown>;
   snoozed_until?: number;
   resolved_at?: number;
+  archived_at?: number;
   resolution_type?: string;
   resolution_notes?: string;
   triggered_at: number;

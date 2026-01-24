@@ -3166,8 +3166,10 @@ export default defineSchema({
       v.literal('snoozed'),
       v.literal('resolved'),
       v.literal('dismissed'),
+      v.literal('archived'), // Soft-deleted to preserve metrics/audit history
     ),
     snoozed_until: v.optional(v.number()),
+    archived_at: v.optional(v.number()), // When signal was archived (soft-deleted)
 
     // === Resolution ===
     resolved_at: v.optional(v.number()),
@@ -3195,6 +3197,7 @@ export default defineSchema({
     .index('by_student_status', ['student_id', 'status'])
     .index('by_university_status', ['university_id', 'status'])
     .index('by_university_priority', ['university_id', 'status', 'priority'])
+    .index('by_university_status_triggered', ['university_id', 'status', 'triggered_at']) // For time-ordered pagination
     .index('by_rule', ['rule_id'])
     .index('by_triggered_at', ['triggered_at']),
 

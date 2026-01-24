@@ -293,7 +293,7 @@ export const createFollowupFromSignal = internalMutation({
       // Ownership - system-created for student
       user_id: args.studentId,
       owner_id: args.studentId, // Student is responsible for follow-up
-      created_by_type: 'system',
+      created_by_type: 'system', // No created_by_id for system-generated follow-ups
 
       // Multi-tenancy
       university_id: args.universityId,

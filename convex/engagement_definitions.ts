@@ -248,7 +248,9 @@ export const updateDefinition = mutation({
         throw new Error('Default definition must remain active');
       }
       if (definition.is_default) {
-        updates.is_default = false;
+        throw new Error(
+          'Cannot deactivate the default definition. Please set another definition as default first.',
+        );
       }
     }
 

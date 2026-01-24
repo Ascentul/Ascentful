@@ -53,6 +53,7 @@ const statusValidator = v.union(
   v.literal('snoozed'),
   v.literal('resolved'),
   v.literal('dismissed'),
+  v.literal('archived'), // Soft-deleted to preserve metrics/audit history
 );
 
 const sourceValidator = v.union(v.literal('rule'), v.literal('manual'), v.literal('system'));
@@ -139,6 +140,12 @@ async function assertSignalAccessForStudent(
 /**
  * Get the advisor action queue - signals prioritized for action.
  * This is the main query for the advisor queue UI.
+ *
+ * OPTIMIZATION NOTES:
+ * - Full-access users (super_admin, university_admin): Use paginate() with index
+ * - Scoped users (advisors): Must use collect() + filter due to role-based filtering
+ *   that can't be pushed to an index. For very large universities, consider
+ *   denormalizing advisor_id onto signals for index-based filtering.
  */
 export const getAdvisorQueue = query({
   args: {
@@ -153,6 +160,7 @@ export const getAdvisorQueue = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
     const limit = args.limit ?? 50;
+    const status = args.status ?? 'active';
 
     // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
@@ -170,21 +178,173 @@ export const getAdvisorQueue = query({
       throw new Error('Unauthorized: Cannot access signals for this student');
     }
 
-    // Build query based on filters
-    let query = ctx.db
+    // OPTIMIZED PATH: For specific student queries, use student index
+    if (args.studentId) {
+      const signals = await ctx.db
+        .query('signals')
+        .withIndex('by_student_status', (q) =>
+          q.eq('student_id', args.studentId!).eq('status', status),
+        )
+        .order('desc') // Most recent first
+        .collect();
+
+      // Apply additional filters in-memory (small result set per student)
+      let filtered = signals.filter((s) => s.university_id === args.universityId);
+      if (args.signalType) {
+        filtered = filtered.filter((s) => s.signal_type === args.signalType);
+      }
+      if (args.priority) {
+        filtered = filtered.filter((s) => s.priority === args.priority);
+      }
+
+      // Sort by priority then triggered_at
+      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+      filtered.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.triggered_at - b.triggered_at;
+      });
+
+      const total = filtered.length;
+      const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
+      const page = filtered.slice(startIndex, startIndex + limit);
+      const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
+
+      // Enrich with student info (single student, efficient)
+      const student = await ctx.db.get(args.studentId);
+      const enrichedSignals = page.map((signal) => ({
+        ...signal,
+        student: student
+          ? {
+              id: student._id,
+              name: student.name,
+              email: student.email,
+              profileImage: student.profile_image,
+            }
+          : null,
+      }));
+
+      return {
+        signals: enrichedSignals,
+        total,
+        cursor: nextCursor,
+        hasMore: nextCursor !== null,
+      };
+    }
+
+    // OPTIMIZED PATH: Full-access users can use index-based pagination
+    const hasFullAccess = allowedStudentIds === null;
+
+    if (hasFullAccess && !args.signalType) {
+      // Use priority index for better ordering if filtering by priority
+      if (args.priority) {
+        const signals = await ctx.db
+          .query('signals')
+          .withIndex('by_university_priority', (q) =>
+            q
+              .eq('university_id', args.universityId)
+              .eq('status', status)
+              .eq('priority', args.priority!),
+          )
+          .order('asc') // Oldest first within priority
+          .collect();
+
+        const total = signals.length;
+        const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
+        const page = signals.slice(startIndex, startIndex + limit);
+        const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
+
+        // Batch fetch student info
+        const studentIds = [...new Set(page.map((s) => s.student_id))];
+        const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+        const studentMap = new Map(students.filter(Boolean).map((s) => [s!._id, s!]));
+
+        const enrichedSignals = page.map((signal) => {
+          const student = studentMap.get(signal.student_id);
+          return {
+            ...signal,
+            student: student
+              ? {
+                  id: student._id,
+                  name: student.name,
+                  email: student.email,
+                  profileImage: student.profile_image,
+                }
+              : null,
+          };
+        });
+
+        return {
+          signals: enrichedSignals,
+          total,
+          cursor: nextCursor,
+          hasMore: nextCursor !== null,
+        };
+      }
+
+      // No priority filter - use time-ordered index for consistent pagination
+      const signals = await ctx.db
+        .query('signals')
+        .withIndex('by_university_status_triggered', (q) =>
+          q.eq('university_id', args.universityId).eq('status', status),
+        )
+        .order('asc') // Oldest first
+        .collect();
+
+      // Sort by priority then triggered_at (in-memory, but already time-ordered)
+      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+      signals.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.triggered_at - b.triggered_at;
+      });
+
+      const total = signals.length;
+      const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
+      const page = signals.slice(startIndex, startIndex + limit);
+      const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
+
+      // Batch fetch student info
+      const studentIds = [...new Set(page.map((s) => s.student_id))];
+      const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+      const studentMap = new Map(students.filter(Boolean).map((s) => [s!._id, s!]));
+
+      const enrichedSignals = page.map((signal) => {
+        const student = studentMap.get(signal.student_id);
+        return {
+          ...signal,
+          student: student
+            ? {
+                id: student._id,
+                name: student.name,
+                email: student.email,
+                profileImage: student.profile_image,
+              }
+            : null,
+        };
+      });
+
+      return {
+        signals: enrichedSignals,
+        total,
+        cursor: nextCursor,
+        hasMore: nextCursor !== null,
+      };
+    }
+
+    // SCOPED ACCESS PATH: Advisors need post-query filtering
+    // NOTE: For very large universities, this could be optimized by denormalizing
+    // advisor_id onto signals to enable index-based filtering
+    const allSignals = await ctx.db
       .query('signals')
-      .withIndex('by_university_status', (q) =>
-        q.eq('university_id', args.universityId).eq('status', args.status ?? 'active'),
-      );
+      .withIndex('by_university_status_triggered', (q) =>
+        q.eq('university_id', args.universityId).eq('status', status),
+      )
+      .order('asc')
+      .collect();
 
-    // Get all matching signals
-    const allSignals = await query.collect();
-
-    // Apply role-scoped filtering (advisors see only their students, students see only their own)
-    let filtered =
-      allowedStudentIds === null
-        ? allSignals
-        : allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+    // Apply role-scoped filtering
+    let filtered = allSignals.filter((s) => allowedStudentIds!.has(s.student_id));
 
     // Apply additional filters
     if (args.signalType) {
@@ -192,9 +352,6 @@ export const getAdvisorQueue = query({
     }
     if (args.priority) {
       filtered = filtered.filter((s) => s.priority === args.priority);
-    }
-    if (args.studentId) {
-      filtered = filtered.filter((s) => s.student_id === args.studentId);
     }
 
     // Sort by priority (urgent first), then by triggered_at (oldest first)
@@ -211,23 +368,25 @@ export const getAdvisorQueue = query({
     const page = filtered.slice(startIndex, startIndex + limit);
     const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 
-    // Enrich with student info
-    const enrichedSignals = await Promise.all(
-      page.map(async (signal) => {
-        const student = await ctx.db.get(signal.student_id);
-        return {
-          ...signal,
-          student: student
-            ? {
-                id: student._id,
-                name: student.name,
-                email: student.email,
-                profileImage: student.profile_image,
-              }
-            : null,
-        };
-      }),
-    );
+    // Batch fetch student info (more efficient than per-signal)
+    const studentIds = [...new Set(page.map((s) => s.student_id))];
+    const students = await Promise.all(studentIds.map((id) => ctx.db.get(id)));
+    const studentMap = new Map(students.filter(Boolean).map((s) => [s!._id, s!]));
+
+    const enrichedSignals = page.map((signal) => {
+      const student = studentMap.get(signal.student_id);
+      return {
+        ...signal,
+        student: student
+          ? {
+              id: student._id,
+              name: student.name,
+              email: student.email,
+              profileImage: student.profile_image,
+            }
+          : null,
+      };
+    });
 
     return {
       signals: enrichedSignals,
@@ -903,7 +1062,8 @@ export const bulkResolveSignals = mutation({
 });
 
 /**
- * Delete a signal (hard delete, admin only).
+ * Archive a signal (soft-delete, admin only).
+ * Preserves signal data for metrics and audit history.
  */
 export const deleteSignal = mutation({
   args: {
@@ -919,7 +1079,33 @@ export const deleteSignal = mutation({
 
     assertUniversityAccess(user, signal.university_id);
 
-    await ctx.db.delete(args.signalId);
+    const now = Date.now();
+
+    // Soft-delete: archive instead of hard delete to preserve metrics/audit history
+    await ctx.db.patch(args.signalId, {
+      status: 'archived',
+      archived_at: now,
+      updated_at: now,
+    });
+
+    // Audit log: signal archived
+    await safeLogAudit(ctx, {
+      category: 'user_action',
+      action: 'signal.archived',
+      actorUserId: user._id,
+      actorRole: user.role,
+      actorUniversityId: signal.university_id,
+      targetType: 'signal',
+      targetId: args.signalId,
+      previousValue: { status: signal.status },
+      newValue: { status: 'archived' },
+      metadata: {
+        studentId: signal.student_id,
+        signalType: signal.signal_type,
+        title: signal.title,
+      },
+    });
+
     return args.signalId;
   },
 });
@@ -1024,6 +1210,101 @@ export const evaluateSignalRules = internalMutation({
         .filter((q) => q.eq(q.field('role'), 'student'))
         .collect();
 
+      if (students.length === 0) continue;
+
+      // BATCH PREFETCH: Fetch all data upfront to avoid O(rules × students × queries)
+      // This reduces complexity to O(bulk_queries + rules × students × in_memory_operations)
+      const studentIds = new Set(students.map((s) => s._id));
+      const lookbackDays = 90; // Max lookback for any rule condition
+      const lookbackTime = now - lookbackDays * 24 * 60 * 60 * 1000;
+
+      // Batch fetch activity events for all students (within lookback period)
+      const allActivityEvents = await ctx.db
+        .query('activity_events')
+        .withIndex('by_university', (q) => q.eq('university_id', university._id))
+        .filter((q) => q.gte(q.field('occurred_at'), lookbackTime))
+        .collect();
+
+      // Batch fetch applications for all students
+      const allApplications = await ctx.db
+        .query('applications')
+        .withIndex('by_university', (q) => q.eq('university_id', university._id))
+        .collect();
+
+      // Batch fetch follow-ups for all students (for appointment checking)
+      const allFollowups = await ctx.db
+        .query('follow_ups')
+        .withIndex('by_university', (q) => q.eq('university_id', university._id))
+        .filter((q) => q.gte(q.field('due_at'), lookbackTime))
+        .collect();
+
+      // Batch fetch recent signals for cooldown checking (max cooldown 90 days)
+      const maxCooldownDays = Math.max(...rules.map((r) => r.cooldown_days ?? 0), 90);
+      const cooldownLookback = now - maxCooldownDays * 24 * 60 * 60 * 1000;
+      const ruleIds = new Set(rules.map((r) => r._id));
+      const allRecentSignals = await ctx.db
+        .query('signals')
+        .withIndex('by_university', (q) => q.eq('university_id', university._id))
+        .filter((q) => q.gte(q.field('triggered_at'), cooldownLookback))
+        .collect();
+
+      // Group data by user_id for efficient lookup
+      const activityEventsByUser = new Map<string, typeof allActivityEvents>();
+      for (const event of allActivityEvents) {
+        if (studentIds.has(event.user_id)) {
+          const existing = activityEventsByUser.get(event.user_id as string) || [];
+          existing.push(event);
+          activityEventsByUser.set(event.user_id as string, existing);
+        }
+      }
+
+      const applicationsByUser = new Map<string, typeof allApplications>();
+      for (const app of allApplications) {
+        if (studentIds.has(app.user_id)) {
+          const existing = applicationsByUser.get(app.user_id as string) || [];
+          existing.push(app);
+          applicationsByUser.set(app.user_id as string, existing);
+        }
+      }
+
+      const followupsByUser = new Map<string, typeof allFollowups>();
+      for (const followup of allFollowups) {
+        if (studentIds.has(followup.user_id)) {
+          const existing = followupsByUser.get(followup.user_id as string) || [];
+          existing.push(followup);
+          followupsByUser.set(followup.user_id as string, existing);
+        }
+      }
+
+      // Group signals by rule_id + student_id for cooldown checking
+      const signalsByRuleAndStudent = new Map<string, typeof allRecentSignals>();
+      for (const signal of allRecentSignals) {
+        if (signal.rule_id && ruleIds.has(signal.rule_id)) {
+          const key = `${signal.rule_id}:${signal.student_id}`;
+          const existing = signalsByRuleAndStudent.get(key) || [];
+          existing.push(signal);
+          signalsByRuleAndStudent.set(key, existing);
+        }
+      }
+
+      // Prefetch engagement definitions once per university
+      const engagementDefinitions = await ctx.db
+        .query('engagement_definitions')
+        .withIndex('by_university_active', (q) =>
+          q.eq('university_id', university._id).eq('is_active', true),
+        )
+        .collect();
+      const defaultDefinition =
+        engagementDefinitions.find((d) => d.is_default) || engagementDefinitions[0] || null;
+
+      // Bundle prefetched data for rule evaluation
+      const prefetchedData = {
+        activityEventsByUser,
+        applicationsByUser,
+        followupsByUser,
+        engagementDefinition: defaultDefinition,
+      };
+
       for (const rule of rules) {
         rulesEvaluated++;
 
@@ -1031,26 +1312,24 @@ export const evaluateSignalRules = internalMutation({
           studentsChecked++;
 
           // Check if we should create a signal based on the rule condition
-          const shouldTrigger = await evaluateRuleCondition(ctx, rule, student, now);
+          const shouldTrigger = await evaluateRuleCondition(
+            ctx,
+            rule,
+            student,
+            now,
+            prefetchedData,
+          );
 
           if (shouldTrigger.triggered) {
-            // Check cooldown
+            // Check cooldown using prefetched signals
             if (rule.cooldown_days) {
               const cooldownMs = rule.cooldown_days * 24 * 60 * 60 * 1000;
               const cooldownStart = now - cooldownMs;
+              const key = `${rule._id}:${student._id}`;
+              const recentSignals = signalsByRuleAndStudent.get(key) || [];
+              const inCooldown = recentSignals.some((s) => s.triggered_at >= cooldownStart);
 
-              const recentSignal = await ctx.db
-                .query('signals')
-                .withIndex('by_rule', (q) => q.eq('rule_id', rule._id))
-                .filter((q) =>
-                  q.and(
-                    q.eq(q.field('student_id'), student._id),
-                    q.gte(q.field('triggered_at'), cooldownStart),
-                  ),
-                )
-                .first();
-
-              if (recentSignal) {
+              if (inCooldown) {
                 // Still in cooldown, skip
                 continue;
               }
@@ -1103,12 +1382,37 @@ export const evaluateSignalRules = internalMutation({
   },
 });
 
+// Type for prefetched data passed to evaluateRuleCondition
+// Uses 'any' for complex document types to avoid coupling with full schema types
+interface PrefetchedData {
+  activityEventsByUser: Map<
+    string,
+    Array<{ event_type: string; occurred_at: number; entity_id?: string }>
+  >;
+  applicationsByUser: Map<
+    string,
+    Array<{
+      _id: Id<'applications'>;
+      stage?: string;
+      status?: string;
+      updated_at: number;
+      company?: string;
+      job_title?: string;
+    }>
+  >;
+  followupsByUser: Map<string, Array<{ type?: string; due_at?: number }>>;
+  engagementDefinition: { engaged_threshold: number; at_risk_threshold: number } | null;
+}
+
 /**
  * Evaluate a single rule condition against a student.
  * Returns { triggered: boolean, context?: object }
+ *
+ * OPTIMIZATION: Uses prefetched data to avoid O(rules × students × queries) complexity.
+ * All data lookups are in-memory from pre-fetched Maps.
  */
 async function evaluateRuleCondition(
-  ctx: QueryCtx,
+  _ctx: QueryCtx, // Kept for backwards compatibility, but not used for data fetching
   rule: { condition: unknown },
   student: {
     _id: Id<'users'>;
@@ -1117,6 +1421,7 @@ async function evaluateRuleCondition(
     engagement_status?: 'engaged' | 'moderate' | 'at_risk';
   },
   now: number,
+  prefetchedData: PrefetchedData,
 ): Promise<{ triggered: boolean; context?: Record<string, unknown> }> {
   const condition = rule.condition as Record<string, unknown>;
   const conditionType = condition.type as string;
@@ -1125,18 +1430,19 @@ async function evaluateRuleCondition(
   // (legacy status is lowercase, stage is Title Case)
   const normalizeStage = (value?: string) => value?.toLowerCase();
 
+  // Get prefetched data for this student (in-memory lookup)
+  const studentIdStr = student._id as string;
+  const studentEvents = prefetchedData.activityEventsByUser.get(studentIdStr) || [];
+  const studentApplications = prefetchedData.applicationsByUser.get(studentIdStr) || [];
+  const studentFollowups = prefetchedData.followupsByUser.get(studentIdStr) || [];
+
   switch (conditionType) {
     case 'inactivity': {
       const days = condition.days as number;
       const cutoffTime = now - days * 24 * 60 * 60 * 1000;
 
-      // Check activity_events for recent activity
-      const recentActivity = await ctx.db
-        .query('activity_events')
-        .withIndex('by_user_date', (q) =>
-          q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
-        )
-        .first();
+      // Check prefetched activity_events for recent activity (in-memory filter)
+      const recentActivity = studentEvents.find((e) => e.occurred_at >= cutoffTime);
 
       if (!recentActivity) {
         // No activity events - fallback to last_login_at
@@ -1164,30 +1470,23 @@ async function evaluateRuleCondition(
       const stage = condition.stage as string | undefined;
       const cutoffTime = now - days * 24 * 60 * 60 * 1000;
 
-      // Query applications for this student
-      const applications = await ctx.db
-        .query('applications')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .filter((q) =>
-          q.and(
-            // Not in terminal state (stage is the primary Title Case field)
-            q.neq(q.field('stage'), 'Accepted'),
-            q.neq(q.field('stage'), 'Rejected'),
-            q.neq(q.field('stage'), 'Withdrawn'),
-            // Stage hasn't changed recently
-            q.lt(q.field('updated_at'), cutoffTime),
-          ),
-        )
-        .collect();
+      // Use prefetched applications (in-memory filter)
+      const applications = studentApplications.filter((app) => {
+        const appStage = normalizeStage(app.stage ?? app.status);
+        // Not in terminal state
+        if (['accepted', 'rejected', 'withdrawn'].includes(appStage ?? '')) return false;
+        // Stage hasn't changed recently
+        return app.updated_at < cutoffTime;
+      });
 
       // Filter by stage if specified (use stage with fallback to legacy status)
       const stageNorm = normalizeStage(stage);
       const stalledApps = stage
-        ? applications.filter((app: any) => normalizeStage(app.stage ?? app.status) === stageNorm)
+        ? applications.filter((app) => normalizeStage(app.stage ?? app.status) === stageNorm)
         : applications;
 
       if (stalledApps.length > 0) {
-        const oldestStall = stalledApps.reduce((oldest: any, app: any) =>
+        const oldestStall = stalledApps.reduce((oldest, app) =>
           app.updated_at < oldest.updated_at ? app : oldest,
         );
 
@@ -1213,28 +1512,14 @@ async function evaluateRuleCondition(
       const toLevel = condition.to as string;
       const previousLevel = student.engagement_status;
 
-      // Get the university's default engagement definition
+      // Use prefetched engagement definition
       if (!student.university_id) return { triggered: false };
-      const universityId = student.university_id;
-
-      const definitions = await ctx.db
-        .query('engagement_definitions')
-        .withIndex('by_university_active', (q) =>
-          q.eq('university_id', universityId).eq('is_active', true),
-        )
-        .collect();
-
-      const definition = definitions.find((d: any) => d.is_default) || definitions[0];
+      const definition = prefetchedData.engagementDefinition;
       if (!definition) return { triggered: false };
 
-      // Calculate current engagement score based on activity
+      // Calculate current engagement score based on prefetched activity (in-memory filter)
       const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
-      const recentEvents = await ctx.db
-        .query('activity_events')
-        .withIndex('by_user_date', (q) =>
-          q.eq('user_id', student._id).gte('occurred_at', fourteenDaysAgo),
-        )
-        .collect();
+      const recentEvents = studentEvents.filter((e) => e.occurred_at >= fourteenDaysAgo);
 
       // Simple scoring: count activity events in last 14 days
       const activityScore = Math.min(100, recentEvents.length * 10);
@@ -1285,19 +1570,16 @@ async function evaluateRuleCondition(
     }
 
     case 'no_progress': {
-      // Check application outcomes - many rejections, no offers
+      // Check application outcomes - many rejections, no offers (use prefetched data)
       const rejectionsMin = (condition.rejections_min as number) ?? 5;
       const offersMax = (condition.offers as number) ?? 0;
 
-      const applications = await ctx.db
-        .query('applications')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .collect();
+      const applications = studentApplications;
 
       const rejections = applications.filter(
-        (app: any) => normalizeStage(app.stage ?? app.status) === 'rejected',
+        (app) => normalizeStage(app.stage ?? app.status) === 'rejected',
       ).length;
-      const offers = applications.filter((app: any) =>
+      const offers = applications.filter((app) =>
         ['offer', 'accepted'].includes(normalizeStage(app.stage ?? app.status) ?? ''),
       ).length;
 
@@ -1347,31 +1629,21 @@ async function evaluateRuleCondition(
         'coach_message_sent',
       ];
 
-      // Check for qualifying activity in the period
-      const recentEvents = await ctx.db
-        .query('activity_events')
-        .withIndex('by_user_date', (q) =>
-          q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
-        )
-        .collect();
+      // Check for qualifying activity in the period (use prefetched data, in-memory filter)
+      const recentEvents = studentEvents.filter((e) => e.occurred_at >= cutoffTime);
 
       // Filter to only qualifying events
-      const qualifyingEvents = recentEvents.filter((event: any) =>
+      const qualifyingEvents = recentEvents.filter((event) =>
         qualifyingEventTypes.includes(event.event_type),
       );
 
       if (qualifyingEvents.length === 0) {
-        // Find the last qualifying event ever (use higher limit to avoid missing
-        // qualifying events buried under many non-qualifying ones like page views)
-        const allEvents = await ctx.db
-          .query('activity_events')
-          .withIndex('by_user_date', (q) => q.eq('user_id', student._id))
-          .order('desc')
-          .take(1000);
-
-        const lastQualifying = allEvents.find((e: any) =>
-          qualifyingEventTypes.includes(e.event_type),
-        );
+        // Find the last qualifying event from prefetched data (in-memory)
+        // Events are within lookback period, so find the most recent qualifying one
+        const qualifyingFromPrefetch = studentEvents
+          .filter((e) => qualifyingEventTypes.includes(e.event_type))
+          .sort((a, b) => b.occurred_at - a.occurred_at);
+        const lastQualifying = qualifyingFromPrefetch[0];
 
         const lastActivityAt = lastQualifying?.occurred_at ?? student.last_login_at ?? null;
         const daysSinceActivity = lastActivityAt
@@ -1402,20 +1674,15 @@ async function evaluateRuleCondition(
       const applicationCutoff = now - applicationPeriodDays * 24 * 60 * 60 * 1000;
       const appointmentCutoff = now - appointmentDays * 24 * 60 * 60 * 1000;
 
-      // Count applications created in period
-      const applicationEvents = await ctx.db
-        .query('activity_events')
-        .withIndex('by_user_date', (q) =>
-          q.eq('user_id', student._id).gte('occurred_at', applicationCutoff),
-        )
-        .filter((q) => q.eq(q.field('event_type'), 'application_created'))
-        .collect();
+      // Count applications created in period (use prefetched data, in-memory filter)
+      const applicationEvents = studentEvents.filter(
+        (e) => e.occurred_at >= applicationCutoff && e.event_type === 'application_created',
+      );
 
       const applicationCount = applicationEvents.length;
 
       if (applicationCount >= applicationsThreshold) {
-        // Check for appointment/meeting events
-        // Look for advisor session, meeting, or appointment-related events
+        // Check for appointment/meeting events (in-memory filter)
         const appointmentEventTypes = [
           'appointment_scheduled',
           'appointment_completed',
@@ -1426,27 +1693,16 @@ async function evaluateRuleCondition(
           'advisor_session',
         ];
 
-        const appointmentEvents = await ctx.db
-          .query('activity_events')
-          .withIndex('by_user_date', (q) =>
-            q.eq('user_id', student._id).gte('occurred_at', appointmentCutoff),
-          )
-          .collect();
-
-        const hasAppointment = appointmentEvents.some((e: any) =>
-          appointmentEventTypes.includes(e.event_type),
+        const hasAppointment = studentEvents.some(
+          (e) => e.occurred_at >= appointmentCutoff && appointmentEventTypes.includes(e.event_type),
         );
 
-        // Also check follow_ups table for scheduled sessions
-        const recentFollowups = await ctx.db
-          .query('follow_ups')
-          .withIndex('by_user', (q) => q.eq('user_id', student._id))
-          .filter((q) =>
-            q.and(q.gte(q.field('due_at'), appointmentCutoff), q.eq(q.field('type'), 'meeting')),
-          )
-          .first();
+        // Also check prefetched follow_ups for scheduled sessions (in-memory filter)
+        const recentFollowup = studentFollowups.find(
+          (f) => f.due_at !== undefined && f.due_at >= appointmentCutoff && f.type === 'meeting',
+        );
 
-        if (!hasAppointment && !recentFollowups) {
+        if (!hasAppointment && !recentFollowup) {
           return {
             triggered: true,
             context: {
@@ -1470,19 +1726,12 @@ async function evaluateRuleCondition(
       const days = (condition.days as number) ?? 14;
       const cutoffTime = now - days * 24 * 60 * 60 * 1000;
 
-      // Get applications for this student
-      const applications = await ctx.db
-        .query('applications')
-        .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .filter((q) =>
-          q.and(
-            // Not in terminal state (stage is the primary Title Case field)
-            q.neq(q.field('stage'), 'Accepted'),
-            q.neq(q.field('stage'), 'Rejected'),
-            q.neq(q.field('stage'), 'Withdrawn'),
-          ),
-        )
-        .collect();
+      // Get applications for this student (use prefetched data, in-memory filter)
+      const applications = studentApplications.filter((app) => {
+        const appStage = normalizeStage(app.stage ?? app.status);
+        // Not in terminal state
+        return !['accepted', 'rejected', 'withdrawn'].includes(appStage ?? '');
+      });
 
       // Filter by specific stage if not 'any' (use stage with fallback to legacy status)
       const targetStageNorm = normalizeStage(targetStage);
@@ -1490,25 +1739,19 @@ async function evaluateRuleCondition(
         targetStage === 'any'
           ? applications
           : applications.filter(
-              (app: any) => normalizeStage(app.stage ?? app.status) === targetStageNorm,
+              (app) => normalizeStage(app.stage ?? app.status) === targetStageNorm,
             );
 
-      // Check which applications haven't had a stage change recently
+      // Check which applications haven't had a stage change recently (in-memory)
       const stuckApps = [];
       for (const app of stageFiltered) {
-        // Check application_stage_events for recent changes
-        const recentStageChange = await ctx.db
-          .query('activity_events')
-          .withIndex('by_user_date', (q) =>
-            q.eq('user_id', student._id).gte('occurred_at', cutoffTime),
-          )
-          .filter((q) =>
-            q.and(
-              q.eq(q.field('event_type'), 'application_stage_changed'),
-              q.eq(q.field('entity_id'), app._id.toString()),
-            ),
-          )
-          .first();
+        // Check prefetched activity_events for recent stage changes
+        const recentStageChange = studentEvents.find(
+          (e) =>
+            e.occurred_at >= cutoffTime &&
+            e.event_type === 'application_stage_changed' &&
+            e.entity_id === app._id.toString(),
+        );
 
         // If no recent stage change and app was last updated before cutoff
         if (!recentStageChange && app.updated_at < cutoffTime) {
@@ -1658,46 +1901,80 @@ export function getConditionTypeFromSignal(signal: {
 }
 
 /**
- * Clean up old resolved/dismissed signals.
- * Signals older than retention period are deleted.
+ * Archive and clean up old signals.
+ * Two-tier retention policy to preserve analytics/audit history:
+ * 1. Archive: resolved/dismissed signals older than archiveAfterDays (default 90) → archived status
+ * 2. Purge: archived signals older than purgeAfterDays (default 365) → hard delete
+ *
  * Called by cron job daily.
  */
 export const cleanupOldSignals = internalMutation({
   args: {
-    retentionDays: v.optional(v.number()),
+    archiveAfterDays: v.optional(v.number()), // Archive resolved/dismissed after N days (default 90)
+    purgeAfterDays: v.optional(v.number()), // Hard delete archived after N days (default 365)
   },
   handler: async (ctx, args) => {
-    const retentionDays = args.retentionDays ?? 90;
-    const cutoffTime = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const archiveAfterDays = args.archiveAfterDays ?? 90;
+    const purgeAfterDays = args.purgeAfterDays ?? 365;
+    const archiveCutoff = now - archiveAfterDays * 24 * 60 * 60 * 1000;
+    const purgeCutoff = now - purgeAfterDays * 24 * 60 * 60 * 1000;
 
-    let deleted = 0;
+    let archived = 0;
+    let purged = 0;
     const batchSize = 500;
 
-    // Only delete resolved or dismissed signals
+    // PHASE 1: Archive old resolved/dismissed signals (soft-delete)
     while (true) {
-      const oldSignals = await ctx.db
+      const signalsToArchive = await ctx.db
         .query('signals')
         .filter((q) =>
           q.and(
             q.or(q.eq(q.field('status'), 'resolved'), q.eq(q.field('status'), 'dismissed')),
-            q.lt(q.field('updated_at'), cutoffTime),
+            q.lt(q.field('updated_at'), archiveCutoff),
           ),
         )
         .take(batchSize);
 
-      if (oldSignals.length === 0) break;
+      if (signalsToArchive.length === 0) break;
 
-      for (const signal of oldSignals) {
-        await ctx.db.delete(signal._id);
-        deleted++;
+      for (const signal of signalsToArchive) {
+        await ctx.db.patch(signal._id, {
+          status: 'archived',
+          archived_at: now,
+          updated_at: now,
+        });
+        archived++;
       }
 
       // Safety limit
-      if (deleted >= 5000) break;
+      if (archived >= 5000) break;
     }
 
-    console.log(`[Signal Cron] Cleaned up ${deleted} old signals`);
-    return { deleted };
+    // PHASE 2: Purge very old archived signals (hard delete after 365 days)
+    while (true) {
+      const signalsToPurge = await ctx.db
+        .query('signals')
+        .filter((q) =>
+          q.and(q.eq(q.field('status'), 'archived'), q.lt(q.field('archived_at'), purgeCutoff)),
+        )
+        .take(batchSize);
+
+      if (signalsToPurge.length === 0) break;
+
+      for (const signal of signalsToPurge) {
+        await ctx.db.delete(signal._id);
+        purged++;
+      }
+
+      // Safety limit
+      if (purged >= 5000) break;
+    }
+
+    console.log(
+      `[Signal Cron] Archived ${archived} old signals, purged ${purged} expired archived signals`,
+    );
+    return { archived, purged };
   },
 });
 

@@ -332,9 +332,12 @@ function prepareScoringData(
 
   const trend = calculateTrend(weeklyActivityCounts);
 
-  const activeApplications = applications.filter(
-    (app) => !['rejected', 'withdrawn', 'accepted'].includes(app.status),
-  );
+  // Use stage (primary field) with fallback to legacy status
+  const terminalStages = new Set(['rejected', 'withdrawn', 'accepted', 'archived']);
+  const activeApplications = applications.filter((app) => {
+    const stageOrStatus = (app.stage ?? app.status ?? '').toLowerCase();
+    return !terminalStages.has(stageOrStatus);
+  });
   const recentApplications = applications.filter(
     (app) => app.created_at && app.created_at > startTime,
   );
@@ -666,13 +669,28 @@ export const getEngagementForecast = query({
       }
     }
 
-    const { predictions, summary } = await computeUniversityPredictions(ctx, universityId, 200);
+    // Get accurate current state from cached engagement status (scales to any university size)
+    const allStudents = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
 
-    // Current state
+    const actualTotal = allStudents.length;
+    const actualEngaged = allStudents.filter((s) => s.engagement_status === 'engaged').length;
+    const actualAtRisk = allStudents.filter((s) => s.engagement_status === 'at_risk').length;
+    const actualModerate = actualTotal - actualEngaged - actualAtRisk;
+
+    // Get sampled predictions for transition rate estimation (capped for performance)
+    const sampleLimit = Math.min(500, actualTotal);
+    const { predictions } = await computeUniversityPredictions(ctx, universityId, sampleLimit);
+    const sampleSize = predictions.length;
+
+    // Current state (accurate from cached data)
     const currentState = {
-      engaged: summary.engaged,
-      moderate: summary.moderate,
-      at_risk: summary.at_risk,
+      engaged: actualEngaged,
+      moderate: actualModerate,
+      at_risk: actualAtRisk,
     };
 
     // Project future states based on predicted_days_to_risk
@@ -686,8 +704,8 @@ export const getEngagementForecast = query({
     for (let week = 1; week <= weeksAhead; week++) {
       const daysCutoff = week * 7;
 
-      // Count how many will become at-risk by this week
-      const willBecomeAtRisk = predictions.filter((p) => {
+      // Count how many in sample will become at-risk by this week
+      const sampleWillBecomeAtRisk = predictions.filter((p) => {
         const pred = p.prediction;
         return (
           pred.predicted_status !== 'at_risk' &&
@@ -696,13 +714,17 @@ export const getEngagementForecast = query({
         );
       }).length;
 
+      // Scale to full population (if sample < total)
+      const scaleFactor = sampleSize > 0 ? actualTotal / sampleSize : 1;
+      const willBecomeAtRisk = Math.round(sampleWillBecomeAtRisk * scaleFactor);
+
       // Estimate state changes
-      const projectedAtRisk = Math.min(summary.total, currentState.at_risk + willBecomeAtRisk);
+      const projectedAtRisk = Math.min(actualTotal, currentState.at_risk + willBecomeAtRisk);
       const projectedModerate = Math.max(
         0,
         currentState.moderate - Math.floor(willBecomeAtRisk * 0.6),
       );
-      const projectedEngaged = summary.total - projectedAtRisk - projectedModerate;
+      const projectedEngaged = actualTotal - projectedAtRisk - projectedModerate;
 
       forecast.push({
         week,
@@ -714,7 +736,7 @@ export const getEngagementForecast = query({
 
     return {
       forecast,
-      current_total: summary.total,
+      current_total: actualTotal,
       high_risk_students: predictions
         .filter((p) => p.prediction.risk_score >= 70)
         .slice(0, 10)

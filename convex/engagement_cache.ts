@@ -29,7 +29,7 @@ const DEFAULT_QUALIFYING_EVENT_TYPES = [
   'goal_completed',
   'coach_conversation_started',
   'coach_message_sent',
-  'networking_contact_added',
+  'contact_added',
   'project_created',
 ];
 

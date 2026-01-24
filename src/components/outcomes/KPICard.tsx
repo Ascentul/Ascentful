@@ -54,7 +54,12 @@ export function KPICard({
 }: KPICardProps) {
   const colors = colorSchemes[colorScheme];
 
-  const formattedValue = format === 'percentage' ? `${value.toFixed(1)}%` : value.toLocaleString();
+  const formattedValue =
+    format === 'percentage'
+      ? `${Number.isFinite(value) ? value.toFixed(1) : '0.0'}%`
+      : Number.isFinite(value)
+        ? value.toLocaleString()
+        : '0';
 
   return (
     <div
@@ -81,7 +86,7 @@ export function KPICard({
           >
             {trend.direction === 'up' && '+'}
             {trend.direction === 'down' && '-'}
-            {Math.abs(trend.value).toFixed(1)}%
+            {Number.isFinite(trend.value) ? Math.abs(trend.value).toFixed(1) : '0.0'}%
           </div>
         )}
       </div>

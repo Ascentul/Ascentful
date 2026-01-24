@@ -168,6 +168,7 @@ export default function AdvisorQueuePage() {
   };
 
   const handleDismiss = async (signalId: Id<'signals'>) => {
+    setLoading(true);
     try {
       await dismissSignal({
         signalId,
@@ -182,6 +183,8 @@ export default function AdvisorQueuePage() {
         description: error instanceof Error ? error.message : 'Failed to dismiss signal.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -212,6 +215,7 @@ export default function AdvisorQueuePage() {
   };
 
   const handleUnsnooze = async (signalId: Id<'signals'>) => {
+    setLoading(true);
     try {
       await unsnoozeSignal({
         signalId,
@@ -226,6 +230,8 @@ export default function AdvisorQueuePage() {
         description: error instanceof Error ? error.message : 'Failed to unsnooze signal.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -454,6 +460,7 @@ export default function AdvisorQueuePage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600"
+                          disabled={loading}
                           onClick={() => handleDismiss(signal._id)}
                         >
                           <X className="mr-2 h-4 w-4" />
@@ -465,7 +472,12 @@ export default function AdvisorQueuePage() {
                 )}
 
                 {statusFilter === 'snoozed' && (
-                  <Button size="sm" variant="outline" onClick={() => handleUnsnooze(signal._id)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={loading}
+                    onClick={() => handleUnsnooze(signal._id)}
+                  >
                     Unsnooze
                   </Button>
                 )}
