@@ -9,9 +9,6 @@
  */
 
 import { Id } from 'convex/_generated/dataModel';
-
-import { parseCSV } from '@/lib/csv-utils';
-
 import {
   calculateNameSimilarity,
   generateExternalOutcomeId,
@@ -19,7 +16,9 @@ import {
   validateDataSource,
   validateOutcomeImportRow,
   validateOutcomeType,
-} from '../../convex/lib/importUtils';
+} from 'convex/lib/importUtils';
+
+import { parseCSV } from '@/lib/csv-utils';
 
 // Mock cohort ID for testing
 const mockCohortId = 'test_cohort_123' as unknown as Id<'graduation_cohorts'>;

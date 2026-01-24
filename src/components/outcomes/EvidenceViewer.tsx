@@ -10,6 +10,7 @@ export interface EvidenceFile {
   name: string;
   storage_id: string;
   type: 'offer_letter' | 'start_confirmation' | 'other';
+  /** Unix timestamp in milliseconds */
   uploaded_at: number;
 }
 

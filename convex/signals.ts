@@ -907,6 +907,9 @@ export const snoozeSignal = mutation({
     if (!signal) {
       throw new Error('Signal not found');
     }
+    if (signal.status !== 'active') {
+      throw new Error('Only active signals can be snoozed');
+    }
 
     // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
@@ -2025,6 +2028,12 @@ export const getSignalAnalytics = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Role check: Only admins and advisors can access analytics
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Advisor/admin access required');
+    }
+
     // Authorization check
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
@@ -2214,6 +2223,12 @@ export const getRuleEffectiveness = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
+
+    // Role check: Only admins and advisors can access analytics
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Advisor/admin access required');
+    }
 
     // Authorization check
     if (sessionCtx.role !== 'super_admin') {

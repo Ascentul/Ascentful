@@ -239,7 +239,7 @@ export const listUniversities = internalQuery({
 function maskEmail(email: string | undefined): string {
   if (!email) return '(no email)';
   const [local, domain] = email.split('@');
-  if (!domain) return '***';
+  if (!domain) return `${local.slice(0, Math.min(3, local.length))}***`;
   const visibleChars = Math.min(3, local.length);
   return `${local.slice(0, visibleChars)}***@${domain}`;
 }

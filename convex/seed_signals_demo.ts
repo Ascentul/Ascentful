@@ -7,14 +7,15 @@
  * - Sample signals
  *
  * Usage:
- *   npx convex run scripts/seed-signals-demo --universityId <id> --adminUserId <id>
+ *   npx convex run seed_signals_demo:seedSignalsDemo --args '{"universityId": "<id>", "adminUserId": "<id>"}'
  *
  * Or run via the Convex dashboard.
  */
 
 import { v } from 'convex/values';
-import { Id } from '../convex/_generated/dataModel';
-import { internalMutation } from '../convex/_generated/server';
+
+import { Id } from './_generated/dataModel';
+import { internalMutation } from './_generated/server';
 
 export const seedSignalsDemo = internalMutation({
   args: {
@@ -41,7 +42,8 @@ export const seedSignalsDemo = internalMutation({
     const weeklyActiveDefId = await ctx.db.insert('engagement_definitions', {
       university_id: args.universityId,
       name: 'Weekly Active',
-      description: 'Students are considered engaged based on their qualifying activities in the past 14 days.',
+      description:
+        'Students are considered engaged based on their qualifying activities in the past 14 days.',
       criteria: {
         qualifying_event_types: [
           'login',
@@ -77,7 +79,8 @@ export const seedSignalsDemo = internalMutation({
     const applicationFocusedDefId = await ctx.db.insert('engagement_definitions', {
       university_id: args.universityId,
       name: 'Application Focused',
-      description: 'Measures engagement based on active job applications and application-related activities.',
+      description:
+        'Measures engagement based on active job applications and application-related activities.',
       criteria: {
         min_logins_per_week: 1,
         min_actions_per_week: 3,
@@ -150,7 +153,8 @@ export const seedSignalsDemo = internalMutation({
     const highIntentRuleId = await ctx.db.insert('signal_rules', {
       university_id: args.universityId,
       name: 'High Intent, Low Conversion',
-      description: 'Triggers when a student has 3+ applications but no advising appointment in 30 days.',
+      description:
+        'Triggers when a student has 3+ applications but no advising appointment in 30 days.',
       condition: {
         type: 'high_intent_low_conversion',
         applications_threshold: 3,
@@ -218,7 +222,8 @@ export const seedSignalsDemo = internalMutation({
     const inactive1MonthRuleId = await ctx.db.insert('signal_rules', {
       university_id: args.universityId,
       name: 'Inactive for 1 Month',
-      description: 'Triggers when a student has no platform activity for 30 days. High priority outreach needed.',
+      description:
+        'Triggers when a student has no platform activity for 30 days. High priority outreach needed.',
       condition: {
         type: 'inactivity',
         days: 30,
@@ -240,7 +245,8 @@ export const seedSignalsDemo = internalMutation({
     const interviewStallRuleId = await ctx.db.insert('signal_rules', {
       university_id: args.universityId,
       name: 'Interview Stage Stall',
-      description: 'Triggers when an application has been at Interview stage for 14+ days without progress.',
+      description:
+        'Triggers when an application has been at Interview stage for 14+ days without progress.',
       condition: {
         type: 'application_stall',
         stage: 'Interview',
@@ -286,7 +292,8 @@ export const seedSignalsDemo = internalMutation({
     const rejectionsRuleId = await ctx.db.insert('signal_rules', {
       university_id: args.universityId,
       name: 'Multiple Rejections, No Offers',
-      description: 'Triggers when student has 5+ rejections but no offers. May need resume/strategy review.',
+      description:
+        'Triggers when student has 5+ rejections but no offers. May need resume/strategy review.',
       condition: {
         type: 'no_progress',
         rejections_min: 5,
@@ -383,7 +390,8 @@ export const seedSignalsDemo = internalMutation({
         for (let e = 0; e < eventCount; e++) {
           const eventDef = eventTypes[Math.floor(Math.random() * eventTypes.length)];
           const daysAgo = Math.floor(Math.random() * daySpread);
-          const eventTime = now - daysAgo * 24 * 60 * 60 * 1000 - Math.floor(Math.random() * 12 * 60 * 60 * 1000);
+          const eventTime =
+            now - daysAgo * 24 * 60 * 60 * 1000 - Math.floor(Math.random() * 12 * 60 * 60 * 1000);
 
           const eventId = await ctx.db.insert('activity_events', {
             user_id: student._id,
@@ -399,7 +407,9 @@ export const seedSignalsDemo = internalMutation({
         }
       }
 
-      console.log(`Created ${activityEventsCreated.length} activity events for ${students.length} students`);
+      console.log(
+        `Created ${activityEventsCreated.length} activity events for ${students.length} students`,
+      );
     }
 
     // Track activity events created
@@ -519,7 +529,9 @@ export const seedSignalsDemo = internalMutation({
 
       console.log(`Created ${results.signals.length} sample signals`);
     } else {
-      console.log('No students found in this university, skipping sample signals and activity events');
+      console.log(
+        'No students found in this university, skipping sample signals and activity events',
+      );
     }
 
     // =========================================================================

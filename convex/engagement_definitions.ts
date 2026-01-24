@@ -530,6 +530,10 @@ export const evaluateStudentEngagement = query({
         }
       }
     }
+    // Students can only view their own engagement
+    if (sessionCtx.role === 'student' && sessionCtx.userId !== args.studentId) {
+      throw new Error('Unauthorized: Students can only view their own engagement');
+    }
 
     // Get the definition to use
     let definition;
@@ -537,6 +541,10 @@ export const evaluateStudentEngagement = query({
       definition = await ctx.db.get(args.definitionId);
       if (!definition) {
         throw new Error('Engagement definition not found');
+      }
+      // Validate definition belongs to the student's university
+      if (definition.university_id !== student.university_id) {
+        throw new Error('Unauthorized: Definition is not in your university');
       }
     } else {
       // Use default definition

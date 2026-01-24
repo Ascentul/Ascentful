@@ -237,6 +237,8 @@ export default function BatchImportPage() {
 
       const reader = new FileReader();
       reader.onerror = () => {
+        console.error('FileReader error:', reader.error);
+        setParsedData([]);
         toast({
           title: 'Read Error',
           description: 'Failed to read the file. Please try again.',

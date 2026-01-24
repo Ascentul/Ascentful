@@ -159,15 +159,16 @@ export function generateSignalExplanation(
     }
 
     case 'engagement_drop': {
-      const current = context.currentLevel as string;
-      const from = context.targetFromLevel as string;
+      const current = typeof context.currentLevel === 'string' ? context.currentLevel : 'unknown';
+      const from =
+        typeof context.targetFromLevel === 'string' ? context.targetFromLevel : 'unknown';
       return `Engagement level dropped from ${from} to ${current}. May need check-in.`;
     }
 
     case 'no_progress': {
-      const rejections = context.rejectionCount as number;
-      const offers = context.offerCount as number;
-      const total = context.totalApplications as number;
+      const rejections = typeof context.rejectionCount === 'number' ? context.rejectionCount : 0;
+      const offers = typeof context.offerCount === 'number' ? context.offerCount : 0;
+      const total = typeof context.totalApplications === 'number' ? context.totalApplications : 0;
       return `${rejections} rejections out of ${total} applications with ${offers} offer(s). May need application strategy review.`;
     }
 

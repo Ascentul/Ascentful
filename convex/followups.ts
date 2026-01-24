@@ -270,6 +270,12 @@ export const createFollowupFromSignal = internalMutation({
     dueInDays: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Defensive: verify signal exists before creating follow-up
+    const signal = await ctx.db.get(args.signalId);
+    if (!signal) {
+      throw new Error('Signal not found');
+    }
+
     // Idempotency check: prevent duplicate follow-ups for the same signal
     const existing = await ctx.db
       .query('follow_ups')

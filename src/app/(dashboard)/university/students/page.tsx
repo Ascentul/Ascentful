@@ -139,6 +139,10 @@ export default function UniversityStudentsPage() {
 
     const reader = new FileReader();
     reader.onerror = () => {
+      console.error('FileReader error:', reader.error);
+      setCsvFile(null);
+      setCsvData([]);
+      setParseError('Failed to read the file');
       toast({
         title: 'Read Error',
         description: 'Failed to read the file. Please try again.',
