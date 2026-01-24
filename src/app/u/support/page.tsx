@@ -1,5 +1,5 @@
 /**
- * University Workspace - Support
+ * User Workspace - Support
  *
  * Wrapper for advisor support view.
  * Re-exports the existing advisor support page.

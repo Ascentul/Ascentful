@@ -292,7 +292,13 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     ...state,
     requestPermission,
     unsubscribe: unsubscribeFromPush,
-    canSubscribe: state.isSupported && state.permission !== 'denied' && !state.isSubscribed,
+    canSubscribe:
+      state.isSupported &&
+      state.permission !== 'denied' &&
+      !state.isSubscribed &&
+      !!userId &&
+      !!registration &&
+      !!vapidPublicKey,
     canUnsubscribe: state.isSupported && state.isSubscribed,
   };
 }

@@ -33,11 +33,15 @@ export const getCrossUniversityEngagement = query({
 
     const limit = args.limit ?? 50;
 
-    // Get all active universities
-    const universities = await ctx.db
+    // Get ALL active universities for platform summary (not limited)
+    const allUniversities = await ctx.db
       .query('universities')
       .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
-      .take(limit);
+      .collect();
+
+    // We'll process all universities for accurate platform summary,
+    // but only return `limit` in the universities array for display
+    const universities = allUniversities;
 
     // Calculate engagement metrics for each university
     const universityMetrics: Array<{
@@ -141,7 +145,8 @@ export const getCrossUniversityEngagement = query({
     };
 
     return {
-      universities: universityMetrics,
+      // Return limited universities for display, but summary reflects all
+      universities: universityMetrics.slice(0, limit),
       summary: platformSummary,
     };
   },

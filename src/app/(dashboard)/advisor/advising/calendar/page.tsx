@@ -15,6 +15,7 @@ import {
 } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Download, Plus, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
@@ -25,6 +26,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function AdvisorCalendarPage() {
   const { user } = useUser();
   const clerkId = user?.id;
+  const pathname = usePathname();
+
+  // Determine route prefix based on current path context
+  const routePrefix = pathname?.startsWith('/u') ? '/u' : '/advisor';
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -102,7 +107,7 @@ export default function AdvisorCalendarPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Export .ics
               </Button>
-              <Link href="/u/advising/sessions?action=new">
+              <Link href={`${routePrefix}/advising/sessions?action=new`}>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Schedule Session
@@ -167,6 +172,7 @@ export default function AdvisorCalendarPage() {
                 isLoading={isLoading}
                 currentDate={currentDate}
                 onDateChange={setCurrentDate}
+                routePrefix={routePrefix}
               />
             </CardContent>
           </Card>

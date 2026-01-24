@@ -308,9 +308,16 @@ export const getUniversityActivityTrends = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
+
+    // Role gate - only admins and advisors can access university-wide analytics
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Only administrators can access university activity trends');
+    }
+
     const daysBack = args.daysBack ?? 30;
 
-    // Authorization check
+    // Authorization check - ensure user can only access their own university
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
       if (universityId !== args.universityId) {

@@ -17,7 +17,7 @@ import {
   Video,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
 import { CommentButton } from '@/components/advisor/comments';
@@ -50,7 +50,11 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
+
+  // Determine route prefix based on current path context
+  const routePrefix = pathname?.startsWith('/u') ? '/u' : '/advisor';
 
   const rawSessionId = Array.isArray(params.id) ? params.id[0] : params.id;
   const sessionId = rawSessionId?.trim() ?? '';
@@ -92,7 +96,7 @@ export default function SessionDetailPage() {
                 to it.
               </p>
               <Button asChild>
-                <Link href="/u/advising/sessions">
+                <Link href={`${routePrefix}/advising/sessions`}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Sessions
                 </Link>
@@ -130,7 +134,7 @@ export default function SessionDetailPage() {
                 The session you're looking for doesn't exist or you don't have access to it.
               </p>
               <Button asChild>
-                <Link href="/u/advising/sessions">
+                <Link href={`${routePrefix}/advising/sessions`}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Sessions
                 </Link>
@@ -222,7 +226,7 @@ export default function SessionDetailPage() {
                           <p className="text-sm text-muted-foreground">{student.email}</p>
                         )}
                         <Button variant="outline" size="sm" asChild className="w-full mt-2">
-                          <Link href={`/advisor/students/${student._id}`}>View Profile</Link>
+                          <Link href={`${routePrefix}/students/${student._id}`}>View Profile</Link>
                         </Button>
                       </div>
                     ) : (
@@ -331,13 +335,13 @@ export default function SessionDetailPage() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/u/advising/sessions">
+                      <Link href={`${routePrefix}/advising/sessions`}>
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Sessions
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/u/advising/calendar">
+                      <Link href={`${routePrefix}/advising/calendar`}>
                         <Calendar className="h-4 w-4 mr-2" />
                         View Calendar
                       </Link>

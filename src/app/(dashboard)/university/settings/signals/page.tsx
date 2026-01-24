@@ -196,7 +196,7 @@ const priorityColors: Record<Priority, string> = {
 };
 
 export default function SignalRulesPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
 
   const universityId = user?.university_id as Id<'universities'> | undefined;
@@ -406,6 +406,14 @@ export default function SignalRulesPage() {
         return 'Custom condition';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!universityId) {
     return (

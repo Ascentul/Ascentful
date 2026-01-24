@@ -21,7 +21,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { format } from 'date-fns';
 import { AlertCircle, Calendar, CheckCircle2, Clock, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
@@ -43,7 +43,12 @@ export default function AdvisorTodayPage() {
   const { user } = useUser();
   const clerkId = user?.id;
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
+
+  // Determine route prefix based on current path context
+  // Component can be rendered at /u/home or /advisor/advising/today
+  const routePrefix = pathname?.startsWith('/u') ? '/u' : '/advisor';
 
   // State for follow-up tab
   const [followUpTab, setFollowUpTab] = useState<'overdue' | 'today' | 'upcoming'>('today');
@@ -143,7 +148,7 @@ export default function AdvisorTodayPage() {
 
   // Session quick actions
   const handleAddNote = (sessionId: Id<'advisor_sessions'>) => {
-    router.push(`/advisor/advising/sessions/${sessionId}?edit=notes`);
+    router.push(`${routePrefix}/advising/sessions/${sessionId}?edit=notes`);
   };
 
   const handleAddFollowUp = (studentId: Id<'users'>, sessionTitle?: string) => {
@@ -186,13 +191,13 @@ export default function AdvisorTodayPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Link href="/u/advising/sessions?action=new">
+              <Link href={`${routePrefix}/advising/sessions?action=new`}>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Schedule Session
                 </Button>
               </Link>
-              <Link href="/u/advising/calendar">
+              <Link href={`${routePrefix}/advising/calendar`}>
                 <Button variant="outline">
                   <Calendar className="h-4 w-4 mr-2" />
                   View Calendar
@@ -259,7 +264,7 @@ export default function AdvisorTodayPage() {
                     <div className="border rounded-lg p-12 text-center">
                       <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">No sessions scheduled for today</p>
-                      <Link href="/u/advising/sessions?action=new">
+                      <Link href={`${routePrefix}/advising/sessions?action=new`}>
                         <Button variant="outline" size="sm">
                           <Plus className="h-4 w-4 mr-2" />
                           Schedule Session
@@ -274,6 +279,7 @@ export default function AdvisorTodayPage() {
                           session={session}
                           onAddNote={handleAddNote}
                           onAddFollowUp={handleAddFollowUp}
+                          routePrefix={routePrefix}
                         />
                       ))}
                     </div>
@@ -293,11 +299,16 @@ export default function AdvisorTodayPage() {
                   onComplete={handleCompleteFollowUp}
                   onSnooze={handleSnoozeFollowUp}
                   isLoading={isLoading}
+                  routePrefix={routePrefix}
                 />
               </div>
 
               {/* Coming Up Panel */}
-              <ComingUpPanel days={todayData?.comingUp ?? []} isLoading={isLoading} />
+              <ComingUpPanel
+                days={todayData?.comingUp ?? []}
+                isLoading={isLoading}
+                routePrefix={routePrefix}
+              />
 
               {/* Documentation Panel */}
               <DocumentationPanel

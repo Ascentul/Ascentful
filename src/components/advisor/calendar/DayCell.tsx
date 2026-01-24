@@ -34,9 +34,18 @@ interface DayCellProps {
   sessions: Session[];
   followUps: FollowUp[];
   now: number;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
-export function DayCell({ day, currentMonth, sessions, followUps, now }: DayCellProps) {
+export function DayCell({
+  day,
+  currentMonth,
+  sessions,
+  followUps,
+  now,
+  routePrefix = '/advisor',
+}: DayCellProps) {
   const isToday = isSameDay(day, new Date(now));
   const isCurrentMonth = isSameMonth(day, currentMonth);
 
@@ -61,14 +70,14 @@ export function DayCell({ day, currentMonth, sessions, followUps, now }: DayCell
       </div>
       <div className="space-y-1">
         {displayedSessions.map((session) => (
-          <Link key={session._id} href={`/advisor/advising/sessions/${session._id}`}>
+          <Link key={session._id} href={`${routePrefix}/advising/sessions/${session._id}`}>
             <div className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded truncate hover:bg-blue-200 cursor-pointer">
               {format(new Date(session.start_at), 'h:mm a')} • {session.student_name}
             </div>
           </Link>
         ))}
         {displayedFollowUps.map((followUp) => (
-          <Link key={followUp._id} href={`/advisor/students/${followUp.student_id}`}>
+          <Link key={followUp._id} href={`${routePrefix}/students/${followUp.student_id}`}>
             <div className="text-xs bg-orange-100 text-orange-800 px-1 py-0.5 rounded truncate hover:bg-orange-200 cursor-pointer">
               Task: {followUp.title}
             </div>

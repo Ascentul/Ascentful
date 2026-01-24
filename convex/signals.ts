@@ -215,6 +215,9 @@ export const getAdvisorQueue = query({
 
       const total = filtered.length;
       const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
+      if (Number.isNaN(startIndex) || startIndex < 0) {
+        throw new Error('Invalid cursor value');
+      }
       const page = filtered.slice(startIndex, startIndex + limit);
       const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 

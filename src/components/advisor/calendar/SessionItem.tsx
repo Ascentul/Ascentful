@@ -25,9 +25,11 @@ interface Session {
 interface SessionItemProps {
   session: Session;
   now: number;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
-export function SessionItem({ session, now }: SessionItemProps) {
+export function SessionItem({ session, now, routePrefix = '/advisor' }: SessionItemProps) {
   // Calculate end_at from duration if not provided (default: 60 min standard advising session)
   const endAt = session.end_at ?? session.start_at + (session.duration_minutes ?? 60) * 60 * 1000;
   const isPast = endAt < now;
@@ -46,7 +48,7 @@ export function SessionItem({ session, now }: SessionItemProps) {
   const SessionIcon = sessionIcon;
 
   return (
-    <Link href={`/advisor/advising/sessions/${session._id}`}>
+    <Link href={`${routePrefix}/advising/sessions/${session._id}`}>
       <div
         className={`p-3 border rounded-lg hover:bg-muted/50 cursor-pointer ${
           isCurrent ? 'border-blue-500 bg-blue-50' : isPast ? 'opacity-60' : ''

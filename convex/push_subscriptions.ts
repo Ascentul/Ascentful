@@ -48,7 +48,10 @@ export const subscribe = mutation({
 
     // Get user to extract university_id for efficient bulk queries
     const user = await ctx.db.get(userId);
-    const universityId = user?.university_id;
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const universityId = user.university_id;
 
     // Check if this endpoint already exists
     const existing = await ctx.db

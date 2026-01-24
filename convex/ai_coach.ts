@@ -60,17 +60,21 @@ export const createConversation = mutation({
     });
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: user.university_id,
-      eventType: ACTIVITY_EVENTS.COACH_CONVERSATION_STARTED,
-      eventCategory: 'ai_coach',
-      entityType: 'conversation',
-      entityId: conversationId,
-      metadata: {
-        title: args.title,
-      },
-    });
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.COACH_CONVERSATION_STARTED,
+        eventCategory: 'ai_coach',
+        entityType: 'conversation',
+        entityId: conversationId,
+        metadata: {
+          title: args.title,
+        },
+      });
+    } catch {
+      // Don't fail conversation creation if activity tracking fails
+    }
 
     return {
       id: conversationId,
@@ -172,17 +176,21 @@ export const addMessages = mutation({
     });
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: user.university_id,
-      eventType: ACTIVITY_EVENTS.COACH_MESSAGE_SENT,
-      eventCategory: 'ai_coach',
-      entityType: 'conversation',
-      entityId: args.conversationId,
-      metadata: {
-        messageLength: args.userMessage.length,
-      },
-    });
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.COACH_MESSAGE_SENT,
+        eventCategory: 'ai_coach',
+        entityType: 'conversation',
+        entityId: args.conversationId,
+        metadata: {
+          messageLength: args.userMessage.length,
+        },
+      });
+    } catch {
+      // Don't fail message addition if activity tracking fails
+    }
 
     return [
       {
