@@ -77,18 +77,25 @@ self.addEventListener('notificationclick', (event) => {
       case 'snooze':
         // Send a message to the main app to snooze
         event.waitUntil(
-          clients.matchAll({ type: 'window' }).then((windowClients) => {
+          clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // Try to find an existing window to handle the snooze
             for (const client of windowClients) {
-              if ('focus' in client) {
+              if (client.url.startsWith(self.location.origin) && 'focus' in client) {
                 client.postMessage({
                   type: 'SNOOZE_NOTIFICATION',
                   data: event.notification.data,
                 });
+                client.focus();
                 return;
               }
             }
-            // No client found to handle snooze - log for debugging
-            console.warn('Snooze action: No window client available to receive message');
+            // No client found - open a new window with snooze params so the app can handle it
+            const snoozeUrl = new URL(url, self.location.origin);
+            snoozeUrl.searchParams.set('snooze', 'true');
+            if (event.notification.data?.signalId) {
+              snoozeUrl.searchParams.set('signalId', event.notification.data.signalId);
+            }
+            return clients.openWindow(snoozeUrl.href);
           })
         );
         break;

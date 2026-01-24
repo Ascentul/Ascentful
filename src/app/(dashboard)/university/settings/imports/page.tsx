@@ -322,8 +322,12 @@ export default function BatchImportPage() {
       //   miss updates for position-dependent records
       // The preview step validates and warns users about rows missing identifiers.
       const outcomesWithIds = parsedData.map((row, index) => {
-        const identifier = row.externalStudentId || row.studentEmail || '';
-        const normalizedId = identifier.toLowerCase().trim();
+        // Match importUtils.ts: preserve case for external student IDs, lowercase emails
+        const normalizedId = row.externalStudentId
+          ? row.externalStudentId.trim()
+          : row.studentEmail
+            ? row.studentEmail.toLowerCase().trim()
+            : '';
         const externalOutcomeId = normalizedId
           ? `${selectedCohort}_${normalizedId}`
           : `${selectedCohort}_row_${index}`;

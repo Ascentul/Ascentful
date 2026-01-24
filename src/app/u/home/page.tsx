@@ -35,7 +35,11 @@ export default function UniversityHomePage() {
     return null;
   }
 
-  const role = user.publicMetadata?.role as string | undefined;
+  const role = user.publicMetadata?.role as
+    | 'university_admin'
+    | 'super_admin'
+    | 'advisor'
+    | undefined;
 
   // University admins and super admins see admin dashboard
   if (role === 'university_admin' || role === 'super_admin') {

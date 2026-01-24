@@ -1567,7 +1567,7 @@ export const getOutcomesAnalytics = query({
 
     // Get outcomes for filtered cohorts using by_cohort index for efficiency
     const cohortIds = cohorts.map((c) => c._id);
-    const outcomesByChort = await Promise.all(
+    const outcomesByCohort = await Promise.all(
       cohortIds.map((cohortId) =>
         ctx.db
           .query('graduate_outcomes')
@@ -1576,7 +1576,7 @@ export const getOutcomesAnalytics = query({
           .collect(),
       ),
     );
-    let outcomes = outcomesByChort.flat();
+    let outcomes = outcomesByCohort.flat();
 
     // Filter by program (major) if specified
     if (args.programs && args.programs.length > 0) {

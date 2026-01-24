@@ -164,8 +164,8 @@ export const recalculateUniversityEngagement = internalMutation({
       .filter((q) => q.eq(q.field('role'), 'student'));
 
     // Apply cursor-based pagination using _creationTime (guaranteed chronological)
-    if (args.cursor) {
-      query = query.filter((q) => q.gt(q.field('_creationTime'), args.cursor!));
+    if (args.cursor !== undefined) {
+      query = query.filter((q) => q.gt(q.field('_creationTime'), args.cursor));
     }
 
     const students = await query.take(batchSize + 1); // Take one extra to check if there's more
@@ -246,16 +246,20 @@ export const refreshEngagementCacheJob = internalMutation({
   handler: async (ctx) => {
     const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
 
-    // Get first university needing recalculation
+    // Get universities needing recalculation
     const universities = await ctx.db
       .query('universities')
       .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
       .collect();
 
+    // Randomize order to prevent starvation - ensures all universities get processed
+    // even if one has perpetually stale students
+    const shuffledUniversities = [...universities].sort(() => Math.random() - 0.5);
+
     let processedUniversity: string | null = null;
     let studentsUpdated = 0;
 
-    for (const university of universities) {
+    for (const university of shuffledUniversities) {
       // Check if this university has stale students
       const staleStudent = await ctx.db
         .query('users')

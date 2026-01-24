@@ -692,18 +692,10 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 {(() => {
+                  // Only include features with real data sources
+                  // Applications, Goals, Documents are currently placeholders (always 0)
+                  // and will be added when their queries are implemented
                   const featureData = [
-                    {
-                      name: 'Applications',
-                      value: analyticsData.applications.total,
-                      color: '#4F46E5',
-                    },
-                    { name: 'Goals', value: analyticsData.goals.total, color: '#10B981' },
-                    {
-                      name: 'Documents',
-                      value: analyticsData.documents.total,
-                      color: '#F59E0B',
-                    },
                     {
                       name: 'Networking',
                       value: featureUsage?.networkingContacts ?? 0,
@@ -714,7 +706,7 @@ export default function UniversityAnalyticsPage() {
                       value: featureUsage?.aiCoachConversations ?? 0,
                       color: '#8B5CF6',
                     },
-                  ];
+                  ].filter((f) => f.value > 0); // Only show features with usage
                   const total = featureData.reduce((sum, f) => sum + f.value, 0);
                   if (total === 0) {
                     return (

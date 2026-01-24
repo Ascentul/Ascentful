@@ -40,7 +40,7 @@ interface DayCardProps {
   sessions: Session[];
   followUps: FollowUp[];
   now: number;
-  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  /** Route prefix for links (e.g., '/u' or '/advisor'). Must not include trailing slash. */
   routePrefix?: string;
 }
 

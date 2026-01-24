@@ -689,11 +689,26 @@ export const getEngagementAnalytics = query({
       .filter((q) => q.eq(q.field('role'), 'student'))
       .collect();
 
-    // Apply cohort filter if specified (students may not have cohort_id directly)
-    // Note: cohort filtering would require joining with student_outcomes table
-    // For now, we skip cohort filtering if students don't have direct cohort_id
+    // Apply cohort filter if specified via graduate_outcomes join
     if (args.cohortIds && args.cohortIds.length > 0) {
-      // TODO: Implement cohort filtering via student_outcomes join
+      // Query graduate_outcomes for students in the specified cohorts
+      const outcomesByCohort = await Promise.all(
+        args.cohortIds.map((cohortId) =>
+          ctx.db
+            .query('graduate_outcomes')
+            .withIndex('by_cohort', (q) => q.eq('cohort_id', cohortId as Id<'graduation_cohorts'>))
+            .collect(),
+        ),
+      );
+      const outcomes = outcomesByCohort.flat();
+
+      // Build set of student IDs that belong to the specified cohorts
+      const cohortStudentIds = new Set(
+        outcomes.filter((o) => o.student_id != null).map((o) => o.student_id!.toString()),
+      );
+
+      // Filter students to only those in the specified cohorts
+      students = students.filter((s) => cohortStudentIds.has(s._id.toString()));
     }
 
     // Apply program/department filter if specified

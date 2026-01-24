@@ -28,6 +28,11 @@ import { getCurrentUser, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireAdvisor } from './lib/authorization';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
+import {
+  calculateEngagementScore,
+  DEFAULT_QUALIFYING_EVENT_TYPES,
+  determineEngagementStatus,
+} from './lib/engagementScoring';
 import { MAX_RULE_LOOKBACK_DAYS } from './signal_rules';
 
 // ============================================================================
@@ -170,6 +175,12 @@ export const getAdvisorQueue = query({
     const limit = args.limit ?? 50;
     const status = args.status ?? 'active';
 
+    // Centralized cursor parsing and validation
+    const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
+    if (Number.isNaN(startIndex) || startIndex < 0) {
+      throw new Error('Invalid cursor value');
+    }
+
     // Authorization check - university membership
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);
@@ -214,10 +225,6 @@ export const getAdvisorQueue = query({
       });
 
       const total = filtered.length;
-      const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
-      if (Number.isNaN(startIndex) || startIndex < 0) {
-        throw new Error('Invalid cursor value');
-      }
       const page = filtered.slice(startIndex, startIndex + limit);
       const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 
@@ -261,7 +268,6 @@ export const getAdvisorQueue = query({
           .collect();
 
         const total = signals.length;
-        const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
         const page = signals.slice(startIndex, startIndex + limit);
         const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 
@@ -311,7 +317,6 @@ export const getAdvisorQueue = query({
       });
 
       const total = signals.length;
-      const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
       const page = signals.slice(startIndex, startIndex + limit);
       const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 
@@ -377,7 +382,6 @@ export const getAdvisorQueue = query({
 
     // Apply pagination
     const total = filtered.length;
-    const startIndex = args.cursor ? parseInt(args.cursor, 10) : 0;
     const page = filtered.slice(startIndex, startIndex + limit);
     const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
 
@@ -1474,7 +1478,11 @@ interface PrefetchedData {
     }>
   >;
   followupsByUser: Map<string, Array<{ type?: string; due_at?: number }>>;
-  engagementDefinition: { engaged_threshold: number; at_risk_threshold: number } | null;
+  engagementDefinition: {
+    engaged_threshold: number;
+    at_risk_threshold: number;
+    criteria?: unknown;
+  } | null;
 }
 
 /**
@@ -1590,21 +1598,46 @@ async function evaluateRuleCondition(
       const definition = prefetchedData.engagementDefinition;
       if (!definition) return { triggered: false };
 
-      // Calculate current engagement score based on prefetched activity (in-memory filter)
-      const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
-      const recentEvents = studentEvents.filter((e) => e.occurred_at >= fourteenDaysAgo);
-
-      // Simple scoring: count activity events in last 14 days
-      const activityScore = Math.min(100, recentEvents.length * 10);
-
-      let currentLevel: string;
-      if (activityScore >= definition.engaged_threshold) {
-        currentLevel = 'engaged';
-      } else if (activityScore <= definition.at_risk_threshold) {
-        currentLevel = 'at_risk';
-      } else {
-        currentLevel = 'moderate';
-      }
+      // Calculate current engagement score using the canonical scoring model
+      const criteria =
+        (definition.criteria as {
+          period_days?: number;
+          min_events_in_period?: number;
+          qualifying_event_types?: string[];
+        }) ?? {};
+      const periodDays = criteria.period_days ?? 14;
+      const cutoffTime = now - periodDays * 24 * 60 * 60 * 1000;
+      const qualifyingEventTypes: string[] = criteria.qualifying_event_types ?? [
+        ...DEFAULT_QUALIFYING_EVENT_TYPES,
+      ];
+      const qualifyingEvents = studentEvents.filter(
+        (e) => e.occurred_at >= cutoffTime && qualifyingEventTypes.includes(e.event_type),
+      );
+      const uniqueDays = new Set(
+        qualifyingEvents.map((e) => new Date(e.occurred_at).toISOString().slice(0, 10)),
+      ).size;
+      const lastEventAt =
+        qualifyingEvents.length > 0
+          ? Math.max(...qualifyingEvents.map((e) => e.occurred_at))
+          : null;
+      const daysSinceLastActivity =
+        lastEventAt !== null ? Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24)) : null;
+      const activityScore = calculateEngagementScore(
+        {
+          totalEventCount: qualifyingEvents.length,
+          uniqueActiveDays: uniqueDays,
+          daysSinceLastActivity,
+        },
+        {
+          minEventsInPeriod: criteria.min_events_in_period ?? 3,
+          periodDays,
+        },
+      );
+      const currentLevel = determineEngagementStatus(
+        activityScore,
+        definition.engaged_threshold,
+        definition.at_risk_threshold,
+      );
 
       // levelOrder: index 0 = best (engaged), index 2 = worst (at_risk)
       const levelOrder = ['engaged', 'moderate', 'at_risk'];
@@ -1634,7 +1667,9 @@ async function evaluateRuleCondition(
             targetFromLevel: fromLevel,
             targetToLevel: toLevel,
             activityScore,
-            recentActivityCount: recentEvents.length,
+            qualifyingEventCount: qualifyingEvents.length,
+            uniqueActiveDays: uniqueDays,
+            periodDays,
           },
         };
       }

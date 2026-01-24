@@ -290,10 +290,12 @@ export default function AdminEngagementPage() {
                 },
                 {
                   name: 'Moderate',
-                  value:
+                  value: Math.max(
+                    0,
                     crossUniversityData.summary.totalStudents -
-                    crossUniversityData.summary.totalEngaged -
-                    crossUniversityData.summary.totalAtRisk,
+                      crossUniversityData.summary.totalEngaged -
+                      crossUniversityData.summary.totalAtRisk,
+                  ),
                   color: '#3B82F6',
                 },
                 {
