@@ -123,7 +123,7 @@ export function SignInForm({ onForgotPassword }: SignInFormProps) {
         // User already signed in - parent page will handle role-based redirect
         toast({
           title: 'Already signed in',
-          description: 'Redirecting to your dashboard...',
+          description: 'You are already signed in.',
         });
         return;
       } else if (code === 'form_identifier_not_found') {

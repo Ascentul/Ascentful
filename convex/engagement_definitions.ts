@@ -516,6 +516,12 @@ export const evaluateStudentEngagement = query({
       throw new Error('Student is not affiliated with a university');
     }
 
+    // Explicit role gate: only these roles can access engagement data
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor', 'student'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Role cannot access engagement data');
+    }
+
     // Super admins can access any student; advisors must be in same university
     if (sessionCtx.role !== 'super_admin') {
       const universityId = requireTenant(sessionCtx);

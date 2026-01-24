@@ -1983,16 +1983,21 @@ export const cleanupOldSignals = internalMutation({
     const batchSize = 500;
 
     // PHASE 1: Archive old resolved/dismissed signals (soft-delete)
+    // Query each status separately using indexed range queries for efficiency
+    const statusesToArchive: Array<'resolved' | 'dismissed'> = ['resolved', 'dismissed'];
     while (true) {
-      const signalsToArchive = await ctx.db
-        .query('signals')
-        .filter((q) =>
-          q.and(
-            q.or(q.eq(q.field('status'), 'resolved'), q.eq(q.field('status'), 'dismissed')),
-            q.lt(q.field('updated_at'), archiveCutoff),
-          ),
-        )
-        .take(batchSize);
+      // Fetch from both statuses using indexed queries
+      const batches = await Promise.all(
+        statusesToArchive.map((status) =>
+          ctx.db
+            .query('signals')
+            .withIndex('by_status_updated_at', (q) =>
+              q.eq('status', status).lt('updated_at', archiveCutoff),
+            )
+            .take(batchSize),
+        ),
+      );
+      const signalsToArchive = batches.flat();
 
       if (signalsToArchive.length === 0) break;
 
@@ -2010,11 +2015,12 @@ export const cleanupOldSignals = internalMutation({
     }
 
     // PHASE 2: Purge very old archived signals (hard delete after 365 days)
+    // Uses indexed range query for efficiency
     while (true) {
       const signalsToPurge = await ctx.db
         .query('signals')
-        .filter((q) =>
-          q.and(q.eq(q.field('status'), 'archived'), q.lt(q.field('archived_at'), purgeCutoff)),
+        .withIndex('by_status_archived_at', (q) =>
+          q.eq('status', 'archived').lt('archived_at', purgeCutoff),
         )
         .take(batchSize);
 

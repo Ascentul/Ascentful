@@ -4,6 +4,60 @@
  * Shared utilities for CSV generation with security protections.
  */
 
+// ============================================================================
+// OUTCOMES CSV EXPORT FIELDS
+// ============================================================================
+
+/**
+ * CSV field definitions for outcomes export.
+ * Defines both headers and value extractors to prevent header/value drift.
+ * Used by both the export route and tests for consistency.
+ */
+export interface OutcomeExportRow {
+  external_student_id?: string;
+  student_name?: string;
+  student_email?: string;
+  cohort_name?: string;
+  outcome_status: string;
+  outcome_type?: string;
+  employer_name?: string;
+  job_title?: string;
+  is_verified?: boolean;
+  confidence_score?: number;
+  evidence_files?: Array<{ id: string; name?: string; type?: string }>;
+  data_source?: string;
+  updated_at: number;
+}
+
+export const OUTCOME_CSV_FIELDS: Array<{
+  header: string;
+  getValue: (o: OutcomeExportRow) => string;
+}> = [
+  { header: 'external_student_id', getValue: (o) => o.external_student_id || '' },
+  { header: 'student_name', getValue: (o) => o.student_name || '' },
+  { header: 'student_email', getValue: (o) => o.student_email || '' },
+  { header: 'cohort_name', getValue: (o) => o.cohort_name || '' },
+  { header: 'outcome_status', getValue: (o) => o.outcome_status || '' },
+  { header: 'outcome_type', getValue: (o) => o.outcome_type || '' },
+  { header: 'employer_name', getValue: (o) => o.employer_name || '' },
+  { header: 'job_title', getValue: (o) => o.job_title || '' },
+  { header: 'is_verified', getValue: (o) => (o.is_verified ? 'true' : 'false') },
+  { header: 'confidence_score', getValue: (o) => o.confidence_score?.toString() || '' },
+  { header: 'evidence_count', getValue: (o) => o.evidence_files?.length?.toString() || '0' },
+  { header: 'data_source', getValue: (o) => o.data_source || '' },
+  {
+    header: 'last_updated',
+    getValue: (o) => (o.updated_at ? new Date(o.updated_at).toISOString().split('T')[0] : ''),
+  },
+];
+
+/** Derived headers array for convenience */
+export const OUTCOME_CSV_HEADERS = OUTCOME_CSV_FIELDS.map((f) => f.header);
+
+// ============================================================================
+// CSV SECURITY UTILITIES
+// ============================================================================
+
 /**
  * Characters that can trigger formula execution in spreadsheet applications.
  * These are dangerous when they appear at the start of a cell value.

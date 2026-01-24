@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { convexServer } from '@/lib/convex-server';
-import { csvFilename, toCSV } from '@/lib/csv-utils';
+import { csvFilename, OUTCOME_CSV_FIELDS, toCSV } from '@/lib/csv-utils';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -243,30 +243,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate CSV content - fields defined together to prevent header/value drift
-    type OutcomeRow = (typeof outcomeData.outcomes)[0];
-    const csvFields: Array<{ header: string; getValue: (o: OutcomeRow) => string }> = [
-      { header: 'external_student_id', getValue: (o) => o.external_student_id || '' },
-      { header: 'student_name', getValue: (o) => o.student_name || '' },
-      { header: 'student_email', getValue: (o) => o.student_email || '' },
-      { header: 'cohort_name', getValue: (o) => o.cohort_name || '' },
-      { header: 'outcome_status', getValue: (o) => o.outcome_status || '' },
-      { header: 'outcome_type', getValue: (o) => o.outcome_type || '' },
-      { header: 'employer_name', getValue: (o) => o.employer_name || '' },
-      { header: 'job_title', getValue: (o) => o.job_title || '' },
-      { header: 'is_verified', getValue: (o) => (o.is_verified ? 'true' : 'false') },
-      { header: 'confidence_score', getValue: (o) => o.confidence_score?.toString() || '' },
-      { header: 'evidence_count', getValue: (o) => o.evidence_files?.length?.toString() || '0' },
-      { header: 'data_source', getValue: (o) => o.data_source || '' },
-      {
-        header: 'last_updated',
-        getValue: (o) => (o.updated_at ? new Date(o.updated_at).toISOString().split('T')[0] : ''),
-      },
-    ];
-
-    const csvHeaders = csvFields.map((f) => f.header);
+    // Generate CSV content using shared field definitions
+    const csvHeaders = OUTCOME_CSV_FIELDS.map((f) => f.header);
     const csvRows = outcomeData.outcomes.map((outcome) =>
-      csvFields.map((f) => f.getValue(outcome)),
+      OUTCOME_CSV_FIELDS.map((f) => f.getValue(outcome)),
     );
 
     const csvContent = toCSV(csvHeaders, csvRows);

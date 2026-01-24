@@ -266,8 +266,11 @@ export const updateRule = mutation({
 
     // Validate default-active invariant: default rules must be active
     const nextIsActive = args.isActive ?? rule.is_active;
-    if (args.isDefault && !nextIsActive) {
-      throw new Error('Cannot set an inactive rule as default. Activate the rule first.');
+    const nextIsDefault = args.isDefault ?? rule.is_default;
+    if (nextIsDefault && !nextIsActive) {
+      throw new Error(
+        'Cannot deactivate a default rule. Remove default status first, or keep it active.',
+      );
     }
 
     const now = Date.now();

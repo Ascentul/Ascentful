@@ -19,7 +19,7 @@ import {
   OutcomeRecord,
 } from 'convex/lib/outcomeMetrics';
 
-import { escapeCSV } from '@/lib/csv-utils';
+import { escapeCSV, OUTCOME_CSV_FIELDS, OUTCOME_CSV_HEADERS } from '@/lib/csv-utils';
 
 describe('Outcomes Dashboard KPI Computation', () => {
   describe('Knowledge Rate', () => {
@@ -289,26 +289,23 @@ describe('CSV Export Format', () => {
   };
 
   it('should include all required columns', () => {
-    const headers = [
-      'external_student_id',
-      'student_name',
-      'student_email',
-      'cohort_name',
-      'outcome_status',
-      'outcome_type',
-      'employer_name',
-      'job_title',
-      'is_verified',
-      'confidence_score',
-      'evidence_count',
-      'data_source',
-      'last_updated',
-    ];
+    // Test against the actual exported headers, not a hardcoded copy
+    expect(OUTCOME_CSV_HEADERS).toContain('external_student_id');
+    expect(OUTCOME_CSV_HEADERS).toContain('outcome_status');
+    expect(OUTCOME_CSV_HEADERS).toContain('evidence_count');
+    expect(OUTCOME_CSV_HEADERS.length).toBe(13);
+  });
 
-    expect(headers).toContain('external_student_id');
-    expect(headers).toContain('outcome_status');
-    expect(headers).toContain('evidence_count');
-    expect(headers.length).toBe(13);
+  it('should generate correct CSV row from outcome data', () => {
+    // Test that the field extractors work correctly with real data
+    const row = OUTCOME_CSV_FIELDS.map((f) => f.getValue(mockOutcome));
+
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('external_student_id')]).toBe('STU001');
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('student_name')]).toBe('John Smith');
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('outcome_status')]).toBe('known');
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('employer_name')]).toBe('Google');
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('is_verified')]).toBe('true');
+    expect(row[OUTCOME_CSV_HEADERS.indexOf('evidence_count')]).toBe('2');
   });
 
   it('should escape fields with commas', () => {
@@ -337,9 +334,15 @@ describe('CSV Export Format', () => {
     expect(escapeCSV('@SUM(A1)')).toBe('"\t@SUM(A1)"');
   });
 
-  it('should count evidence files correctly', () => {
-    const evidenceCount = mockOutcome.evidence_files?.length || 0;
-    expect(evidenceCount).toBe(2);
+  it('should count evidence files correctly using field extractor', () => {
+    // Test the actual evidence_count field extractor
+    const evidenceCountField = OUTCOME_CSV_FIELDS.find((f) => f.header === 'evidence_count');
+    expect(evidenceCountField).toBeDefined();
+    expect(evidenceCountField!.getValue(mockOutcome)).toBe('2');
+
+    // Also verify behavior with no evidence
+    const noEvidenceOutcome = { ...mockOutcome, evidence_files: undefined };
+    expect(evidenceCountField!.getValue(noEvidenceOutcome)).toBe('0');
   });
 });
 

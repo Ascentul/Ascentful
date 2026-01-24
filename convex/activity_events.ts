@@ -130,8 +130,9 @@ export const getUserRecentEvents = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
-    const limit = args.limit ?? 50;
-    const daysBack = args.daysBack ?? 30;
+    // Clamp inputs to safe bounds
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 200);
+    const daysBack = Math.min(Math.max(args.daysBack ?? 30, 1), 365);
 
     const user = await ctx.db.get(args.userId);
     if (!user) {
@@ -206,7 +207,8 @@ export const getUserActivitySummary = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
-    const daysBack = args.daysBack ?? 14;
+    // Clamp to safe bounds
+    const daysBack = Math.min(Math.max(args.daysBack ?? 14, 1), 365);
 
     const user = await ctx.db.get(args.userId);
     if (!user) {

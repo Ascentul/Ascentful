@@ -3201,7 +3201,9 @@ export default defineSchema({
     .index('by_university_status_triggered', ['university_id', 'status', 'triggered_at']) // For time-ordered pagination
     .index('by_rule', ['rule_id'])
     .index('by_triggered_at', ['triggered_at'])
-    .index('by_created_at', ['created_at']),
+    .index('by_created_at', ['created_at'])
+    .index('by_status_updated_at', ['status', 'updated_at']) // For cleanup: archive old resolved/dismissed
+    .index('by_status_archived_at', ['status', 'archived_at']), // For cleanup: purge old archived
 
   // Activity events - granular activity tracking for signal evaluation
   activity_events: defineTable({
