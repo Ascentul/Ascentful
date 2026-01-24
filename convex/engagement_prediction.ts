@@ -268,7 +268,7 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
 
   // Calculate days to risk if decreasing
   let predictedDaysToRisk: number | undefined;
-  if (trend.trend === 'decreasing' && currentStatus !== 'at_risk') {
+  if (trend.trend === 'decreasing' && currentStatus !== 'at_risk' && trend.velocity !== 0) {
     // Rough estimate based on velocity
     const weeksToRisk = Math.abs(50 / trend.velocity);
     predictedDaysToRisk = Math.max(7, Math.round(weeksToRisk * 7));

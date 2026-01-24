@@ -104,10 +104,11 @@ export const createApplication = mutation({
     // }
 
     const now = Date.now();
+    const applicationUniversityId = membership?.university_id ?? user.university_id;
 
     const applicationId = await ctx.db.insert('applications', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: applicationUniversityId,
       company: args.company,
       job_title: args.job_title,
       status: args.status,
@@ -133,7 +134,7 @@ export const createApplication = mutation({
     // Track activity event for engagement scoring
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: applicationUniversityId,
       eventType: ACTIVITY_EVENTS.APPLICATION_CREATED,
       eventCategory: 'application',
       entityType: 'application',
@@ -241,12 +242,13 @@ export const updateApplication = mutation({
     await ctx.db.patch(args.applicationId, patchData);
 
     // Track activity event for engagement scoring
+    // Use application's university_id to keep activity with the application's context
     const eventType = args.updates.status
       ? ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED
       : ACTIVITY_EVENTS.APPLICATION_UPDATED;
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: application.university_id,
       eventType,
       eventCategory: 'application',
       entityType: 'application',

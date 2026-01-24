@@ -137,7 +137,7 @@ export const notifyAdvisorsForSignal = internalMutation({
     return {
       notified,
       recipients: recipientUsers
-        .filter((u) => u !== null)
+        .filter((u) => u !== null && u.email)
         .map((u) => ({
           id: u!._id,
           email: u!.email,
@@ -193,7 +193,9 @@ export const updateNotificationPreferences = mutation({
     universityId: v.id('universities'),
     preferences: v.object({
       emailEnabled: v.boolean(),
-      emailForPriorities: v.array(v.string()),
+      emailForPriorities: v.array(
+        v.union(v.literal('low'), v.literal('medium'), v.literal('high'), v.literal('urgent')),
+      ),
       digestEnabled: v.boolean(),
       digestFrequency: v.union(v.literal('daily'), v.literal('weekly'), v.literal('never')),
       inAppEnabled: v.boolean(),

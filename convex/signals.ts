@@ -26,6 +26,7 @@ import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
+import { requireAdvisor } from './lib/authorization';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
 
 // ============================================================================
@@ -441,7 +442,8 @@ export const createSignal = mutation({
     relatedId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireUniversityAdmin(ctx);
+    // Allow advisors, university_admins, and super_admins to create signals
+    const user = await requireAdvisor(ctx);
     assertUniversityAccess(user, args.universityId);
 
     // Verify student exists and is in the university
@@ -1359,12 +1361,13 @@ async function evaluateRuleCondition(
       );
 
       if (qualifyingEvents.length === 0) {
-        // Find the last qualifying event ever
+        // Find the last qualifying event ever (use higher limit to avoid missing
+        // qualifying events buried under many non-qualifying ones like page views)
         const allEvents = await ctx.db
           .query('activity_events')
           .withIndex('by_user_date', (q) => q.eq('user_id', student._id))
           .order('desc')
-          .take(100);
+          .take(1000);
 
         const lastQualifying = allEvents.find((e: any) =>
           qualifyingEventTypes.includes(e.event_type),

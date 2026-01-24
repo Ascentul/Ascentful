@@ -823,7 +823,7 @@ export default function BatchImportPage() {
               <Button variant="outline" onClick={handleReset}>
                 Import More
               </Button>
-              <Link href={`/university/outcomes`}>
+              <Link href="/u/outcomes">
                 <Button>View Outcomes</Button>
               </Link>
             </div>

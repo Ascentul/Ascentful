@@ -352,5 +352,19 @@ reviews:
         - Adding defensive guards would mask bugs rather than surface them
         - If aggregates somehow don't add up, it's a serious data integrity issue to investigate, not hide
 
+        ### Convex ID Validation via TypeScript Casts
+        - Don't suggest removing `as Id<'table'>` casts when passing IDs to Convex queries
+        - Convex validators (`v.id('table')`) validate ID format at runtime before handlers execute
+        - TypeScript `as` casts are compile-time only and don't bypass Convex validation
+        - Pattern: `{ id: userInput as Id<'users'> }` is safe - Convex rejects invalid IDs with validation errors
+        - Adding pre-validation is redundant when Convex query args use `v.id()` validators
+
+        ### Mathematical Guarantees in Deterministic Calculations
+        - Don't suggest division-by-zero guards for mathematically impossible scenarios
+        - Linear regression with sequential indices (0, 1, 2, ...) has non-zero denominator when n >= 2
+        - Pattern: `sumXX - sumX * sumX / n` is guaranteed positive for non-degenerate data
+        - Algorithm guards like `if (n < 2) return null` already handle degenerate cases
+        - Adding redundant Math guards clutters code and masks real logic bugs
+
 chat:
   auto_reply: true
