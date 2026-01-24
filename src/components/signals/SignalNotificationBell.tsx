@@ -110,7 +110,15 @@ export function SignalNotificationBell() {
             Signal Notifications
           </span>
           {unreadSignalCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={handleMarkAllAsRead}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkAllAsRead();
+              }}
+            >
               Mark all read
             </Button>
           )}

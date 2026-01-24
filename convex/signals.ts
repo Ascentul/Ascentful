@@ -532,7 +532,7 @@ export const getSignal = query({
     const student = await ctx.db.get(signal.student_id);
     const rule = signal.rule_id ? await ctx.db.get(signal.rule_id) : null;
 
-    return {
+    const enriched = {
       ...signal,
       student: student
         ? {
@@ -549,6 +549,22 @@ export const getSignal = query({
           }
         : null,
     };
+
+    // Students see limited fields only (no context/resolution metadata)
+    if (sessionCtx.role === 'student') {
+      return {
+        _id: enriched._id,
+        student_id: enriched.student_id,
+        signal_type: enriched.signal_type,
+        title: enriched.title,
+        description: enriched.description,
+        status: enriched.status,
+        triggered_at: enriched.triggered_at,
+        resolved_at: enriched.resolved_at,
+      };
+    }
+
+    return enriched;
   },
 });
 
@@ -600,6 +616,20 @@ export const getSignalsByStudent = query({
     }
 
     const signals = await query.order('desc').take(limit);
+
+    // Students see limited fields only (no context/resolution metadata)
+    if (sessionCtx.role === 'student') {
+      return signals.map((signal) => ({
+        _id: signal._id,
+        student_id: signal.student_id,
+        signal_type: signal.signal_type,
+        title: signal.title,
+        description: signal.description,
+        status: signal.status,
+        triggered_at: signal.triggered_at,
+        resolved_at: signal.resolved_at,
+      }));
+    }
 
     return signals;
   },
@@ -1278,8 +1308,11 @@ export const evaluateSignalRules = internalMutation({
         .filter((q) => q.gte(q.field('due_at'), lookbackTime))
         .collect();
 
-      // Batch fetch recent signals for cooldown checking (max cooldown 90 days)
-      const maxCooldownDays = Math.max(...rules.map((r) => r.cooldown_days ?? 0), 90);
+      // Batch fetch recent signals for cooldown checking (capped at MAX_RULE_LOOKBACK_DAYS)
+      const maxCooldownDays = Math.min(
+        MAX_RULE_LOOKBACK_DAYS,
+        Math.max(...rules.map((r) => r.cooldown_days ?? 0)),
+      );
       const cooldownLookback = now - maxCooldownDays * 24 * 60 * 60 * 1000;
       const ruleIds = new Set(rules.map((r) => r._id));
       const allRecentSignals = await ctx.db

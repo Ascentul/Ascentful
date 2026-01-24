@@ -180,7 +180,8 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
         localStorage.setItem('universitySidebarExpanded', newExpanded.toString());
       }
     }
-  }, [sidebarContext, localExpanded]);
+    onToggle?.();
+  }, [sidebarContext, localExpanded, onToggle]);
 
   // Toggle section collapsed state
   const toggleSection = useCallback((sectionId: string) => {

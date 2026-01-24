@@ -259,19 +259,26 @@ export function calculateNameSimilarity(name1: string, name2: string): number {
 /**
  * Generate a unique external_outcome_id for deduplication.
  * Format: {cohort_id}_{external_student_id} or {cohort_id}_{email}
+ *
+ * Note: External student IDs are case-sensitive (preserved as-is),
+ * while emails are normalized to lowercase.
  */
 export function generateExternalOutcomeId(
   cohortId: Id<'graduation_cohorts'>,
   externalStudentId?: string,
   email?: string,
 ): string {
-  const identifier = externalStudentId || email;
+  const identifier = externalStudentId ?? email;
   if (!identifier) {
     throw new Error(
       'Either externalStudentId or email is required to generate external_outcome_id',
     );
   }
-  return `${cohortId}_${identifier.toLowerCase().trim()}`;
+  // Preserve case for external student IDs, lowercase only emails
+  const normalizedIdentifier = externalStudentId
+    ? externalStudentId.trim()
+    : identifier.toLowerCase().trim();
+  return `${cohortId}_${normalizedIdentifier}`;
 }
 
 /**

@@ -1565,15 +1565,18 @@ export const getOutcomesAnalytics = query({
       };
     }
 
-    // Get all outcomes for filtered cohorts
-    const cohortIds = new Set(cohorts.map((c) => c._id));
-    const allOutcomes = await ctx.db
-      .query('graduate_outcomes')
-      .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
-      .collect();
-
-    // Filter to only outcomes in our cohorts
-    let outcomes = allOutcomes.filter((o) => cohortIds.has(o.cohort_id) && o.is_active !== false);
+    // Get outcomes for filtered cohorts using by_cohort index for efficiency
+    const cohortIds = cohorts.map((c) => c._id);
+    const outcomesByChort = await Promise.all(
+      cohortIds.map((cohortId) =>
+        ctx.db
+          .query('graduate_outcomes')
+          .withIndex('by_cohort', (q) => q.eq('cohort_id', cohortId))
+          .filter((q) => q.neq(q.field('is_active'), false))
+          .collect(),
+      ),
+    );
+    let outcomes = outcomesByChort.flat();
 
     // Filter by program (major) if specified
     if (args.programs && args.programs.length > 0) {

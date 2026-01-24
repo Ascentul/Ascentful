@@ -30,13 +30,20 @@ export default function UniversityHomePage() {
     );
   }
 
-  const role = user?.publicMetadata?.role as string | undefined;
+  // Fallback if user is not authenticated (should be caught by middleware)
+  if (!user) {
+    return null;
+  }
+
+  const role = user.publicMetadata?.role as string | undefined;
 
   // University admins and super admins see admin dashboard
   if (role === 'university_admin' || role === 'super_admin') {
     return <UniversityDashboardPage />;
   }
 
-  // Advisors and default: Today's schedule view
+  // Advisors (and any other role that passes the parent layout's RequireRole guard)
+  // see Today's schedule view. The /u layout restricts access to university_admin,
+  // advisor, and super_admin roles, so unexpected roles cannot reach this fallback.
   return <AdvisorTodayPage />;
 }

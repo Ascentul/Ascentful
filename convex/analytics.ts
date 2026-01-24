@@ -2203,10 +2203,12 @@ export const getUniversityActiveUsersOverTime = query({
 
     // Get activity events for the university
     // Use occurred_at (canonical timestamp) for filtering, not created_at
+    // Limit to 50k events to prevent unbounded queries for high-activity universities
     const events = await ctx.db
       .query('activity_events')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .filter((q) => q.gte(q.field('occurred_at'), startTime))
+      .take(50000)
       .collect();
 
     // Group events by bucket and count unique users

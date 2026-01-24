@@ -51,9 +51,13 @@ export default function Page() {
     }
   }, [authLoaded, userLoaded, isSignedIn, user, router]);
 
-  // Show loading state while checking authentication or during redirect
+  // Show loading state while checking authentication
   if (!authLoaded || !userLoaded) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+      </div>
+    );
   }
 
   // Show loading state during redirect after sign-in
@@ -62,7 +66,7 @@ export default function Page() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent mx-auto mb-4" />
-          <p className="text-neutral-600">Redirecting to your dashboard...</p>
+          <p className="text-neutral-600">Redirecting...</p>
         </div>
       </div>
     );

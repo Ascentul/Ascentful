@@ -466,11 +466,16 @@ function validateRuleCondition(condition: unknown): void {
       }
       break;
 
-    case 'engagement_drop':
+    case 'engagement_drop': {
       if (typeof cond.from !== 'string' || typeof cond.to !== 'string') {
         throw new Error('Engagement drop condition must have "from" and "to" level strings');
       }
+      const allowedLevels = ['engaged', 'moderate', 'at_risk'];
+      if (!allowedLevels.includes(cond.from) || !allowedLevels.includes(cond.to)) {
+        throw new Error(`Engagement drop levels must be one of: ${allowedLevels.join(', ')}`);
+      }
       break;
+    }
 
     case 'no_progress':
       // Flexible validation for no_progress

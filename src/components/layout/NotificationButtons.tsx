@@ -135,7 +135,10 @@ export function NotificationButtons({
             {unreadCount > 0 && (
               <button
                 type="button"
-                onClick={handleMarkAllAsRead}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkAllAsRead();
+                }}
                 className="text-xs text-primary-500 hover:underline"
               >
                 Mark all read

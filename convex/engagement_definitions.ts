@@ -720,10 +720,14 @@ export const getEngagementAnalytics = query({
         : Infinity;
       const isCacheFresh = cacheAge < 24 * 60 * 60 * 1000; // 24 hours
 
-      if (student.engagement_status && student.engagement_score != null && isCacheFresh) {
+      const cachedStatus = student.engagement_status;
+      const isValidStatus =
+        cachedStatus === 'engaged' || cachedStatus === 'moderate' || cachedStatus === 'at_risk';
+
+      if (isValidStatus && student.engagement_score != null && isCacheFresh) {
         engagementResults.push({
           studentId: student._id,
-          status: student.engagement_status,
+          status: cachedStatus,
           score: student.engagement_score,
           cohortId: undefined,
           programId: student.department_id?.toString(),

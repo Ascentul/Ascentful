@@ -211,6 +211,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         await snoozeSignalMutation({ signalId, snoozeDays: days });
         toast({ title: 'Signal snoozed', description: `Will resurface in ${days} day(s)` });
       } catch (error) {
+        console.error('Failed to snooze signal:', error);
         toast({ title: 'Error', description: 'Failed to snooze signal', variant: 'destructive' });
       }
     },
@@ -223,6 +224,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         await dismissSignalMutation({ signalId });
         toast({ title: 'Signal dismissed' });
       } catch (error) {
+        console.error('Failed to dismiss signal:', error);
         toast({ title: 'Error', description: 'Failed to dismiss signal', variant: 'destructive' });
       }
     },
@@ -239,6 +241,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         });
         toast({ title: 'Signal resolved' });
       } catch (error) {
+        console.error('Failed to resolve signal:', error);
         toast({ title: 'Error', description: 'Failed to resolve signal', variant: 'destructive' });
       }
     },
