@@ -58,7 +58,9 @@ async function calculateStudentEngagement(
     .withIndex('by_user_date', (q) => q.eq('user_id', studentId).gte('occurred_at', cutoffTime))
     .collect();
 
-  const qualifyingEventTypes = criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
+  const qualifyingEventTypes: string[] = criteria.qualifying_event_types || [
+    ...DEFAULT_QUALIFYING_EVENT_TYPES,
+  ];
   const qualifyingEvents = allEvents.filter((event) =>
     qualifyingEventTypes.includes(event.event_type),
   );
@@ -165,7 +167,8 @@ export const recalculateUniversityEngagement = internalMutation({
 
     // Apply cursor-based pagination using _creationTime (guaranteed chronological)
     if (args.cursor !== undefined) {
-      query = query.filter((q) => q.gt(q.field('_creationTime'), args.cursor));
+      const cursorValue = args.cursor;
+      query = query.filter((q) => q.gt(q.field('_creationTime'), cursorValue));
     }
 
     const students = await query.take(batchSize + 1); // Take one extra to check if there's more

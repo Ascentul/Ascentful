@@ -209,7 +209,8 @@ export interface Signal {
     | 'custom';
   title: string;
   description?: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  // Optional for student view which returns limited fields
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   status: 'active' | 'snoozed' | 'resolved' | 'dismissed' | 'archived';
   context_snapshot?: Record<string, unknown>;
   snoozed_until?: number;
@@ -218,8 +219,9 @@ export interface Signal {
   resolution_type?: string;
   resolution_notes?: string;
   triggered_at: number;
-  created_at: number;
-  updated_at: number;
+  // Optional for student view which returns limited fields
+  created_at?: number;
+  updated_at?: number;
 }
 
 interface SignalCardProps {
@@ -251,7 +253,7 @@ export function SignalCard({
   }, [compact]);
 
   const typeConfig = SIGNAL_TYPE_CONFIG[signal.signal_type] || SIGNAL_TYPE_CONFIG.custom;
-  const priorityConfig = PRIORITY_CONFIG[signal.priority] || PRIORITY_CONFIG.low;
+  const priorityConfig = PRIORITY_CONFIG[signal.priority ?? 'low'];
   const statusConfig = STATUS_CONFIG[signal.status] || STATUS_CONFIG.active;
   const StatusIcon = statusConfig.icon;
 

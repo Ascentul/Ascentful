@@ -9,6 +9,23 @@ import Mailgun from 'mailgun.js';
 import { escapeHtml } from './utils';
 
 const DEFAULT_DOMAIN = 'mail.ascentful.io';
+
+/**
+ * Sanitize URL for use in email href attributes.
+ * Only allows http/https URLs to prevent javascript:, data:, or other malicious schemes.
+ */
+function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+  } catch {
+    // Invalid URL
+  }
+  // Return safe fallback for invalid/malicious URLs
+  return '#';
+}
 const DEFAULT_FROM = 'Ascentful <no-reply@mail.ascentful.io>';
 
 export interface EmailOptions {
@@ -550,7 +567,7 @@ The Ascentful Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${dashboardUrl}"
+        <a href="${sanitizeUrl(dashboardUrl)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -996,7 +1013,7 @@ The Ascentful Team`;
       </div>
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${dashboardUrl}"
+        <a href="${sanitizeUrl(dashboardUrl)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -1173,7 +1190,7 @@ The Ascentful Team`;
       }
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${dashboardUrl}"
+        <a href="${sanitizeUrl(dashboardUrl)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;

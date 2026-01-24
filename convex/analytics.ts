@@ -2208,8 +2208,7 @@ export const getUniversityActiveUsersOverTime = query({
       .query('activity_events')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .filter((q) => q.gte(q.field('occurred_at'), startTime))
-      .take(50000)
-      .collect();
+      .take(50000);
 
     // Group events by bucket and count unique users
     const data: Array<{ date: string; students: number; advisors: number }> = [];

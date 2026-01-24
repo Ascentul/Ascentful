@@ -132,19 +132,24 @@ export const createApplication = mutation({
     await ctx.scheduler.runAfter(0, api.activity.markActionForToday, {});
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: applicationUniversityId,
-      eventType: ACTIVITY_EVENTS.APPLICATION_CREATED,
-      eventCategory: 'application',
-      entityType: 'application',
-      entityId: applicationId,
-      metadata: {
-        company: args.company,
-        job_title: args.job_title,
-        status: args.status,
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: applicationUniversityId,
+        eventType: ACTIVITY_EVENTS.APPLICATION_CREATED,
+        eventCategory: 'application',
+        entityType: 'application',
+        entityId: applicationId,
+        metadata: {
+          company: args.company,
+          job_title: args.job_title,
+          status: args.status,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track application activity:', error);
+    }
 
     // Audit log: application created
     await safeLogAudit(ctx, {
@@ -243,23 +248,28 @@ export const updateApplication = mutation({
 
     // Track activity event for engagement scoring
     // Use application's university_id to keep activity with the application's context
-    const eventType = args.updates.status
-      ? ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED
-      : ACTIVITY_EVENTS.APPLICATION_UPDATED;
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: application.university_id,
-      eventType,
-      eventCategory: 'application',
-      entityType: 'application',
-      entityId: args.applicationId,
-      metadata: {
-        company: application.company,
-        previousStatus: args.updates.status ? application.status : undefined,
-        newStatus: args.updates.status,
-        updatedFields: Object.keys(args.updates),
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      const eventType = args.updates.status
+        ? ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED
+        : ACTIVITY_EVENTS.APPLICATION_UPDATED;
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: application.university_id,
+        eventType,
+        eventCategory: 'application',
+        entityType: 'application',
+        entityId: args.applicationId,
+        metadata: {
+          company: application.company,
+          previousStatus: args.updates.status ? application.status : undefined,
+          newStatus: args.updates.status,
+          updatedFields: Object.keys(args.updates),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track application activity:', error);
+    }
 
     // Audit log: application updated (track status changes specifically)
     const action = args.updates.status ? 'application.status_changed' : 'application.updated';
@@ -320,19 +330,24 @@ export const deleteApplication = mutation({
     await ctx.db.delete(args.applicationId);
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: application.university_id,
-      eventType: ACTIVITY_EVENTS.APPLICATION_DELETED,
-      eventCategory: 'application',
-      entityType: 'application',
-      entityId: args.applicationId,
-      metadata: {
-        company: application.company,
-        job_title: application.job_title,
-        status: application.status,
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: application.university_id,
+        eventType: ACTIVITY_EVENTS.APPLICATION_DELETED,
+        eventCategory: 'application',
+        entityType: 'application',
+        entityId: args.applicationId,
+        metadata: {
+          company: application.company,
+          job_title: application.job_title,
+          status: application.status,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track application activity:', error);
+    }
 
     // Audit log: application deleted
     await safeLogAudit(ctx, {
@@ -775,20 +790,25 @@ export const moveApplication = mutation({
     // Track activity and audit log for status changes
     if (statusChanged) {
       // Track activity event for engagement scoring (consistent with updateApplication)
-      await trackActivity(ctx, {
-        userId: user._id,
-        universityId: application.university_id,
-        eventType: ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED,
-        eventCategory: 'application',
-        entityType: 'application',
-        entityId: args.applicationId,
-        metadata: {
-          company: application.company,
-          previousStatus,
-          newStatus: args.newStatus,
-          source: 'kanban_drag',
-        },
-      });
+      // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+      try {
+        await trackActivity(ctx, {
+          userId: user._id,
+          universityId: application.university_id,
+          eventType: ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED,
+          eventCategory: 'application',
+          entityType: 'application',
+          entityId: args.applicationId,
+          metadata: {
+            company: application.company,
+            previousStatus,
+            newStatus: args.newStatus,
+            source: 'kanban_drag',
+          },
+        });
+      } catch (error) {
+        console.error('Failed to track application activity:', error);
+      }
 
       await safeLogAudit(ctx, {
         category: 'user_action',

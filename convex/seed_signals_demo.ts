@@ -395,9 +395,11 @@ export const seedSignalsDemo = internalMutation({
 
           const eventId = await ctx.db.insert('activity_events', {
             user_id: student._id,
+            university_id: args.universityId,
             event_type: eventDef.type,
             event_category: eventDef.category,
-            timestamp: eventTime,
+            occurred_at: eventTime,
+            created_at: eventTime,
             metadata: {
               source: 'seed_script',
               seeded_at: now,

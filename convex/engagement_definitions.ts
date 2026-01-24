@@ -457,8 +457,10 @@ async function getQualifyingEvents(
     .collect();
 
   // Filter to qualifying events
-  const qualifyingEventTypes = criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
-  const qualifyingCategories = criteria.qualifying_event_categories || [];
+  const qualifyingEventTypes: string[] = criteria.qualifying_event_types || [
+    ...DEFAULT_QUALIFYING_EVENT_TYPES,
+  ];
+  const qualifyingCategories: string[] = criteria.qualifying_event_categories || [];
 
   const qualifyingEvents = allEvents.filter((event) => {
     // Check if event type matches

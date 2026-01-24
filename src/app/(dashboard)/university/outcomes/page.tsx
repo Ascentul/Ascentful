@@ -343,7 +343,7 @@ export default function OutcomesDashboardPage() {
     !cohorts ||
     !majors ||
     (!analytics && !selectedSnapshot) ||
-    (selectedSnapshotId && !selectedSnapshot);
+    !!(selectedSnapshotId && !selectedSnapshot);
 
   return (
     <div className="max-w-screen-2xl mx-auto p-4 md:p-6 space-y-6">
