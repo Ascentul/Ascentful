@@ -400,6 +400,12 @@ reviews:
         - Error boundaries should be at app/layout level, not individual components
         - Don't suggest timeouts/fallbacks for "stuck loading" - Convex handles retries automatically
 
+        ### Schema-Aware Fallback Patterns
+        - Don't suggest adding status fallbacks without checking if the value exists in the schema
+        - Pattern: `stage === 'Accepted'` without status fallback is correct when 'accepted' isn't a valid status value
+        - TypeScript union types define valid values - check schema before suggesting "missing" fallbacks
+        - Comments like "stage field is the canonical source" indicate intentional design, not oversight
+
         ### Data Retention Policy Is Intentional
         - Don't suggest preventing hard deletes in retention jobs without evidence of compliance requirements
         - Pattern: 90-day archive + 365-day purge is an industry-standard retention window

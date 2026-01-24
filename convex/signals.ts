@@ -28,6 +28,7 @@ import { getCurrentUser, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireAdvisor } from './lib/authorization';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
+import { MAX_RULE_LOOKBACK_DAYS } from './signal_rules';
 
 // ============================================================================
 // VALIDATORS
@@ -1223,7 +1224,7 @@ export const evaluateSignalRules = internalMutation({
       // BATCH PREFETCH: Fetch all data upfront to avoid O(rules × students × queries)
       // This reduces complexity to O(bulk_queries + rules × students × in_memory_operations)
       const studentIds = new Set(students.map((s) => s._id));
-      const lookbackDays = 90; // Max lookback for any rule condition
+      const lookbackDays = MAX_RULE_LOOKBACK_DAYS;
       const lookbackTime = now - lookbackDays * 24 * 60 * 60 * 1000;
 
       // Batch fetch activity events for all students (within lookback period)

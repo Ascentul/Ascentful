@@ -217,16 +217,29 @@ export const getUniversitiesNeedingBackfill = internalQuery({
 /**
  * Backfill all students across all universities.
  * Processes one university at a time, 50 students per batch.
+ * Supports continuation from a specific university to avoid timeouts at scale.
  */
 export const backfillAllStudents = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const universities = await ctx.db
+  args: {
+    continueFromUniversityId: v.optional(v.id('universities')),
+  },
+  handler: async (ctx, args) => {
+    let universities = await ctx.db
       .query('universities')
       .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
       .collect();
 
+    // If continuing from a specific university, skip universities we've already processed
+    if (args.continueFromUniversityId) {
+      const startIndex = universities.findIndex((u) => u._id === args.continueFromUniversityId);
+      if (startIndex !== -1) {
+        universities = universities.slice(startIndex);
+      }
+    }
+
     let totalUpdated = 0;
+    const maxUniversitiesPerBatch = 10; // Limit universities per call to avoid timeout
+    let universitiesProcessed = 0;
 
     for (const university of universities) {
       // Get engagement definition for this university
@@ -261,13 +274,29 @@ export const backfillAllStudents = internalMutation({
         totalUpdated++;
       }
 
-      // If there are more students in this university, stop here
+      // If there are more students in this university, continue from here next time
       if (hasMore) {
         return {
           updated: totalUpdated,
           status: 'in_progress',
+          continueFromUniversityId: university._id,
           message: `Processed batch for ${university.name}, more students remaining`,
         };
+      }
+
+      universitiesProcessed++;
+
+      // Check if we've processed enough universities for this batch
+      if (universitiesProcessed >= maxUniversitiesPerBatch) {
+        const nextUniversityIndex = universities.indexOf(university) + 1;
+        if (nextUniversityIndex < universities.length) {
+          return {
+            updated: totalUpdated,
+            status: 'in_progress',
+            continueFromUniversityId: universities[nextUniversityIndex]._id,
+            message: `Processed ${universitiesProcessed} universities, continuing with next batch`,
+          };
+        }
       }
     }
 

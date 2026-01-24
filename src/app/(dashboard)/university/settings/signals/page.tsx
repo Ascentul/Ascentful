@@ -343,6 +343,8 @@ export default function SignalRulesPage() {
   };
 
   const handleToggleActive = async (id: Id<'signal_rules'>) => {
+    if (loading) return;
+    setLoading(true);
     try {
       const result = await toggleRuleActive({ ruleId: id });
       toast({
@@ -357,10 +359,14 @@ export default function SignalRulesPage() {
         description: error instanceof Error ? error.message : 'Failed to toggle rule status.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDuplicate = async (id: Id<'signal_rules'>) => {
+    if (loading) return;
+    setLoading(true);
     try {
       await duplicateRule({ ruleId: id });
       toast({
@@ -373,6 +379,8 @@ export default function SignalRulesPage() {
         description: error instanceof Error ? error.message : 'Failed to duplicate rule.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -141,6 +141,14 @@ const OUTCOME_TYPE_MAP: Record<string, ParsedRow['outcomeType']> = {
   not_seeking_employment: 'not_seeking',
 };
 
+function normalizeHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, '') // Remove BOM
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_'); // Convert spaces to underscores
+}
+
 function mapRowToData(headers: string[], row: string[]): ParsedRow {
   const data: Partial<ParsedRow> = {};
 
@@ -148,7 +156,8 @@ function mapRowToData(headers: string[], row: string[]): ParsedRow {
     const value = row[index]?.trim();
     if (!value) return;
 
-    const mappedKey = CSV_COLUMNS[header as keyof typeof CSV_COLUMNS];
+    const normalizedHeader = normalizeHeader(header);
+    const mappedKey = CSV_COLUMNS[normalizedHeader as keyof typeof CSV_COLUMNS];
     if (!mappedKey) return;
 
     switch (mappedKey) {

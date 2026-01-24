@@ -10,7 +10,7 @@ import webpush from 'web-push';
 // VAPID (Voluntary Application Server Identification) configuration
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:support@ascentul.com';
+const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:support@ascentful.io';
 
 /**
  * Whether push notifications are fully configured.

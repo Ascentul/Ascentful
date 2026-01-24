@@ -22,6 +22,17 @@ import { getCurrentUser, requireTenant } from './advisor_auth';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Maximum lookback period for rule conditions (in days).
+ * This must match the lookbackDays in signals.ts evaluateRulesForUniversity.
+ * Rules with day-based conditions cannot exceed this limit.
+ */
+export const MAX_RULE_LOOKBACK_DAYS = 90;
+
+// ============================================================================
 // VALIDATORS
 // ============================================================================
 
@@ -413,11 +424,21 @@ function validateRuleCondition(condition: unknown): void {
       if (typeof cond.days !== 'number' || cond.days <= 0) {
         throw new Error('Inactivity condition must have a positive "days" number');
       }
+      if (cond.days > MAX_RULE_LOOKBACK_DAYS) {
+        throw new Error(
+          `Inactivity days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.days})`,
+        );
+      }
       break;
 
     case 'application_stall':
       if (typeof cond.days !== 'number' || cond.days <= 0) {
         throw new Error('Application stall condition must have a positive "days" number');
+      }
+      if (cond.days > MAX_RULE_LOOKBACK_DAYS) {
+        throw new Error(
+          `Application stall days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.days})`,
+        );
       }
       if (cond.stage && typeof cond.stage !== 'string') {
         throw new Error('Application stall "stage" must be a string if provided');

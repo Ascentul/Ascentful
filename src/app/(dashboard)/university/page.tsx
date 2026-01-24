@@ -1521,7 +1521,7 @@ export default function UniversityDashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{activeUsersData?.totalAdvisors ?? 0}</div>
-                    <p className="text-xs text-muted-foreground mt-1">Active advisors</p>
+                    <p className="text-xs text-muted-foreground mt-1">Registered advisors</p>
                   </CardContent>
                 </Card>
 
