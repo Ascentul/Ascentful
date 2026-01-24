@@ -95,7 +95,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update preferences.',
+        description: error instanceof Error ? error.message : 'Failed to update preferences.',
         variant: 'destructive',
       });
     } finally {
@@ -140,7 +140,12 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Invalid response from server');
+      }
 
       if (response.ok && data.success) {
         toast({

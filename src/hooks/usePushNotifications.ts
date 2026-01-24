@@ -246,11 +246,11 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
-        // Remove from Convex first - if this fails, browser subscription remains intact
-        await unsubscribe({ endpoint: subscription.endpoint });
-
-        // Then unsubscribe from push manager
+        // Unsubscribe from browser first - this is the source of truth for notifications
         await subscription.unsubscribe();
+
+        // Then remove from Convex - if this fails, scheduled cleanup will handle stale records
+        await unsubscribe({ endpoint: subscription.endpoint });
       }
 
       setState((prev) => ({

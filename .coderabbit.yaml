@@ -391,5 +391,14 @@ reviews:
         - Adding `?? fallback` would hide bugs - invalid keys should surface errors, not default silently
         - If types match keys exactly, the lookup is guaranteed safe
 
+        ### Convex useQuery Error Handling
+        - Don't suggest adding per-component error handling for Convex queries
+        - Convex `useQuery` doesn't return an `error` property like React Query
+        - Pattern: `undefined` return means loading state only - not error state
+        - Server-side errors are thrown as exceptions, caught by React Error Boundaries
+        - Network failures trigger automatic retries built into Convex client
+        - Error boundaries should be at app/layout level, not individual components
+        - Don't suggest timeouts/fallbacks for "stuck loading" - Convex handles retries automatically
+
 chat:
   auto_reply: true

@@ -86,6 +86,8 @@ const TYPE_LABELS: Record<string, string> = {
   custom: 'Custom',
 };
 
+const DAYS_MAP = { '7d': 7, '30d': 30, '90d': 90 } as const;
+
 export default function SignalAnalyticsPage() {
   const { user } = useAuth();
   const universityId = user?.university_id as Id<'universities'> | undefined;
@@ -93,12 +95,11 @@ export default function SignalAnalyticsPage() {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
 
   // Calculate date range (memoized to keep query arguments stable)
-  const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
   const { start, end } = useMemo(() => {
     const end = Date.now();
     return {
       end,
-      start: end - daysMap[dateRange] * 24 * 60 * 60 * 1000,
+      start: end - DAYS_MAP[dateRange] * 24 * 60 * 60 * 1000,
     };
   }, [dateRange]);
 
@@ -263,7 +264,7 @@ export default function SignalAnalyticsPage() {
             {/* Signal Trend Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>{`Signal Trend (${daysMap[dateRange]} Days)`}</CardTitle>
+                <CardTitle>{`Signal Trend (${DAYS_MAP[dateRange]} Days)`}</CardTitle>
                 <CardDescription>Daily signals created vs resolved</CardDescription>
               </CardHeader>
               <CardContent>

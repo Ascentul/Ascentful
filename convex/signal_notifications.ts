@@ -273,20 +273,21 @@ export const getSignalDigestData = query({
       return b.triggered_at - a.triggered_at;
     });
 
-    const topSignals: Array<{
-      studentName: string;
-      title: string;
-      priority: string;
-    }> = [];
+    // Batch fetch all students for top signals (avoids N+1 queries)
+    const top10Signals = sortedSignals.slice(0, 10);
+    const students = await Promise.all(top10Signals.map((signal) => ctx.db.get(signal.student_id)));
+    const studentMap = new Map(
+      students.filter((s): s is NonNullable<typeof s> => s !== null).map((s) => [s._id, s]),
+    );
 
-    for (const signal of sortedSignals.slice(0, 10)) {
-      const student = await ctx.db.get(signal.student_id);
-      topSignals.push({
+    const topSignals = top10Signals.map((signal) => {
+      const student = studentMap.get(signal.student_id);
+      return {
         studentName: student?.name || student?.email || 'Unknown',
         title: signal.title,
         priority: signal.priority,
-      });
-    }
+      };
+    });
 
     // Get advisors to send digest to
     const advisors = await ctx.db
