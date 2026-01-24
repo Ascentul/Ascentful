@@ -162,9 +162,15 @@ export function NotificationButtons({
                   )}
                 >
                   <div className="flex items-start justify-between w-full gap-2">
-                    <span className="font-medium text-sm line-clamp-1">{notification.title}</span>
+                    <span className="font-medium text-sm line-clamp-1">
+                      {!notification.read && <span className="sr-only">Unread: </span>}
+                      {notification.title}
+                    </span>
                     {!notification.read && (
-                      <span className="h-2 w-2 rounded-full bg-primary-500 shrink-0 mt-1" />
+                      <span
+                        className="h-2 w-2 rounded-full bg-primary-500 shrink-0 mt-1"
+                        aria-hidden="true"
+                      />
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground line-clamp-2">

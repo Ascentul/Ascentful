@@ -318,11 +318,12 @@ export const getUniversityActivityTrends = query({
 
     const cutoffTime = Date.now() - daysBack * 24 * 60 * 60 * 1000;
 
-    // Get events for the university
+    // Get events for the university using composite index for efficient time-filtered queries
     const events = await ctx.db
       .query('activity_events')
-      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.gte(q.field('occurred_at'), cutoffTime))
+      .withIndex('by_university_occurred_at', (q) =>
+        q.eq('university_id', args.universityId).gte('occurred_at', cutoffTime),
+      )
       .collect();
 
     // Group by date

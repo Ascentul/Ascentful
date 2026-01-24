@@ -25,6 +25,7 @@ export function SignalNotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewNotification, setHasNewNotification] = useState(false);
   const prevUnreadCountRef = useRef<number>(0);
+  const { toast } = useToast();
 
   const notifications = useQuery(api.notifications.getNotifications, { unreadOnly: false });
   const markAsRead = useMutation(api.notifications.markAsRead);
@@ -66,8 +67,13 @@ export function SignalNotificationBell() {
     const failures = results.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
       console.error(`Failed to mark ${failures.length} notifications as read`);
+      toast({
+        title: 'Partial failure',
+        description: `${failures.length} notification(s) could not be marked as read`,
+        variant: 'destructive',
+      });
     }
-  }, [markAsRead, signalNotifications]);
+  }, [markAsRead, signalNotifications, toast]);
 
   if (!notifications) {
     return (

@@ -98,11 +98,12 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         setRegistration(reg);
 
         // Wait for service worker to be ready before sending message
+        // Send base64 string (not ArrayBuffer) so SW can use it for pushsubscriptionchange
         await navigator.serviceWorker.ready;
         if (reg.active) {
           reg.active.postMessage({
             type: 'SET_VAPID_KEY',
-            key: urlBase64ToUint8Array(vapidPublicKey),
+            key: vapidPublicKey,
           });
         }
 

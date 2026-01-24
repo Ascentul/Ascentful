@@ -80,6 +80,14 @@ export const notifyAdvisorsForSignal = internalMutation({
 
     const studentName = student.name || student.email || 'Unknown Student';
 
+    // Check university settings for in-app notification preference
+    const university = await ctx.db.get(args.universityId);
+    const settings = university?.settings as Record<string, unknown> | undefined;
+    const signalNotificationSettings = settings?.signal_notifications as
+      | Record<string, unknown>
+      | undefined;
+    const inAppEnabled = signalNotificationSettings?.in_app_enabled ?? true;
+
     // Get advisors assigned to this student (scoped to university for tenant isolation)
     const advisorAssignments = await ctx.db
       .query('student_advisors')
@@ -112,23 +120,26 @@ export const notifyAdvisorsForSignal = internalMutation({
       }
     }
 
-    // Create notifications for each recipient
+    // Create notifications for each recipient (if in-app notifications enabled)
     let notified = 0;
     const now = Date.now();
     const notificationType = args.priority === 'urgent' ? 'signal_urgent' : 'signal';
 
-    for (const recipientId of recipientIds) {
-      await ctx.db.insert('notifications', {
-        user_id: recipientId as Id<'users'>,
-        type: notificationType,
-        title: `${args.priority === 'urgent' ? '🚨 ' : args.priority === 'high' ? '⚠️ ' : ''}Signal: ${studentName}`,
-        message: args.signalTitle + (args.signalDescription ? ` - ${args.signalDescription}` : ''),
-        link: `/advisor/queue`,
-        related_id: args.signalId,
-        read: false,
-        created_at: now,
-      });
-      notified++;
+    if (inAppEnabled) {
+      for (const recipientId of recipientIds) {
+        await ctx.db.insert('notifications', {
+          user_id: recipientId as Id<'users'>,
+          type: notificationType,
+          title: `${args.priority === 'urgent' ? '🚨 ' : args.priority === 'high' ? '⚠️ ' : ''}Signal: ${studentName}`,
+          message:
+            args.signalTitle + (args.signalDescription ? ` - ${args.signalDescription}` : ''),
+          link: `/advisor/queue`,
+          related_id: args.signalId,
+          read: false,
+          created_at: now,
+        });
+        notified++;
+      }
     }
 
     // Return info for email notification (handled by Next.js API)
@@ -207,6 +218,11 @@ export const updateNotificationPreferences = mutation({
     // Authorization: Verify caller can manage this university's settings
     const actingUser = await getAuthenticatedUser(ctx);
     assertUniversityAccess(actingUser, args.universityId);
+
+    // Only admins can update university-wide notification preferences
+    if (actingUser.role !== 'super_admin' && actingUser.role !== 'university_admin') {
+      throw new Error('Unauthorized: Admin access required');
+    }
 
     const university = await ctx.db.get(args.universityId);
     if (!university) {

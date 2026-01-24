@@ -77,6 +77,8 @@ export function csvFilename(prefix: string): string {
  * Handles:
  * - Quoted fields with commas inside
  * - Escaped quotes (doubled "")
+ * - Preserves whitespace in quoted fields (standard CSV behavior)
+ * - Trims unquoted fields (handles common user mistakes)
  *
  * @param line - A single line of CSV content
  * @returns Array of parsed values
@@ -85,6 +87,7 @@ function parseCSVLine(line: string): string[] {
   const values: string[] = [];
   let current = '';
   let inQuotes = false;
+  let wasQuoted = false;
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
@@ -95,15 +98,19 @@ function parseCSVLine(line: string): string[] {
         i++; // Skip the next quote
       } else {
         inQuotes = !inQuotes;
+        if (inQuotes) wasQuoted = true;
       }
     } else if (char === ',' && !inQuotes) {
-      values.push(current.trim());
+      // Only trim unquoted fields - preserve whitespace in quoted fields
+      values.push(wasQuoted ? current : current.trim());
       current = '';
+      wasQuoted = false;
     } else {
       current += char;
     }
   }
-  values.push(current.trim());
+  // Only trim unquoted fields - preserve whitespace in quoted fields
+  values.push(wasQuoted ? current : current.trim());
   return values;
 }
 

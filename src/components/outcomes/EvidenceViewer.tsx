@@ -14,7 +14,7 @@ export interface EvidenceFile {
   uploaded_at: number;
 }
 
-interface VerificationInfo {
+export interface VerificationInfo {
   is_verified?: boolean;
   confidence_score?: number;
   verified_by_name?: string;
@@ -151,7 +151,9 @@ export function EvidenceViewer({
                             ? 'bg-amber-500'
                             : 'bg-red-500',
                       )}
-                      style={{ width: `${verification.confidence_score}%` }}
+                      style={{
+                        width: `${Math.min(100, Math.max(0, verification.confidence_score))}%`,
+                      }}
                     />
                   </div>
                   <span className="text-sm font-medium text-neutral-700">

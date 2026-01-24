@@ -1,6 +1,6 @@
 'use client';
 
-import { Briefcase, Building2, GraduationCap, Mail, MapPin, User, X } from 'lucide-react';
+import { Briefcase, Building2, GraduationCap, Mail, MapPin, User } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -112,23 +112,25 @@ export function OutcomeDetailModal({
 
         <div className="space-y-6 py-4">
           {/* Student Info */}
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold text-neutral-700">Student Information</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {outcome.student_email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-neutral-400" />
-                  <span>{outcome.student_email}</span>
-                </div>
-              )}
-              {outcome.external_student_id && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-neutral-400" />
-                  <span>ID: {outcome.external_student_id}</span>
-                </div>
-              )}
-            </div>
-          </section>
+          {(outcome.student_email || outcome.external_student_id) && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-700">Student Information</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {outcome.student_email && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-neutral-400" />
+                    <span>{outcome.student_email}</span>
+                  </div>
+                )}
+                {outcome.external_student_id && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-neutral-400" />
+                    <span>ID: {outcome.external_student_id}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Outcome Type */}
           {outcome.outcome_type && (

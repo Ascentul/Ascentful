@@ -3233,6 +3233,7 @@ export default defineSchema({
     .index('by_user_date', ['user_id', 'occurred_at'])
     .index('by_user_category_date', ['user_id', 'event_category', 'occurred_at'])
     .index('by_university', ['university_id'])
+    .index('by_university_occurred_at', ['university_id', 'occurred_at']) // For time-filtered university queries
     .index('by_event_type', ['event_type', 'occurred_at'])
     .index('by_occurred_at', ['occurred_at']), // For retention cleanup queries
 

@@ -139,7 +139,11 @@ export function SnapshotSelector({
                   <span className="font-medium">{snapshot.name}</span>
                   <span className="text-xs text-neutral-500">
                     <Calendar className="mr-1 inline h-3 w-3" />
-                    {new Date(snapshot.snapshot_date).toLocaleDateString()}
+                    {new Date(snapshot.snapshot_date).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
                   </span>
                   {snapshot.description && (
                     <span className="mt-0.5 text-xs text-neutral-400 line-clamp-1">
@@ -199,7 +203,14 @@ export function SnapshotSelector({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <form
+            id="create-snapshot-form"
+            className="space-y-4 py-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateSnapshot();
+            }}
+          >
             <div className="space-y-2">
               <Label htmlFor="snapshot-name">Snapshot Name</Label>
               <Input
@@ -220,13 +231,17 @@ export function SnapshotSelector({
                 rows={3}
               />
             </div>
-          </div>
+          </form>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateSnapshot} disabled={!snapshotName.trim() || isCreating}>
+            <Button
+              type="submit"
+              form="create-snapshot-form"
+              disabled={!snapshotName.trim() || isCreating}
+            >
               {isCreating ? 'Saving...' : 'Save Snapshot'}
             </Button>
           </DialogFooter>
@@ -256,8 +271,13 @@ export function SnapshotBanner({ snapshot, onViewLive, className }: SnapshotBann
         <div>
           <p className="text-sm font-medium text-amber-800">Viewing snapshot: {snapshot.name}</p>
           <p className="text-xs text-amber-600">
-            Captured on {new Date(snapshot.snapshot_date).toLocaleDateString()} by{' '}
-            {snapshot.created_by_name || 'Unknown'}
+            Captured on{' '}
+            {new Date(snapshot.snapshot_date).toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}{' '}
+            by {snapshot.created_by_name || 'Unknown'}
           </p>
         </div>
       </div>

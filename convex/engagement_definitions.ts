@@ -171,6 +171,13 @@ export const createDefinition = mutation({
     const user = await requireUniversityAdmin(ctx);
     assertUniversityAccess(user, args.universityId);
 
+    const isActive = args.isActive ?? true;
+
+    // Prevent inconsistent state: default definitions must be active
+    if (args.isDefault && !isActive) {
+      throw new Error('Default definition must be active');
+    }
+
     // Validate thresholds
     if (args.atRiskThreshold >= args.engagedThreshold) {
       throw new Error('at_risk_threshold must be less than engaged_threshold');
@@ -202,7 +209,7 @@ export const createDefinition = mutation({
       at_risk_threshold: args.atRiskThreshold,
       applies_to: args.appliesTo,
       scope_filter: args.scopeFilter,
-      is_active: args.isActive ?? true,
+      is_active: isActive,
       is_default: args.isDefault ?? false,
       created_by: user._id,
       created_at: now,
