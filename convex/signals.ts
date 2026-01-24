@@ -159,6 +159,13 @@ export const getAdvisorQueue = query({
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
+
+    // Role gate - advisor queue is restricted to advisor/admin roles
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Advisor/admin access required');
+    }
+
     const limit = args.limit ?? 50;
     const status = args.status ?? 'active';
 
@@ -1805,17 +1812,20 @@ export function generateSignalExplanation(
 ): string {
   switch (conditionType) {
     case 'stalled': {
-      const days = context.days_since_activity as number | null;
-      const threshold = context.threshold_days as number;
-      if (days !== null) {
+      const days =
+        typeof context.days_since_activity === 'number' ? context.days_since_activity : null;
+      const threshold = typeof context.threshold_days === 'number' ? context.threshold_days : 0;
+      if (days !== null && threshold > 0) {
         return `No activity in ${days} days. Has been inactive for longer than the ${threshold}-day threshold.`;
       }
       return `No recorded activity. Student may need outreach.`;
     }
 
     case 'high_intent_low_conversion': {
-      const appCount = context.application_count as number;
-      const appointmentDays = context.appointment_days as number;
+      const appCount =
+        typeof context.application_count === 'number' ? context.application_count : 0;
+      const appointmentDays =
+        typeof context.appointment_days === 'number' ? context.appointment_days : 0;
       return `${appCount} applications submitted but no advising appointment scheduled in ${appointmentDays} days. May need guidance on next steps.`;
     }
 
@@ -1827,9 +1837,15 @@ export function generateSignalExplanation(
             days_stuck: number;
           }
         | undefined;
-      const stuckCount = context.stuck_applications as number;
+      const stuckCount =
+        typeof context.stuck_applications === 'number' ? context.stuck_applications : 0;
 
-      if (longestStuck) {
+      if (
+        longestStuck &&
+        typeof longestStuck.company === 'string' &&
+        typeof longestStuck.stage === 'string' &&
+        typeof longestStuck.days_stuck === 'number'
+      ) {
         if (stuckCount > 1) {
           return `${stuckCount} applications stuck, including ${longestStuck.company} in "${longestStuck.stage}" stage for ${longestStuck.days_stuck} days.`;
         }
@@ -1839,18 +1855,30 @@ export function generateSignalExplanation(
     }
 
     case 'inactivity': {
-      const days = context.daysSinceActivity as number | null;
-      const threshold = context.thresholdDays as number;
-      if (days !== null) {
+      // Support both camelCase and snake_case for backwards compatibility
+      const days =
+        typeof context.days_since_activity === 'number'
+          ? context.days_since_activity
+          : typeof context.daysSinceActivity === 'number'
+            ? context.daysSinceActivity
+            : null;
+      const threshold =
+        typeof context.threshold_days === 'number'
+          ? context.threshold_days
+          : typeof context.thresholdDays === 'number'
+            ? context.thresholdDays
+            : 0;
+      if (days !== null && threshold > 0) {
         return `Last activity was ${days} days ago, exceeding the ${threshold}-day threshold.`;
       }
       return `No recent activity recorded.`;
     }
 
     case 'application_stall': {
-      const count = context.stalledApplications as number;
-      const stage = context.stalledStage as string;
-      const oldest = context.oldestStallDays as number;
+      const count =
+        typeof context.stalledApplications === 'number' ? context.stalledApplications : 0;
+      const stage = typeof context.stalledStage === 'string' ? context.stalledStage : 'any';
+      const oldest = typeof context.oldestStallDays === 'number' ? context.oldestStallDays : 0;
       if (stage !== 'any') {
         return `${count} application(s) stuck in "${stage}" stage for ${oldest}+ days.`;
       }
@@ -2010,14 +2038,19 @@ export const getSignalAnalytics = query({
     const start = args.dateRange?.start ?? thirtyDaysAgo;
     const end = args.dateRange?.end ?? now;
 
-    // Get all signals for this university
+    // Get all signals for this university (for status/priority counts)
     const allSignals = await ctx.db
       .query('signals')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
 
-    // Filter by date range
-    const signalsInRange = allSignals.filter((s) => s.created_at >= start && s.created_at <= end);
+    // Get signals in date range using indexed query (more efficient for large datasets)
+    const signalsInRange = await ctx.db
+      .query('signals')
+      .withIndex('by_university_created_at', (q) =>
+        q.eq('university_id', args.universityId).gte('created_at', start).lte('created_at', end),
+      )
+      .collect();
 
     // Current status breakdown
     const statusCounts = {

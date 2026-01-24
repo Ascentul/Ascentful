@@ -450,8 +450,8 @@ export function StudentPredictionCard({ studentId, compact = false }: StudentPre
     );
   }
 
-  const currentConfig = STATUS_CONFIG[prediction.current_status];
-  const predictedConfig = STATUS_CONFIG[prediction.predicted_status];
+  const currentConfig = STATUS_CONFIG[prediction.current_status] ?? STATUS_CONFIG.moderate;
+  const predictedConfig = STATUS_CONFIG[prediction.predicted_status] ?? STATUS_CONFIG.moderate;
   const isWorsening =
     prediction.predicted_status !== prediction.current_status &&
     (prediction.current_status === 'engaged' || prediction.predicted_status === 'at_risk');

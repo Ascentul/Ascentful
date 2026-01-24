@@ -85,17 +85,20 @@ export function generateSignalExplanation(
 
   switch (conditionType) {
     case 'stalled': {
-      const days = context.days_since_activity as number | null;
-      const threshold = context.threshold_days as number;
-      if (days !== null) {
+      const days =
+        typeof context.days_since_activity === 'number' ? context.days_since_activity : null;
+      const threshold = typeof context.threshold_days === 'number' ? context.threshold_days : 0;
+      if (days !== null && threshold > 0) {
         return `No activity in ${days} days. Has been inactive for longer than the ${threshold}-day threshold.`;
       }
       return 'No recorded activity. Student may need outreach.';
     }
 
     case 'high_intent_low_conversion': {
-      const appCount = context.application_count as number;
-      const appointmentDays = context.appointment_days as number;
+      const appCount =
+        typeof context.application_count === 'number' ? context.application_count : 0;
+      const appointmentDays =
+        typeof context.appointment_days === 'number' ? context.appointment_days : 0;
       return `${appCount} applications submitted but no advising appointment scheduled in ${appointmentDays} days. May need guidance on next steps.`;
     }
 
@@ -107,9 +110,15 @@ export function generateSignalExplanation(
             days_stuck: number;
           }
         | undefined;
-      const stuckCount = context.stuck_applications as number;
+      const stuckCount =
+        typeof context.stuck_applications === 'number' ? context.stuck_applications : 0;
 
-      if (longestStuck) {
+      if (
+        longestStuck &&
+        typeof longestStuck.company === 'string' &&
+        typeof longestStuck.stage === 'string' &&
+        typeof longestStuck.days_stuck === 'number'
+      ) {
         if (stuckCount > 1) {
           return `${stuckCount} applications stuck, including ${longestStuck.company} in "${longestStuck.stage}" stage for ${longestStuck.days_stuck} days.`;
         }
@@ -119,18 +128,30 @@ export function generateSignalExplanation(
     }
 
     case 'inactivity': {
-      const days = context.daysSinceActivity as number | null;
-      const threshold = context.thresholdDays as number;
-      if (days !== null) {
+      // Support both camelCase and snake_case for backwards compatibility
+      const days =
+        typeof context.days_since_activity === 'number'
+          ? context.days_since_activity
+          : typeof context.daysSinceActivity === 'number'
+            ? context.daysSinceActivity
+            : null;
+      const threshold =
+        typeof context.threshold_days === 'number'
+          ? context.threshold_days
+          : typeof context.thresholdDays === 'number'
+            ? context.thresholdDays
+            : 0;
+      if (days !== null && threshold > 0) {
         return `Last activity was ${days} days ago, exceeding the ${threshold}-day threshold.`;
       }
       return 'No recent activity recorded.';
     }
 
     case 'application_stall': {
-      const count = context.stalledApplications as number;
-      const stage = context.stalledStage as string;
-      const oldest = context.oldestStallDays as number;
+      const count =
+        typeof context.stalledApplications === 'number' ? context.stalledApplications : 0;
+      const stage = typeof context.stalledStage === 'string' ? context.stalledStage : 'any';
+      const oldest = typeof context.oldestStallDays === 'number' ? context.oldestStallDays : 0;
       if (stage !== 'any') {
         return `${count} application(s) stuck in "${stage}" stage for ${oldest}+ days.`;
       }

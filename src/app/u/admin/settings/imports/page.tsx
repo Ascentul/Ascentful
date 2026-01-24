@@ -1,7 +1,7 @@
 /**
- * University Workspace - Import Settings
+ * Admin - Import Settings
  *
- * Wrapper for university import settings view.
+ * Aliases the university import settings page for the admin route.
  * Re-exports the existing university settings/imports page.
  */
 export { default } from '@/app/(dashboard)/university/settings/imports/page';

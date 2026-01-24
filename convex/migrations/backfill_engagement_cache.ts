@@ -14,7 +14,11 @@ import { v } from 'convex/values';
 
 import { Doc, Id } from '../_generated/dataModel';
 import { internalMutation, internalQuery, QueryCtx } from '../_generated/server';
-import { DEFAULT_QUALIFYING_EVENT_TYPES } from '../lib/engagementScoring';
+import {
+  calculateEngagementScore,
+  DEFAULT_QUALIFYING_EVENT_TYPES,
+  determineEngagementStatus,
+} from '../lib/engagementScoring';
 
 interface EngagementCriteria {
   period_days: number;
@@ -24,7 +28,7 @@ interface EngagementCriteria {
 
 /**
  * Calculate engagement score for a single student.
- * Duplicated from engagement_cache.ts to avoid circular dependency.
+ * Uses centralized scoring functions from lib/engagementScoring.ts.
  */
 async function calculateStudentEngagement(
   ctx: QueryCtx,
@@ -50,7 +54,8 @@ async function calculateStudentEngagement(
     .withIndex('by_user_date', (q) => q.eq('user_id', studentId).gte('occurred_at', cutoffTime))
     .collect();
 
-  const qualifyingEventTypes = criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
+  const qualifyingEventTypes: readonly string[] =
+    criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
   const qualifyingEvents = allEvents.filter((event) =>
     qualifyingEventTypes.includes(event.event_type),
   );
@@ -69,32 +74,25 @@ async function calculateStudentEngagement(
       ? qualifyingEvents.reduce((max, e) => Math.max(max, e.occurred_at), 0)
       : null;
 
-  const minEvents = criteria.min_events_in_period || 3;
-  const idealEvents = minEvents * 2;
+  // Calculate days since last activity for recency scoring
+  const daysSinceLastActivity =
+    lastEventAt !== null ? Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24)) : null;
 
-  const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-  const idealActiveDays = Math.min(periodDays, 7);
-  const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+  // Use centralized scoring function
+  const score = calculateEngagementScore(
+    {
+      totalEventCount: totalCount,
+      uniqueActiveDays: uniqueDays,
+      daysSinceLastActivity,
+    },
+    {
+      minEventsInPeriod: criteria.min_events_in_period || 3,
+      periodDays,
+    },
+  );
 
-  let recencyScore = 0;
-  if (lastEventAt) {
-    const daysSince = Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24));
-    if (daysSince <= 1) recencyScore = 20;
-    else if (daysSince <= 3) recencyScore = 15;
-    else if (daysSince <= 7) recencyScore = 10;
-    else if (daysSince <= 14) recencyScore = 5;
-  }
-
-  const score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-  let status: 'engaged' | 'moderate' | 'at_risk';
-  if (score >= engagedThreshold) {
-    status = 'engaged';
-  } else if (score <= atRiskThreshold) {
-    status = 'at_risk';
-  } else {
-    status = 'moderate';
-  }
+  // Use centralized status determination
+  const status = determineEngagementStatus(score, engagedThreshold, atRiskThreshold);
 
   return { status, score };
 }

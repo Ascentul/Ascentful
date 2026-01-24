@@ -3193,6 +3193,7 @@ export default defineSchema({
     updated_at: v.number(),
   })
     .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at']) // For date-bounded analytics
     .index('by_student', ['student_id'])
     .index('by_student_status', ['student_id', 'status'])
     .index('by_university_status', ['university_id', 'status'])
@@ -3232,7 +3233,8 @@ export default defineSchema({
     .index('by_user_date', ['user_id', 'occurred_at'])
     .index('by_user_category_date', ['user_id', 'event_category', 'occurred_at'])
     .index('by_university', ['university_id'])
-    .index('by_event_type', ['event_type', 'occurred_at']),
+    .index('by_event_type', ['event_type', 'occurred_at'])
+    .index('by_occurred_at', ['occurred_at']), // For retention cleanup queries
 
   // ============================================================================
   // OUTCOME SNAPSHOTS - Point-in-time outcome statistics for reporting

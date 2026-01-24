@@ -236,6 +236,13 @@ export default function BatchImportPage() {
       }
 
       const reader = new FileReader();
+      reader.onerror = () => {
+        toast({
+          title: 'Read Error',
+          description: 'Failed to read the file. Please try again.',
+          variant: 'destructive',
+        });
+      };
       reader.onload = (e) => {
         const text = e.target?.result;
         if (typeof text !== 'string') {

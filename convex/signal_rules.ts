@@ -435,6 +435,15 @@ function validateRuleCondition(condition: unknown): void {
       if (cond.applications && typeof cond.applications !== 'number') {
         throw new Error('No progress "applications" must be a number if provided');
       }
+      if (
+        cond.rejections_min !== undefined &&
+        (typeof cond.rejections_min !== 'number' || cond.rejections_min < 0)
+      ) {
+        throw new Error('No progress "rejections_min" must be a non-negative number if provided');
+      }
+      if (cond.offers !== undefined && typeof cond.offers !== 'number') {
+        throw new Error('No progress "offers" must be a number if provided');
+      }
       break;
 
     case 'custom':

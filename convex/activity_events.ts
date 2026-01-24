@@ -393,7 +393,7 @@ export const deleteOldEvents = internalMutation({
 
       const oldEvents = await ctx.db
         .query('activity_events')
-        .filter((q) => q.lt(q.field('occurred_at'), cutoffTime))
+        .withIndex('by_occurred_at', (q) => q.lt('occurred_at', cutoffTime))
         .take(batchSize);
 
       if (oldEvents.length === 0) break;
