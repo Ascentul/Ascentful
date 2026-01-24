@@ -915,7 +915,7 @@ export const getUniqueEngagedStats = query({
           criteria,
         );
 
-        score = calculateEngagementScore(totalCount, uniqueDays, lastEventAt, criteria);
+        const score = calculateEngagementScore(totalCount, uniqueDays, lastEventAt, criteria);
         status = determineEngagementStatus(
           score,
           definition.engaged_threshold,

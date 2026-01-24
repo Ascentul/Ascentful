@@ -17,7 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -92,15 +92,20 @@ export default function SignalAnalyticsPage() {
 
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
 
-  // Calculate date range
-  const now = Date.now();
+  // Calculate date range (memoized to keep query arguments stable)
   const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
-  const start = now - daysMap[dateRange] * 24 * 60 * 60 * 1000;
+  const { start, end } = useMemo(() => {
+    const end = Date.now();
+    return {
+      end,
+      start: end - daysMap[dateRange] * 24 * 60 * 60 * 1000,
+    };
+  }, [dateRange]);
 
   // Queries
   const analytics = useQuery(
     api.signals.getSignalAnalytics,
-    universityId ? { universityId, dateRange: { start, end: now } } : 'skip',
+    universityId ? { universityId, dateRange: { start, end } } : 'skip',
   );
 
   const ruleEffectiveness = useQuery(

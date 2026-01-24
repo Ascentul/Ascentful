@@ -1522,7 +1522,7 @@ export default function UniversityDashboardPage() {
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium">Weekly Active</CardTitle>
+                    <CardTitle className="text-base font-medium">Peak Daily Active (7d)</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
@@ -1531,7 +1531,7 @@ export default function UniversityDashboardPage() {
                       }, 0) ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Peak daily active this week
+                      Peak daily active in the last 7 days
                     </p>
                   </CardContent>
                 </Card>

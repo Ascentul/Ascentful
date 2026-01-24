@@ -14,7 +14,7 @@ const FORMULA_CHARS = ['=', '+', '-', '@', '|'];
  * Escape a CSV cell value to handle commas, quotes, newlines, and prevent CSV injection.
  *
  * Security features:
- * - Quotes fields containing commas, quotes, or newlines
+ * - Quotes fields containing commas, quotes, newlines, or carriage returns
  * - Escapes embedded quotes by doubling them
  * - Prefixes formula-starting cells with a tab to prevent Excel formula injection
  *
@@ -34,6 +34,7 @@ export function escapeCSV(field: string | number | undefined | null): string {
     stringField.includes(',') ||
     stringField.includes('"') ||
     stringField.includes('\n') ||
+    stringField.includes('\r') ||
     startsWithFormula;
 
   if (needsQuoting) {

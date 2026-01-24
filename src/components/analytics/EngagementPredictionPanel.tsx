@@ -298,7 +298,11 @@ export function EngagementPredictionPanel({ universityId }: EngagementPrediction
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!atRiskSoon || atRiskSoon.students.length === 0 ? (
+            {!atRiskSoon ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : atRiskSoon.students.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">No students predicted to drop within 14 days</p>

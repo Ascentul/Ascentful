@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
+// Unique sentinel value for "no filter" to avoid collision with real IDs
+const ALL_FILTER_VALUE = '__all__';
+
 export interface OutcomesFilters {
   cohortIds?: string[];
   degreeLevels?: string[];
@@ -58,7 +61,7 @@ export function OutcomesFilterBar({
 }: OutcomesFilterBarProps) {
   const handleCohortChange = useCallback(
     (value: string) => {
-      if (value === 'all') {
+      if (value === ALL_FILTER_VALUE) {
         onFiltersChange({ ...filters, cohortIds: undefined });
       } else {
         onFiltersChange({ ...filters, cohortIds: [value] });
@@ -69,7 +72,7 @@ export function OutcomesFilterBar({
 
   const handleProgramChange = useCallback(
     (value: string) => {
-      if (value === 'all') {
+      if (value === ALL_FILTER_VALUE) {
         onFiltersChange({ ...filters, programs: undefined });
       } else {
         onFiltersChange({ ...filters, programs: [value] });
@@ -80,7 +83,7 @@ export function OutcomesFilterBar({
 
   const handleDegreeLevelChange = useCallback(
     (value: string) => {
-      if (value === 'all') {
+      if (value === ALL_FILTER_VALUE) {
         onFiltersChange({ ...filters, degreeLevels: undefined });
       } else {
         onFiltersChange({ ...filters, degreeLevels: [value] });
@@ -91,7 +94,7 @@ export function OutcomesFilterBar({
 
   const handleYearChange = useCallback(
     (value: string) => {
-      if (value === 'all') {
+      if (value === ALL_FILTER_VALUE) {
         onFiltersChange({ ...filters, graduationYear: undefined });
       } else {
         onFiltersChange({ ...filters, graduationYear: parseInt(value, 10) });
@@ -121,12 +124,12 @@ export function OutcomesFilterBar({
       <span className="text-sm font-medium text-neutral-600">Filters:</span>
 
       {/* Cohort Filter */}
-      <Select value={filters.cohortIds?.[0] || 'all'} onValueChange={handleCohortChange}>
+      <Select value={filters.cohortIds?.[0] || ALL_FILTER_VALUE} onValueChange={handleCohortChange}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="All Cohorts" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Cohorts</SelectItem>
+          <SelectItem value={ALL_FILTER_VALUE}>All Cohorts</SelectItem>
           {cohortOptions.map((cohort) => (
             <SelectItem key={cohort.id} value={cohort.id}>
               {cohort.label}
@@ -136,12 +139,12 @@ export function OutcomesFilterBar({
       </Select>
 
       {/* Program Filter */}
-      <Select value={filters.programs?.[0] || 'all'} onValueChange={handleProgramChange}>
+      <Select value={filters.programs?.[0] || ALL_FILTER_VALUE} onValueChange={handleProgramChange}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="All Programs" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Programs</SelectItem>
+          <SelectItem value={ALL_FILTER_VALUE}>All Programs</SelectItem>
           {programOptions.map((program) => (
             <SelectItem key={program.id} value={program.id}>
               {program.name}
@@ -151,12 +154,15 @@ export function OutcomesFilterBar({
       </Select>
 
       {/* Degree Level Filter */}
-      <Select value={filters.degreeLevels?.[0] || 'all'} onValueChange={handleDegreeLevelChange}>
+      <Select
+        value={filters.degreeLevels?.[0] || ALL_FILTER_VALUE}
+        onValueChange={handleDegreeLevelChange}
+      >
         <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="All Degrees" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Degrees</SelectItem>
+          <SelectItem value={ALL_FILTER_VALUE}>All Degrees</SelectItem>
           {DEGREE_LEVELS.map((level) => (
             <SelectItem key={level.value} value={level.value}>
               {level.label}
@@ -166,12 +172,15 @@ export function OutcomesFilterBar({
       </Select>
 
       {/* Year Filter */}
-      <Select value={filters.graduationYear?.toString() || 'all'} onValueChange={handleYearChange}>
+      <Select
+        value={filters.graduationYear?.toString() || ALL_FILTER_VALUE}
+        onValueChange={handleYearChange}
+      >
         <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="All Years" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Years</SelectItem>
+          <SelectItem value={ALL_FILTER_VALUE}>All Years</SelectItem>
           {yearOptions.map((year) => (
             <SelectItem key={year} value={year.toString()}>
               {year}
