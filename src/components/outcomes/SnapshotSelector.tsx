@@ -182,7 +182,16 @@ export function SnapshotSelector({
       </DropdownMenu>
 
       {/* Create Snapshot Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            setSnapshotName('');
+            setSnapshotDescription('');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Save Snapshot</DialogTitle>

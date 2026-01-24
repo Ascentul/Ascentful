@@ -134,9 +134,11 @@ export const createGoal = mutation({
     // }
 
     const now = Date.now();
+    // Compute goal's university_id once for consistent attribution
+    const goalUniversityId = membership?.university_id ?? user.university_id;
     const id = await ctx.db.insert('goals', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: goalUniversityId,
       title: args.title,
       description: args.description,
       category: args.category,
@@ -152,9 +154,10 @@ export const createGoal = mutation({
     await ctx.scheduler.runAfter(0, api.activity.markActionForToday, {});
 
     // Track activity event for engagement scoring
+    // Use goalUniversityId for accurate attribution to the university where the goal was created
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: goalUniversityId,
       eventType: ACTIVITY_EVENTS.GOAL_CREATED,
       eventCategory: 'goal',
       entityType: 'goal',
@@ -290,10 +293,11 @@ export const updateGoal = mutation({
     await ctx.db.patch(args.goalId, updates);
 
     // Track activity event for engagement scoring
+    // Use goal.university_id for accurate attribution to the university where the goal was created
     const wasCompleted = goal.status !== 'completed' && args.updates.status === 'completed';
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: goal.university_id,
       eventType: wasCompleted ? ACTIVITY_EVENTS.GOAL_COMPLETED : ACTIVITY_EVENTS.GOAL_UPDATED,
       eventCategory: 'goal',
       entityType: 'goal',

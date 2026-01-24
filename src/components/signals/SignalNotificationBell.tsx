@@ -187,9 +187,9 @@ export function useSignalNotificationToast() {
   useEffect(() => {
     if (!notifications) return;
 
-    const signalNotifications = notifications.filter(
-      (n) => (n.type === 'signal' || n.type === 'signal_urgent') && !n.read,
-    );
+    const signalNotifications = notifications
+      .filter((n) => (n.type === 'signal' || n.type === 'signal_urgent') && !n.read)
+      .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 
     // Only show toast if count increased and it's a new notification we haven't seen
     if (lastSeenCount !== null && signalNotifications.length > lastSeenCount) {

@@ -13,6 +13,7 @@ import { v } from 'convex/values';
 
 import { Doc, Id } from './_generated/dataModel';
 import { internalMutation, internalQuery, QueryCtx } from './_generated/server';
+import { calculateEngagementScore, determineEngagementStatus } from './lib/engagementScoring';
 
 // Default qualifying event types for engagement scoring
 const DEFAULT_QUALIFYING_EVENT_TYPES = [
@@ -42,6 +43,9 @@ interface EngagementCriteria {
 /**
  * Calculate engagement score for a single student.
  * Returns the status, score, and qualifying event data.
+ *
+ * Uses centralized scoring functions from lib/engagementScoring.ts
+ * to ensure consistent scoring across the application.
  */
 async function calculateStudentEngagement(
   ctx: QueryCtx,
@@ -90,33 +94,24 @@ async function calculateStudentEngagement(
       ? qualifyingEvents.reduce((max, e) => Math.max(max, e.occurred_at), 0)
       : null;
 
-  // Calculate score (same algorithm as getEngagementAnalytics)
-  const minEvents = criteria.min_events_in_period || 3;
-  const idealEvents = minEvents * 2;
+  // Calculate days since last activity for recency scoring
+  const daysSinceLastActivity =
+    lastEventAt !== null ? Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24)) : null;
 
-  const eventScore = Math.min(50, (totalCount / idealEvents) * 50);
-  const idealActiveDays = Math.min(periodDays, 7);
-  const activeDaysScore = Math.min(30, (uniqueDays / idealActiveDays) * 30);
+  // Use centralized scoring functions (source of truth in lib/engagementScoring.ts)
+  const score = calculateEngagementScore(
+    {
+      totalEventCount: totalCount,
+      uniqueActiveDays: uniqueDays,
+      daysSinceLastActivity,
+    },
+    {
+      minEventsInPeriod: criteria.min_events_in_period || 3,
+      periodDays,
+    },
+  );
 
-  let recencyScore = 0;
-  if (lastEventAt) {
-    const daysSince = Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24));
-    if (daysSince <= 1) recencyScore = 20;
-    else if (daysSince <= 3) recencyScore = 15;
-    else if (daysSince <= 7) recencyScore = 10;
-    else if (daysSince <= 14) recencyScore = 5;
-  }
-
-  const score = Math.round(eventScore + activeDaysScore + recencyScore);
-
-  let status: 'engaged' | 'moderate' | 'at_risk';
-  if (score >= engagedThreshold) {
-    status = 'engaged';
-  } else if (score <= atRiskThreshold) {
-    status = 'at_risk';
-  } else {
-    status = 'moderate';
-  }
+  const status = determineEngagementStatus(score, engagedThreshold, atRiskThreshold);
 
   return { status, score };
 }

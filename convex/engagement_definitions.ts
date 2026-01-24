@@ -716,7 +716,7 @@ export const getEngagementAnalytics = query({
         : Infinity;
       const isCacheFresh = cacheAge < 24 * 60 * 60 * 1000; // 24 hours
 
-      if (student.engagement_status && student.engagement_score !== undefined && isCacheFresh) {
+      if (student.engagement_status && student.engagement_score != null && isCacheFresh) {
         engagementResults.push({
           studentId: student._id,
           status: student.engagement_status,
@@ -898,12 +898,15 @@ export const getUniqueEngagedStats = query({
       const isCacheFresh = cacheAge < 24 * 60 * 60 * 1000;
 
       let status: 'engaged' | 'moderate' | 'at_risk';
-      let score: number;
 
-      if (student.engagement_status && student.engagement_score !== undefined && isCacheFresh) {
-        // Use cached values
-        status = student.engagement_status as 'engaged' | 'moderate' | 'at_risk';
-        score = student.engagement_score;
+      // Validate cached status is a known value before using it
+      const cachedStatus = student.engagement_status;
+      const isValidCachedStatus =
+        cachedStatus === 'engaged' || cachedStatus === 'moderate' || cachedStatus === 'at_risk';
+
+      if (isValidCachedStatus && student.engagement_score != null && isCacheFresh) {
+        // Use cached values (score not needed here, only status is used for counting)
+        status = cachedStatus;
       } else {
         // Fallback to real-time calculation
         const { totalCount, uniqueDays, lastEventAt } = await getQualifyingEvents(

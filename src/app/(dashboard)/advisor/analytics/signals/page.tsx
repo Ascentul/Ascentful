@@ -557,7 +557,7 @@ export default function SignalAnalyticsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Link href={`/advisor/students/${student.studentId}`}>
+                          <Link href={`/u/students/${student.studentId}`}>
                             <Button variant="outline" size="sm">
                               View Profile
                             </Button>

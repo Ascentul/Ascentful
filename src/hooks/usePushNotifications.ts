@@ -3,7 +3,7 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Hook for managing Web Push notifications
@@ -38,6 +38,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
   });
 
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+
+  // Track when local mutation just happened to prevent server sync from overwriting optimistic state
+  const skipServerSyncRef = useRef(false);
 
   // Convex mutations
   const subscribe = useMutation(api.push_subscriptions.subscribe);
@@ -202,6 +205,12 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         isLoading: false,
       }));
 
+      // Skip server sync briefly to prevent overwriting optimistic state
+      skipServerSyncRef.current = true;
+      setTimeout(() => {
+        skipServerSyncRef.current = false;
+      }, 2000);
+
       return true;
     } catch (error) {
       console.error('Push subscription error:', error);
@@ -250,6 +259,12 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         isLoading: false,
       }));
 
+      // Skip server sync briefly to prevent overwriting optimistic state
+      skipServerSyncRef.current = true;
+      setTimeout(() => {
+        skipServerSyncRef.current = false;
+      }, 2000);
+
       return true;
     } catch (error) {
       console.error('Push unsubscribe error:', error);
@@ -262,9 +277,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     }
   }, [registration, unsubscribe]);
 
-  // Sync subscription state with Convex
+  // Sync subscription state with Convex (skip briefly after local mutations to prevent flicker)
   useEffect(() => {
-    if (hasActiveSubscription !== undefined) {
+    if (hasActiveSubscription !== undefined && !skipServerSyncRef.current) {
       setState((prev) => ({
         ...prev,
         isSubscribed: hasActiveSubscription,

@@ -247,8 +247,9 @@ export function calculateNameSimilarity(name1: string, name2: string): number {
   }
 
   // Calculate Jaccard-like similarity
+  // Use Math.min to ensure result stays in [0, 1] range even with partial match scoring
   const total = tokens1.size + tokens2.size - matches;
-  return total > 0 ? matches / total : 0;
+  return total > 0 ? Math.min(1, matches / total) : 0;
 }
 
 // ============================================================================

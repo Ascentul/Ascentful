@@ -121,23 +121,51 @@ self.addEventListener('notificationclose', (event) => {
   console.log('Notification closed:', event.notification.tag);
 });
 
+/**
+ * Fetch VAPID public key from server.
+ * Falls back to in-memory value if fetch fails.
+ * This ensures the key is available even after SW restart.
+ */
+async function getVapidPublicKey() {
+  // Try in-memory first (set via postMessage)
+  if (self.VAPID_PUBLIC_KEY) {
+    return self.VAPID_PUBLIC_KEY;
+  }
+
+  // Fetch from server endpoint
+  try {
+    const response = await fetch('/api/push/vapid-key');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.publicKey) {
+        self.VAPID_PUBLIC_KEY = data.publicKey; // Cache in memory
+        return data.publicKey;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch VAPID key:', error);
+  }
+
+  return null;
+}
+
 // Handle push subscription change (e.g., browser refreshes the subscription)
+// Note: pushsubscriptionchange is best-effort and browser support is inconsistent.
+// The main app should also check subscription status on startup via getSubscription().
 self.addEventListener('pushsubscriptionchange', (event) => {
   console.log('Push subscription changed');
 
-  if (!self.VAPID_PUBLIC_KEY) {
-    console.error('VAPID key not set, cannot resubscribe');
-    return;
-  }
-
   event.waitUntil(
-    self.registration.pushManager
-      .subscribe({
-        userVisibleOnly: true,
-        applicationServerKey:
-          typeof self.VAPID_PUBLIC_KEY === 'string'
-            ? urlBase64ToUint8Array(self.VAPID_PUBLIC_KEY)
-            : self.VAPID_PUBLIC_KEY,
+    getVapidPublicKey()
+      .then((vapidKey) => {
+        if (!vapidKey) {
+          throw new Error('VAPID key not available');
+        }
+
+        return self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
       })
       .then((subscription) => {
         // Send new subscription to server

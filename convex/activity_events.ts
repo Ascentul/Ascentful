@@ -379,7 +379,9 @@ export const deleteOldEvents = internalMutation({
       batches++;
 
       // Safety limit to prevent runaway deletion
-      if (deleted >= 5000) break;
+      if (deleted >= 5000) {
+        return { deleted, complete: false };
+      }
     }
 
     return { deleted, complete: true };

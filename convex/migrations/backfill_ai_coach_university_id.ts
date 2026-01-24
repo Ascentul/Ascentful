@@ -25,7 +25,7 @@ export const backfillUniversityId = internalMutation({
       .take(500); // Process in batches
 
     if (conversations.length === 0) {
-      return { updated: 0, remaining: 0, done: true };
+      return { updated: 0, hasMore: false, done: true };
     }
 
     let updated = 0;
@@ -47,7 +47,7 @@ export const backfillUniversityId = internalMutation({
 
     return {
       updated,
-      remaining: remaining.length > 0 ? 'more' : 0,
+      hasMore: remaining.length > 0,
       done: remaining.length === 0,
     };
   },

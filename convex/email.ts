@@ -12,6 +12,34 @@ import { sanitizeError } from './lib/piiSafe';
 import { escapeHtml } from './lib/sanitizeHtml';
 
 /**
+ * Validates a URL is on the app's origin to prevent open redirect/phishing attacks.
+ * Returns the validated URL if safe, or a fallback URL if the origin doesn't match.
+ */
+function validateAppUrl(url: string, fallbackPath: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io';
+
+  try {
+    const parsedUrl = new URL(url);
+    const parsedAppUrl = new URL(appUrl);
+
+    // Check if origins match (protocol + host)
+    if (parsedUrl.origin === parsedAppUrl.origin) {
+      return url;
+    }
+
+    // Origin doesn't match - use fallback
+    console.warn(
+      `[email] URL origin mismatch detected. Expected: ${parsedAppUrl.origin}, got: ${parsedUrl.origin}. Using fallback.`,
+    );
+    return `${appUrl}${fallbackPath}`;
+  } catch {
+    // Invalid URL - use fallback
+    console.warn(`[email] Invalid URL provided: ${url}. Using fallback.`);
+    return `${appUrl}${fallbackPath}`;
+  }
+}
+
+/**
  * Send activation email to newly created user with magic link
  * This is an action because it calls external email service
  */
@@ -450,6 +478,9 @@ export const sendUrgentSignalNotificationEmail = action({
   handler: async (ctx, args) => {
     const { sendEmail } = await import('../src/lib/email');
 
+    // Validate queueUrl is on app origin to prevent phishing/open-redirect attacks
+    const validatedQueueUrl = validateAppUrl(args.queueUrl, '/advisor/queue');
+
     const priorityEmoji = args.signalPriority === 'urgent' ? '🚨' : '⚠️';
     const priorityLabelRaw =
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
@@ -468,7 +499,7 @@ Type: ${args.signalType}
 ${args.signalDescription ? `\nDescription: ${args.signalDescription}` : ''}
 
 Please review and take action:
-${args.queueUrl}
+${validatedQueueUrl}
 
 Best regards,
 The Ascentul Team`;
@@ -479,7 +510,7 @@ The Ascentul Team`;
     const safeSignalTitle = escapeHtml(args.signalTitle);
     const safeSignalType = escapeHtml(args.signalType);
     const safeSignalDescription = args.signalDescription ? escapeHtml(args.signalDescription) : '';
-    const safeQueueUrl = escapeHtml(args.queueUrl);
+    const safeQueueUrl = escapeHtml(validatedQueueUrl);
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
