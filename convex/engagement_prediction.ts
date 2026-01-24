@@ -446,12 +446,11 @@ async function computeUniversityPredictions(
     .filter((q) => q.gte(q.field('occurred_at'), startTime))
     .collect();
 
-  // Batch fetch: Get applications within the lookback period
-  // Query by university and filter to student IDs
+  // Batch fetch: Get all applications (no date filter - applications have long lifecycles)
+  // An application created months ago may still be in an active stage like "Interview"
   const allApplications = await ctx.db
     .query('applications')
     .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .filter((q) => q.gte(q.field('created_at'), startTime))
     .collect();
 
   // Group data by user_id for efficient lookup

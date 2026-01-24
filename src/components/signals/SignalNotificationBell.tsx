@@ -58,12 +58,14 @@ export function SignalNotificationBell() {
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
-    try {
-      // Only mark signal notifications as read, not all notification types
-      const unreadSignals = signalNotifications.filter((n) => !n.read);
-      await Promise.all(unreadSignals.map((n) => markAsRead({ notificationId: n._id })));
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
+    // Only mark signal notifications as read, not all notification types
+    const unreadSignals = signalNotifications.filter((n) => !n.read);
+    const results = await Promise.allSettled(
+      unreadSignals.map((n) => markAsRead({ notificationId: n._id })),
+    );
+    const failures = results.filter((r) => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.error(`Failed to mark ${failures.length} notifications as read`);
     }
   }, [markAsRead, signalNotifications]);
 

@@ -28,7 +28,9 @@ function safeTokenCompare(a: string, b: string): boolean {
   const paddedB = Buffer.alloc(maxLen);
   bufA.copy(paddedA);
   bufB.copy(paddedB);
-  return bufA.length === bufB.length && timingSafeEqual(paddedA, paddedB);
+  // Perform timing-safe comparison first, then check lengths
+  const isEqual = timingSafeEqual(paddedA, paddedB);
+  return isEqual && bufA.length === bufB.length;
 }
 
 // Configure VAPID keys

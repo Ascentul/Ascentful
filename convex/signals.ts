@@ -723,22 +723,15 @@ export const createSignalFromRule = internalMutation({
 
     // Auto-create follow-up if configured
     if (rule.auto_create_followup) {
-      // Create follow-up using internal mutation
-      const followupId = await ctx.scheduler.runAfter(
-        0,
-        internal.followups.createFollowupFromSignal,
-        {
-          signalId,
-          studentId: args.studentId,
-          universityId: rule.university_id,
-          title: rule.followup_template || `Action needed: ${rule.name}`,
-          description: rule.description,
-          priority: rule.priority,
-          dueInDays: 7, // Default 7 days to act on the signal
-        },
-      );
-
-      // Link follow-up back to signal (fire-and-forget, will be linked via engagement_signal_id)
+      await ctx.scheduler.runAfter(0, internal.followups.createFollowupFromSignal, {
+        signalId,
+        studentId: args.studentId,
+        universityId: rule.university_id,
+        title: rule.followup_template || `Action needed: ${rule.name}`,
+        description: rule.description,
+        priority: rule.priority,
+        dueInDays: 7,
+      });
     }
 
     return signalId;
