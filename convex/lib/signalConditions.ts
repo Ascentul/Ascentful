@@ -62,8 +62,8 @@ export function checkStageStuckCondition(
  * @param currentLevel - Current engagement level
  * @param targetFromLevel - The level to drop FROM (e.g., 'engaged')
  * @param targetToLevel - The level to drop TO (e.g., 'at_risk')
- * @param previousLevel - Previous engagement level (if known)
- * @returns true if engagement has dropped as specified
+ * @param previousLevel - Previous engagement level (required to detect a drop)
+ * @returns true if engagement has dropped as specified, false if previousLevel is unknown
  */
 export function checkEngagementDropCondition(
   currentLevel: string,
@@ -71,12 +71,12 @@ export function checkEngagementDropCondition(
   targetToLevel: string,
   previousLevel?: string,
 ): boolean {
-  // If we have previous level, check the actual transition
-  if (previousLevel) {
-    return previousLevel === targetFromLevel && currentLevel === targetToLevel;
+  // A drop requires knowing both the before and after states
+  // Without previousLevel, we cannot confirm a transition occurred
+  if (!previousLevel) {
+    return false;
   }
-  // Without previous level, just check current matches target
-  return currentLevel === targetToLevel;
+  return previousLevel === targetFromLevel && currentLevel === targetToLevel;
 }
 
 /**

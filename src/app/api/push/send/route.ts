@@ -18,11 +18,17 @@ const INTERNAL_SERVICE_TOKEN = process.env.CONVEX_INTERNAL_SERVICE_TOKEN;
 
 /**
  * Constant-time string comparison to prevent timing attacks.
- * Returns false early if lengths differ (acceptable since length is not secret).
+ * Pads shorter buffer to avoid leaking length information.
  */
 function safeTokenCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.alloc(maxLen);
+  const paddedB = Buffer.alloc(maxLen);
+  bufA.copy(paddedA);
+  bufB.copy(paddedB);
+  return bufA.length === bufB.length && timingSafeEqual(paddedA, paddedB);
 }
 
 // Configure VAPID keys

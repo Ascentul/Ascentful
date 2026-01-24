@@ -25,8 +25,9 @@ export function escapeCSV(field: string | number | undefined | null): string {
   if (field === undefined || field === null) return '';
   const stringField = String(field);
 
-  // Check if the field starts with a formula character
-  const startsWithFormula = FORMULA_CHARS.some((char) => stringField.startsWith(char));
+  // Check if the field starts with a formula character (Excel trims leading whitespace)
+  const trimmedForFormula = stringField.trimStart();
+  const startsWithFormula = FORMULA_CHARS.some((char) => trimmedForFormula.startsWith(char));
 
   // Determine if the field needs quoting
   const needsQuoting =
@@ -120,8 +121,9 @@ function parseCSVLine(line: string): string[] {
  * @returns Object with headers array and rows array of arrays
  */
 export function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length === 0) return { headers: [], rows: [] };
+  const trimmed = text.trim();
+  if (!trimmed) return { headers: [], rows: [] };
+  const lines = trimmed.split(/\r?\n/);
 
   const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
   const rows = lines.slice(1).map(parseCSVLine);

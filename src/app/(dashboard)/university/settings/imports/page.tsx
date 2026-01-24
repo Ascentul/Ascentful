@@ -378,7 +378,8 @@ export default function BatchImportPage() {
     a.href = url;
     a.download = 'graduate_outcomes_template.csv';
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoke after browser has had time to initiate download
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   if (!universityId) {

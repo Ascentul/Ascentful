@@ -174,12 +174,19 @@ export const seedActivityEvents = internalMutation({
         }
       }
 
-      // Update last_login_at based on most recent activity
-      const lastActivity = await ctx.db
+      // Update last_login_at based on most recent activity by occurred_at
+      // Note: .order('desc') orders by _creationTime, not occurred_at
+      const allStudentEvents = await ctx.db
         .query('activity_events')
         .withIndex('by_user', (q) => q.eq('user_id', student._id))
-        .order('desc')
-        .first();
+        .collect();
+
+      const lastActivity =
+        allStudentEvents.length > 0
+          ? allStudentEvents.reduce((latest, e) =>
+              e.occurred_at > latest.occurred_at ? e : latest,
+            )
+          : null;
 
       if (lastActivity) {
         await ctx.db.patch(student._id, {

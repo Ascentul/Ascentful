@@ -348,6 +348,16 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
               </motion.button>
             )}
           </AnimatePresence>
+          {!expanded && (
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              className="hidden md:flex items-center justify-center flex-shrink-0 ml-auto h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
+              aria-label="Expand sidebar"
+            >
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+          )}
         </div>
 
         {/* Navigation */}

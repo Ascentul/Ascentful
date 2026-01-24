@@ -48,26 +48,27 @@ import {
 export default function AdminEngagementPage() {
   const { user: clerkUser, isLoaded } = useUser();
 
-  const crossUniversityData = useQuery(
-    api.admin_engagement_analytics.getCrossUniversityEngagement,
-    {
-      limit: 50,
-    },
-  );
-  const rankings = useQuery(api.admin_engagement_analytics.getUniversityEngagementRanking, {
-    sortBy: 'engaged_percent',
-    order: 'desc',
-    limit: 10,
-  });
-  const signalAnalytics = useQuery(
-    api.admin_engagement_analytics.getCrossUniversitySignalAnalytics,
-    {},
-  );
-  const trends = useQuery(api.admin_engagement_analytics.getCrossUniversityTrends, { days: 30 });
-
-  // Check if user is super admin
+  // Check if user is super admin before running queries
   const userRole = clerkUser?.publicMetadata?.role as string | undefined;
   const isSuperAdmin = userRole === 'super_admin';
+  const shouldQuery = isLoaded && isSuperAdmin;
+
+  const crossUniversityData = useQuery(
+    api.admin_engagement_analytics.getCrossUniversityEngagement,
+    shouldQuery ? { limit: 50 } : 'skip',
+  );
+  const rankings = useQuery(
+    api.admin_engagement_analytics.getUniversityEngagementRanking,
+    shouldQuery ? { sortBy: 'engaged_percent', order: 'desc', limit: 10 } : 'skip',
+  );
+  const signalAnalytics = useQuery(
+    api.admin_engagement_analytics.getCrossUniversitySignalAnalytics,
+    shouldQuery ? {} : 'skip',
+  );
+  const trends = useQuery(
+    api.admin_engagement_analytics.getCrossUniversityTrends,
+    shouldQuery ? { days: 30 } : 'skip',
+  );
 
   if (!isLoaded) {
     return (

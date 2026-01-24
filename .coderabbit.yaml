@@ -366,5 +366,20 @@ reviews:
         - Algorithm guards like `if (n < 2) return null` already handle degenerate cases
         - Adding redundant Math guards clutters code and masks real logic bugs
 
+        ### Internal Migration Utilities Have Different Constraints
+        - Don't apply production-level query limits to internal migration scripts
+        - Pattern: `internalQuery`/`internalMutation` in `convex/migrations/` are developer tools
+        - Adding arbitrary `.take(N)` limits to stat functions produces incorrect statistics
+        - Clipping results (e.g., `.take(100000)`) silently gives wrong percentages/counts
+        - Convex query time limits already provide natural bounds for runaway queries
+        - If large-scale aggregation is truly needed, suggest restructuring, not arbitrary limits
+
+        ### Time-Series Data Ordering Is Guaranteed by Construction
+        - Don't suggest sorting time-series data before slicing when the API builds it in order
+        - Pattern: Loops like `for (i = n-1; i >= 0; i--)` iterating from oldest to newest guarantee order
+        - APIs that construct arrays chronologically via iteration don't need post-sort
+        - `slice(-1)` and `slice(-7)` are correct when the underlying data is built oldest-first
+        - Check the data source before suggesting defensive sorting
+
 chat:
   auto_reply: true

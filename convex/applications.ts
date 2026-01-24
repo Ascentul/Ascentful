@@ -322,7 +322,7 @@ export const deleteApplication = mutation({
     // Track activity event for engagement scoring
     await trackActivity(ctx, {
       userId: user._id,
-      universityId: user.university_id,
+      universityId: application.university_id,
       eventType: ACTIVITY_EVENTS.APPLICATION_DELETED,
       eventCategory: 'application',
       entityType: 'application',
@@ -777,7 +777,7 @@ export const moveApplication = mutation({
       // Track activity event for engagement scoring (consistent with updateApplication)
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: user.university_id,
+        universityId: application.university_id,
         eventType: ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED,
         eventCategory: 'application',
         entityType: 'application',

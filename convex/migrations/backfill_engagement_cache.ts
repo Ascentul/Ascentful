@@ -83,7 +83,9 @@ async function calculateStudentEngagement(
   const uniqueDays = uniqueDaysSet.size;
 
   const lastEventAt =
-    qualifyingEvents.length > 0 ? Math.max(...qualifyingEvents.map((e) => e.occurred_at)) : null;
+    qualifyingEvents.length > 0
+      ? qualifyingEvents.reduce((max, e) => Math.max(max, e.occurred_at), 0)
+      : null;
 
   const minEvents = criteria.min_events_in_period || 3;
   const idealEvents = minEvents * 2;

@@ -148,6 +148,11 @@ self.addEventListener('pushsubscriptionchange', (event) => {
             oldEndpoint: event.oldSubscription?.endpoint,
             newSubscription: subscription.toJSON(),
           }),
+        }).then((response) => {
+          if (!response.ok) {
+            throw new Error(`Resubscribe failed: ${response.status}`);
+          }
+          return response;
         });
       })
       .catch((error) => {

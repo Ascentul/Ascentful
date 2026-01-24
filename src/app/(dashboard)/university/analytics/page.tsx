@@ -1094,9 +1094,19 @@ export default function UniversityAnalyticsPage() {
       )}
 
       {/* AI Predictions View */}
-      {analyticsView === 'predictions' && universityId && (
-        <EngagementPredictionPanel universityId={universityId} />
-      )}
+      {analyticsView === 'predictions' &&
+        (universityId ? (
+          <EngagementPredictionPanel universityId={universityId} />
+        ) : (
+          <Card>
+            <CardContent className="flex items-center gap-3 py-6">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <span className="text-muted-foreground">
+                University context required for AI predictions.
+              </span>
+            </CardContent>
+          </Card>
+        ))}
 
       {/* Department Performance - Shared Across All Views */}
       <Card>

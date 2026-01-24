@@ -342,20 +342,29 @@ export const getUniversityActivityTrends = query({
 /**
  * Delete old activity events (retention policy).
  * Called by cron job to keep table size manageable.
+ * Returns { deleted, complete } - if complete is false, caller should re-schedule.
  */
 export const deleteOldEvents = internalMutation({
   args: {
     retentionDays: v.optional(v.number()),
+    maxBatches: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const retentionDays = args.retentionDays ?? 90;
     const cutoffTime = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const maxBatches = args.maxBatches ?? 10;
 
     // Get old events in batches
     const batchSize = 500;
     let deleted = 0;
+    let batches = 0;
 
     while (true) {
+      // Limit iterations per invocation to avoid mutation timeout
+      if (batches >= maxBatches) {
+        return { deleted, complete: false };
+      }
+
       const oldEvents = await ctx.db
         .query('activity_events')
         .filter((q) => q.lt(q.field('occurred_at'), cutoffTime))
@@ -367,12 +376,13 @@ export const deleteOldEvents = internalMutation({
         await ctx.db.delete(event._id);
         deleted++;
       }
+      batches++;
 
       // Safety limit to prevent runaway deletion
-      if (deleted >= 10000) break;
+      if (deleted >= 5000) break;
     }
 
-    return { deleted };
+    return { deleted, complete: true };
   },
 });
 
