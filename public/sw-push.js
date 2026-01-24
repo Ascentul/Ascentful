@@ -103,7 +103,7 @@ self.addEventListener('notificationclick', (event) => {
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
         // Check if there's already a window open
         for (const client of windowClients) {
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if (client.url.startsWith(self.location.origin) && 'focus' in client) {
             client.focus();
             client.postMessage({
               type: 'NOTIFICATION_CLICKED',

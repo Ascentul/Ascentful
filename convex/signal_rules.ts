@@ -197,6 +197,12 @@ export const createRule = mutation({
       throw new Error('cooldown_days must be non-negative');
     }
 
+    // Validate default-active invariant: default rules must be active
+    const willBeActive = args.isActive ?? true; // defaults to true
+    if (args.isDefault && !willBeActive) {
+      throw new Error('Cannot create an inactive rule as default. Set isActive to true.');
+    }
+
     const now = Date.now();
 
     const ruleId = await ctx.db.insert('signal_rules', {
@@ -258,6 +264,12 @@ export const updateRule = mutation({
       throw new Error('cooldown_days must be non-negative');
     }
 
+    // Validate default-active invariant: default rules must be active
+    const nextIsActive = args.isActive ?? rule.is_active;
+    if (args.isDefault && !nextIsActive) {
+      throw new Error('Cannot set an inactive rule as default. Activate the rule first.');
+    }
+
     const now = Date.now();
     const updates: Record<string, unknown> = { updated_at: now };
 
@@ -296,16 +308,17 @@ export const deleteRule = mutation({
 
     assertUniversityAccess(user, rule.university_id);
 
-    // Check if there are any active signals from this rule
-    const activeSignals = await ctx.db
+    // Check if there are any active or snoozed signals from this rule
+    // Snoozed signals will become active when snooze expires, so they also block deletion
+    const pendingSignals = await ctx.db
       .query('signals')
       .withIndex('by_rule', (q) => q.eq('rule_id', args.ruleId))
-      .filter((q) => q.eq(q.field('status'), 'active'))
+      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'snoozed')))
       .take(1);
 
-    if (activeSignals.length > 0) {
+    if (pendingSignals.length > 0) {
       throw new Error(
-        'Cannot delete: This rule has active signals. ' +
+        'Cannot delete: This rule has active or snoozed signals. ' +
           'Please resolve or dismiss those signals first, or deactivate the rule instead.',
       );
     }
@@ -372,6 +385,11 @@ export const toggleRuleActive = mutation({
     }
 
     assertUniversityAccess(user, rule.university_id);
+
+    // Prevent deactivating default rules
+    if (rule.is_active && rule.is_default) {
+      throw new Error('Cannot deactivate a default rule. Remove default status first.');
+    }
 
     await ctx.db.patch(args.ruleId, {
       is_active: !rule.is_active,
@@ -476,6 +494,11 @@ function validateRuleCondition(condition: unknown): void {
       if (cond.days !== undefined && (typeof cond.days !== 'number' || cond.days <= 0)) {
         throw new Error('Stalled condition "days" must be a positive number if provided');
       }
+      if (cond.days !== undefined && cond.days > MAX_RULE_LOOKBACK_DAYS) {
+        throw new Error(
+          `Stalled condition "days" cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.days})`,
+        );
+      }
       break;
 
     case 'high_intent_low_conversion':
@@ -497,11 +520,24 @@ function validateRuleCondition(condition: unknown): void {
         );
       }
       if (
+        cond.application_period_days !== undefined &&
+        cond.application_period_days > MAX_RULE_LOOKBACK_DAYS
+      ) {
+        throw new Error(
+          `High intent condition "application_period_days" cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.application_period_days})`,
+        );
+      }
+      if (
         cond.appointment_days !== undefined &&
         (typeof cond.appointment_days !== 'number' || cond.appointment_days <= 0)
       ) {
         throw new Error(
           'High intent condition "appointment_days" must be a positive number if provided',
+        );
+      }
+      if (cond.appointment_days !== undefined && cond.appointment_days > MAX_RULE_LOOKBACK_DAYS) {
+        throw new Error(
+          `High intent condition "appointment_days" cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.appointment_days})`,
         );
       }
       break;
@@ -513,6 +549,11 @@ function validateRuleCondition(condition: unknown): void {
       }
       if (cond.days !== undefined && (typeof cond.days !== 'number' || cond.days <= 0)) {
         throw new Error('Stage stuck condition "days" must be a positive number if provided');
+      }
+      if (cond.days !== undefined && cond.days > MAX_RULE_LOOKBACK_DAYS) {
+        throw new Error(
+          `Stage stuck condition "days" cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (got ${cond.days})`,
+        );
       }
       break;
   }

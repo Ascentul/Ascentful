@@ -431,13 +431,20 @@ export const getQueueStats = query({
       }
     }
 
-    // Get all active signals
-    const activeSignals = await ctx.db
+    // Get allowed student IDs for role-based scoping
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
+    // Get all active signals (filtered by role scope)
+    const activeSignalsAll = await ctx.db
       .query('signals')
       .withIndex('by_university_status', (q) =>
         q.eq('university_id', args.universityId).eq('status', 'active'),
       )
       .collect();
+    const activeSignals =
+      allowedStudentIds === null
+        ? activeSignalsAll
+        : activeSignalsAll.filter((s) => allowedStudentIds.has(s.student_id));
 
     // Calculate stats
     const byPriority = {
@@ -460,13 +467,17 @@ export const getQueueStats = query({
       byType[signal.signal_type]++;
     }
 
-    // Get snoozed count
-    const snoozedSignals = await ctx.db
+    // Get snoozed count (filtered by role scope)
+    const snoozedSignalsAll = await ctx.db
       .query('signals')
       .withIndex('by_university_status', (q) =>
         q.eq('university_id', args.universityId).eq('status', 'snoozed'),
       )
       .collect();
+    const snoozedSignals =
+      allowedStudentIds === null
+        ? snoozedSignalsAll
+        : snoozedSignalsAll.filter((s) => allowedStudentIds.has(s.student_id));
 
     // Count due (snooze expired)
     const now = Date.now();
@@ -625,6 +636,23 @@ export const createSignal = mutation({
     }
     if (student.university_id !== args.universityId) {
       throw new Error('Student is not in this university');
+    }
+
+    // Advisors can only create signals for students assigned to them
+    if (user.role === 'advisor') {
+      const assignment = await ctx.db
+        .query('student_advisors')
+        .withIndex('by_advisor', (q) => q.eq('advisor_id', user._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field('university_id'), args.universityId),
+            q.eq(q.field('student_id'), args.studentId),
+          ),
+        )
+        .first();
+      if (!assignment) {
+        throw new Error('Unauthorized: Student is not assigned to you');
+      }
     }
 
     const now = Date.now();

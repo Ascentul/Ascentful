@@ -16,6 +16,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendSignalAlertEmail } from '@/lib/email';
 
 const INTERNAL_SERVICE_TOKEN = process.env.CONVEX_INTERNAL_SERVICE_TOKEN;
+const DEFAULT_DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io'}/advisor/queue`;
+
+/**
+ * Validate and sanitize dashboard URL.
+ * Only allows HTTPS URLs from our domain to prevent injection attacks.
+ */
+function sanitizeDashboardUrl(url: string | undefined): string {
+  if (!url) return DEFAULT_DASHBOARD_URL;
+
+  try {
+    const parsed = new URL(url);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io';
+    const appHost = new URL(appUrl).host;
+
+    // Only allow HTTPS URLs from our domain
+    if (parsed.protocol === 'https:' && parsed.host === appHost) {
+      return url;
+    }
+  } catch {
+    // Invalid URL format
+  }
+
+  return DEFAULT_DASHBOARD_URL;
+}
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -109,8 +133,7 @@ export async function POST(request: NextRequest) {
       signalDescription || '',
       priority,
       signalType,
-      dashboardUrl ||
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io'}/advisor/queue`,
+      sanitizeDashboardUrl(dashboardUrl),
     );
 
     return NextResponse.json({

@@ -433,6 +433,7 @@ export default function AdvisorQueuePage() {
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
+                      disabled={loadingSignalId === signal._id}
                       onClick={() => {
                         setSelectedSignal(signal._id);
                         setIsResolveDialogOpen(true);

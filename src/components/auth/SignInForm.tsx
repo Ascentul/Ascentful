@@ -3,7 +3,6 @@
 import { useSignIn } from '@clerk/nextjs';
 import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,8 @@ interface SignInFormProps {
 }
 
 export function SignInForm({ onForgotPassword }: SignInFormProps) {
-  const router = useRouter();
+  // Note: No router here - redirects are handled by the parent page
+  // based on user role after isSignedIn becomes true
   const { isLoaded, signIn, setActive } = useSignIn();
   const { toast } = useToast();
 
@@ -57,7 +57,7 @@ export function SignInForm({ onForgotPassword }: SignInFormProps) {
           title: 'Welcome back!',
           description: 'You have been successfully signed in.',
         });
-        router.replace('/dashboard');
+        // Redirect handled by parent page based on user role
         return;
       }
 
@@ -75,7 +75,7 @@ export function SignInForm({ onForgotPassword }: SignInFormProps) {
               title: 'Welcome back!',
               description: 'You have been successfully signed in.',
             });
-            router.replace('/dashboard');
+            // Redirect handled by parent page based on user role
             return;
           }
 
@@ -120,7 +120,11 @@ export function SignInForm({ onForgotPassword }: SignInFormProps) {
       };
       const code = clerkError?.errors?.[0]?.code;
       if (code === 'session_exists') {
-        router.replace('/dashboard');
+        // User already signed in - parent page will handle role-based redirect
+        toast({
+          title: 'Already signed in',
+          description: 'Redirecting to your dashboard...',
+        });
         return;
       } else if (code === 'form_identifier_not_found') {
         setError('No account found with this email address. Please check your email or sign up.');
