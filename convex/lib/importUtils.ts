@@ -354,8 +354,10 @@ export function validateOutcomeImportRow(row: {
 }): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Must have at least one identifier
-  if (!row.externalStudentId && !row.studentEmail) {
+  // Must have at least one identifier (trim to catch whitespace-only values)
+  const externalId = row.externalStudentId?.trim();
+  const email = row.studentEmail?.trim();
+  if (!externalId && !email) {
     errors.push('Either external_student_id or student_email is required');
   }
 

@@ -1419,12 +1419,10 @@ export const previewOutcomeImport = query({
       throw new Error('Cohort not found');
     }
 
-    // Super admins can access any cohort
+    // Super admins can access any cohort; others require university_admin role
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (cohort.institution_id !== universityId) {
-        throw new Error('Unauthorized: Cohort is not in your university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, cohort.institution_id);
     }
 
     const { resolveStudentIdentity, generateExternalOutcomeId } = await import('./lib/importUtils');
@@ -1591,12 +1589,10 @@ export const getOutcomesAnalytics = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
-    // Verify access
+    // Verify access - require university_admin for aggregated analytics
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (universityId !== args.institutionId) {
-        throw new Error('Unauthorized: Different university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, args.institutionId);
     }
 
     // Get all cohorts for this institution
@@ -1930,11 +1926,10 @@ export const listSnapshots = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Require university_admin to match createSnapshot mutation access control
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (universityId !== args.institutionId) {
-        throw new Error('Unauthorized: Different university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, args.institutionId);
     }
 
     const snapshots = await ctx.db
@@ -1976,11 +1971,10 @@ export const getSnapshot = query({
       throw new Error('Snapshot not found'); // Don't reveal it was deleted
     }
 
+    // Require university_admin to match createSnapshot mutation access control
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (snapshot.institution_id !== universityId) {
-        throw new Error('Unauthorized: Snapshot is not in your university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, snapshot.institution_id);
     }
 
     // Get creator name

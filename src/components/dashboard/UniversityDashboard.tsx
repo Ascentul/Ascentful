@@ -520,6 +520,7 @@ export function UniversityDashboard() {
     }
 
     // Step 2: Send activation emails via API
+    let emailSendFailed = false;
     if (successfulEmails.length > 0) {
       try {
         const response = await fetch('/api/university/send-invitations', {
@@ -529,9 +530,11 @@ export function UniversityDashboard() {
         });
 
         if (!response.ok) {
+          emailSendFailed = true;
           console.error('Failed to send some activation emails');
         }
       } catch (emailError) {
+        emailSendFailed = true;
         console.error('Error sending activation emails:', emailError);
         // Don't fail the whole operation if email sending fails
       }
@@ -541,8 +544,8 @@ export function UniversityDashboard() {
     if (successCount > 0) {
       toast({
         title: 'Students assigned successfully',
-        description: `${successCount} student(s) assigned and activation email(s) sent${errorCount > 0 ? `. ${errorCount} failed` : ''}`,
-        variant: errorCount > 0 ? 'default' : 'success',
+        description: `${successCount} student(s) assigned${emailSendFailed ? '' : ' and activation email(s) sent'}${errorCount > 0 ? `. ${errorCount} failed` : ''}${emailSendFailed ? ' (emails failed to send - students can still log in)' : ''}`,
+        variant: errorCount > 0 || emailSendFailed ? 'default' : 'success',
       });
     }
 
