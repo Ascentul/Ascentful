@@ -119,9 +119,7 @@ export function UniversityDashboard() {
   const { toast } = useToast();
 
   // Filter states - declared at top to avoid Rules of Hooks violation
-  const [roleFilter, setRoleFilter] = useState<'all' | 'undergraduate' | 'graduate' | 'staff'>(
-    'all',
-  );
+  const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'advisor' | 'staff'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>(
     'all',
   );
