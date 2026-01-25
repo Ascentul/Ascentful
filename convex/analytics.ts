@@ -2162,11 +2162,11 @@ export const getUniversityActiveUsersOverTime = query({
     const now = Date.now();
     const msPerDay = 24 * 60 * 60 * 1000;
 
-    // Get all students in this university
+    // Get all students in this university (include legacy 'user' role)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
 
     const studentIds = new Set(students.map((s) => s._id));
@@ -2269,11 +2269,11 @@ export const getUniversityFeatureUsage = query({
     const actingUser = await getAuthenticatedUser(ctx);
     assertUniversityAccess(actingUser, universityId);
 
-    // Get all students in this university
+    // Get all students in this university (include legacy 'user' role)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
@@ -2323,11 +2323,11 @@ export const getUniversityDepartmentAnalytics = query({
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .collect();
 
-    // Get all students
+    // Get all students (include legacy 'user' role)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
 
     // Collect all student IDs for bulk queries
@@ -2413,11 +2413,11 @@ export const getUniversityStudentFunnel = query({
     const actingUser = await getAuthenticatedUser(ctx);
     assertUniversityAccess(actingUser, universityId);
 
-    // Get all students
+    // Get all students (include legacy 'user' role)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
