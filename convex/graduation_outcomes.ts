@@ -1685,11 +1685,11 @@ export const getOutcomesAnalytics = query({
       const seeking = knownOutcomes.filter((o) => o.outcome_type === 'seeking').length;
       const not_seeking = knownOutcomes.filter((o) => o.outcome_type === 'not_seeking').length;
 
-      const knowledge_rate = total > 0 ? Math.round((known / total) * 1000) / 10 : 0;
+      // Use integer precision to align with finalizeCohort calculations
+      const knowledge_rate = total > 0 ? Math.round((known / total) * 100) : 0;
       const employment_rate =
-        known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 1000) / 10 : 0;
-      const continuing_ed_rate =
-        known > 0 ? Math.round((continuing_education / known) * 1000) / 10 : 0;
+        known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 100) : 0;
+      const continuing_ed_rate = known > 0 ? Math.round((continuing_education / known) * 100) : 0;
 
       return {
         total_students: total,

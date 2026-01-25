@@ -2097,11 +2097,7 @@ export function UniversityDashboard() {
                                       >
                                         View Profile
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          // Handle edit action
-                                        }}
-                                      >
+                                      <DropdownMenuItem onClick={() => handleEditStudent(s)}>
                                         Edit Student
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -2573,7 +2569,7 @@ export function UniversityDashboard() {
                       data={departments.map((d: any, index: number) => {
                         const deptStudents = students.filter((s: any) => s.department_id === d._id);
                         const percentage =
-                          departments.length > 0
+                          departments.length > 0 && students.length > 0
                             ? Math.round((deptStudents.length / students.length) * 100)
                             : 0;
                         return {
