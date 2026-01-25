@@ -46,7 +46,7 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 
 const OUTCOME_STATUS_CONFIG: Record<
-  string,
+  OutcomeRecord['outcome_status'],
   { label: string; variant: 'default' | 'secondary' | 'outline' }
 > = {
   known: { label: 'Known', variant: 'default' },
@@ -54,7 +54,7 @@ const OUTCOME_STATUS_CONFIG: Record<
   unknown: { label: 'Unknown', variant: 'outline' },
 };
 
-const OUTCOME_TYPE_LABELS: Record<string, string> = {
+const OUTCOME_TYPE_LABELS: Record<NonNullable<OutcomeRecord['outcome_type']>, string> = {
   employed_fulltime: 'Full-time',
   employed_parttime: 'Part-time',
   continuing_education: 'Cont. Ed.',
@@ -340,11 +340,7 @@ export default function OutcomesDashboardPage() {
     );
   }
 
-  const isLoading =
-    !cohorts ||
-    !majors ||
-    (!analytics && !selectedSnapshot) ||
-    !!(selectedSnapshotId && !selectedSnapshot);
+  const isLoading = !cohorts || !majors || (selectedSnapshotId ? !selectedSnapshot : !analytics);
 
   return (
     <div className="max-w-screen-2xl mx-auto p-4 md:p-6 space-y-6">
@@ -565,6 +561,7 @@ export default function OutcomesDashboardPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  aria-label="View outcome details"
                                   onClick={() => setSelectedOutcome(outcome)}
                                 >
                                   <Eye className="h-4 w-4" />

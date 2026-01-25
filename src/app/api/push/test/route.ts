@@ -1,4 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
+import { api } from 'convex/_generated/api';
+import { fetchQuery } from 'convex/nextjs';
 import { NextResponse } from 'next/server';
 
 import { isPushConfigured, PushSubscription, webpush } from '@/lib/push-config';
@@ -9,12 +11,16 @@ import { isPushConfigured, PushSubscription, webpush } from '@/lib/push-config';
  * Allows authenticated users to test their own push notification subscription.
  * This endpoint does NOT require admin privileges - any authenticated user can
  * test their own subscription.
+ *
+ * SECURITY: Validates that the subscription endpoint belongs to the authenticated
+ * user to prevent sending notifications to arbitrary endpoints.
  */
 
 export async function POST(request: Request) {
   try {
     // Any authenticated user can test their own subscription
-    const { userId } = await auth();
+    const authResult = await auth();
+    const { userId } = authResult;
 
     if (!userId) {
       return NextResponse.json(
@@ -51,6 +57,39 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Invalid subscription data' },
         { status: 400 },
+      );
+    }
+
+    // Get Convex token for authenticated queries
+    const token = await authResult.getToken({ template: 'convex' });
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to obtain auth token' },
+        { status: 401 },
+      );
+    }
+
+    // Look up the user in Convex
+    const user = await fetchQuery(api.users.getUserByClerkId, { clerkId: userId }, { token });
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    // Validate subscription ownership - verify the endpoint belongs to this user
+    const userSubscriptions = await fetchQuery(
+      api.push_subscriptions.getUserSubscriptions,
+      { userId: user._id },
+      { token },
+    );
+
+    const ownsSubscription = userSubscriptions.some(
+      (sub) => sub.endpoint === subscription.endpoint,
+    );
+
+    if (!ownsSubscription) {
+      return NextResponse.json(
+        { success: false, error: 'Subscription not found for this user' },
+        { status: 403 },
       );
     }
 

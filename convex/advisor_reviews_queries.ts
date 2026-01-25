@@ -14,8 +14,8 @@ import { query, QueryCtx } from './_generated/server';
 import {
   getCurrentUser,
   getOwnedStudentIds,
+  optionalTenant,
   requireAdvisorRole,
-  requireTenant,
 } from './advisor_auth';
 
 /**
@@ -118,7 +118,13 @@ export const getReviews = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
+
     const ownedStudentIds = new Set(await getOwnedStudentIds(ctx, sessionCtx));
 
     // Use database-level filtering for better performance
@@ -214,7 +220,12 @@ export const getReviewById = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, they cannot access reviews
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return null;
+    }
 
     const review = await ctx.db.get(args.review_id);
     if (!review) {
@@ -281,7 +292,24 @@ export const getReviewQueueStats = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty stats gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        waiting: 0,
+        inReview: 0,
+        needsEdits: 0,
+        approved: 0,
+        resumes: 0,
+        coverLetters: 0,
+        urgent: 0,
+        inProgress: 0,
+        completed: 0,
+        total: 0,
+      };
+    }
+
     const ownedStudentIds = new Set(await getOwnedStudentIds(ctx, sessionCtx));
 
     const allReviews = await ctx.db

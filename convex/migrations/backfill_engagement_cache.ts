@@ -12,111 +12,45 @@
 
 import { v } from 'convex/values';
 
-import { Doc, Id } from '../_generated/dataModel';
-import { internalMutation, internalQuery, QueryCtx } from '../_generated/server';
-import {
-  calculateEngagementScore,
-  DEFAULT_QUALIFYING_EVENT_TYPES,
-  determineEngagementStatus,
-} from '../lib/engagementScoring';
-
-interface EngagementCriteria {
-  period_days: number;
-  min_events_in_period: number;
-  qualifying_event_types?: string[];
-}
+import { Id } from '../_generated/dataModel';
+import { internalMutation, internalQuery } from '../_generated/server';
+import { calculateStudentEngagement } from '../lib/engagementHelpers';
 
 /**
- * Calculate engagement score for a single student.
- * Uses centralized scoring functions from lib/engagementScoring.ts.
- */
-async function calculateStudentEngagement(
-  ctx: QueryCtx,
-  studentId: Id<'users'>,
-  definition: Doc<'engagement_definitions'> | null,
-): Promise<{
-  status: 'engaged' | 'moderate' | 'at_risk';
-  score: number;
-}> {
-  const engagedThreshold = definition?.engaged_threshold ?? 70;
-  const atRiskThreshold = definition?.at_risk_threshold ?? 30;
-  const criteria: EngagementCriteria = (definition?.criteria as EngagementCriteria) || {
-    period_days: 14,
-    min_events_in_period: 3,
-  };
-
-  const now = Date.now();
-  const periodDays = criteria.period_days || 14;
-  const cutoffTime = now - periodDays * 24 * 60 * 60 * 1000;
-
-  const allEvents = await ctx.db
-    .query('activity_events')
-    .withIndex('by_user_date', (q) => q.eq('user_id', studentId).gte('occurred_at', cutoffTime))
-    .collect();
-
-  const qualifyingEventTypes: readonly string[] =
-    criteria.qualifying_event_types || DEFAULT_QUALIFYING_EVENT_TYPES;
-  const qualifyingEvents = allEvents.filter((event) =>
-    qualifyingEventTypes.includes(event.event_type),
-  );
-
-  const totalCount = qualifyingEvents.length;
-
-  const uniqueDaysSet = new Set<string>();
-  for (const event of qualifyingEvents) {
-    const dateStr = new Date(event.occurred_at).toISOString().slice(0, 10);
-    uniqueDaysSet.add(dateStr);
-  }
-  const uniqueDays = uniqueDaysSet.size;
-
-  const lastEventAt =
-    qualifyingEvents.length > 0
-      ? qualifyingEvents.reduce((max, e) => Math.max(max, e.occurred_at), 0)
-      : null;
-
-  // Calculate days since last activity for recency scoring
-  const daysSinceLastActivity =
-    lastEventAt !== null ? Math.floor((now - lastEventAt) / (1000 * 60 * 60 * 24)) : null;
-
-  // Use centralized scoring function
-  const score = calculateEngagementScore(
-    {
-      totalEventCount: totalCount,
-      uniqueActiveDays: uniqueDays,
-      daysSinceLastActivity,
-    },
-    {
-      minEventsInPeriod: criteria.min_events_in_period || 3,
-      periodDays,
-    },
-  );
-
-  // Use centralized status determination
-  const status = determineEngagementStatus(score, engagedThreshold, atRiskThreshold);
-
-  return { status, score };
-}
-
-/**
- * Get stats on backfill progress
+ * Get stats on backfill progress.
+ * Uses pagination to avoid loading entire table into memory.
  */
 export const getBackfillStats = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const students = await ctx.db
-      .query('users')
-      .filter((q) => q.eq(q.field('role'), 'student'))
-      .collect();
+    let total = 0;
+    let withCache = 0;
+    let withoutCache = 0;
 
-    const withCache = students.filter((s) => s.engagement_status !== undefined);
-    const withoutCache = students.filter((s) => s.engagement_status === undefined);
+    let cursor: string | null = null;
+    do {
+      const page = await ctx.db
+        .query('users')
+        .filter((q) => q.eq(q.field('role'), 'student'))
+        .paginate({ cursor, numItems: 1000 });
+
+      for (const student of page.page) {
+        total++;
+        // Use != null to catch both null and undefined (defensive against data corruption)
+        if (student.engagement_status != null) {
+          withCache++;
+        } else {
+          withoutCache++;
+        }
+      }
+      cursor = page.isDone ? null : page.continueCursor;
+    } while (cursor);
 
     return {
-      total: students.length,
-      withCache: withCache.length,
-      withoutCache: withoutCache.length,
-      percentComplete:
-        students.length > 0 ? Math.round((withCache.length / students.length) * 100) : 100,
+      total,
+      withCache,
+      withoutCache,
+      percentComplete: total > 0 ? Math.round((withCache / total) * 100) : 100,
     };
   },
 });
@@ -140,7 +74,14 @@ export const backfillUniversity = internalMutation({
         q.eq('university_id', args.universityId).eq('is_active', true),
       )
       .collect();
-    const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+    // Sort by created_at for deterministic fallback when no default is set
+    const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+    const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
+
+    // Skip if university has no engagement definition configured
+    if (!definition) {
+      return { updated: 0, hasMore: false };
+    }
 
     // Get students without cached engagement
     const students = await ctx.db
@@ -171,7 +112,8 @@ export const backfillUniversity = internalMutation({
 });
 
 /**
- * Get list of universities that need backfill
+ * Get list of universities that need backfill.
+ * Uses pagination to count students without loading entire tables into memory.
  */
 export const getUniversitiesNeedingBackfill = internalQuery({
   args: {},
@@ -184,28 +126,39 @@ export const getUniversitiesNeedingBackfill = internalQuery({
     const needsBackfill: Array<{ id: string; name: string; studentsWithoutCache: number }> = [];
 
     for (const university of universities) {
-      const studentsWithoutCache = await ctx.db
+      // Quick check: does this university have any students needing backfill?
+      const hasStudentsWithoutCache = await ctx.db
         .query('users')
         .withIndex('by_university', (q) => q.eq('university_id', university._id))
         .filter((q) =>
           q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('engagement_status'), undefined)),
         )
-        .take(1);
+        .first();
 
-      if (studentsWithoutCache.length > 0) {
-        // Count total students needing backfill
-        const allStudentsWithoutCache = await ctx.db
-          .query('users')
-          .withIndex('by_university', (q) => q.eq('university_id', university._id))
-          .filter((q) =>
-            q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('engagement_status'), undefined)),
-          )
-          .collect();
+      if (hasStudentsWithoutCache) {
+        // Count using pagination to avoid memory issues for large universities
+        let count = 0;
+        let cursor: string | null = null;
+        do {
+          const page = await ctx.db
+            .query('users')
+            .withIndex('by_university', (q) => q.eq('university_id', university._id))
+            .filter((q) =>
+              q.and(
+                q.eq(q.field('role'), 'student'),
+                q.eq(q.field('engagement_status'), undefined),
+              ),
+            )
+            .paginate({ cursor, numItems: 1000 });
+
+          count += page.page.length;
+          cursor = page.isDone ? null : page.continueCursor;
+        } while (cursor);
 
         needsBackfill.push({
           id: university._id,
           name: university.name,
-          studentsWithoutCache: allStudentsWithoutCache.length,
+          studentsWithoutCache: count,
         });
       }
     }
@@ -224,10 +177,13 @@ export const backfillAllStudents = internalMutation({
     continueFromUniversityId: v.optional(v.id('universities')),
   },
   handler: async (ctx, args) => {
-    let universities = await ctx.db
-      .query('universities')
-      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
-      .collect();
+    // Order by _id to ensure deterministic continuation across calls
+    let universities = (
+      await ctx.db
+        .query('universities')
+        .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+        .collect()
+    ).sort((a, b) => (a._id < b._id ? -1 : a._id > b._id ? 1 : 0));
 
     // If continuing from a specific university, skip universities we've already processed
     if (args.continueFromUniversityId) {
@@ -249,7 +205,15 @@ export const backfillAllStudents = internalMutation({
           q.eq('university_id', university._id).eq('is_active', true),
         )
         .collect();
-      const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+      // Sort by created_at for deterministic fallback when no default is set
+      const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+      const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
+
+      // Skip universities without engagement definitions configured
+      if (!definition) {
+        universitiesProcessed++;
+        continue;
+      }
 
       // Get students without cached engagement (up to 50)
       const students = await ctx.db

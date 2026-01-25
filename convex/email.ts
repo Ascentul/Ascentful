@@ -479,7 +479,12 @@ export const sendUrgentSignalNotificationEmail = action({
     studentName: v.string(),
     signalTitle: v.string(),
     signalDescription: v.optional(v.string()),
-    signalPriority: v.string(),
+    signalPriority: v.union(
+      v.literal('low'),
+      v.literal('medium'),
+      v.literal('high'),
+      v.literal('urgent'),
+    ),
     signalType: v.string(),
     queueUrl: v.string(),
   },
@@ -492,20 +497,21 @@ export const sendUrgentSignalNotificationEmail = action({
     const priorityEmoji = args.signalPriority === 'urgent' ? '🚨' : '⚠️';
     const priorityLabelRaw =
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
-    const priorityLabel = escapeHtml(priorityLabelRaw);
 
-    // Sanitize user-provided content to prevent email header injection
+    // Sanitize all content in subject to prevent email header injection (defense-in-depth)
     const safeSubjectTitle = sanitizeSubject(args.signalTitle);
     const safeSubjectName = sanitizeSubject(args.studentName);
-    const subject = `${priorityEmoji} ${priorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
+    const safePriorityLabel = sanitizeSubject(priorityLabelRaw);
+    const subject = `${priorityEmoji} ${safePriorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
 
+    // Use raw values in plain text body (no HTML escaping needed)
     const text = `Hello ${args.advisorName},
 
 A ${args.signalPriority} priority signal has been triggered for one of your students.
 
 Student: ${args.studentName}
 Signal: ${args.signalTitle}
-Priority: ${priorityLabel}
+Priority: ${priorityLabelRaw}
 Type: ${args.signalType}
 ${args.signalDescription ? `\nDescription: ${args.signalDescription}` : ''}
 
@@ -515,13 +521,13 @@ ${validatedQueueUrl}
 Best regards,
 The Ascentul Team`;
 
-    // Escape user-provided content for defense-in-depth
+    // Escape user-provided content for HTML context (defense-in-depth)
+    const priorityLabel = escapeHtml(priorityLabelRaw);
     const safeAdvisorName = escapeHtml(args.advisorName);
     const safeStudentName = escapeHtml(args.studentName);
     const safeSignalTitle = escapeHtml(args.signalTitle);
     const safeSignalType = escapeHtml(args.signalType);
     const safeSignalDescription = args.signalDescription ? escapeHtml(args.signalDescription) : '';
-    const safeQueueUrl = escapeHtml(validatedQueueUrl);
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -572,7 +578,7 @@ The Ascentul Team`;
         </table>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${safeQueueUrl}"
+          <a href="${validatedQueueUrl}"
              style="background-color: #0C29AB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
             View Signal Queue
           </a>

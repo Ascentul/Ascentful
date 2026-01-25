@@ -387,9 +387,10 @@ export const deleteOldEvents = internalMutation({
     maxBatches: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const retentionDays = args.retentionDays ?? 90;
+    // Clamp to positive values to prevent accidental mass deletion
+    const retentionDays = Math.max(args.retentionDays ?? 90, 1);
     const cutoffTime = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-    const maxBatches = args.maxBatches ?? 10;
+    const maxBatches = Math.max(args.maxBatches ?? 10, 1);
 
     // Get old events in batches
     const batchSize = 500;

@@ -71,7 +71,11 @@ export async function POST(req: NextRequest) {
         },
       );
     }
-    const { studentEmail, universityId } = body;
+    const { studentEmail: rawEmail, universityId: rawUniversityId } = body;
+
+    // Normalize and validate inputs
+    const studentEmail = typeof rawEmail === 'string' ? rawEmail.trim() : '';
+    const universityId = typeof rawUniversityId === 'string' ? rawUniversityId.trim() : '';
 
     if (!studentEmail || !universityId) {
       log.warn('Missing required fields', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
@@ -147,13 +151,19 @@ export async function POST(req: NextRequest) {
 
     const studentClerkUser = users.data[0];
 
+    const existingRole = studentClerkUser.publicMetadata.role as string | undefined;
+    const normalizedRole =
+      !existingRole || existingRole === 'user' || existingRole === 'individual'
+        ? 'student'
+        : existingRole;
+
     // Update Clerk publicMetadata with university_id
     await client.users.updateUser(studentClerkUser.id, {
       publicMetadata: {
         ...studentClerkUser.publicMetadata,
         university_id: universityId,
-        // Set role to 'user' if not already set (students are regular users with university plan)
-        role: studentClerkUser.publicMetadata.role || 'user',
+        // Normalize legacy roles and ensure student role for university assignments
+        role: normalizedRole,
       },
     });
 

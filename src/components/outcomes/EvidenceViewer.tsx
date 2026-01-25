@@ -35,6 +35,12 @@ const FILE_TYPE_LABELS: Record<EvidenceFile['type'], string> = {
   other: 'Other Document',
 };
 
+/** Confidence score thresholds for verification display styling */
+const CONFIDENCE_THRESHOLDS = {
+  HIGH: 80,
+  MEDIUM: 50,
+} as const;
+
 export function EvidenceViewer({
   evidenceFiles = [],
   verification,
@@ -43,7 +49,12 @@ export function EvidenceViewer({
   className,
 }: EvidenceViewerProps) {
   const hasEvidence = evidenceFiles.length > 0;
-  const hasVerification = verification?.is_verified !== undefined;
+  const hasVerification =
+    verification != null &&
+    (verification.is_verified !== undefined ||
+      verification.confidence_score !== undefined ||
+      !!verification.verified_by_name ||
+      !!verification.verified_at);
 
   if (!hasEvidence && !hasVerification) {
     return (
@@ -145,9 +156,9 @@ export function EvidenceViewer({
                     <div
                       className={cn(
                         'h-2 rounded-full',
-                        verification.confidence_score >= 80
+                        verification.confidence_score >= CONFIDENCE_THRESHOLDS.HIGH
                           ? 'bg-green-500'
-                          : verification.confidence_score >= 50
+                          : verification.confidence_score >= CONFIDENCE_THRESHOLDS.MEDIUM
                             ? 'bg-amber-500'
                             : 'bg-red-500',
                       )}
@@ -157,7 +168,7 @@ export function EvidenceViewer({
                     />
                   </div>
                   <span className="text-sm font-medium text-neutral-700">
-                    {verification.confidence_score}%
+                    {Math.min(100, Math.max(0, verification.confidence_score))}%
                   </span>
                 </div>
               </div>

@@ -404,7 +404,7 @@ export const hardDeleteUniversity = mutation({
             university_id: undefined,
             is_test_user: true,
             ...(user.role === 'university_admin' || user.role === 'advisor'
-              ? { role: 'user' as const }
+              ? { role: 'individual' as const }
               : {}),
             ...(user.subscription_plan === 'university'
               ? { subscription_plan: 'free' as const }

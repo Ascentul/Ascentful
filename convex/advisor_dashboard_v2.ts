@@ -22,8 +22,8 @@ import { query } from './_generated/server';
 import {
   getCurrentUser,
   getOwnedStudentIds,
+  optionalTenant,
   requireAdvisorRole,
-  requireTenant,
 } from './advisor_auth';
 import { ACTIVE_STAGES } from './advisor_constants';
 
@@ -49,7 +49,17 @@ export const getNeedsAttentionToday = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        overdueFollowUps: { count: 0, items: [] },
+        sessionsWithoutNotes: { count: 0, items: [] },
+        studentsNoContact: { count: 0, items: [], config: { days: CONFIG.NO_CONTACT_DAYS } },
+        urgentReviews: { count: 0, items: [] },
+      };
+    }
 
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
     const studentIdSet = new Set(studentIds);
@@ -264,7 +274,31 @@ export const getRiskOverview = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        lowEngagement: {
+          count: 0,
+          items: [],
+          config: { days: CONFIG.LOW_ENGAGEMENT_DAYS },
+          subtitle: `No logins or sessions for ${CONFIG.LOW_ENGAGEMENT_DAYS}+ days`,
+        },
+        stalledSearch: {
+          count: 0,
+          items: [],
+          config: { days: CONFIG.STALLED_SEARCH_DAYS },
+          subtitle: `No application progress for ${CONFIG.STALLED_SEARCH_DAYS}+ days`,
+        },
+        priorityPopulation: {
+          count: 0,
+          items: [],
+          subtitle: 'Seniors or entry-level students with engagement/search concerns',
+        },
+        atRiskNoOffer: { count: 0, items: [], subtitle: '>5 applications but no offers yet' },
+      };
+    }
 
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
     const studentIdSet = new Set(studentIds);
@@ -468,7 +502,17 @@ export const getCaseloadGaps = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        totalStudents: 0,
+        noGoal: { count: 0, items: [], subtitle: 'No career goal or path defined' },
+        seniorsNoApps: { count: 0, items: [], subtitle: 'Near graduation with zero applications' },
+        noResume: { count: 0, items: [], subtitle: 'No resume uploaded' },
+      };
+    }
 
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
     const studentIdSet = new Set(studentIds);
@@ -595,7 +639,20 @@ export const getCapacityAndSchedule = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        capacity: {
+          booked: 0,
+          total: args.weeklySlots ?? CONFIG.WEEKLY_SESSION_SLOTS,
+          percentage: 0,
+        },
+        sessionsThisWeek: 0,
+        upcoming: { count: 0, items: [] },
+      };
+    }
 
     const now = Date.now();
     const weeklySlots = args.weeklySlots ?? CONFIG.WEEKLY_SESSION_SLOTS;
@@ -692,7 +749,26 @@ export const getProgressAndOutcomes = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        seniorsWithInterview: {
+          count: 0,
+          total: 0,
+          percentage: 0,
+          subtitle: 'Seniors with at least one interview this term',
+        },
+        studentsWithOffer: { count: 0, total: 0, subtitle: 'Students with offers this term' },
+        avgAppsPerStudent: {
+          value: 0,
+          activeStudents: 0,
+          subtitle: 'Avg applications per active job seeker',
+        },
+        totalActiveApps: 0,
+      };
+    }
 
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
     const studentIdSet = new Set(studentIds);
@@ -815,7 +891,19 @@ export const getDashboardStatsExtended = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty stats gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        totalStudents: 0,
+        activeApplications: 0,
+        sessionsThisWeek: 0,
+        pendingReviews: 0,
+        atRiskStudents: 0,
+        averageApplicationsPerStudent: 0,
+      };
+    }
 
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
     const studentIdSet = new Set(studentIds);

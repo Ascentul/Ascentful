@@ -180,7 +180,9 @@ function mapRowToData(headers: string[], row: string[]): ParsedRow {
         data.outcomeType = OUTCOME_TYPE_MAP[value.toLowerCase()];
         break;
       case 'salary':
-        const numValue = parseInt(value.replace(/[^0-9]/g, ''), 10);
+        // Remove currency symbols and commas, then parse as float and round
+        const cleanedValue = value.replace(/[^0-9.]/g, '');
+        const numValue = Math.round(parseFloat(cleanedValue));
         if (!isNaN(numValue)) data.salary = numValue;
         break;
     }
@@ -257,6 +259,7 @@ export default function BatchImportPage() {
       reader.onload = (e) => {
         const text = e.target?.result;
         if (typeof text !== 'string') {
+          setParsedData([]);
           toast({
             title: 'Read Error',
             description: 'Could not read file content.',
@@ -267,6 +270,7 @@ export default function BatchImportPage() {
         const { headers, rows } = parseCSV(text);
 
         if (headers.length === 0) {
+          setParsedData([]);
           toast({
             title: 'Invalid File',
             description: 'Could not parse CSV headers.',
@@ -288,6 +292,7 @@ export default function BatchImportPage() {
   );
 
   const handlePreview = useCallback(() => {
+    const MAX_BATCH_SIZE = 200;
     if (!selectedCohort) {
       toast({
         title: 'Select Cohort',
@@ -304,6 +309,14 @@ export default function BatchImportPage() {
       });
       return;
     }
+    if (parsedData.length > MAX_BATCH_SIZE) {
+      toast({
+        title: 'Too Many Rows',
+        description: `Please split your CSV into batches of ${MAX_BATCH_SIZE} rows or fewer.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     setStep('preview');
   }, [selectedCohort, parsedData, toast]);
 
@@ -315,12 +328,11 @@ export default function BatchImportPage() {
 
     try {
       // Generate external outcome IDs for each row
-      // NOTE: When rows lack both externalStudentId and studentEmail, we fall back to
-      // position-based IDs (row_${index}). This means:
-      // - Re-importing the same unmodified file will correctly match existing records
-      // - Re-importing a modified file (rows added/removed) could create duplicates or
-      //   miss updates for position-dependent records
-      // The preview step validates and warns users about rows missing identifiers.
+      // NOTE: Rows lacking both externalStudentId and studentEmail will generate
+      // position-based IDs (row_${index}), but these are REJECTED server-side.
+      // The preview step marks these as errors and disables the import button.
+      // This code path should not execute for rows without identifiers due to
+      // UI validation, but server-side validation provides defense-in-depth.
       const outcomesWithIds = parsedData.map((row, index) => {
         // Match importUtils.ts: preserve case for external student IDs, lowercase emails
         const normalizedId = row.externalStudentId
@@ -479,8 +491,8 @@ export default function BatchImportPage() {
             <div className="space-y-2">
               <Label>Select Cohort *</Label>
               <Select
-                value={selectedCohort || ''}
-                onValueChange={(v) => setSelectedCohort(v as Id<'graduation_cohorts'>)}
+                value={selectedCohort ?? undefined}
+                onValueChange={(v) => setSelectedCohort(v ? (v as Id<'graduation_cohorts'>) : null)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a graduation cohort..." />
@@ -620,6 +632,20 @@ export default function BatchImportPage() {
             )}
 
             {/* Warnings */}
+            {previewImport && previewImport.summary.missingIdentifiers > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Missing Required Identifiers</AlertTitle>
+                <AlertDescription>
+                  <strong>{previewImport.summary.missingIdentifiers} rows</strong> are missing both{' '}
+                  <code className="bg-neutral-200 px-1 rounded">external_student_id</code> and{' '}
+                  <code className="bg-neutral-200 px-1 rounded">email</code>. These rows cannot be
+                  imported because they lack a stable identifier for future updates. Please add
+                  identifiers to your CSV and re-upload.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {previewImport && previewImport.summary.needsReview > 0 && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -674,9 +700,7 @@ export default function BatchImportPage() {
                           .slice(0, 50)
                           .map((row) => (
                             <TableRow key={row.rowIndex}>
-                              <TableCell className="font-mono text-sm">
-                                {row.rowIndex + 1}
-                              </TableCell>
+                              <TableCell className="font-mono text-sm">{row.rowIndex}</TableCell>
                               <TableCell>
                                 <div className="max-w-[200px] truncate font-medium">
                                   {row.identifierUsed}

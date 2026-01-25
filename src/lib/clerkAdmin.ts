@@ -6,6 +6,23 @@
 import { clerkClient } from '@clerk/nextjs/server';
 
 /**
+ * Type guard to check if an error is a Clerk API error
+ * Clerk API errors have a `clerkError: true` flag and a `status` property
+ */
+export function isClerkApiError(
+  error: unknown,
+): error is { clerkError: true; status: number; clerkTraceId?: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'clerkError' in error &&
+    (error as Record<string, unknown>).clerkError === true &&
+    'status' in error &&
+    typeof (error as Record<string, unknown>).status === 'number'
+  );
+}
+
+/**
  * Disable a Clerk user (prevents login but preserves identity)
  * Used for soft-deleted users to maintain FERPA compliance
  */

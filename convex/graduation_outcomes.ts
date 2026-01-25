@@ -988,6 +988,34 @@ export const upsertOutcome = mutation({
 
     assertUniversityAccess(user, cohort.institution_id);
 
+    // Validate studentId belongs to the same institution and is actually a student
+    if (args.studentId) {
+      const student = await ctx.db.get(args.studentId);
+      if (!student) {
+        throw new Error('Student not found');
+      }
+      // Check student role (includes legacy "user" role with university_id for backward compatibility)
+      const isStudent =
+        student.role === 'student' || (student.role === 'user' && student.university_id);
+      if (!isStudent) {
+        throw new Error('Outcome can only be linked to a user with student role');
+      }
+      if (student.university_id !== cohort.institution_id) {
+        throw new Error('Student does not belong to the cohort institution');
+      }
+    }
+
+    // Validate majorId belongs to the same institution
+    if (args.majorId) {
+      const major = await ctx.db.get(args.majorId);
+      if (!major) {
+        throw new Error('Major not found');
+      }
+      if (major.university_id !== cohort.institution_id) {
+        throw new Error('Major does not belong to the cohort institution');
+      }
+    }
+
     const now = Date.now();
 
     // Check for existing by external_outcome_id
@@ -1020,8 +1048,8 @@ export const upsertOutcome = mutation({
         }
       }
 
-      // Update existing record
-      const updates: Record<string, unknown> = { updated_at: now };
+      // Update existing record - reactivate if previously archived
+      const updates: Record<string, unknown> = { updated_at: now, is_active: true };
 
       if (args.studentId !== undefined) updates.student_id = args.studentId;
       if (args.majorId !== undefined) updates.major_id = args.majorId;
@@ -1155,6 +1183,16 @@ export const bulkUpsertOutcomes = mutation({
   handler: async (ctx, args) => {
     const user = await requireUniversityAdmin(ctx);
 
+    // Guard against oversized batches to avoid Convex execution timeouts
+    // Each row does ~3 database operations (major lookup, existing check, insert/patch)
+    const MAX_BATCH_SIZE = 200;
+    if (args.outcomes.length > MAX_BATCH_SIZE) {
+      throw new Error(
+        `Cannot import more than ${MAX_BATCH_SIZE} outcomes per call. ` +
+          `Split your import into smaller batches.`,
+      );
+    }
+
     const cohort = await ctx.db.get(args.cohortId);
     if (!cohort) {
       throw new Error('Cohort not found');
@@ -1175,6 +1213,40 @@ export const bulkUpsertOutcomes = mutation({
       const outcomeData = args.outcomes[i];
 
       try {
+        // Reject position-based external IDs (e.g., "cohortId_row_0")
+        // These are unstable - re-importing a modified file would create duplicates or miss updates.
+        // Rows must have either external_student_id or email for reliable deduplication.
+        if (/_row_\d+$/.test(outcomeData.externalOutcomeId)) {
+          results.errors.push({
+            row: i + 1,
+            externalId: outcomeData.externalOutcomeId,
+            error:
+              'Row is missing external_student_id and email - cannot import without stable identifier',
+          });
+          continue;
+        }
+
+        // Validate majorId belongs to the same institution
+        if (outcomeData.majorId) {
+          const major = await ctx.db.get(outcomeData.majorId);
+          if (!major) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: 'Major not found',
+            });
+            continue;
+          }
+          if (major.university_id !== cohort.institution_id) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: 'Major does not belong to the cohort institution',
+            });
+            continue;
+          }
+        }
+
         // Check for existing
         const existing = await ctx.db
           .query('graduate_outcomes')
@@ -1208,9 +1280,10 @@ export const bulkUpsertOutcomes = mutation({
           // Update - only override fields that are explicitly provided (not undefined)
           // This prevents bulk imports from accidentally clearing existing data
           await ctx.db.patch(existing._id, {
-            // Always update required fields and timestamp
+            // Always update required fields and timestamp - reactivate if previously archived
             outcome_status: outcomeData.outcomeStatus,
             updated_at: now,
+            is_active: true,
             // Only override optional fields if explicitly provided
             ...(outcomeData.externalStudentId !== undefined && {
               external_student_id: outcomeData.externalStudentId,
@@ -1346,12 +1419,10 @@ export const previewOutcomeImport = query({
       throw new Error('Cohort not found');
     }
 
-    // Super admins can access any cohort
+    // Super admins can access any cohort; others require university_admin role
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (cohort.institution_id !== universityId) {
-        throw new Error('Unauthorized: Cohort is not in your university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, cohort.institution_id);
     }
 
     const { resolveStudentIdentity, generateExternalOutcomeId } = await import('./lib/importUtils');
@@ -1441,7 +1512,7 @@ export const previewOutcomeImport = query({
       }
 
       preview.push({
-        rowIndex: i,
+        rowIndex: i + 1,
         identifierUsed: row.externalStudentId || row.studentEmail || row.studentName || 'Unknown',
         identityMatch: {
           matched: identityMatch.matched,
@@ -1482,6 +1553,11 @@ export const previewOutcomeImport = query({
       needsReview: preview.filter(
         (p) => !p.identityMatch.matched && p.identityMatch.confidence === 'low',
       ).length,
+      // Count rows specifically missing both external_student_id and email
+      // These would require position-based fallback IDs which are risky for re-imports
+      missingIdentifiers: preview.filter((p) =>
+        p.validationErrors.includes('Either external_student_id or student_email is required'),
+      ).length,
     };
 
     return { preview, summary };
@@ -1506,16 +1582,17 @@ export const getOutcomesAnalytics = query({
     groupBy: v.optional(
       v.union(v.literal('cohort'), v.literal('program'), v.literal('degree_level')),
     ),
+    // Pagination for outcomes list (summary/breakdown always include all data)
+    outcomeLimit: v.optional(v.number()),
+    outcomeOffset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
-    // Verify access
+    // Verify access - require university_admin for aggregated analytics
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (universityId !== args.institutionId) {
-        throw new Error('Unauthorized: Different university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, args.institutionId);
     }
 
     // Get all cohorts for this institution
@@ -1541,7 +1618,7 @@ export const getOutcomesAnalytics = query({
       cohorts = cohorts.filter((c) => c.degree_level && degreeLevelSet.has(c.degree_level));
     }
 
-    // If no cohorts after filtering, return empty results
+    // If no cohorts after filtering, return empty results with consistent shape
     if (cohorts.length === 0) {
       return {
         summary: {
@@ -1562,6 +1639,8 @@ export const getOutcomesAnalytics = query({
         },
         breakdown: {},
         outcomes: [],
+        totalOutcomes: 0,
+        hasMoreOutcomes: false,
       };
     }
 
@@ -1620,29 +1699,32 @@ export const getOutcomesAnalytics = query({
       continuing_ed_rate: number;
     } => {
       const total = outcomesList.length;
-      const known = outcomesList.filter((o) => o.outcome_status === 'known').length;
+      // Filter to known outcomes for type counts - unknown/partial may have stale outcome_type
+      const knownOutcomes = outcomesList.filter((o) => o.outcome_status === 'known');
+      const known = knownOutcomes.length;
       const unknown = outcomesList.filter((o) => o.outcome_status === 'unknown').length;
       const partial = outcomesList.filter((o) => o.outcome_status === 'partial').length;
 
-      const employed_fulltime = outcomesList.filter(
+      // Count outcome types from known outcomes only (aligns with finalizeCohort logic)
+      const employed_fulltime = knownOutcomes.filter(
         (o) => o.outcome_type === 'employed_fulltime',
       ).length;
-      const employed_parttime = outcomesList.filter(
+      const employed_parttime = knownOutcomes.filter(
         (o) => o.outcome_type === 'employed_parttime',
       ).length;
-      const continuing_education = outcomesList.filter(
+      const continuing_education = knownOutcomes.filter(
         (o) => o.outcome_type === 'continuing_education',
       ).length;
-      const military = outcomesList.filter((o) => o.outcome_type === 'military').length;
-      const volunteer = outcomesList.filter((o) => o.outcome_type === 'volunteer').length;
-      const seeking = outcomesList.filter((o) => o.outcome_type === 'seeking').length;
-      const not_seeking = outcomesList.filter((o) => o.outcome_type === 'not_seeking').length;
+      const military = knownOutcomes.filter((o) => o.outcome_type === 'military').length;
+      const volunteer = knownOutcomes.filter((o) => o.outcome_type === 'volunteer').length;
+      const seeking = knownOutcomes.filter((o) => o.outcome_type === 'seeking').length;
+      const not_seeking = knownOutcomes.filter((o) => o.outcome_type === 'not_seeking').length;
 
-      const knowledge_rate = total > 0 ? Math.round((known / total) * 1000) / 10 : 0;
+      // Use integer precision to align with finalizeCohort calculations
+      const knowledge_rate = total > 0 ? Math.round((known / total) * 100) : 0;
       const employment_rate =
-        known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 1000) / 10 : 0;
-      const continuing_ed_rate =
-        known > 0 ? Math.round((continuing_education / known) * 1000) / 10 : 0;
+        known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 100) : 0;
+      const continuing_ed_rate = known > 0 ? Math.round((continuing_education / known) * 100) : 0;
 
       return {
         total_students: total,
@@ -1676,7 +1758,9 @@ export const getOutcomesAnalytics = query({
       for (const outcome of outcomes) {
         const cohort = cohortMap.get(outcome.cohort_id);
         const key = cohort
-          ? `${cohort.graduation_term} ${cohort.graduation_year}`
+          ? `${cohort.graduation_term} ${cohort.graduation_year}${
+              cohort.degree_level ? ` (${cohort.degree_level})` : ''
+            }`
           : 'Unknown Cohort';
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(outcome);
@@ -1732,10 +1816,19 @@ export const getOutcomesAnalytics = query({
       cohort_name: cohortMap.get(o.cohort_id) || 'Unknown',
     }));
 
+    // Apply pagination to outcomes list for dashboard performance
+    // Summary and breakdown always reflect all data for accurate KPIs
+    const totalOutcomes = outcomesWithDetails.length;
+    const limit = args.outcomeLimit ?? 1000; // Default limit for dashboard views
+    const offset = args.outcomeOffset ?? 0;
+    const paginatedOutcomes = outcomesWithDetails.slice(offset, offset + limit);
+
     return {
       summary,
       breakdown,
-      outcomes: outcomesWithDetails,
+      outcomes: paginatedOutcomes,
+      totalOutcomes,
+      hasMoreOutcomes: offset + paginatedOutcomes.length < totalOutcomes,
     };
   },
 });
@@ -1833,16 +1926,15 @@ export const listSnapshots = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
 
+    // Require university_admin to match createSnapshot mutation access control
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (universityId !== args.institutionId) {
-        throw new Error('Unauthorized: Different university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, args.institutionId);
     }
 
     const snapshots = await ctx.db
       .query('outcome_snapshots')
-      .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
+      .withIndex('by_institution_date', (q) => q.eq('institution_id', args.institutionId))
       .filter((q) => q.neq(q.field('is_active'), false)) // Exclude soft-deleted snapshots
       .order('desc')
       .collect();
@@ -1879,11 +1971,10 @@ export const getSnapshot = query({
       throw new Error('Snapshot not found'); // Don't reveal it was deleted
     }
 
+    // Require university_admin to match createSnapshot mutation access control
     if (sessionCtx.role !== 'super_admin') {
-      const universityId = requireTenant(sessionCtx);
-      if (snapshot.institution_id !== universityId) {
-        throw new Error('Unauthorized: Snapshot is not in your university');
-      }
+      const admin = await requireUniversityAdmin(ctx);
+      assertUniversityAccess(admin, snapshot.institution_id);
     }
 
     // Get creator name

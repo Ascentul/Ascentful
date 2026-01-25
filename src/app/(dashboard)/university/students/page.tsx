@@ -218,7 +218,7 @@ export default function UniversityStudentsPage() {
         adminClerkId: clerkUser.id,
         email: singleInviteForm.email.trim(),
         name: singleInviteForm.name.trim(),
-        role: 'user',
+        role: 'student',
         university_id: user.university_id as any,
       });
 
@@ -256,7 +256,7 @@ export default function UniversityStudentsPage() {
             adminClerkId: clerkUser.id,
             email: student.email.trim(),
             name: student.name.trim(),
-            role: 'user',
+            role: 'student',
             university_id: user.university_id as any,
           });
           successCount++;

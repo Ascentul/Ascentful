@@ -24,7 +24,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query, QueryCtx } from './_generated/server';
-import { getCurrentUser, requireTenant } from './advisor_auth';
+import { getCurrentUser, optionalTenant, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireAdvisor } from './lib/authorization';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
@@ -266,6 +266,9 @@ export const getAdvisorQueue = query({
           )
           .order('asc') // Oldest first within priority
           .collect();
+
+        // Ensure deterministic ordering before pagination
+        signals.sort((a, b) => a.triggered_at - b.triggered_at);
 
         const total = signals.length;
         const page = signals.slice(startIndex, startIndex + limit);
@@ -849,6 +852,17 @@ export const resolveSignal = mutation({
     // Role-scoped access - advisors can only resolve signals for their assigned students
     await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
+    // Status validation - prevent resolving already resolved/dismissed/archived signals
+    if (signal.status === 'resolved') {
+      throw new Error('Cannot resolve signal: Signal is already resolved');
+    }
+    if (signal.status === 'dismissed') {
+      throw new Error('Cannot resolve signal: Signal has already been dismissed');
+    }
+    if (signal.status === 'archived') {
+      throw new Error('Cannot resolve signal: Signal has been archived');
+    }
+
     const now = Date.now();
 
     await ctx.db.patch(args.signalId, {
@@ -914,6 +928,17 @@ export const dismissSignal = mutation({
 
     // Role-scoped access - advisors can only dismiss signals for their assigned students
     await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
+
+    // Status validation - prevent dismissing already resolved/dismissed/archived signals
+    if (signal.status === 'resolved') {
+      throw new Error('Cannot dismiss signal: Signal is already resolved');
+    }
+    if (signal.status === 'dismissed') {
+      throw new Error('Cannot dismiss signal: Signal is already dismissed');
+    }
+    if (signal.status === 'archived') {
+      throw new Error('Cannot dismiss signal: Signal has been archived');
+    }
 
     const now = Date.now();
 
@@ -1119,6 +1144,11 @@ export const bulkResolveSignals = mutation({
         continue; // Skip signals for unassigned students
       }
 
+      // Status validation - skip signals that are already resolved/dismissed/archived
+      if (['resolved', 'dismissed', 'archived'].includes(signal.status)) {
+        continue;
+      }
+
       await ctx.db.patch(signalId, {
         status: 'resolved',
         resolved_at: now,
@@ -1126,6 +1156,19 @@ export const bulkResolveSignals = mutation({
         resolution_type: args.resolutionType,
         resolution_notes: args.resolutionNotes,
         updated_at: now,
+      });
+
+      // Audit log for compliance and traceability
+      await safeLogAudit(ctx, {
+        category: 'user_action',
+        action: 'signal.bulk_resolved',
+        actorUserId: sessionCtx.userId,
+        actorRole: sessionCtx.role,
+        actorUniversityId: signal.university_id,
+        targetType: 'signal',
+        targetId: signalId,
+        previousValue: { status: signal.status },
+        newValue: { status: 'resolved', resolutionType: args.resolutionType },
       });
 
       resolved++;
@@ -1315,7 +1358,7 @@ export const evaluateSignalRules = internalMutation({
       // Batch fetch recent signals for cooldown checking (capped at MAX_RULE_LOOKBACK_DAYS)
       const maxCooldownDays = Math.min(
         MAX_RULE_LOOKBACK_DAYS,
-        Math.max(...rules.map((r) => r.cooldown_days ?? 0)),
+        rules.length > 0 ? Math.max(...rules.map((r) => r.cooldown_days ?? 0)) : 0,
       );
       const cooldownLookback = now - maxCooldownDays * 24 * 60 * 60 * 1000;
       const ruleIds = new Set(rules.map((r) => r._id));
@@ -1371,6 +1414,9 @@ export const evaluateSignalRules = internalMutation({
           q.eq('university_id', university._id).eq('is_active', true),
         )
         .collect();
+      const engagementDefinitionsById = new Map(
+        engagementDefinitions.map((d) => [d._id as string, d]),
+      );
       const defaultDefinition =
         engagementDefinitions.find((d) => d.is_default) || engagementDefinitions[0] || null;
 
@@ -1380,6 +1426,7 @@ export const evaluateSignalRules = internalMutation({
         applicationsByUser,
         followupsByUser,
         engagementDefinition: defaultDefinition,
+        engagementDefinitionsById,
       };
 
       for (const rule of rules) {
@@ -1428,6 +1475,19 @@ export const evaluateSignalRules = internalMutation({
               created_at: now,
               updated_at: now,
             });
+
+            // Auto-create follow-up if configured on the rule
+            if (rule.auto_create_followup) {
+              await ctx.scheduler.runAfter(0, internal.followups.createFollowupFromSignal, {
+                signalId,
+                studentId: student._id,
+                universityId: university._id,
+                title: rule.followup_template || `Action needed: ${rule.name}`,
+                description: rule.description,
+                priority: rule.priority,
+                dueInDays: 7,
+              });
+            }
 
             // Schedule notification for advisors (only for urgent/high priority)
             if (rule.priority === 'urgent' || rule.priority === 'high') {
@@ -1483,6 +1543,10 @@ interface PrefetchedData {
     at_risk_threshold: number;
     criteria?: unknown;
   } | null;
+  engagementDefinitionsById: Map<
+    string,
+    { engaged_threshold: number; at_risk_threshold: number; criteria?: unknown }
+  >;
 }
 
 /**
@@ -1593,9 +1657,12 @@ async function evaluateRuleCondition(
       const toLevel = condition.to as string;
       const previousLevel = student.engagement_status;
 
-      // Use prefetched engagement definition
+      // Use rule-specific definition if specified, otherwise fall back to default
       if (!student.university_id) return { triggered: false };
-      const definition = prefetchedData.engagementDefinition;
+      const definitionId = condition.definition_id as string | undefined;
+      const definition =
+        (definitionId && prefetchedData.engagementDefinitionsById.get(definitionId)) ||
+        prefetchedData.engagementDefinition;
       if (!definition) return { triggered: false };
 
       // Calculate current engagement score using the canonical scoring model
@@ -1681,8 +1748,15 @@ async function evaluateRuleCondition(
       // Check application outcomes - many rejections, no offers (use prefetched data)
       const rejectionsMin = (condition.rejections_min as number) ?? 5;
       const offersMax = (condition.offers as number) ?? 0;
+      const applicationsMin =
+        typeof condition.applications === 'number' ? condition.applications : undefined;
 
       const applications = studentApplications;
+
+      // Check minimum applications threshold if configured
+      if (applicationsMin !== undefined && applications.length < applicationsMin) {
+        return { triggered: false };
+      }
 
       const rejections = applications.filter(
         (app) => normalizeStage(app.stage ?? app.status) === 'rejected',
@@ -1699,6 +1773,7 @@ async function evaluateRuleCondition(
             offerCount: offers,
             rejectionsThreshold: rejectionsMin,
             totalApplications: applications.length,
+            applicationsThreshold: applicationsMin ?? null,
           },
         };
       }
@@ -2148,24 +2223,33 @@ export const getSignalAnalytics = query({
       }
     }
 
+    // Get allowed student IDs for advisors (returns null for full-access roles)
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
     const now = Date.now();
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
     const start = args.dateRange?.start ?? thirtyDaysAgo;
     const end = args.dateRange?.end ?? now;
 
     // Get all signals for this university (for status/priority counts)
-    const allSignals = await ctx.db
+    let allSignals = await ctx.db
       .query('signals')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
 
     // Get signals in date range using indexed query (more efficient for large datasets)
-    const signalsInRange = await ctx.db
+    let signalsInRange = await ctx.db
       .query('signals')
       .withIndex('by_university_created_at', (q) =>
         q.eq('university_id', args.universityId).gte('created_at', start).lte('created_at', end),
       )
       .collect();
+
+    // Filter signals to advisor's assigned students if applicable
+    if (allowedStudentIds !== null) {
+      allSignals = allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+      signalsInRange = signalsInRange.filter((s) => allowedStudentIds.has(s.student_id));
+    }
 
     // Current status breakdown
     const statusCounts = {
@@ -2202,17 +2286,22 @@ export const getSignalAnalytics = query({
     };
 
     // Resolution type breakdown (resolved signals only)
-    const resolvedSignals = signalsInRange.filter((s) => s.status === 'resolved');
+    // Use allSignals filtered by resolved_at in range, not signalsInRange (which filters by created_at)
+    // This ensures we count signals resolved during the period even if created before the cutoff
+    const resolvedInRange = allSignals.filter(
+      (s) =>
+        s.status === 'resolved' && s.resolved_at && s.resolved_at >= start && s.resolved_at <= end,
+    );
     const resolutionCounts = {
-      action_taken: resolvedSignals.filter((s) => s.resolution_type === 'action_taken').length,
-      no_action_needed: resolvedSignals.filter((s) => s.resolution_type === 'no_action_needed')
+      action_taken: resolvedInRange.filter((s) => s.resolution_type === 'action_taken').length,
+      no_action_needed: resolvedInRange.filter((s) => s.resolution_type === 'no_action_needed')
         .length,
-      dismissed: resolvedSignals.filter((s) => s.resolution_type === 'dismissed').length,
-      auto_resolved: resolvedSignals.filter((s) => s.resolution_type === 'auto_resolved').length,
+      dismissed: resolvedInRange.filter((s) => s.resolution_type === 'dismissed').length,
+      auto_resolved: resolvedInRange.filter((s) => s.resolution_type === 'auto_resolved').length,
     };
 
     // Calculate average resolution time
-    const resolvedWithTimes = resolvedSignals.filter((s) => s.resolved_at && s.triggered_at);
+    const resolvedWithTimes = resolvedInRange.filter((s) => s.resolved_at && s.triggered_at);
     let avgResolutionTimeHours: number | null = null;
     if (resolvedWithTimes.length > 0) {
       const totalMs = resolvedWithTimes.reduce(
@@ -2304,7 +2393,7 @@ export const getSignalAnalytics = query({
         totalSignals: allSignals.length,
         activeSignals: statusCounts.active,
         signalsInPeriod: signalsInRange.length,
-        resolvedInPeriod: resolvedSignals.length,
+        resolvedInPeriod: resolvedInRange.length,
         avgResolutionTimeHours,
       },
       statusCounts,
@@ -2344,6 +2433,9 @@ export const getRuleEffectiveness = query({
       }
     }
 
+    // Get allowed student IDs for advisors (returns null for full-access roles)
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
     // Get all rules for this university
     const rules = await ctx.db
       .query('signal_rules')
@@ -2351,10 +2443,15 @@ export const getRuleEffectiveness = query({
       .collect();
 
     // Get all signals for this university
-    const allSignals = await ctx.db
+    let allSignals = await ctx.db
       .query('signals')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
+
+    // Filter signals to advisor's assigned students if applicable
+    if (allowedStudentIds !== null) {
+      allSignals = allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+    }
 
     const ruleMetrics: Array<{
       ruleId: string;

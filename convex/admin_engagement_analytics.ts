@@ -8,8 +8,52 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { query } from './_generated/server';
+import { query, QueryCtx } from './_generated/server';
 import { getAuthenticatedUser } from './lib/roles';
+
+async function getUniversityStudentEngagementStats(
+  ctx: QueryCtx,
+  universityId: Id<'universities'>,
+): Promise<{
+  totalStudents: number;
+  engagedCount: number;
+  atRiskCount: number;
+  totalScore: number;
+  scoredCount: number;
+}> {
+  const students = await ctx.db
+    .query('users')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .filter((q) => q.eq(q.field('role'), 'student'))
+    .collect();
+
+  const totalStudents = students.length;
+  let engagedCount = 0;
+  let atRiskCount = 0;
+  let totalScore = 0;
+  let scoredCount = 0;
+
+  // Use cached engagement data when available.
+  for (const student of students) {
+    if (student.engagement_status) {
+      scoredCount++;
+      if (student.engagement_status === 'engaged') {
+        engagedCount++;
+      } else if (student.engagement_status === 'at_risk') {
+        atRiskCount++;
+      }
+      totalScore += student.engagement_score ?? 0;
+    }
+  }
+
+  return {
+    totalStudents,
+    engagedCount,
+    atRiskCount,
+    totalScore,
+    scoredCount,
+  };
+}
 
 // ============================================================================
 // CROSS-UNIVERSITY COMPARISON
@@ -58,37 +102,8 @@ export const getCrossUniversityEngagement = query({
     }> = [];
 
     for (const university of universities) {
-      // Get students
-      const students = await ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', university._id))
-        .filter((q) => q.eq(q.field('role'), 'student'))
-        .collect();
-
-      const totalStudents = students.length;
-
-      // Use pre-computed engagement scores from users table (cached by engagement_cache.ts)
-      // Thresholds are already applied by the cache system when computing engagement_status
-      // This avoids O(n) activity_events queries per student
-      let engagedCount = 0;
-      let atRiskCount = 0;
-      let totalScore = 0;
-
-      for (const student of students) {
-        // Use cached engagement data if available
-        if (student.engagement_status) {
-          if (student.engagement_status === 'engaged') {
-            engagedCount++;
-          } else if (student.engagement_status === 'at_risk') {
-            atRiskCount++;
-          }
-          totalScore += student.engagement_score ?? 0;
-        } else {
-          // Fallback for students without cached engagement (newly created)
-          // Count as moderate (neither engaged nor at-risk) with score 0
-          // The scheduled job will populate their scores within 6 hours
-        }
-      }
+      const { totalStudents, engagedCount, atRiskCount, totalScore, scoredCount } =
+        await getUniversityStudentEngagementStats(ctx, university._id);
 
       // Get active signals count
       const activeSignals = await ctx.db
@@ -98,8 +113,8 @@ export const getCrossUniversityEngagement = query({
         )
         .collect();
 
-      // Use total student count for percentage calculations (no sampling needed with cached scores)
-      const processedCount = totalStudents;
+      // Use scoredCount for averages to avoid bias from students without cached engagement data
+      const processedCount = scoredCount > 0 ? scoredCount : totalStudents;
       universityMetrics.push({
         universityId: university._id,
         universityName: university.name,
@@ -265,36 +280,12 @@ export const getUniversityEngagementRanking = query({
     }> = [];
 
     for (const university of universities) {
-      const students = await ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', university._id))
-        .filter((q) => q.eq(q.field('role'), 'student'))
-        .collect();
-
-      const totalStudents = students.length;
+      const { totalStudents, engagedCount, atRiskCount, totalScore, scoredCount } =
+        await getUniversityStudentEngagementStats(ctx, university._id);
       if (totalStudents === 0) continue;
 
-      // Use pre-computed engagement scores from users table (cached by engagement_cache.ts)
-      // This avoids O(n) activity_events queries per student
-      let engagedCount = 0;
-      let atRiskCount = 0;
-      let totalScore = 0;
-
-      for (const student of students) {
-        // Use cached engagement data if available
-        if (student.engagement_status) {
-          if (student.engagement_status === 'engaged') {
-            engagedCount++;
-          } else if (student.engagement_status === 'at_risk') {
-            atRiskCount++;
-          }
-          totalScore += student.engagement_score ?? 0;
-        }
-        // Students without cached engagement are counted as moderate (neither engaged nor at-risk)
-        // The scheduled job will populate their scores within 6 hours
-      }
-
-      const processedCount = totalStudents;
+      // Use scoredCount for averages to avoid bias from students without cached engagement data
+      const processedCount = scoredCount > 0 ? scoredCount : totalStudents;
       rankings.push({
         rank: 0, // Will be set after sorting
         universityId: university._id,

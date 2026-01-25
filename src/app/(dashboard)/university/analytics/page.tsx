@@ -45,7 +45,7 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 
 export default function UniversityAnalyticsPage() {
   const { user: clerkUser } = useUser();
-  const { user, isAdmin, subscription } = useAuth();
+  const { user, isAdmin, isLoading, subscription } = useAuth();
   const [analyticsView, setAnalyticsView] = useState<
     'engagement' | 'features' | 'risk' | 'predictions'
   >('engagement');
@@ -60,49 +60,61 @@ export default function UniversityAnalyticsPage() {
   // subscription.isUniversity is NOT sufficient - it includes regular students
   const canAccess =
     !!user && (isAdmin || user.role === 'university_admin' || user.role === 'advisor');
+  const canQuery = !isLoading && canAccess && !!clerkUser?.id;
+  const canQueryUniversity = !isLoading && canAccess && !!universityId;
 
   const overview = useQuery(
     api.university_admin.getOverview,
-    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id } : 'skip',
   );
   const students = useQuery(
     api.university_admin.listStudents,
-    clerkUser?.id ? { clerkId: clerkUser.id, limit: 200 } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id, limit: 200 } : 'skip',
   );
   const departments = useQuery(
     api.university_admin.listDepartments,
-    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id } : 'skip',
   );
 
   // Engagement stats from the new engagement engine
   const engagementStats = useQuery(
     api.engagement_definitions.getUniqueEngagedStats,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Signal analytics for active signals count
   const signalAnalytics = useQuery(
     api.signals.getSignalAnalytics,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Real active users over time data
   const activeUsersData = useQuery(
     api.analytics.getUniversityActiveUsersOverTime,
-    universityId ? { universityId, timeRange: activeUsersTimeRange } : 'skip',
+    canQueryUniversity ? { universityId: universityId!, timeRange: activeUsersTimeRange } : 'skip',
   );
 
   // Real feature usage data (networking, AI coach)
   const featureUsage = useQuery(
     api.analytics.getUniversityFeatureUsage,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Real department analytics
   const departmentAnalytics = useQuery(
     api.analytics.getUniversityDepartmentAnalytics,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (
@@ -547,37 +559,37 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 {signalAnalytics &&
-                signalAnalytics.typeCounts.needs_outreach +
-                  signalAnalytics.typeCounts.application_support +
-                  signalAnalytics.typeCounts.document_review +
-                  signalAnalytics.typeCounts.milestone_check +
-                  signalAnalytics.typeCounts.custom >
+                (signalAnalytics.typeCounts?.needs_outreach ?? 0) +
+                  (signalAnalytics.typeCounts?.application_support ?? 0) +
+                  (signalAnalytics.typeCounts?.document_review ?? 0) +
+                  (signalAnalytics.typeCounts?.milestone_check ?? 0) +
+                  (signalAnalytics.typeCounts?.custom ?? 0) >
                   0 ? (
                   (() => {
                     const signalBarData = [
                       {
                         type: 'Needs Outreach',
-                        count: signalAnalytics.typeCounts.needs_outreach,
+                        count: signalAnalytics.typeCounts?.needs_outreach ?? 0,
                         color: '#F59E0B',
                       },
                       {
                         type: 'App Support',
-                        count: signalAnalytics.typeCounts.application_support,
+                        count: signalAnalytics.typeCounts?.application_support ?? 0,
                         color: '#3B82F6',
                       },
                       {
                         type: 'Doc Review',
-                        count: signalAnalytics.typeCounts.document_review,
+                        count: signalAnalytics.typeCounts?.document_review ?? 0,
                         color: '#8B5CF6',
                       },
                       {
                         type: 'Milestone',
-                        count: signalAnalytics.typeCounts.milestone_check,
+                        count: signalAnalytics.typeCounts?.milestone_check ?? 0,
                         color: '#10B981',
                       },
                       {
                         type: 'Custom',
-                        count: signalAnalytics.typeCounts.custom,
+                        count: signalAnalytics.typeCounts?.custom ?? 0,
                         color: '#6B7280',
                       },
                     ].filter((d) => d.count > 0);
@@ -864,37 +876,37 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 {signalAnalytics &&
-                signalAnalytics.typeCounts.needs_outreach +
-                  signalAnalytics.typeCounts.application_support +
-                  signalAnalytics.typeCounts.document_review +
-                  signalAnalytics.typeCounts.milestone_check +
-                  signalAnalytics.typeCounts.custom >
+                (signalAnalytics.typeCounts?.needs_outreach ?? 0) +
+                  (signalAnalytics.typeCounts?.application_support ?? 0) +
+                  (signalAnalytics.typeCounts?.document_review ?? 0) +
+                  (signalAnalytics.typeCounts?.milestone_check ?? 0) +
+                  (signalAnalytics.typeCounts?.custom ?? 0) >
                   0 ? (
                   (() => {
                     const signalTypeData = [
                       {
                         name: 'Needs Outreach',
-                        value: signalAnalytics.typeCounts.needs_outreach,
+                        value: signalAnalytics.typeCounts?.needs_outreach ?? 0,
                         color: '#F97316',
                       },
                       {
                         name: 'Application Support',
-                        value: signalAnalytics.typeCounts.application_support,
+                        value: signalAnalytics.typeCounts?.application_support ?? 0,
                         color: '#3B82F6',
                       },
                       {
                         name: 'Document Review',
-                        value: signalAnalytics.typeCounts.document_review,
+                        value: signalAnalytics.typeCounts?.document_review ?? 0,
                         color: '#8B5CF6',
                       },
                       {
                         name: 'Milestone Check',
-                        value: signalAnalytics.typeCounts.milestone_check,
+                        value: signalAnalytics.typeCounts?.milestone_check ?? 0,
                         color: '#10B981',
                       },
                       {
                         name: 'Custom',
-                        value: signalAnalytics.typeCounts.custom,
+                        value: signalAnalytics.typeCounts?.custom ?? 0,
                         color: '#6B7280',
                       },
                     ].filter((d) => d.value > 0);

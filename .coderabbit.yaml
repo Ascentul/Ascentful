@@ -417,5 +417,67 @@ reviews:
         - Signals older than 365 days have already been archived for 275+ days - data is preserved long enough
         - Retention policies balance compliance, performance, and storage costs
 
+        ### Runtime Isolation Between Convex and Next.js
+        - `convex/` and `src/` have separate runtime environments with different module resolution
+        - Identical utility functions in both locations (e.g., `escapeHtml`) are INTENTIONAL duplication
+        - Don't suggest importing from `src/` in Convex files or vice versa - runtime isolation prevents this
+        - Check for comments like "NOTE: Intentionally duplicated" before flagging duplicate implementations
+        - Pattern: `convex/lib/sanitizeHtml.ts` and `src/lib/utils.ts` may have identical functions - this is by design
+
+        ### Progressive Loading Is a Valid UX Pattern
+        - Don't suggest adding all queries to a single loading check when progressive loading is intentional
+        - Pattern: `!dataA || !dataB` in loading check while `dataC` renders conditionally with `{dataC && ...}`
+        - Progressive loading shows available content quickly while slower queries complete in background
+        - Both unified loading and progressive loading are valid - this is a UX design choice, not a bug
+        - Only suggest unified loading when there's evidence it improves UX (e.g., jarring content shifts)
+
+        ### Silent localStorage Catch Blocks
+        - Don't suggest adding debug logging to silent localStorage catch blocks
+        - localStorage failures are expected in: SSR, incognito mode, storage quota exceeded, Safari private browsing
+        - Pattern: `try { localStorage.setItem(...) } catch { /* Ignore */ }` is correct
+        - Adding console.debug for expected failures creates noise in development
+        - Comment `// Ignore parse errors` or `// Silently ignore` indicates intentional silent handling
+
+        ### Tiny Pure Functions Don't Need Memoization
+        - Don't suggest useCallback/useMemo for simple pure functions < 10 lines with basic operations
+        - Pattern: Date formatting functions (e.g., `formatTimeSince`) recreated each render are negligible cost
+        - useCallback/useMemo add overhead that exceeds the cost of recreating trivial functions
+        - Only suggest memoization when: function is expensive (>10ms), passed to memoized children, or in dependency arrays
+        - Extracting tiny functions outside component is style preference, not performance improvement
+
+        ### Callback-based Error Handling Architecture
+        - When components accept error callbacks (e.g., `onPermissionDenied`, `onError`), don't suggest duplicate inline error handling
+        - Pattern: `usePushNotifications({ onSubscriptionError: (e) => toast(...) })` handles errors via callback
+        - Adding fallback toasts in the component would risk duplicate error messages
+        - Check hook/component props for error callbacks before suggesting missing error handling
+        - The callback pattern allows parent to control error UX - child shouldn't override this
+
+        ### Try-Catch Around JSON Parsing
+        - Don't suggest Content-Type header checks when response.json() is already wrapped in try-catch
+        - Pattern: `try { data = await response.json() } catch { throw new Error('Invalid response') }` handles non-JSON
+        - try-catch is more robust than Content-Type checking - servers can lie about Content-Type
+        - Content-Type check + try-catch is redundant - the try-catch alone is sufficient
+        - Only suggest Content-Type check when there's no try-catch around JSON parsing
+
+        ### IIFEs in JSX Are Valid Pattern
+        - Don't suggest extracting IIFEs (Immediately Invoked Function Expressions) from JSX to useMemo/constants
+        - Pattern: `{(() => { const data = transform(props); return <Chart data={data} />; })()}`
+        - IIFEs keep data transformation close to its usage, improving code locality
+        - This is a style preference - both patterns are valid React code
+        - Only suggest extraction when: the same transform is used multiple times, or component is measurably slow
+
+        ### Placeholder Functions with Documented Intent
+        - Don't suggest removing or deprecating functions that return input unchanged when JSDoc explains why
+        - Pattern: `/** Currently returns all items - route-level guards handle access */`
+        - These functions provide stable APIs for future implementation and document architectural decisions
+        - Comments like "currently returns all items" indicate intentional design, not incomplete code
+        - The JSDoc serves as documentation for the access control architecture
+
+        ### Hardcoded Values in Single-Use Handlers
+        - Don't suggest making hardcoded values configurable when there's only one call site
+        - Pattern: `resolutionType: 'action_taken'` in a resolve handler doesn't need to be a parameter
+        - Add configurability when actual use cases require different values, not speculatively
+        - YAGNI (You Aren't Gonna Need It) - add parameters when needed, not before
+
 chat:
   auto_reply: true

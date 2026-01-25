@@ -41,6 +41,28 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
   // Track when local mutation just happened to prevent server sync from overwriting optimistic state
   const skipServerSyncRef = useRef(false);
+  const skipServerSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to schedule server sync resume - clears any existing timer to prevent race conditions
+  const scheduleServerSyncResume = useCallback(() => {
+    skipServerSyncRef.current = true;
+    if (skipServerSyncTimeoutRef.current) {
+      clearTimeout(skipServerSyncTimeoutRef.current);
+    }
+    skipServerSyncTimeoutRef.current = setTimeout(() => {
+      skipServerSyncRef.current = false;
+      skipServerSyncTimeoutRef.current = null;
+    }, 2000);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (skipServerSyncTimeoutRef.current) {
+        clearTimeout(skipServerSyncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Convex mutations
   const subscribe = useMutation(api.push_subscriptions.subscribe);
@@ -105,6 +127,18 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
             type: 'SET_VAPID_KEY',
             key: vapidPublicKey,
           });
+        } else {
+          // Wait for the worker to activate before posting
+          navigator.serviceWorker.addEventListener(
+            'controllerchange',
+            () => {
+              navigator.serviceWorker.controller?.postMessage({
+                type: 'SET_VAPID_KEY',
+                key: vapidPublicKey,
+              });
+            },
+            { once: true },
+          );
         }
 
         // Check current permission
@@ -207,10 +241,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
 
       // Skip server sync briefly to prevent overwriting optimistic state
-      skipServerSyncRef.current = true;
-      setTimeout(() => {
-        skipServerSyncRef.current = false;
-      }, 2000);
+      scheduleServerSyncResume();
 
       return true;
     } catch (error) {
@@ -233,6 +264,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     subscribe,
     onPermissionDenied,
     onSubscriptionError,
+    scheduleServerSyncResume,
   ]);
 
   // Unsubscribe from push notifications
@@ -251,7 +283,14 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         await subscription.unsubscribe();
 
         // Then remove from Convex - if this fails, scheduled cleanup will handle stale records
-        await unsubscribe({ endpoint: subscription.endpoint });
+        try {
+          await unsubscribe({ endpoint: subscription.endpoint });
+        } catch (convexError) {
+          console.warn(
+            'Failed to remove subscription from server, will be cleaned up by scheduled job:',
+            convexError,
+          );
+        }
       }
 
       setState((prev) => ({
@@ -261,10 +300,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
 
       // Skip server sync briefly to prevent overwriting optimistic state
-      skipServerSyncRef.current = true;
-      setTimeout(() => {
-        skipServerSyncRef.current = false;
-      }, 2000);
+      scheduleServerSyncResume();
 
       return true;
     } catch (error) {
@@ -276,17 +312,17 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
       return false;
     }
-  }, [registration, unsubscribe]);
+  }, [registration, unsubscribe, scheduleServerSyncResume]);
 
   // Sync subscription state with Convex (skip briefly after local mutations to prevent flicker)
   useEffect(() => {
-    if (hasActiveSubscription !== undefined && !skipServerSyncRef.current) {
+    if (hasActiveSubscription !== undefined && !skipServerSyncRef.current && !state.isLoading) {
       setState((prev) => ({
         ...prev,
         isSubscribed: hasActiveSubscription,
       }));
     }
-  }, [hasActiveSubscription]);
+  }, [hasActiveSubscription, state.isLoading]);
 
   return {
     ...state,

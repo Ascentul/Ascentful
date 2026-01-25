@@ -154,16 +154,19 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
         try {
           // Derive initial role from Clerk public metadata if present and valid
           const allowedRoles = [
+            'individual',
             'user',
-            'admin',
-            'super_admin',
-            'university_admin',
+            'student',
             'staff',
+            'university_admin',
+            'advisor',
+            'super_admin',
           ] as const;
           const metaRole = (clerkUser.publicMetadata as any)?.role as string | undefined;
+          const normalizedMetaRole = metaRole === 'admin' ? 'super_admin' : metaRole;
           const initialRole =
-            metaRole && (allowedRoles as readonly string[]).includes(metaRole)
-              ? (metaRole as any)
+            normalizedMetaRole && (allowedRoles as readonly string[]).includes(normalizedMetaRole)
+              ? (normalizedMetaRole as any)
               : undefined;
 
           await initializeUserProfile({

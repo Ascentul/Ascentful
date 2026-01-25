@@ -41,7 +41,10 @@ export const OUTCOME_CSV_FIELDS: Array<{
   { header: 'outcome_type', getValue: (o) => o.outcome_type || '' },
   { header: 'employer_name', getValue: (o) => o.employer_name || '' },
   { header: 'job_title', getValue: (o) => o.job_title || '' },
-  { header: 'is_verified', getValue: (o) => (o.is_verified ? 'true' : 'false') },
+  {
+    header: 'is_verified',
+    getValue: (o) => (o.is_verified === undefined ? '' : o.is_verified ? 'true' : 'false'),
+  },
   { header: 'confidence_score', getValue: (o) => o.confidence_score?.toString() || '' },
   { header: 'evidence_count', getValue: (o) => o.evidence_files?.length?.toString() || '0' },
   { header: 'data_source', getValue: (o) => o.data_source || '' },
@@ -70,7 +73,7 @@ const FORMULA_CHARS = ['=', '+', '-', '@', '|'];
  * Security features:
  * - Quotes fields containing commas, quotes, newlines, or carriage returns
  * - Escapes embedded quotes by doubling them
- * - Prefixes formula-starting cells with a tab to prevent Excel formula injection
+ * - Prefixes formula-starting cells with a single quote to prevent Excel formula injection
  *
  * @param field - The cell value to escape (undefined/null return empty string)
  * @returns The escaped CSV cell value
@@ -94,8 +97,8 @@ export function escapeCSV(field: string | number | undefined | null): string {
   if (needsQuoting) {
     // Escape embedded quotes by doubling them
     const escaped = stringField.replace(/"/g, '""');
-    // Prefix with tab to prevent formula interpretation in Excel
-    return startsWithFormula ? `"\t${escaped}"` : `"${escaped}"`;
+    // Prefix with single quote to mark as text and prevent formula interpretation (OWASP CWE-1236)
+    return startsWithFormula ? `"'${escaped}"` : `"${escaped}"`;
   }
 
   return stringField;

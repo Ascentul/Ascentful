@@ -38,7 +38,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -237,6 +236,7 @@ export default function AdvisorQueuePage() {
 
   const formatTimeAgo = (timestamp: number): string => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 0) return 'just now'; // Handle future timestamps (clock skew)
     if (seconds < 60) return 'just now';
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ago`;
@@ -386,13 +386,13 @@ export default function AdvisorQueuePage() {
             <Card key={signal._id} className="hover:shadow-md transition-shadow">
               <CardContent className="flex items-center gap-4 py-4">
                 {/* Priority Indicator */}
-                <Badge className={priorityColors[signal.priority]}>
+                <Badge className={priorityColors[signal.priority] || 'bg-gray-200 text-gray-700'}>
                   {signal.priority.charAt(0).toUpperCase()}
                 </Badge>
 
                 {/* Signal Type Icon */}
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  {signalTypeIcons[signal.signal_type]}
+                  {signalTypeIcons[signal.signal_type] || <Bell className="h-4 w-4" />}
                 </div>
 
                 {/* Student Info */}

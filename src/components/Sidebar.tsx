@@ -349,11 +349,7 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
         title: 'Advising',
         icon: <Calendar className="h-5 w-5" />,
         items: [
-          {
-            href: '/u/advising/today',
-            icon: <Clock className="h-4 w-4" />,
-            label: 'Today',
-          },
+          // Note: "Today" removed - accessed via top-level Dashboard to avoid duplicate active states
           {
             href: '/u/advising/calendar',
             icon: <Calendar className="h-4 w-4" />,

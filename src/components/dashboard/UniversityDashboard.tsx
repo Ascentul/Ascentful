@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Award,
   BarChart as BarChartIcon,
+  BarChart3,
   BookOpen,
   Briefcase,
   ClipboardList,
@@ -118,9 +119,7 @@ export function UniversityDashboard() {
   const { toast } = useToast();
 
   // Filter states - declared at top to avoid Rules of Hooks violation
-  const [roleFilter, setRoleFilter] = useState<'all' | 'undergraduate' | 'graduate' | 'staff'>(
-    'all',
-  );
+  const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'advisor' | 'staff'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>(
     'all',
   );
@@ -134,7 +133,7 @@ export function UniversityDashboard() {
   // Assign student licenses states
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignText, setAssignText] = useState('');
-  const [assignRole, setAssignRole] = useState<'user' | 'staff'>('user');
+  const [assignRole, setAssignRole] = useState<'student' | 'advisor'>('student');
   const [selectedProgram, setSelectedProgram] = useState<Id<'departments'> | 'none'>('none');
   const [assigning, setAssigning] = useState(false);
   const [importingEmails, setImportingEmails] = useState(false);
@@ -151,7 +150,7 @@ export function UniversityDashboard() {
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    role: 'user',
+    role: 'student',
   });
   const [editOpen, setEditOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -221,7 +220,7 @@ export function UniversityDashboard() {
   );
   const students = useQuery(
     api.university_admin.listStudents,
-    clerkUser?.id ? { clerkId: clerkUser.id, limit: 50 } : 'skip',
+    clerkUser?.id ? { clerkId: clerkUser.id, limit: 500 } : 'skip', // Backend max is 500
   );
   const departments = useQuery(
     api.university_admin.listDepartments,
@@ -301,34 +300,30 @@ export function UniversityDashboard() {
 
   const platformUsageData = filteredPlatformUsageData;
 
-  // Compute derived data for charts
+  // Use server-computed department distribution for accuracy at scale
   const departmentDistributionData = useMemo(() => {
-    if (!students || students.length === 0 || !departments) return [];
+    if (!overview?.departmentDistribution) return [];
 
-    const totalStudents = students.length;
-    const data = departments
-      .map((dept) => {
-        const deptStudents = students.filter((s: any) => s.department_id === dept._id);
-        return {
-          name: dept.name,
-          value: Math.round((deptStudents.length / totalStudents) * 100),
-          count: deptStudents.length,
-        };
-      })
-      .filter((d) => d.count > 0);
+    const data = overview.departmentDistribution
+      .filter((d: any) => d.count > 0)
+      .map((d: any) => ({
+        name: d.name,
+        value: d.percentage,
+        count: d.count,
+      }));
 
     // Add unassigned students
-    const unassignedStudents = students.filter((s: any) => !s.department_id);
-    if (unassignedStudents.length > 0) {
+    if ((overview.unassignedStudents ?? 0) > 0) {
+      const total = overview.totalStudents ?? 0;
       data.push({
         name: 'Not Assigned',
-        value: Math.round((unassignedStudents.length / totalStudents) * 100),
-        count: unassignedStudents.length,
+        value: total > 0 ? Math.round((overview.unassignedStudents / total) * 100) : 0,
+        count: overview.unassignedStudents,
       });
     }
 
     return data;
-  }, [students, departments]);
+  }, [overview]);
 
   const topFeaturesData = useMemo(() => {
     if (!studentMetrics) return [];
@@ -373,6 +368,59 @@ export function UniversityDashboard() {
     ];
   }, [studentProgress]);
 
+  // Feature engagement by risk level - computed from real student progress data
+  const featureEngagementByRisk = useMemo(() => {
+    if (!studentProgress || studentProgress.length === 0) {
+      return [
+        { feature: 'Resume Builder', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Applications', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Goals', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Networking', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+      ];
+    }
+
+    // Categorize students by risk level
+    const highRiskStudents = studentProgress.filter((s) => s.completion < 20);
+    const mediumRiskStudents = studentProgress.filter(
+      (s) => s.completion >= 20 && s.completion < 50,
+    );
+    const lowRiskStudents = studentProgress.filter((s) => s.completion >= 50);
+
+    // Helper to calculate average, returning 0 if no students
+    const avg = (students: typeof studentProgress, key: keyof (typeof studentProgress)[0]) => {
+      if (students.length === 0) return 0;
+      const sum = students.reduce((acc, s) => acc + (Number(s[key]) || 0), 0);
+      return Math.round((sum / students.length) * 10) / 10; // Round to 1 decimal
+    };
+
+    return [
+      {
+        feature: 'Resume Builder',
+        highRisk: avg(highRiskStudents, 'resumes'),
+        mediumRisk: avg(mediumRiskStudents, 'resumes'),
+        lowRisk: avg(lowRiskStudents, 'resumes'),
+      },
+      {
+        feature: 'Applications',
+        highRisk: avg(highRiskStudents, 'applications'),
+        mediumRisk: avg(mediumRiskStudents, 'applications'),
+        lowRisk: avg(lowRiskStudents, 'applications'),
+      },
+      {
+        feature: 'Goals',
+        highRisk: avg(highRiskStudents, 'goals'),
+        mediumRisk: avg(mediumRiskStudents, 'goals'),
+        lowRisk: avg(lowRiskStudents, 'goals'),
+      },
+      {
+        feature: 'Projects',
+        highRisk: avg(highRiskStudents, 'projects'),
+        mediumRisk: avg(mediumRiskStudents, 'projects'),
+        lowRisk: avg(lowRiskStudents, 'projects'),
+      },
+    ];
+  }, [studentProgress]);
+
   // Filter students based on current filters
   const filteredStudents = useMemo(() => {
     if (!students) return [];
@@ -399,6 +447,116 @@ export function UniversityDashboard() {
 
   // Assign student licenses
   const assignStudent = useMutation(api.university_admin.assignStudentByEmail);
+
+  // Student management mutations
+  const updateStudentMutation = useMutation(api.university_admin.updateStudentByAdmin);
+  const removeStudentMutation = useMutation(api.university_admin.removeStudentFromUniversity);
+  const resendInvitationMutation = useMutation(api.admin_users.regenerateActivationToken);
+
+  /**
+   * Shared helper for assigning students and sending activation emails.
+   * Used by both "Invite Students" and "Assign Licenses" modals.
+   */
+  const assignStudentsWithInvitations = async ({
+    emailsText,
+    role,
+    departmentId,
+  }: {
+    emailsText: string;
+    role: 'student' | 'advisor';
+    departmentId?: Id<'departments'>;
+  }): Promise<{ success: boolean; successCount: number }> => {
+    if (!clerkUser?.id) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to assign students',
+        variant: 'destructive',
+      });
+      return { success: false, successCount: 0 };
+    }
+
+    const emails = Array.from(
+      new Set(
+        emailsText
+          .split(/[\n,]+/)
+          .map((e) => e.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (emails.length === 0) {
+      toast({
+        title: 'No emails provided',
+        description: 'Please enter at least one email address',
+        variant: 'destructive',
+      });
+      return { success: false, successCount: 0 };
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+    const successfulEmails: string[] = [];
+
+    // Step 1: Assign students in Convex (creates pending users or updates existing)
+    // Map 'advisor' to 'staff' for mutation schema compatibility
+    const roleForApi = role === 'advisor' ? 'staff' : role;
+    for (const email of emails) {
+      try {
+        await assignStudent({
+          clerkId: clerkUser.id,
+          email,
+          role: roleForApi,
+          departmentId,
+        });
+        successCount++;
+        successfulEmails.push(email);
+      } catch (e: any) {
+        errorCount++;
+        errors.push(`${email}: ${e?.message || 'Unknown error'}`);
+      }
+    }
+
+    // Step 2: Send activation emails via API
+    let emailSendFailed = false;
+    if (successfulEmails.length > 0) {
+      try {
+        const response = await fetch('/api/university/send-invitations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: successfulEmails }),
+        });
+
+        if (!response.ok) {
+          emailSendFailed = true;
+          console.error('Failed to send some activation emails');
+        }
+      } catch (emailError) {
+        emailSendFailed = true;
+        console.error('Error sending activation emails:', emailError);
+        // Don't fail the whole operation if email sending fails
+      }
+    }
+
+    // Step 3: Show toast notifications
+    if (successCount > 0) {
+      toast({
+        title: 'Students assigned successfully',
+        description: `${successCount} student(s) assigned${emailSendFailed ? '' : ' and activation email(s) sent'}${errorCount > 0 ? `. ${errorCount} failed` : ''}${emailSendFailed ? ' (emails failed to send - students can still log in)' : ''}`,
+        variant: errorCount > 0 || emailSendFailed ? 'default' : 'success',
+      });
+    }
+
+    if (errorCount > 0 && successCount === 0) {
+      toast({
+        title: 'Assignment failed',
+        description: errors.slice(0, 3).join('; ') + (errors.length > 3 ? '...' : ''),
+        variant: 'destructive',
+      });
+    }
+
+    return { success: successCount > 0, successCount };
+  };
 
   // Access is role-based only - university_admin or super_admin can access this dashboard
   // subscription.isUniversity is NOT used for access control here; it determines what
@@ -464,42 +622,11 @@ export function UniversityDashboard() {
   }
 
   // Report handlers
-  const handleViewReport = async (reportName: string, reportType: string) => {
-    try {
-      toast({
-        title: 'Generating Report',
-        description: `Preparing ${reportName}...`,
-      });
-
-      // For now, simulate report generation and show a simple report modal
-      // In a real implementation, this would fetch report data and display it
-      setTimeout(() => {
-        toast({
-          title: 'Report Ready',
-          description: `${reportName} is ready for viewing.`,
-          action: (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // Simple report display - in real implementation, open a modal or navigate
-                alert(
-                  `${reportName}\n\nType: ${reportType}\n\nReport data would be displayed here.`,
-                );
-              }}
-            >
-              View Report
-            </Button>
-          ),
-        });
-      }, 1000);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to generate report. Please try again.',
-        variant: 'destructive',
-      });
-    }
+  const handleViewReport = async (_reportName: string, _reportType: string) => {
+    toast({
+      title: 'Coming Soon',
+      description: 'Report viewing will be available in a future update.',
+    });
   };
 
   const handleDownloadReport = async (reportName: string, reportType: string) => {
@@ -542,9 +669,12 @@ export function UniversityDashboard() {
         const filename = `${reportName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
         a.download = `${filename}.csv`;
         document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          a.click();
+        } finally {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
 
         toast({
           title: 'Download Complete',
@@ -605,9 +735,12 @@ export function UniversityDashboard() {
           exportFilename.trim() || `university-report-${new Date().toISOString().split('T')[0]}`;
         a.download = `${filename}.csv`;
         document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          a.click();
+        } finally {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
         toast({
           title: 'Export successful',
           description: 'Report downloaded successfully',
@@ -662,24 +795,66 @@ export function UniversityDashboard() {
     setEditForm({
       name: student.name || '',
       email: student.email || '',
-      role: student.role || 'user',
+      role: student.role === 'user' ? 'student' : student.role || 'student',
     });
     setEditOpen(true);
   };
 
   const handleUpdateStudent = async () => {
-    if (!clerkUser?.id || !editingStudent) return;
+    if (!clerkUser?.id || !editingStudent || !user?.university_id) return;
 
     setUpdatingStudent(true);
     try {
-      // Simulate API call to update student
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const newRole = editForm.role as 'student' | 'advisor' | undefined;
+      const roleChanged = newRole !== undefined && newRole !== editingStudent.role;
 
-      toast({
-        title: 'Student updated',
-        description: `${editForm.name || editForm.email} has been updated successfully.`,
-        variant: 'success',
+      const result = await updateStudentMutation({
+        clerkId: clerkUser.id,
+        studentId: editingStudent._id,
+        updates: {
+          name: editForm.name || undefined,
+          // email removed - Clerk is source of truth for email
+          role: newRole,
+        },
       });
+
+      // Sync role change to Clerk (Clerk is source of truth for auth)
+      let clerkSyncFailed = false;
+      if (roleChanged && result.studentClerkId) {
+        try {
+          const response = await fetch('/api/university/sync-student-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentClerkId: result.studentClerkId,
+              universityId: user.university_id,
+              newRole: newRole,
+            }),
+          });
+          if (!response.ok) {
+            clerkSyncFailed = true;
+            console.error('Failed to sync role to Clerk:', await response.text());
+          }
+        } catch (syncError) {
+          clerkSyncFailed = true;
+          console.error('Failed to sync role to Clerk:', syncError);
+        }
+      }
+
+      if (clerkSyncFailed) {
+        toast({
+          title: 'Student updated with warning',
+          description:
+            'Role updated locally but Clerk sync failed. The change may not take effect until the student logs out and back in.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Student updated',
+          description: `${editForm.name || editingStudent.email} has been updated successfully.`,
+          variant: 'success',
+        });
+      }
       setEditOpen(false);
       setEditingStudent(null);
     } catch (error: any) {
@@ -699,18 +874,52 @@ export function UniversityDashboard() {
   };
 
   const confirmDeleteStudent = async () => {
-    if (!clerkUser?.id || !studentToDelete) return;
+    if (!clerkUser?.id || !studentToDelete || !user?.university_id) return;
 
     setDeletingStudent(true);
     try {
-      // Simulate API call to remove student
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast({
-        title: 'Student removed',
-        description: `${studentToDelete.name || studentToDelete.email} has been removed successfully.`,
-        variant: 'success',
+      await removeStudentMutation({
+        clerkId: clerkUser.id,
+        studentId: studentToDelete._id,
       });
+
+      // Sync role change to Clerk (Clerk is source of truth for auth)
+      // The mutation updated Convex role to 'individual', now sync to Clerk
+      let clerkSyncFailed = false;
+      if (studentToDelete.clerkId) {
+        try {
+          const response = await fetch('/api/university/remove-student-clerk-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentClerkId: studentToDelete.clerkId,
+              universityId: user.university_id,
+            }),
+          });
+          if (!response.ok) {
+            clerkSyncFailed = true;
+            console.error('Failed to sync role to Clerk:', await response.text());
+          }
+        } catch (syncError) {
+          clerkSyncFailed = true;
+          console.error('Failed to sync role to Clerk:', syncError);
+        }
+      }
+
+      if (clerkSyncFailed) {
+        toast({
+          title: 'Student removed with warning',
+          description:
+            'Student removed locally but Clerk sync failed. Their access may not be fully revoked until they log out.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Student removed',
+          description: `${studentToDelete.name || studentToDelete.email} has been removed from the university.`,
+          variant: 'success',
+        });
+      }
       setDeleteConfirmOpen(false);
       setStudentToDelete(null);
     } catch (error: any) {
@@ -728,8 +937,10 @@ export function UniversityDashboard() {
     if (!clerkUser?.id) return;
 
     try {
-      // Simulate API call to resend invitation
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await resendInvitationMutation({
+        adminClerkId: clerkUser.id,
+        userId: student._id,
+      });
 
       toast({
         title: 'Invitation sent',
@@ -784,7 +995,7 @@ export function UniversityDashboard() {
             Add Student Licenses
             {overview && overview.licenseCapacity && (
               <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
-                {overview.licenseCapacity - overview.activeLicenses} seats left
+                {overview.licenseCapacity - (overview.activeLicenses ?? 0)} seats left
               </span>
             )}
           </button>
@@ -842,14 +1053,7 @@ export function UniversityDashboard() {
               <CardContent>
                 <div className="flex items-center">
                   <Users className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold">
-                    {
-                      students.filter(
-                        (s: any) =>
-                          s.last_active && Date.now() - s.last_active < 30 * 24 * 60 * 60 * 1000,
-                      ).length
-                    }
-                  </div>
+                  <div className="text-2xl font-bold">{overview?.activeStudents ?? 0}</div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Unique students who engaged
@@ -897,10 +1101,10 @@ export function UniversityDashboard() {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {students.length > 0
+                  {(overview?.totalStudents ?? 0) > 0
                     ? Math.round(
                         ((studentProgress?.filter((s) => s.completion < 30).length || 0) /
-                          students.length) *
+                          (overview?.totalStudents ?? 1)) *
                           100,
                       )
                     : 0}
@@ -967,7 +1171,7 @@ export function UniversityDashboard() {
                 <CardContent>
                   <div className="flex items-center">
                     <Users className="h-5 w-5 text-muted-foreground mr-2" />
-                    <div className="text-2xl font-bold">{overview.totalStudents}</div>
+                    <div className="text-2xl font-bold">{overview.activeStudents ?? 0}</div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">This month</div>
                 </CardContent>
@@ -1054,8 +1258,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -1065,192 +1269,67 @@ export function UniversityDashboard() {
 
             {/* Student Activity Trends and Asset Completion Breakdown */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
+              <Card className="relative">
+                <div className="absolute top-4 right-4 z-10">
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                    Coming Soon
+                  </span>
+                </div>
                 <CardHeader>
-                  <CardTitle>Student Activity Trends</CardTitle>
+                  <CardTitle className="text-muted-foreground">Student Activity Trends</CardTitle>
                   <CardDescription>
                     Weekly student engagement and feature usage patterns
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={[
-                        {
-                          week: 'Week 1',
-                          logins: 180,
-                          goals: 45,
-                          applications: 12,
-                          documents: 28,
-                        },
-                        {
-                          week: 'Week 2',
-                          logins: 210,
-                          goals: 52,
-                          applications: 18,
-                          documents: 35,
-                        },
-                        {
-                          week: 'Week 3',
-                          logins: 195,
-                          goals: 48,
-                          applications: 15,
-                          documents: 32,
-                        },
-                        {
-                          week: 'Week 4',
-                          logins: 240,
-                          goals: 58,
-                          applications: 22,
-                          documents: 41,
-                        },
-                      ]}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="logins"
-                        stroke="#4F46E5"
-                        strokeWidth={2}
-                        name="Daily Logins"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="goals"
-                        stroke="#10B981"
-                        strokeWidth={2}
-                        name="Goals Set"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="applications"
-                        stroke="#F59E0B"
-                        strokeWidth={2}
-                        name="Applications"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="documents"
-                        stroke="#EC4899"
-                        strokeWidth={2}
-                        name="Documents Created"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <CardContent className="h-80 flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                    <p className="text-sm">Activity analytics will be available soon</p>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="relative">
+                <div className="absolute top-4 right-4 z-10">
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                    Coming Soon
+                  </span>
+                </div>
                 <CardHeader>
-                  <CardTitle>Asset Completion Breakdown by Category</CardTitle>
+                  <CardTitle className="text-muted-foreground">
+                    Asset Completion Breakdown by Category
+                  </CardTitle>
                   <CardDescription>
                     Average completion levels across resumes, cover letters, goals, applications
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        {
-                          category: 'Resumes',
-                          completion: 78,
-                          color: '#4F46E5',
-                        },
-                        {
-                          category: 'Cover Letters',
-                          completion: 65,
-                          color: '#10B981',
-                        },
-                        { category: 'Goals', completion: 82, color: '#F59E0B' },
-                        {
-                          category: 'Applications',
-                          completion: 58,
-                          color: '#EF4444',
-                        },
-                      ]}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="category" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="completion" fill="#4F46E5" name="Completion %">
-                        <LabelList
-                          dataKey="completion"
-                          position="top"
-                          formatter={(value: number) => `${value}%`}
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <CardContent className="h-80 flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                    <p className="text-sm">Completion analytics will be available soon</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
+            <Card className="relative">
+              <div className="absolute top-4 right-4 z-10">
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                  Coming Soon
+                </span>
+              </div>
               <CardHeader>
-                <CardTitle>Student Progress Insights</CardTitle>
+                <CardTitle className="text-muted-foreground">Student Progress Insights</CardTitle>
                 <CardDescription>
                   Goals in progress vs completed, applications by stage, and resume/cover letter
                   activity
                 </CardDescription>
               </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: 'Goals',
-                        inProgress: 45,
-                        completed: 28,
-                      },
-                      {
-                        name: 'Applications',
-                        inProgress: 12,
-                        submitted: 35,
-                        interviewing: 18,
-                        offers: 8,
-                      },
-                      {
-                        name: 'Documents',
-                        resumes: 67,
-                        coverLetters: 43,
-                      },
-                    ]}
-                    margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="inProgress" fill="#4F46E5" name="In Progress">
-                      <LabelList dataKey="inProgress" position="top" />
-                    </Bar>
-                    <Bar dataKey="completed" fill="#10B981" name="Completed">
-                      <LabelList dataKey="completed" position="top" />
-                    </Bar>
-                    <Bar dataKey="submitted" fill="#F59E0B" name="Submitted">
-                      <LabelList dataKey="submitted" position="top" />
-                    </Bar>
-                    <Bar dataKey="interviewing" fill="#EF4444" name="Interviewing">
-                      <LabelList dataKey="interviewing" position="top" />
-                    </Bar>
-                    <Bar dataKey="offers" fill="#8B5CF6" name="Offers">
-                      <LabelList dataKey="offers" position="top" />
-                    </Bar>
-                    <Bar dataKey="resumes" fill="#EC4899" name="Resumes">
-                      <LabelList dataKey="resumes" position="top" />
-                    </Bar>
-                    <Bar dataKey="coverLetters" fill="#06B6D4" name="Cover Letters">
-                      <LabelList dataKey="coverLetters" position="top" />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent className="h-80 flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                  <p className="text-sm">Progress insights will be available soon</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -1290,16 +1369,23 @@ export function UniversityDashboard() {
                           label={({ value }) => `${value}%`}
                           labelLine={true}
                         >
-                          {departmentDistributionData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={
-                                ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444'][
-                                  index % 6
-                                ]
-                              }
-                            />
-                          ))}
+                          {departmentDistributionData.map(
+                            (entry: { name: string; value: number }, index: number) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  [
+                                    '#4F46E5',
+                                    '#10B981',
+                                    '#F59E0B',
+                                    '#EC4899',
+                                    '#8B5CF6',
+                                    '#EF4444',
+                                  ][index % 6]
+                                }
+                              />
+                            ),
+                          )}
                         </Pie>
                         <Tooltip
                           formatter={(value, name, props) => [
@@ -1423,7 +1509,7 @@ export function UniversityDashboard() {
                 </TableHeader>
                 <TableBody>
                   {students
-                    .filter((s: any) => s.role === 'user')
+                    .filter((s: any) => s.role === 'user' || s.role === 'student')
                     .slice(0, 8)
                     .map((s: any) => (
                       <TableRow
@@ -1442,8 +1528,12 @@ export function UniversityDashboard() {
               </Table>
             </CardContent>
             <CardFooter className="text-sm text-muted-foreground">
-              Showing {Math.min(8, students.filter((s: any) => s.role === 'user').length)} of{' '}
-              {students.filter((s: any) => s.role === 'user').length}
+              Showing{' '}
+              {Math.min(
+                8,
+                students.filter((s: any) => s.role === 'user' || s.role === 'student').length,
+              )}{' '}
+              of {students.filter((s: any) => s.role === 'user' || s.role === 'student').length}
             </CardFooter>
           </Card>
         </>
@@ -1546,75 +1636,30 @@ export function UniversityDashboard() {
                 <CardHeader>
                   <CardTitle>Student Activity Trends</CardTitle>
                   <CardDescription>
-                    Weekly student engagement and feature usage patterns
+                    Daily active students and advisors over the last 30 days
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={[
-                        {
-                          week: 'Week 1',
-                          logins: 180,
-                          goals: 45,
-                          applications: 12,
-                          documents: 28,
-                        },
-                        {
-                          week: 'Week 2',
-                          logins: 210,
-                          goals: 52,
-                          applications: 18,
-                          documents: 35,
-                        },
-                        {
-                          week: 'Week 3',
-                          logins: 195,
-                          goals: 48,
-                          applications: 15,
-                          documents: 32,
-                        },
-                        {
-                          week: 'Week 4',
-                          logins: 240,
-                          goals: 58,
-                          applications: 22,
-                          documents: 41,
-                        },
-                      ]}
-                    >
+                    <LineChart data={activeUsersData?.data || []}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
+                      <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
                       <Line
                         type="monotone"
-                        dataKey="logins"
+                        dataKey="students"
                         stroke="#4F46E5"
                         strokeWidth={2}
-                        name="Daily Logins"
+                        name="Active Students"
                       />
                       <Line
                         type="monotone"
-                        dataKey="goals"
+                        dataKey="advisors"
                         stroke="#10B981"
                         strokeWidth={2}
-                        name="Goals Set"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="applications"
-                        stroke="#F59E0B"
-                        strokeWidth={2}
-                        name="Applications"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="documents"
-                        stroke="#EC4899"
-                        strokeWidth={2}
-                        name="Documents Created"
+                        name="Active Advisors"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1639,8 +1684,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -1844,17 +1889,7 @@ export function UniversityDashboard() {
                   <CardContent className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={[
-                          {
-                            feature: 'Resume Builder',
-                            highRisk: 0.2,
-                            mediumRisk: 1.5,
-                            lowRisk: 3.2,
-                          },
-                          { feature: 'Applications', highRisk: 0.1, mediumRisk: 0.8, lowRisk: 2.5 },
-                          { feature: 'Goals', highRisk: 0.3, mediumRisk: 1.2, lowRisk: 2.8 },
-                          { feature: 'Networking', highRisk: 0.1, mediumRisk: 0.5, lowRisk: 1.9 },
-                        ]}
+                        data={featureEngagementByRisk}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -1888,48 +1923,43 @@ export function UniversityDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {students.slice(0, 5).map((s: any) => {
-                        // Map engagement_status to risk level display
-                        const riskLevel =
-                          s.engagement_status === 'at_risk'
-                            ? 'high'
-                            : s.engagement_status === 'moderate'
-                              ? 'medium'
-                              : 'low';
-                        // Calculate actual days since last activity
-                        const daysAgo = s.last_active
-                          ? Math.floor((Date.now() - s.last_active) / (1000 * 60 * 60 * 24))
-                          : null;
-                        return (
-                          <TableRow key={s._id}>
-                            <TableCell className="font-medium">{s.name || 'Unknown'}</TableCell>
-                            <TableCell>{s.email}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  riskLevel === 'high'
-                                    ? 'destructive'
-                                    : riskLevel === 'medium'
-                                      ? 'default'
-                                      : 'secondary'
-                                }
-                                className={riskLevel === 'medium' ? 'bg-orange-600' : ''}
-                              >
-                                {riskLevel.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
-                            </TableCell>
-                            <TableCell>
-                              <Button size="sm" variant="outline">
-                                <Mail className="h-3 w-3 mr-1" />
-                                Send Reminder
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {students
+                        .filter(
+                          (s: any) =>
+                            s.engagement_status === 'at_risk' || s.engagement_status === 'moderate',
+                        )
+                        .slice(0, 5)
+                        .map((s: any) => {
+                          // Map engagement_status to risk level display
+                          const riskLevel = s.engagement_status === 'at_risk' ? 'high' : 'medium';
+                          // Calculate actual days since last activity
+                          const daysAgo = s.last_active
+                            ? Math.floor((Date.now() - s.last_active) / (1000 * 60 * 60 * 24))
+                            : null;
+                          return (
+                            <TableRow key={s._id}>
+                              <TableCell className="font-medium">{s.name || 'Unknown'}</TableCell>
+                              <TableCell>{s.email}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={riskLevel === 'high' ? 'destructive' : 'default'}
+                                  className={riskLevel === 'medium' ? 'bg-orange-600' : ''}
+                                >
+                                  {riskLevel.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
+                              </TableCell>
+                              <TableCell>
+                                <Button size="sm" variant="outline">
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  Send Reminder
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -1981,9 +2011,7 @@ export function UniversityDashboard() {
                     <CardContent>
                       <div className="flex items-center">
                         <Users className="h-5 w-5 text-muted-foreground mr-2" />
-                        <div className="text-2xl font-bold">
-                          {students.filter((s: any) => s.role === 'user').length}
-                        </div>
+                        <div className="text-2xl font-bold">{overview?.totalStudents ?? 0}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1995,15 +2023,7 @@ export function UniversityDashboard() {
                     <CardContent>
                       <div className="flex items-center">
                         <Users className="h-5 w-5 text-muted-foreground mr-2" />
-                        <div className="text-2xl font-bold">
-                          {
-                            students.filter(
-                              (s: any) =>
-                                s.last_active &&
-                                Date.now() - s.last_active < 30 * 24 * 60 * 60 * 1000,
-                            ).length
-                          }
-                        </div>
+                        <div className="text-2xl font-bold">{overview?.activeStudents ?? 0}</div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Last 30 days</div>
                     </CardContent>
@@ -2017,13 +2037,7 @@ export function UniversityDashboard() {
                       <div className="flex items-center">
                         <Users className="h-5 w-5 text-muted-foreground mr-2" />
                         <div className="text-2xl font-bold">
-                          {
-                            students.filter(
-                              (s: any) =>
-                                s.created_at &&
-                                Date.now() - s.created_at < 30 * 24 * 60 * 60 * 1000,
-                            ).length
-                          }
+                          {overview?.newStudentsThisMonth ?? 0}
                         </div>
                       </div>
                     </CardContent>
@@ -2036,9 +2050,7 @@ export function UniversityDashboard() {
                     <CardContent>
                       <div className="flex items-center">
                         <GraduationCap className="h-5 w-5 text-muted-foreground mr-2" />
-                        <div className="text-2xl font-bold">
-                          {new Set(students.map((s: any) => s.department_id).filter(Boolean)).size}
-                        </div>
+                        <div className="text-2xl font-bold">{overview?.departments ?? 0}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -2047,7 +2059,11 @@ export function UniversityDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle>All Students</CardTitle>
-                    <CardDescription>Complete list of enrolled students</CardDescription>
+                    <CardDescription>
+                      {overview?.totalStudents && overview.totalStudents > 500
+                        ? 'Showing up to 500 enrolled students'
+                        : 'Complete list of enrolled students'}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -2065,6 +2081,7 @@ export function UniversityDashboard() {
                       </TableHeader>
                       <TableBody>
                         {students
+                          .slice()
                           .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
                           .map((s: any) => {
                             const dept = departments.find((d) => d._id === s.department_id);
@@ -2117,11 +2134,7 @@ export function UniversityDashboard() {
                                       >
                                         View Profile
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          // Handle edit action
-                                        }}
-                                      >
+                                      <DropdownMenuItem onClick={() => handleEditStudent(s)}>
                                         Edit Student
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -2134,7 +2147,8 @@ export function UniversityDashboard() {
                     </Table>
                   </CardContent>
                   <CardFooter className="text-sm text-muted-foreground">
-                    Showing all {students.length} enrolled students
+                    Showing {students.length} of {overview?.totalStudents ?? students.length}{' '}
+                    enrolled students
                   </CardFooter>
                 </Card>
               </>
@@ -2405,16 +2419,16 @@ export function UniversityDashboard() {
                         <Label className="text-sm">Default role for invited students:</Label>
                         <div className="flex gap-2">
                           <Button
-                            variant={assignRole === 'user' ? 'default' : 'outline'}
+                            variant={assignRole === 'student' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setAssignRole('user')}
+                            onClick={() => setAssignRole('student')}
                           >
                             Student
                           </Button>
                           <Button
-                            variant={assignRole === 'staff' ? 'default' : 'outline'}
+                            variant={assignRole === 'advisor' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setAssignRole('staff')}
+                            onClick={() => setAssignRole('advisor')}
                           >
                             Advisor / Staff
                           </Button>
@@ -2429,95 +2443,14 @@ export function UniversityDashboard() {
                     </div>
                     <Button
                       onClick={async () => {
-                        if (!clerkUser?.id) {
-                          toast({
-                            title: 'Authentication required',
-                            description: 'Please sign in to send invitations',
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-
-                        const emails = Array.from(
-                          new Set(
-                            assignText
-                              .split(/[\n,]+/)
-                              .map((e) => e.trim())
-                              .filter(Boolean),
-                          ),
-                        );
-                        if (emails.length === 0) {
-                          toast({
-                            title: 'No emails provided',
-                            description: 'Please enter at least one email address',
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-
                         setAssigning(true);
-                        let successCount = 0;
-                        let errorCount = 0;
-                        const errors: string[] = [];
-
                         try {
-                          // Step 1: Assign students in Convex (creates pending users or updates existing)
-                          for (const email of emails) {
-                            try {
-                              await assignStudent({
-                                clerkId: clerkUser.id,
-                                email,
-                                role: assignRole,
-                                departmentId:
-                                  selectedProgram !== 'none' ? selectedProgram : undefined,
-                              });
-                              successCount++;
-                            } catch (e: any) {
-                              errorCount++;
-                              errors.push(`${email}: ${e?.message || 'Unknown error'}`);
-                            }
-                          }
-
-                          // Step 2: Send activation emails via API
-                          if (successCount > 0) {
-                            try {
-                              const response = await fetch('/api/university/send-invitations', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                  emails: emails.slice(0, successCount),
-                                }),
-                              });
-
-                              if (!response.ok) {
-                                console.error('Failed to send some activation emails');
-                              }
-                            } catch (emailError) {
-                              console.error('Error sending activation emails:', emailError);
-                              // Don't fail the whole operation if email sending fails
-                            }
-                          }
-
-                          if (successCount > 0) {
-                            toast({
-                              title: 'Students assigned successfully',
-                              description: `${successCount} student(s) assigned and activation email(s) sent${errorCount > 0 ? `. ${errorCount} failed` : ''}`,
-                              variant: errorCount > 0 ? 'default' : 'success',
-                            });
-                          }
-
-                          if (errorCount > 0 && successCount === 0) {
-                            toast({
-                              title: 'Assignment failed',
-                              description:
-                                errors.slice(0, 3).join('; ') + (errors.length > 3 ? '...' : ''),
-                              variant: 'destructive',
-                            });
-                          }
-
-                          if (successCount > 0) {
+                          const result = await assignStudentsWithInvitations({
+                            emailsText: assignText,
+                            role: assignRole,
+                            departmentId: selectedProgram !== 'none' ? selectedProgram : undefined,
+                          });
+                          if (result.success) {
                             setAssignOpen(false);
                             setAssignText('');
                           }
@@ -2571,21 +2504,21 @@ export function UniversityDashboard() {
                 <div className="flex items-center">
                   <Users className="h-5 w-5 text-muted-foreground mr-2" />
                   <div className="text-2xl font-bold">
-                    {departments.length > 0
+                    {(overview?.departments ?? 0) > 0
                       ? Math.round(
-                          students.filter((s: any) => s.department_id).length / departments.length,
+                          ((overview?.totalStudents ?? 0) - (overview?.unassignedStudents ?? 0)) /
+                            (overview?.departments ?? 1),
                         )
                       : 0}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {students.filter((s: any) => !s.department_id).length > 0 && (
+                  {(overview?.unassignedStudents ?? 0) > 0 && (
                     <span className="text-amber-600">
-                      {students.filter((s: any) => !s.department_id).length} unassigned
+                      {overview?.unassignedStudents ?? 0} unassigned
                     </span>
                   )}
-                  {students.filter((s: any) => !s.department_id).length === 0 &&
-                    'Student distribution'}
+                  {(overview?.unassignedStudents ?? 0) === 0 && 'Student distribution'}
                 </div>
               </CardContent>
             </Card>
@@ -2598,30 +2531,27 @@ export function UniversityDashboard() {
                 <div className="flex items-center">
                   <Award className="h-5 w-5 text-muted-foreground mr-2" />
                   <div className="text-lg font-bold">
-                    {departments.length > 0
-                      ? (() => {
-                          const deptWithCounts = departments.map((d: any) => ({
-                            name: d.name,
-                            count: students.filter((s: any) => s.department_id === d._id).length,
-                          }));
-                          const highest = deptWithCounts.reduce((max, d) =>
-                            d.count > max.count ? d : max,
-                          );
-                          return highest.count > 0 ? highest.name : 'N/A';
-                        })()
-                      : 'N/A'}
+                    {(() => {
+                      const dists = overview?.departmentDistribution ?? [];
+                      if (dists.length === 0) return 'N/A';
+                      const highest = dists.reduce(
+                        (max: any, d: any) => (d.count > max.count ? d : max),
+                        { name: 'N/A', count: 0 },
+                      );
+                      return highest.count > 0 ? highest.name : 'N/A';
+                    })()}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {departments.length > 0 &&
-                    (() => {
-                      const highest = departments
-                        .map(
-                          (d: any) => students.filter((s: any) => s.department_id === d._id).length,
-                        )
-                        .reduce((max, count) => Math.max(max, count), 0);
-                      return highest > 0 ? `${highest} students` : 'No students assigned';
-                    })()}
+                  {(() => {
+                    const dists = overview?.departmentDistribution ?? [];
+                    if (dists.length === 0) return 'No students assigned';
+                    const highest = dists.reduce(
+                      (max: number, d: any) => Math.max(max, d.count),
+                      0,
+                    );
+                    return highest > 0 ? `${highest} students` : 'No students assigned';
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -2676,7 +2606,7 @@ export function UniversityDashboard() {
                       data={departments.map((d: any, index: number) => {
                         const deptStudents = students.filter((s: any) => s.department_id === d._id);
                         const percentage =
-                          departments.length > 0
+                          departments.length > 0 && students.length > 0
                             ? Math.round((deptStudents.length / students.length) * 100)
                             : 0;
                         return {
@@ -2800,94 +2730,21 @@ export function UniversityDashboard() {
           </div>
 
           {/* Department Activity Chart */}
-          <Card>
+          <Card className="relative">
+            <div className="absolute top-4 right-4 z-10">
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                Coming Soon
+              </span>
+            </div>
             <CardHeader>
-              <CardTitle>Department Activity Overview</CardTitle>
+              <CardTitle className="text-muted-foreground">Department Activity Overview</CardTitle>
               <CardDescription>Monthly activity trends across all departments</CardDescription>
             </CardHeader>
-            <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={[
-                    {
-                      month: 'Jan',
-                      cs: 45,
-                      business: 32,
-                      engineering: 28,
-                      arts: 18,
-                    },
-                    {
-                      month: 'Feb',
-                      cs: 52,
-                      business: 38,
-                      engineering: 31,
-                      arts: 22,
-                    },
-                    {
-                      month: 'Mar',
-                      cs: 48,
-                      business: 35,
-                      engineering: 29,
-                      arts: 20,
-                    },
-                    {
-                      month: 'Apr',
-                      cs: 58,
-                      business: 42,
-                      engineering: 35,
-                      arts: 25,
-                    },
-                    {
-                      month: 'May',
-                      cs: 65,
-                      business: 45,
-                      engineering: 38,
-                      arts: 28,
-                    },
-                    {
-                      month: 'Jun',
-                      cs: 72,
-                      business: 48,
-                      engineering: 42,
-                      arts: 31,
-                    },
-                  ]}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="cs"
-                    stroke="#4F46E5"
-                    strokeWidth={2}
-                    name="Computer Science"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="business"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    name="Business"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="engineering"
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    name="Engineering"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="arts"
-                    stroke="#EC4899"
-                    strokeWidth={2}
-                    name="Arts & Design"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <CardContent className="h-80 flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                <p className="text-sm">Department activity analytics will be available soon</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -3003,14 +2860,19 @@ export function UniversityDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Card>
+                <Card className="relative">
+                  <div className="absolute top-2 right-2">
+                    <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  </div>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Logins</p>
-                        <p className="text-2xl font-bold">1,280</p>
+                        <p className="text-2xl font-bold text-muted-foreground/50">--</p>
                       </div>
-                      <div className="text-green-600">
+                      <div className="text-green-600/50">
                         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
@@ -3023,14 +2885,19 @@ export function UniversityDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="relative">
+                  <div className="absolute top-2 right-2">
+                    <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  </div>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Active Users</p>
-                        <p className="text-2xl font-bold">24</p>
+                        <p className="text-2xl font-bold text-muted-foreground/50">--</p>
                       </div>
-                      <div className="text-blue-600">
+                      <div className="text-blue-600/50">
                         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
@@ -3043,16 +2910,21 @@ export function UniversityDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="relative">
+                  <div className="absolute top-2 right-2">
+                    <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  </div>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
                           Avg Session Time
                         </p>
-                        <p className="text-2xl font-bold">28 min</p>
+                        <p className="text-2xl font-bold text-muted-foreground/50">--</p>
                       </div>
-                      <div className="text-purple-600">
+                      <div className="text-purple-600/50">
                         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
@@ -3065,14 +2937,19 @@ export function UniversityDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="relative">
+                  <div className="absolute top-2 right-2">
+                    <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  </div>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Feature Usage</p>
-                        <p className="text-2xl font-bold">16,750</p>
+                        <p className="text-2xl font-bold text-muted-foreground/50">--</p>
                       </div>
-                      <div className="text-orange-600">
+                      <div className="text-orange-600/50">
                         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
                         </svg>
@@ -3302,8 +3179,9 @@ export function UniversityDashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Student</SelectItem>
-                  <SelectItem value="staff">Advisor / Staff</SelectItem>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="user">Student (legacy)</SelectItem>
+                  <SelectItem value="advisor">Advisor / Staff</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -3424,16 +3302,16 @@ export function UniversityDashboard() {
               <Label className="text-sm">Assign role:</Label>
               <div className="flex gap-2">
                 <Button
-                  variant={assignRole === 'user' ? 'default' : 'outline'}
+                  variant={assignRole === 'student' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAssignRole('user')}
+                  onClick={() => setAssignRole('student')}
                 >
                   Student
                 </Button>
                 <Button
-                  variant={assignRole === 'staff' ? 'default' : 'outline'}
+                  variant={assignRole === 'advisor' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAssignRole('staff')}
+                  onClick={() => setAssignRole('advisor')}
                 >
                   Advisor / Staff
                 </Button>
@@ -3452,9 +3330,12 @@ export function UniversityDashboard() {
                   a.href = url;
                   a.download = 'student_import_template.csv';
                   document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  window.URL.revokeObjectURL(url);
+                  try {
+                    a.click();
+                  } finally {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  }
                 }}
               >
                 Download CSV Template
@@ -3499,91 +3380,14 @@ export function UniversityDashboard() {
             </Button>
             <Button
               onClick={async () => {
-                if (!clerkUser?.id) {
-                  toast({
-                    title: 'Authentication required',
-                    description: 'Please sign in to assign licenses',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-
-                const emails = Array.from(
-                  new Set(
-                    assignText
-                      .split(/[\n,]+/)
-                      .map((e) => e.trim())
-                      .filter(Boolean),
-                  ),
-                );
-                if (emails.length === 0) {
-                  toast({
-                    title: 'No emails provided',
-                    description: 'Please enter at least one email address',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-
                 setAssigning(true);
-                let successCount = 0;
-                let errorCount = 0;
-                const errors: string[] = [];
-
                 try {
-                  // Step 1: Assign students in Convex (creates pending users or updates existing)
-                  for (const email of emails) {
-                    try {
-                      await assignStudent({
-                        clerkId: clerkUser.id,
-                        email,
-                        role: assignRole,
-                        departmentId: selectedProgram !== 'none' ? selectedProgram : undefined,
-                      });
-                      successCount++;
-                    } catch (e: any) {
-                      errorCount++;
-                      errors.push(`${email}: ${e?.message || 'Unknown error'}`);
-                    }
-                  }
-
-                  // Step 2: Send activation emails via API
-                  if (successCount > 0) {
-                    try {
-                      const response = await fetch('/api/university/send-invitations', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          emails: emails.slice(0, successCount),
-                        }),
-                      });
-
-                      if (!response.ok) {
-                        console.error('Failed to send some activation emails');
-                      }
-                    } catch (emailError) {
-                      console.error('Error sending activation emails:', emailError);
-                      // Don't fail the whole operation if email sending fails
-                    }
-                  }
-
-                  if (successCount > 0) {
-                    toast({
-                      title: 'Students assigned successfully',
-                      description: `${successCount} student(s) assigned and activation email(s) sent${errorCount > 0 ? `. ${errorCount} failed` : ''}`,
-                      variant: errorCount > 0 ? 'default' : 'success',
-                    });
-                  }
-
-                  if (errorCount > 0 && successCount === 0) {
-                    toast({
-                      title: 'Assignment failed',
-                      description: errors.slice(0, 3).join('; ') + (errors.length > 3 ? '...' : ''),
-                      variant: 'destructive',
-                    });
-                  }
-
-                  if (successCount > 0) {
+                  const result = await assignStudentsWithInvitations({
+                    emailsText: assignText,
+                    role: assignRole,
+                    departmentId: selectedProgram !== 'none' ? selectedProgram : undefined,
+                  });
+                  if (result.success) {
                     setAssignOpen(false);
                     setAssignText('');
                     setSelectedProgram('none');

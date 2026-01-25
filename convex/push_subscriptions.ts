@@ -53,27 +53,36 @@ export const subscribe = mutation({
     }
     const universityId = user.university_id;
 
-    // Check if this endpoint already exists
-    const existing = await ctx.db
+    // Check if this endpoint already exists - collect ALL matches to handle duplicates
+    const existingMatches = await ctx.db
       .query('push_subscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', subscription.endpoint))
-      .first();
+      .collect();
 
-    if (existing) {
-      // Verify the acting user owns this subscription
-      if (existing.user_id !== userId) {
+    if (existingMatches.length > 0) {
+      // Verify ALL matches are owned by this user
+      const otherUserMatch = existingMatches.find((m) => m.user_id !== userId);
+      if (otherUserMatch) {
         throw new Error('Subscription endpoint already registered to another user');
       }
 
-      // Update existing subscription (including university_id in case it changed)
-      await ctx.db.patch(existing._id, {
+      // Update the first match
+      const primary = existingMatches[0];
+      await ctx.db.patch(primary._id, {
         subscription,
         device_info: deviceInfo,
         university_id: universityId,
         updated_at: Date.now(),
         is_active: true,
+        failure_count: 0,
       });
-      return existing._id;
+
+      // Delete any duplicate rows (keep only the first one)
+      for (let i = 1; i < existingMatches.length; i++) {
+        await ctx.db.delete(existingMatches[i]._id);
+      }
+
+      return primary._id;
     }
 
     // Create new subscription
@@ -84,6 +93,7 @@ export const subscribe = mutation({
       device_info: deviceInfo,
       university_id: universityId,
       is_active: true,
+      failure_count: 0,
       created_at: Date.now(),
       updated_at: Date.now(),
     });
@@ -94,6 +104,12 @@ export const subscribe = mutation({
 
 /**
  * Unsubscribe from push notifications
+ *
+ * Returns:
+ * - { success: true } - Subscription was successfully deactivated
+ * - { success: false, reason: 'not_found' } - No subscription with this endpoint exists
+ * - { success: false, reason: 'not_owned' } - Subscription belongs to another user
+ * - { success: false, reason: 'already_inactive' } - Subscription was already inactive
  */
 export const unsubscribe = mutation({
   args: {
@@ -103,14 +119,33 @@ export const unsubscribe = mutation({
     // Verify the caller is authenticated
     const actingUser = await getAuthenticatedUser(ctx);
 
-    const existing = await ctx.db
+    // Collect ALL matches to handle potential duplicates
+    const allMatches = await ctx.db
       .query('push_subscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
-      .first();
+      .collect();
 
-    // Only allow unsubscribing own subscriptions
-    if (existing && existing.user_id === actingUser._id) {
-      await ctx.db.patch(existing._id, {
+    if (allMatches.length === 0) {
+      return { success: false, reason: 'not_found' as const };
+    }
+
+    // Filter to only subscriptions owned by the acting user
+    const ownedMatches = allMatches.filter((m) => m.user_id === actingUser._id);
+
+    if (ownedMatches.length === 0) {
+      return { success: false, reason: 'not_owned' as const };
+    }
+
+    // Get active subscriptions that need to be deactivated
+    const activeMatches = ownedMatches.filter((m) => m.is_active);
+
+    if (activeMatches.length === 0) {
+      return { success: false, reason: 'already_inactive' as const };
+    }
+
+    // Deactivate ALL active matches to prevent orphaned active rows
+    for (const match of activeMatches) {
+      await ctx.db.patch(match._id, {
         is_active: false,
         updated_at: Date.now(),
       });
@@ -215,12 +250,14 @@ export const markSubscriptionFailed = internalMutation({
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const subscription = await ctx.db
+    // Collect ALL matches to handle potential duplicates
+    const allMatches = await ctx.db
       .query('push_subscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
-      .first();
+      .collect();
 
-    if (subscription) {
+    // Mark ALL matching subscriptions as failed
+    for (const subscription of allMatches) {
       const failureCount = (subscription.failure_count || 0) + 1;
 
       // Deactivate after 3 failures

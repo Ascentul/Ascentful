@@ -74,9 +74,11 @@ export const notifyAdvisorsForSignal = internalMutation({
     signalDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get student info
+    // Get student info with tenant isolation check
     const student = await ctx.db.get(args.studentId);
-    if (!student) return { notified: 0, recipients: [], studentName: 'Unknown' };
+    if (!student || student.role !== 'student' || student.university_id !== args.universityId) {
+      throw new Error('Student not found in university');
+    }
 
     const studentName = student.name || student.email || 'Unknown Student';
 

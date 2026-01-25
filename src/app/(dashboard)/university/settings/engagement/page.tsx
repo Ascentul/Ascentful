@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 
 import {
   DEFAULT_QUALIFYING_EVENTS,
+  EventType,
   EventTypeBadges,
   EventTypeSelector,
 } from '@/components/settings/EventTypeSelector';
@@ -45,7 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CriteriaFormData {
   // New engagement criteria fields
-  qualifying_event_types: string[];
+  qualifying_event_types: EventType[];
   period_days: number;
   min_events_in_period: number;
   // Legacy fields (still supported)
@@ -72,7 +73,7 @@ const defaultFormData: DefinitionFormData = {
   appliesTo: 'all_students',
   criteria: {
     // New fields for activity-based engagement scoring
-    qualifying_event_types: DEFAULT_QUALIFYING_EVENTS,
+    qualifying_event_types: [...DEFAULT_QUALIFYING_EVENTS],
     period_days: 14,
     min_events_in_period: 3,
     // Legacy fields (still supported for backwards compatibility)
@@ -126,7 +127,7 @@ export default function EngagementDefinitionsPage() {
       appliesTo: def.applies_to,
       criteria: {
         // New activity-based scoring fields
-        qualifying_event_types: criteria?.qualifying_event_types ?? DEFAULT_QUALIFYING_EVENTS,
+        qualifying_event_types: criteria?.qualifying_event_types ?? [...DEFAULT_QUALIFYING_EVENTS],
         period_days: criteria?.period_days ?? 14,
         min_events_in_period: criteria?.min_events_in_period ?? 3,
         // Legacy fields
@@ -454,7 +455,10 @@ export default function EngagementDefinitionsPage() {
                     max={100}
                     value={formData.engagedThreshold}
                     onChange={(e) =>
-                      setFormData({ ...formData, engagedThreshold: parseInt(e.target.value) || 0 })
+                      setFormData({
+                        ...formData,
+                        engagedThreshold: Math.max(1, parseInt(e.target.value) || 1),
+                      })
                     }
                   />
                   <p className="text-xs text-muted-foreground">Score at or above this = Engaged</p>

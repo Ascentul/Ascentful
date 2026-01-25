@@ -190,7 +190,7 @@ export default function UniversityInviteStudentsPage() {
         body: JSON.stringify({
           clerkId: clerkUser.id,
           email: manualForm.email.trim(),
-          role: 'user',
+          role: 'student',
         }),
       });
 
@@ -222,9 +222,12 @@ export default function UniversityInviteStudentsPage() {
     a.href = url;
     a.download = 'student_import_template.csv';
     document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    try {
+      a.click();
+    } finally {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }
   };
 
   return (

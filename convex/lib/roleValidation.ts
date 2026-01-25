@@ -58,6 +58,22 @@ export function isValidUserRole(role: string): role is UserRole {
 }
 
 /**
+ * Normalize legacy "user" role to the modern equivalent.
+ * - If tied to a university, treat as "student"
+ * - Otherwise, treat as "individual"
+ */
+export function normalizeLegacyUserRole(
+  role: UserRole | undefined,
+  universityId?: Id<'universities'> | null,
+): UserRole | undefined {
+  if (!role || role !== 'user') {
+    return role;
+  }
+
+  return universityId ? 'student' : 'individual';
+}
+
+/**
  * Validate a role transition for a user
  *
  * @param ctx Convex context

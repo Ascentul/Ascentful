@@ -1,7 +1,7 @@
 /**
- * University Workspace - All Students (Admin)
+ * Admin - Students
  *
- * Wrapper for university admin students management view.
+ * Aliases the university students management page for the admin route.
  * Re-exports the existing university students page.
  */
 export { default } from '@/app/(dashboard)/university/students/page';

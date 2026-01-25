@@ -4,7 +4,11 @@ import { api } from './_generated/api';
 import { mutation } from './_generated/server';
 import { maskEmail, maskId } from './lib/piiSafe';
 import { isServiceRequest } from './lib/roles';
-import { type UserRole, validateRoleTransition } from './lib/roleValidation';
+import {
+  normalizeLegacyUserRole,
+  type UserRole,
+  validateRoleTransition,
+} from './lib/roleValidation';
 import { getActingUser, logRoleChange } from './users_core';
 
 // Create or update user from Clerk webhook
@@ -67,7 +71,8 @@ export const createUser = mutation({
         ? requestedRole
         : undefined;
 
-    const resolvedRole = safeRole ?? 'user';
+    const finalRole = safeRole ?? 'individual';
+    const resolvedRole = normalizeLegacyUserRole(finalRole, undefined) ?? 'individual';
 
     const existingUser = await ctx.db
       .query('users')
@@ -75,12 +80,15 @@ export const createUser = mutation({
       .unique();
 
     if (existingUser) {
+      const normalizedRole = safeRole
+        ? normalizeLegacyUserRole(safeRole, existingUser.university_id)
+        : undefined;
       await ctx.db.patch(existingUser._id, {
         email: args.email,
         name: args.name,
         username: args.username,
         profile_image: args.profile_image,
-        ...(safeRole ? { role: safeRole } : {}),
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         ...(args.subscription_plan ? { subscription_plan: args.subscription_plan } : {}),
         ...(args.subscription_status ? { subscription_status: args.subscription_status } : {}),
         updated_at: Date.now(),
@@ -97,12 +105,17 @@ export const createUser = mutation({
       .first();
 
     if (pendingUser) {
+      const normalizedRole = normalizeLegacyUserRole(
+        pendingUser.role as UserRole,
+        pendingUser.university_id,
+      );
       await ctx.db.patch(pendingUser._id, {
         clerkId: args.clerkId,
         name: args.name,
         username: args.username || pendingUser.username,
         profile_image: args.profile_image,
         account_status: 'active',
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         subscription_plan: args.subscription_plan || pendingUser.subscription_plan || 'free',
         subscription_status:
           args.subscription_status || pendingUser.subscription_status || 'active',
@@ -127,7 +140,7 @@ export const createUser = mutation({
       updated_at: Date.now(),
     });
 
-    if (!args.role || args.role === 'user') {
+    if (!args.role || resolvedRole === 'individual') {
       try {
         await ctx.scheduler.runAfter(0, api.email.sendWelcomeEmail, {
           email: args.email,

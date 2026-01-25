@@ -21,7 +21,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/date-utils';
 
-export function SignalNotificationBell() {
+interface SignalNotificationBellProps {
+  routePrefix?: string;
+}
+
+export function SignalNotificationBell({ routePrefix = '/advisor' }: SignalNotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewNotification, setHasNewNotification] = useState(false);
   const prevUnreadCountRef = useRef<number>(0);
@@ -181,7 +185,7 @@ export function SignalNotificationBell() {
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/advisor/queue" className="w-full text-center text-sm font-medium">
+          <Link href={`${routePrefix}/queue`} className="w-full text-center text-sm font-medium">
             View All Signals
           </Link>
         </DropdownMenuItem>

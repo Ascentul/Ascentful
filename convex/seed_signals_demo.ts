@@ -15,7 +15,23 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { internalMutation } from './_generated/server';
+import { internalMutation, MutationCtx } from './_generated/server';
+
+async function deleteAllByQuery(
+  ctx: MutationCtx,
+  queryFactory: () => { take: (count: number) => Promise<Array<{ _id: Id<any> }>> },
+  batchSize = 100,
+): Promise<number> {
+  let deleted = 0;
+  while (true) {
+    const batch = await queryFactory().take(batchSize);
+    if (batch.length === 0) break;
+    await Promise.all(batch.map((doc) => ctx.db.delete(doc._id)));
+    deleted += batch.length;
+    if (batch.length < batchSize) break;
+  }
+  return deleted;
+}
 
 export const seedSignalsDemo = internalMutation({
   args: {
@@ -583,34 +599,28 @@ export const cleanupSignalsDemo = internalMutation({
     console.log('Cleaning up Engagement Signals demo data...');
 
     // Delete signals
-    const signals = await ctx.db
-      .query('signals')
-      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .collect();
-    for (const signal of signals) {
-      await ctx.db.delete(signal._id);
-    }
-    console.log(`Deleted ${signals.length} signals`);
+    const deletedSignals = await deleteAllByQuery(ctx, () =>
+      ctx.db
+        .query('signals')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId)),
+    );
+    console.log(`Deleted ${deletedSignals} signals`);
 
     // Delete signal rules
-    const rules = await ctx.db
-      .query('signal_rules')
-      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .collect();
-    for (const rule of rules) {
-      await ctx.db.delete(rule._id);
-    }
-    console.log(`Deleted ${rules.length} signal rules`);
+    const deletedRules = await deleteAllByQuery(ctx, () =>
+      ctx.db
+        .query('signal_rules')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId)),
+    );
+    console.log(`Deleted ${deletedRules} signal rules`);
 
     // Delete engagement definitions
-    const definitions = await ctx.db
-      .query('engagement_definitions')
-      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .collect();
-    for (const def of definitions) {
-      await ctx.db.delete(def._id);
-    }
-    console.log(`Deleted ${definitions.length} engagement definitions`);
+    const deletedDefinitions = await deleteAllByQuery(ctx, () =>
+      ctx.db
+        .query('engagement_definitions')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId)),
+    );
+    console.log(`Deleted ${deletedDefinitions} engagement definitions`);
 
     // Delete seeded activity events (only those with seed metadata)
     // Get students in this university to find their activity events
@@ -640,9 +650,9 @@ export const cleanupSignalsDemo = internalMutation({
     console.log('Cleanup complete!');
 
     return {
-      deletedSignals: signals.length,
-      deletedRules: rules.length,
-      deletedDefinitions: definitions.length,
+      deletedSignals,
+      deletedRules,
+      deletedDefinitions,
       deletedActivityEvents,
     };
   },

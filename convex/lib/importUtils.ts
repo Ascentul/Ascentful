@@ -268,16 +268,19 @@ export function generateExternalOutcomeId(
   externalStudentId?: string,
   email?: string,
 ): string {
-  const identifier = externalStudentId ?? email;
-  if (!identifier) {
+  // Normalize inputs: trim and convert empty/whitespace strings to undefined for proper fallback
+  const trimmedExternalId = externalStudentId?.trim() || undefined;
+  const trimmedEmail = email?.trim() || undefined;
+
+  if (!trimmedExternalId && !trimmedEmail) {
     throw new Error(
       'Either externalStudentId or email is required to generate external_outcome_id',
     );
   }
+
   // Preserve case for external student IDs, lowercase only emails
-  const normalizedIdentifier = externalStudentId
-    ? externalStudentId.trim()
-    : identifier.toLowerCase().trim();
+  const normalizedIdentifier = trimmedExternalId ? trimmedExternalId : trimmedEmail!.toLowerCase();
+
   return `${cohortId}_${normalizedIdentifier}`;
 }
 
@@ -351,14 +354,18 @@ export function validateOutcomeImportRow(row: {
 }): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Must have at least one identifier
-  if (!row.externalStudentId && !row.studentEmail) {
+  // Must have at least one identifier (trim to catch whitespace-only values)
+  const externalId = row.externalStudentId?.trim();
+  const email = row.studentEmail?.trim();
+  if (!externalId && !email) {
     errors.push('Either external_student_id or student_email is required');
   }
 
-  // Validate outcome_status if provided
+  // Validate outcome_status (required field)
   const validStatuses = ['unknown', 'known', 'partial'];
-  if (row.outcomeStatus && !validStatuses.includes(row.outcomeStatus)) {
+  if (!row.outcomeStatus) {
+    errors.push('outcome_status is required');
+  } else if (!validStatuses.includes(row.outcomeStatus)) {
     errors.push(
       `Invalid outcome_status: ${row.outcomeStatus}. Must be one of: ${validStatuses.join(', ')}`,
     );

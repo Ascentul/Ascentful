@@ -10,7 +10,7 @@
 import { v } from 'convex/values';
 
 import { query } from './_generated/server';
-import { getCurrentUser, requireAdvisorRole, requireTenant } from './advisor_auth';
+import { getCurrentUser, optionalTenant, requireAdvisorRole } from './advisor_auth';
 
 /**
  * Get sessions for a date range (used by all calendar views)
@@ -24,7 +24,12 @@ export const getSessionsInRange = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     // Get sessions in the date range
     // Simplified filter: session starts within the visible range
@@ -93,7 +98,12 @@ export const getFollowUpsInRange = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     // Migrated to follow_ups table (unified table for all follow-up tasks)
     const followUps = await ctx.db
@@ -161,7 +171,21 @@ export const getCalendarStats = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty stats gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        totalSessions: 0,
+        completedSessions: 0,
+        upcomingSessions: 0,
+        inProgressSessions: 0,
+        totalFollowUps: 0,
+        overdueFollowUps: 0,
+        totalHours: 0,
+        uniqueStudents: 0,
+      };
+    }
 
     // Simplified filter: session starts within the visible range
     const sessions = await ctx.db

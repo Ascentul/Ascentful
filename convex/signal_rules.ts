@@ -196,6 +196,11 @@ export const createRule = mutation({
     if (args.cooldownDays !== undefined && args.cooldownDays < 0) {
       throw new Error('cooldown_days must be non-negative');
     }
+    if (args.cooldownDays !== undefined && args.cooldownDays > MAX_RULE_LOOKBACK_DAYS) {
+      throw new Error(
+        `cooldown_days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (signal evaluation only looks back this far)`,
+      );
+    }
 
     // Validate default-active invariant: default rules must be active
     const willBeActive = args.isActive ?? true; // defaults to true
@@ -263,6 +268,11 @@ export const updateRule = mutation({
     if (args.cooldownDays !== undefined && args.cooldownDays < 0) {
       throw new Error('cooldown_days must be non-negative');
     }
+    if (args.cooldownDays !== undefined && args.cooldownDays > MAX_RULE_LOOKBACK_DAYS) {
+      throw new Error(
+        `cooldown_days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (signal evaluation only looks back this far)`,
+      );
+    }
 
     // Validate default-active invariant: default rules must be active
     const nextIsActive = args.isActive ?? rule.is_active;
@@ -310,6 +320,11 @@ export const deleteRule = mutation({
     }
 
     assertUniversityAccess(user, rule.university_id);
+
+    // Prevent deleting default rules - must clear is_default first
+    if (rule.is_default) {
+      throw new Error('Cannot delete a default rule. Remove default status first.');
+    }
 
     // Check if there are any active or snoozed signals from this rule
     // Snoozed signals will become active when snooze expires, so they also block deletion

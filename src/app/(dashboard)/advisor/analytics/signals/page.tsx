@@ -134,13 +134,13 @@ export default function SignalAnalyticsPage() {
   const priorityData = Object.entries(analytics.priorityCounts).map(([name, value]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),
     value,
-    fill: PRIORITY_COLORS[name as keyof typeof PRIORITY_COLORS],
+    fill: PRIORITY_COLORS[name as keyof typeof PRIORITY_COLORS] ?? '#9ca3af',
   }));
 
   const typeData = Object.entries(analytics.typeCounts).map(([name, value]) => ({
     name: TYPE_LABELS[name] || name,
     value,
-    fill: TYPE_COLORS[name as keyof typeof TYPE_COLORS],
+    fill: TYPE_COLORS[name as keyof typeof TYPE_COLORS] ?? '#9ca3af',
   }));
 
   const sourceData = [
@@ -152,7 +152,7 @@ export default function SignalAnalyticsPage() {
   const statusData = Object.entries(analytics.statusCounts).map(([name, value]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),
     value,
-    fill: STATUS_COLORS[name as keyof typeof STATUS_COLORS],
+    fill: STATUS_COLORS[name as keyof typeof STATUS_COLORS] ?? '#9ca3af',
   }));
 
   return (
@@ -160,7 +160,7 @@ export default function SignalAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/u/insights">
+          <Link href="/advisor/analytics">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -466,7 +466,7 @@ export default function SignalAnalyticsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ruleEffectiveness?.map((rule) => (
+                    {ruleEffectiveness.map((rule) => (
                       <TableRow key={rule.ruleId}>
                         <TableCell className="font-medium">{rule.name}</TableCell>
                         <TableCell>

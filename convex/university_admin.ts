@@ -2,6 +2,8 @@ import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { normalizeLegacyUserRole } from './lib/roleValidation';
+import { computeUniversityOverviewMetrics } from './university_overview_cache';
 
 function requireAdmin(user: any, options?: { allowMissingUniversity?: boolean }) {
   const isAdmin = ['super_admin', 'university_admin', 'advisor'].includes(user.role);
@@ -45,57 +47,46 @@ export const getOverview = query({
         activeLicenses: 0,
         departments: 0,
         totalCourses: 0,
+        studentGrowthPercent: 0,
+        activeStudents: 0,
+        newStudentsThisMonth: 0,
+        departmentDistribution: [],
+        unassignedStudents: 0,
       };
     }
 
-    // OPTIMIZED: Add limits to prevent bandwidth issues
-    const [students, departments, courses] = await Promise.all([
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(2000), // Limit students to 2000 max
-      ctx.db
-        .query('departments')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(100), // Limit departments to 100 max
-      ctx.db
-        .query('courses')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(500), // Limit courses to 500 max
-    ]);
+    const cachedOverview = await ctx.db
+      .query('university_overview_metrics')
+      .withIndex('by_university', (q) => q.eq('university_id', uniId))
+      .unique();
 
-    // Filter to count only actual students (exclude university_admin)
-    // Include both legacy 'user' role and current 'student' role
-    const actualStudents = students.filter((s: any) => s.role === 'user' || s.role === 'student');
+    if (cachedOverview) {
+      return {
+        totalStudents: cachedOverview.total_students,
+        activeLicenses: cachedOverview.active_licenses,
+        licenseCapacity: cachedOverview.license_capacity,
+        departments: cachedOverview.departments,
+        totalCourses: cachedOverview.total_courses,
+        studentGrowthPercent: cachedOverview.student_growth_percent,
+        activeStudents: cachedOverview.active_students,
+        newStudentsThisMonth: cachedOverview.new_students_this_month,
+        departmentDistribution: cachedOverview.department_distribution,
+        unassignedStudents: cachedOverview.unassigned_students,
+      };
+    }
 
-    // Calculate growth from last month
-    const now = Date.now();
-    const lastMonthStart = new Date();
-    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-    lastMonthStart.setDate(1);
-    const lastMonthEnd = new Date();
-    lastMonthEnd.setDate(0); // Last day of previous month
-
-    const studentsLastMonth = actualStudents.filter(
-      (s: any) => s.created_at <= lastMonthEnd.getTime(),
-    ).length;
-
-    const studentGrowth =
-      studentsLastMonth > 0
-        ? ((actualStudents.length - studentsLastMonth) / studentsLastMonth) * 100
-        : 0;
-
-    // Use university license seats if available
-    const uni = (await ctx.db.get(uniId as Id<'universities'>)) as Doc<'universities'> | null;
-    const licenseCapacity = (uni?.license_seats as number | undefined) ?? actualStudents.length;
-
+    const metrics = await computeUniversityOverviewMetrics(ctx, uniId);
     return {
-      totalStudents: actualStudents.length,
-      activeLicenses: actualStudents.length,
-      licenseCapacity,
-      departments: departments.length,
-      totalCourses: courses.length,
-      studentGrowthPercent: Math.round(studentGrowth * 10) / 10, // Round to 1 decimal
+      totalStudents: metrics.total_students,
+      activeLicenses: metrics.active_licenses,
+      licenseCapacity: metrics.license_capacity,
+      departments: metrics.departments,
+      totalCourses: metrics.total_courses,
+      studentGrowthPercent: metrics.student_growth_percent,
+      activeStudents: metrics.active_students,
+      newStudentsThisMonth: metrics.new_students_this_month,
+      departmentDistribution: metrics.department_distribution,
+      unassignedStudents: metrics.unassigned_students,
     };
   },
 });
@@ -185,11 +176,11 @@ export const getUniversityAnalytics = query({
       const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
 
-      // OPTIMIZED: Get applications created on this day with limit
+      // Use university + created_at index for tenant-scoped daily counts
       const dayApplications = await ctx.db
         .query('applications')
-        .filter((q: any) =>
-          q.and(q.gte(q.field('created_at'), dayStart), q.lte(q.field('created_at'), dayEnd)),
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', dayStart).lte('created_at', dayEnd),
         )
         .take(500); // Limit to 500 applications per day
 
@@ -216,19 +207,27 @@ export const getUniversityAnalytics = query({
     const [allApplications, allResumes, allCoverLetters, allGoals] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(2000), // Limit to 2000 per category
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
     ]);
 
@@ -327,11 +326,16 @@ export const assignStudentByEmail = mutation({
     }
 
     if (existingStudent) {
+      const requestedRole =
+        args.role || (existingStudent.role === 'user' ? ('student' as const) : undefined);
+      const normalizedRole =
+        requestedRole && normalizeLegacyUserRole(requestedRole, admin.university_id);
+
       // Update existing user
       await ctx.db.patch(existingStudent._id, {
         university_id: admin.university_id,
         subscription_plan: 'university',
-        ...(args.role ? { role: args.role } : {}),
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         ...(args.departmentId ? { department_id: args.departmentId } : {}),
         updated_at: now,
       });
@@ -357,6 +361,10 @@ export const assignStudentByEmail = mutation({
       }
       return { userId: existingStudent._id, isNew: false };
     } else {
+      const requestedRole = args.role || 'student';
+      const normalizedRole =
+        normalizeLegacyUserRole(requestedRole, admin.university_id) || 'student';
+
       // Create pending user invitation
       // This user will be activated when they click the magic link in their email
       const userId = await ctx.db.insert('users', {
@@ -366,7 +374,7 @@ export const assignStudentByEmail = mutation({
         university_id: admin.university_id,
         subscription_plan: 'university',
         subscription_status: 'active',
-        role: args.role || 'user',
+        role: normalizedRole,
         account_status: 'pending_activation',
         ...(args.departmentId ? { department_id: args.departmentId } : {}),
         created_at: now,
@@ -688,23 +696,33 @@ export const getStudentMetrics = query({
     const [applications, resumes, coverLetters, goals, projects] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(3000),
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('projects')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
     ]);
 
@@ -775,23 +793,33 @@ export const getStudentProgress = query({
     const [applications, resumes, coverLetters, goals, projects] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(3000),
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('projects')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
     ]);
 
@@ -946,6 +974,179 @@ export const universitySearch = query({
       advisors,
       departments: filteredDepartments,
       courses: filteredCourses,
+    };
+  },
+});
+
+/**
+ * Update a student's profile as university admin
+ * Allows updating name and role for students in the admin's university.
+ *
+ * NOTE: Email is not editable here - Clerk is the source of truth for email.
+ * Users should change their email through their Clerk account settings.
+ *
+ * IMPORTANT: For role changes, the frontend MUST call /api/university/sync-student-role
+ * to update Clerk's publicMetadata.role after this mutation succeeds.
+ * Clerk is the source of truth for authorization; Convex role is cached for display.
+ */
+export const updateStudentByAdmin = mutation({
+  args: {
+    clerkId: v.string(),
+    studentId: v.id('users'),
+    updates: v.object({
+      name: v.optional(v.string()),
+      // email intentionally removed - Clerk is source of truth for email
+      role: v.optional(v.union(v.literal('student'), v.literal('user'), v.literal('advisor'))),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx, args.clerkId);
+    requireAdmin(admin);
+
+    // Only super_admin and university_admin can change roles (prevent advisor privilege escalation)
+    const canChangeRole = admin.role === 'super_admin' || admin.role === 'university_admin';
+    if (args.updates.role !== undefined && !canChangeRole) {
+      throw new Error('Unauthorized: Only university admins can change roles');
+    }
+
+    const normalizedRole = args.updates.role === 'user' ? 'student' : args.updates.role;
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Verify the target user has a student-like role
+    if (!['user', 'student'].includes(student.role)) {
+      throw new Error('Target user is not a student');
+    }
+
+    // Verify student belongs to admin's university
+    if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
+      throw new Error('Unauthorized: Cannot update students outside your university');
+    }
+
+    // Build updates object
+    const updates: Record<string, unknown> = {
+      updated_at: Date.now(),
+    };
+
+    if (args.updates.name !== undefined) {
+      updates.name = args.updates.name;
+    }
+    if (normalizedRole !== undefined) {
+      updates.role = normalizedRole;
+    }
+
+    await ctx.db.patch(args.studentId, updates);
+
+    // If role is changing to advisor, update the membership record
+    if (normalizedRole === 'advisor' && student.role !== 'advisor' && student.university_id) {
+      const membership = await ctx.db
+        .query('memberships')
+        .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
+        .filter((q) => q.eq(q.field('university_id'), student.university_id!))
+        .first();
+
+      if (membership) {
+        await ctx.db.patch(membership._id, {
+          role: 'advisor',
+          updated_at: Date.now(),
+        });
+      } else {
+        // Create membership for new advisor if none exists
+        await ctx.db.insert('memberships', {
+          user_id: args.studentId,
+          university_id: student.university_id!,
+          role: 'advisor',
+          status: 'active',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        });
+      }
+    }
+
+    return {
+      success: true,
+      studentId: args.studentId,
+      studentClerkId: student.clerkId, // Return for Clerk sync when role changes
+      roleChanged: normalizedRole !== undefined && normalizedRole !== student.role,
+      newRole: normalizedRole,
+    };
+  },
+});
+
+/**
+ * Remove a student from the university
+ * Unlinks the student from the university but does not delete the user account.
+ *
+ * IMPORTANT: This mutation updates the Convex role to 'individual' for caching purposes.
+ * The frontend MUST call /api/university/remove-student-clerk-sync to update Clerk's
+ * publicMetadata.role to 'individual' after this mutation succeeds. The returned
+ * studentClerkId should be used for the sync call. See CLAUDE.md for role management architecture.
+ */
+export const removeStudentFromUniversity = mutation({
+  args: {
+    clerkId: v.string(),
+    studentId: v.id('users'),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx, args.clerkId);
+    requireAdmin(admin);
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Validate target is a student (prevent removing admins/advisors)
+    if (!['user', 'student'].includes(student.role)) {
+      throw new Error('Target user is not a student');
+    }
+
+    // Verify student belongs to admin's university
+    if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
+      throw new Error('Unauthorized: Cannot remove students outside your university');
+    }
+
+    // Store university_id before clearing for membership deactivation
+    const universityId = student.university_id;
+
+    // Unlink from university (soft removal)
+    // Note: Role is updated here for Convex caching; frontend must sync to Clerk
+    await ctx.db.patch(args.studentId, {
+      university_id: undefined,
+      department_id: undefined,
+      role: 'individual', // Convert to individual user (must sync to Clerk)
+      updated_at: Date.now(),
+    });
+
+    // Deactivate memberships to update license counts
+    if (universityId) {
+      const memberships = await ctx.db
+        .query('memberships')
+        .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
+        .filter((q) => q.eq(q.field('university_id'), universityId))
+        .collect();
+      for (const membership of memberships) {
+        await ctx.db.patch(membership._id, { status: 'inactive', updated_at: Date.now() });
+      }
+    }
+
+    // Also remove any advisor assignments for this student
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
+      .collect();
+
+    for (const assignment of advisorAssignments) {
+      await ctx.db.delete(assignment._id);
+    }
+
+    return {
+      success: true,
+      studentId: args.studentId,
+      studentClerkId: student.clerkId, // Return for Clerk sync
     };
   },
 });

@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
 
-import { query, QueryCtx } from './_generated/server';
+import { internal } from './_generated/api';
 import { Id, Doc } from './_generated/dataModel';
+import { internalMutation, MutationCtx, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
 
 /**
@@ -46,6 +47,17 @@ interface EngagementPrediction {
   predicted_days_to_risk?: number; // days until at_risk if trend continues
 }
 
+const DEFAULT_LOOKBACK_WEEKS = 8;
+const DEFAULT_FORECAST_WEEKS = 4;
+const MAX_FORECAST_WEEKS = 12;
+const PREDICTION_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const PREDICTION_BATCH_SIZE = 50;
+const SUMMARY_PAGE_SIZE = 1000;
+
+function isUniversityStudent(user: Doc<'users'>) {
+  return user.role === 'student' || (user.role === 'user' && user.university_id);
+}
+
 /**
  * Calculate activity trend from weekly activity counts
  */
@@ -88,14 +100,6 @@ function calculateTrend(weeklyActivityCounts: number[]): ActivityTrend {
 }
 
 /**
- * Pre-fetched data for batch prediction computation
- */
-interface BatchPredictionData {
-  activityEventsByUser: Map<string, Doc<'activity_events'>[]>;
-  applicationsByUser: Map<string, Doc<'applications'>[]>;
-}
-
-/**
  * Prepared input data for the shared scoring algorithm.
  * Both batch and single-student functions prepare this before scoring.
  */
@@ -113,8 +117,7 @@ interface ScoringInputData {
  * Shared scoring algorithm for engagement prediction.
  * Computes risk factors, scores, status, and recommendations from prepared data.
  *
- * This function contains the core prediction logic used by both:
- * - computePredictionWithData (batch operations with pre-fetched data)
+ * This function contains the core prediction logic used by:
  * - computePredictionForStudent (single student with DB queries)
  */
 function computePredictionFromScoringData(data: ScoringInputData): EngagementPrediction {
@@ -231,7 +234,11 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
   }
 
   // Calculate risk score
-  let riskScore = 30; // Base risk
+  // Base risk of 30 represents a neutral starting point.
+  // Negative factors add their full weight; positive factors reduce by 70% of weight.
+  // This asymmetry intentionally makes negative signals more impactful, reflecting
+  // that disengagement warning signs require more attention than positive indicators.
+  let riskScore = 30;
   for (const factor of factors) {
     if (factor.impact === 'negative') {
       riskScore += factor.weight;
@@ -367,26 +374,7 @@ function prepareScoringData(
 }
 
 /**
- * Internal helper to compute prediction for a student using pre-fetched data.
- * This avoids N+1 queries when processing multiple students.
- */
-function computePredictionWithData(
-  student: Doc<'users'>,
-  lookbackWeeks: number,
-  batchData: BatchPredictionData,
-): EngagementPrediction | null {
-  // Get pre-fetched data for this student
-  const activityEvents = batchData.activityEventsByUser.get(student._id) || [];
-  const applications = batchData.applicationsByUser.get(student._id) || [];
-
-  // Prepare and compute using shared algorithm
-  const scoringData = prepareScoringData(student, activityEvents, applications, lookbackWeeks);
-  return computePredictionFromScoringData(scoringData);
-}
-
-/**
  * Internal helper to compute prediction for a single student (makes DB queries).
- * Use computePredictionWithData for batch operations.
  */
 async function computePredictionForStudent(
   ctx: QueryCtx,
@@ -410,120 +398,271 @@ async function computePredictionForStudent(
   return computePredictionFromScoringData(scoringData);
 }
 
-/**
- * Internal helper to get predictions for all students in a university.
- * Uses batch fetching for O(3) queries instead of O(n*2) queries.
- */
-async function computeUniversityPredictions(
-  ctx: QueryCtx,
-  universityId: Id<'universities'>,
-  limit: number,
-) {
-  // Get all students for the university (only students, not other user types)
-  const students = await ctx.db
-    .query('users')
-    .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .filter((q) => q.eq(q.field('role'), 'student'))
-    .take(limit);
-
-  if (students.length === 0) {
-    return {
-      predictions: [],
-      summary: { total: 0, at_risk: 0, moderate: 0, engaged: 0, avg_risk_score: 0 },
-    };
-  }
-
-  // Calculate lookback period to filter data at query time (avoid loading years of history)
-  const lookbackWeeks = 8;
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const startTime = Date.now() - lookbackWeeks * msPerWeek;
-
-  // Batch fetch: Get activity events within the lookback period
-  // This is O(1) query instead of O(n) queries, filtered to avoid loading all historical data
-  const studentIds = new Set(students.map((s) => s._id));
-  const allActivityEvents = await ctx.db
-    .query('activity_events')
-    .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .filter((q) => q.gte(q.field('occurred_at'), startTime))
-    .collect();
-
-  // Batch fetch: Get all applications (no date filter - applications have long lifecycles)
-  // An application created months ago may still be in an active stage like "Interview"
-  const allApplications = await ctx.db
-    .query('applications')
-    .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .collect();
-
-  // Group data by user_id for efficient lookup
-  const activityEventsByUser = new Map<string, Doc<'activity_events'>[]>();
-  for (const event of allActivityEvents) {
-    if (studentIds.has(event.user_id)) {
-      const existing = activityEventsByUser.get(event.user_id) || [];
-      existing.push(event);
-      activityEventsByUser.set(event.user_id, existing);
-    }
-  }
-
-  const applicationsByUser = new Map<string, Doc<'applications'>[]>();
-  for (const app of allApplications) {
-    if (studentIds.has(app.user_id)) {
-      const existing = applicationsByUser.get(app.user_id) || [];
-      existing.push(app);
-      applicationsByUser.set(app.user_id, existing);
-    }
-  }
-
-  const batchData: BatchPredictionData = { activityEventsByUser, applicationsByUser };
-
-  const predictions: Array<{
-    student_id: Id<'users'>;
-    student_name: string;
-    student_email: string | null;
-    prediction: EngagementPrediction;
-  }> = [];
-
-  // Compute predictions using pre-fetched data (no additional DB queries)
-  for (const student of students) {
-    const prediction = computePredictionWithData(student, 8, batchData);
-
-    if (prediction) {
-      predictions.push({
-        student_id: student._id,
-        student_name: student.name || 'Unknown',
-        student_email: student.email || null,
-        prediction,
-      });
-    }
-  }
-
-  // Sort by risk score (highest first)
-  predictions.sort((a, b) => b.prediction.risk_score - a.prediction.risk_score);
-
-  // Calculate summary stats
-  const atRiskCount = predictions.filter((p) => p.prediction.predicted_status === 'at_risk').length;
-  const moderateCount = predictions.filter(
-    (p) => p.prediction.predicted_status === 'moderate',
-  ).length;
-  const engagedCount = predictions.filter(
-    (p) => p.prediction.predicted_status === 'engaged',
-  ).length;
-
-  const avgRiskScore =
-    predictions.length > 0
-      ? predictions.reduce((sum, p) => sum + p.prediction.risk_score, 0) / predictions.length
-      : 0;
-
+function mapPredictionCacheToResponse(prediction: Doc<'engagement_prediction_cache'>) {
   return {
-    predictions,
-    summary: {
-      total: predictions.length,
-      at_risk: atRiskCount,
-      moderate: moderateCount,
-      engaged: engagedCount,
-      avg_risk_score: Math.round(avgRiskScore),
+    student_id: prediction.student_id,
+    student_name: prediction.student_name,
+    student_email: prediction.student_email ?? null,
+    prediction: {
+      current_status: prediction.current_status,
+      predicted_status: prediction.predicted_status,
+      confidence: prediction.confidence,
+      risk_score: prediction.risk_score,
+      factors: prediction.factors,
+      recommendations: prediction.recommendations,
+      predicted_days_to_risk: prediction.predicted_days_to_risk ?? undefined,
     },
   };
 }
+
+async function upsertPredictionCache(
+  ctx: MutationCtx,
+  record: Omit<Doc<'engagement_prediction_cache'>, '_id' | '_creationTime'>,
+) {
+  const existing = await ctx.db
+    .query('engagement_prediction_cache')
+    .withIndex('by_student', (q) => q.eq('student_id', record.student_id))
+    .collect();
+
+  if (existing.length > 0) {
+    await ctx.db.patch(existing[0]._id, record);
+    for (const extra of existing.slice(1)) {
+      await ctx.db.delete(extra._id);
+    }
+  } else {
+    await ctx.db.insert('engagement_prediction_cache', record);
+  }
+}
+
+async function upsertPredictionSummary(
+  ctx: MutationCtx,
+  summary: Omit<Doc<'engagement_prediction_summary'>, '_id' | '_creationTime'>,
+) {
+  const existing = await ctx.db
+    .query('engagement_prediction_summary')
+    .withIndex('by_university', (q) => q.eq('university_id', summary.university_id))
+    .unique();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, summary);
+  } else {
+    await ctx.db.insert('engagement_prediction_summary', summary);
+  }
+}
+
+async function computePredictionSummaryFromCache(
+  ctx: QueryCtx | MutationCtx,
+  universityId: Id<'universities'>,
+  weeksAhead = DEFAULT_FORECAST_WEEKS,
+) {
+  const forecastWeeks = Math.max(0, Math.min(weeksAhead, MAX_FORECAST_WEEKS));
+  const atRiskByWeek = Array.from({ length: forecastWeeks }, () => 0);
+
+  let total = 0;
+  let predictedEngaged = 0;
+  let predictedModerate = 0;
+  let predictedAtRisk = 0;
+  let riskSum = 0;
+
+  let currentEngaged = 0;
+  let currentModerate = 0;
+  let currentAtRisk = 0;
+
+  const highRiskStudents: Array<{
+    id: Id<'users'>;
+    name: string;
+    risk_score: number;
+    predicted_days_to_risk?: number;
+  }> = [];
+
+  const maybeTrackHighRisk = (prediction: Doc<'engagement_prediction_cache'>) => {
+    if (prediction.risk_score < 70) return;
+
+    highRiskStudents.push({
+      id: prediction.student_id,
+      name: prediction.student_name,
+      risk_score: prediction.risk_score,
+      predicted_days_to_risk: prediction.predicted_days_to_risk ?? undefined,
+    });
+
+    highRiskStudents.sort((a, b) => b.risk_score - a.risk_score);
+    if (highRiskStudents.length > 10) {
+      highRiskStudents.length = 10;
+    }
+  };
+
+  let cursor: string | null = null;
+  do {
+    const page = await ctx.db
+      .query('engagement_prediction_cache')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .paginate({ cursor, numItems: SUMMARY_PAGE_SIZE });
+
+    for (const prediction of page.page as Doc<'engagement_prediction_cache'>[]) {
+      total++;
+      riskSum += prediction.risk_score;
+
+      if (prediction.predicted_status === 'engaged') {
+        predictedEngaged++;
+      } else if (prediction.predicted_status === 'moderate') {
+        predictedModerate++;
+      } else if (prediction.predicted_status === 'at_risk') {
+        predictedAtRisk++;
+      }
+
+      if (prediction.current_status === 'engaged') {
+        currentEngaged++;
+      } else if (prediction.current_status === 'moderate') {
+        currentModerate++;
+      } else if (prediction.current_status === 'at_risk') {
+        currentAtRisk++;
+      }
+
+      if (
+        (prediction.current_status === 'engaged' || prediction.current_status === 'moderate') &&
+        prediction.predicted_days_to_risk !== undefined
+      ) {
+        for (let week = 1; week <= forecastWeeks; week++) {
+          if (prediction.predicted_days_to_risk <= week * 7) {
+            atRiskByWeek[week - 1]++;
+          }
+        }
+      }
+
+      maybeTrackHighRisk(prediction);
+    }
+
+    cursor = page.isDone ? null : page.continueCursor;
+  } while (cursor);
+
+  const avgRiskScore = total > 0 ? Math.round(riskSum / total) : 0;
+  const currentTotal = currentEngaged + currentModerate + currentAtRisk;
+  const currentState = {
+    engaged: currentEngaged,
+    moderate: currentModerate,
+    at_risk: currentAtRisk,
+  };
+
+  const forecast: Array<{
+    week: number;
+    engaged: number;
+    moderate: number;
+    at_risk: number;
+  }> = [{ week: 0, ...currentState }];
+
+  for (let week = 1; week <= forecastWeeks; week++) {
+    const willBecomeAtRisk = atRiskByWeek[week - 1] || 0;
+    const projectedAtRisk = Math.min(currentTotal, currentState.at_risk + willBecomeAtRisk);
+    const projectedModerate = Math.max(
+      0,
+      currentState.moderate - Math.floor(willBecomeAtRisk * 0.6),
+    );
+    const projectedEngaged = currentTotal - projectedAtRisk - projectedModerate;
+
+    forecast.push({
+      week,
+      engaged: Math.max(0, projectedEngaged),
+      moderate: projectedModerate,
+      at_risk: projectedAtRisk,
+    });
+  }
+
+  return {
+    university_id: universityId,
+    computed_at: Date.now(),
+    total,
+    engaged: predictedEngaged,
+    moderate: predictedModerate,
+    at_risk: predictedAtRisk,
+    avg_risk_score: avgRiskScore,
+    forecast,
+    current_total: currentTotal,
+    high_risk_students: highRiskStudents,
+  };
+}
+
+export const refreshUniversityPredictionCache = internalMutation({
+  args: {
+    universityId: v.id('universities'),
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? PREDICTION_BATCH_SIZE;
+
+    const page = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q: any) => q.eq('university_id', args.universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize });
+
+    const now = Date.now();
+    for (const student of page.page as Doc<'users'>[]) {
+      if (!isUniversityStudent(student)) continue;
+
+      const prediction = await computePredictionForStudent(ctx, student, DEFAULT_LOOKBACK_WEEKS);
+      if (!prediction) continue;
+
+      await upsertPredictionCache(ctx, {
+        university_id: args.universityId,
+        student_id: student._id,
+        student_name: student.name || 'Unknown',
+        student_email: student.email ?? undefined,
+        current_status: prediction.current_status,
+        predicted_status: prediction.predicted_status,
+        confidence: prediction.confidence,
+        risk_score: prediction.risk_score,
+        predicted_days_to_risk: prediction.predicted_days_to_risk,
+        factors: prediction.factors,
+        recommendations: prediction.recommendations,
+        computed_at: now,
+      });
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.engagement_prediction.refreshUniversityPredictionCache,
+        {
+          universityId: args.universityId,
+          cursor: page.continueCursor,
+          batchSize,
+        },
+      );
+    } else {
+      const summary = await computePredictionSummaryFromCache(
+        ctx,
+        args.universityId,
+        DEFAULT_FORECAST_WEEKS,
+      );
+      await upsertPredictionSummary(ctx, summary);
+    }
+
+    return { processed: page.page.length, hasMore: !page.isDone };
+  },
+});
+
+export const refreshEngagementPredictionCacheJob = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const universities = await ctx.db
+      .query('universities')
+      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+      .collect();
+
+    for (const university of universities) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.engagement_prediction.refreshUniversityPredictionCache,
+        {
+          universityId: university._id,
+        },
+      );
+    }
+
+    return { scheduled: universities.length };
+  },
+});
 
 /**
  * Predict engagement for a single student
@@ -534,13 +673,18 @@ export const predictStudentEngagement = query({
     lookbackWeeks: v.optional(v.number()), // Default 8 weeks
   },
   handler: async (ctx, args): Promise<EngagementPrediction | null> => {
-    const { studentId, lookbackWeeks = 8 } = args;
+    const { studentId, lookbackWeeks = DEFAULT_LOOKBACK_WEEKS } = args;
     if (lookbackWeeks <= 0) {
       throw new Error('lookbackWeeks must be >= 1');
     }
 
     const student = await ctx.db.get(studentId);
     if (!student) return null;
+
+    // Guard against non-student IDs - predictions only make sense for students
+    if (!isUniversityStudent(student)) {
+      throw new Error('Predictions are only supported for student accounts');
+    }
 
     // Authorization: Only advisors, admins, or super_admin can access predictions
     const sessionCtx = await getCurrentUser(ctx);
@@ -555,6 +699,29 @@ export const predictStudentEngagement = query({
       if (!student.university_id || userUniversityId !== student.university_id) {
         throw new Error('Unauthorized: Cannot access predictions for another university');
       }
+    }
+
+    const cachedPrediction =
+      lookbackWeeks === DEFAULT_LOOKBACK_WEEKS
+        ? await ctx.db
+            .query('engagement_prediction_cache')
+            .withIndex('by_student', (q) => q.eq('student_id', student._id))
+            .unique()
+        : null;
+
+    if (
+      cachedPrediction &&
+      cachedPrediction.computed_at > Date.now() - PREDICTION_CACHE_MAX_AGE_MS
+    ) {
+      return {
+        current_status: cachedPrediction.current_status,
+        predicted_status: cachedPrediction.predicted_status,
+        confidence: cachedPrediction.confidence,
+        risk_score: cachedPrediction.risk_score,
+        factors: cachedPrediction.factors,
+        recommendations: cachedPrediction.recommendations,
+        predicted_days_to_risk: cachedPrediction.predicted_days_to_risk ?? undefined,
+      };
     }
 
     return computePredictionForStudent(ctx, student, lookbackWeeks);
@@ -587,7 +754,37 @@ export const getUniversityEngagementPredictions = query({
       }
     }
 
-    return computeUniversityPredictions(ctx, universityId, limit);
+    const cachedSummary = await ctx.db
+      .query('engagement_prediction_summary')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .unique();
+
+    const cachedPredictions = await ctx.db
+      .query('engagement_prediction_cache')
+      .withIndex('by_university_risk', (q) => q.eq('university_id', universityId))
+      .order('desc')
+      .take(limit);
+
+    if (!cachedSummary && cachedPredictions.length === 0) {
+      return {
+        predictions: [],
+        summary: { total: 0, at_risk: 0, moderate: 0, engaged: 0, avg_risk_score: 0 },
+      };
+    }
+
+    const resolvedSummary =
+      cachedSummary ?? (await computePredictionSummaryFromCache(ctx, universityId));
+
+    return {
+      predictions: cachedPredictions.map(mapPredictionCacheToResponse),
+      summary: {
+        total: resolvedSummary.total,
+        at_risk: resolvedSummary.at_risk,
+        moderate: resolvedSummary.moderate,
+        engaged: resolvedSummary.engaged,
+        avg_risk_score: resolvedSummary.avg_risk_score,
+      },
+    };
   },
 });
 
@@ -618,23 +815,40 @@ export const getStudentsAtRiskSoon = query({
       }
     }
 
-    // Fetch more students than requested since we filter down after prediction
-    // Use a higher multiplier to ensure we don't miss at-risk students
-    // Cap at 1000 to prevent performance issues with large limit values
-    const fetchLimit = Math.min(1000, Math.max(200, limit * 10));
-    const { predictions } = await computeUniversityPredictions(ctx, universityId, fetchLimit);
+    const atRiskSoon: Array<{
+      student_id: Id<'users'>;
+      student_name: string;
+      student_email: string | null;
+      prediction: EngagementPrediction;
+    }> = [];
 
-    // Filter to students currently engaged/moderate but predicted to drop
-    const atRiskSoon = predictions
-      .filter((p) => {
-        const pred = p.prediction;
-        return (
-          (pred.current_status === 'engaged' || pred.current_status === 'moderate') &&
-          pred.predicted_days_to_risk !== undefined &&
-          pred.predicted_days_to_risk <= daysThreshold
-        );
-      })
-      .slice(0, limit);
+    const batchSize = Math.min(500, Math.max(100, limit * 10));
+    let cursor: string | null = null;
+    do {
+      const page = await ctx.db
+        .query('engagement_prediction_cache')
+        .withIndex('by_university_risk', (q) => q.eq('university_id', universityId))
+        .order('desc')
+        .paginate({ cursor, numItems: batchSize });
+
+      for (const prediction of page.page as Doc<'engagement_prediction_cache'>[]) {
+        if (
+          (prediction.current_status === 'engaged' || prediction.current_status === 'moderate') &&
+          prediction.predicted_days_to_risk !== undefined &&
+          prediction.predicted_days_to_risk <= daysThreshold
+        ) {
+          atRiskSoon.push(mapPredictionCacheToResponse(prediction));
+        }
+
+        if (atRiskSoon.length >= limit) break;
+      }
+
+      if (atRiskSoon.length >= limit || page.isDone) {
+        cursor = null;
+      } else {
+        cursor = page.continueCursor;
+      }
+    } while (cursor);
 
     return {
       students: atRiskSoon,
@@ -653,7 +867,7 @@ export const getEngagementForecast = query({
     weeksAhead: v.optional(v.number()), // Default 4 weeks
   },
   handler: async (ctx, args) => {
-    const { universityId, weeksAhead = 4 } = args;
+    const { universityId, weeksAhead = DEFAULT_FORECAST_WEEKS } = args;
 
     // Authorization: Only university_admin, advisor, or super_admin can access forecasts
     const sessionCtx = await getCurrentUser(ctx);
@@ -670,83 +884,30 @@ export const getEngagementForecast = query({
       }
     }
 
-    // Get accurate current state from cached engagement status (scales to any university size)
-    const allStudents = await ctx.db
-      .query('users')
+    const forecastWeeks = Math.max(0, Math.min(weeksAhead, MAX_FORECAST_WEEKS));
+
+    const cachedSummary = await ctx.db
+      .query('engagement_prediction_summary')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
-      .collect();
+      .unique();
 
-    const actualTotal = allStudents.length;
-    const actualEngaged = allStudents.filter((s) => s.engagement_status === 'engaged').length;
-    const actualAtRisk = allStudents.filter((s) => s.engagement_status === 'at_risk').length;
-    const actualModerate = actualTotal - actualEngaged - actualAtRisk;
+    if (cachedSummary) {
+      const availableWeeks = Math.max(0, cachedSummary.forecast.length - 1);
+      const weeksToReturn = Math.min(forecastWeeks, availableWeeks);
 
-    // Get sampled predictions for transition rate estimation (capped for performance)
-    const sampleLimit = Math.min(500, actualTotal);
-    const { predictions } = await computeUniversityPredictions(ctx, universityId, sampleLimit);
-    const sampleSize = predictions.length;
-
-    // Current state (accurate from cached data)
-    const currentState = {
-      engaged: actualEngaged,
-      moderate: actualModerate,
-      at_risk: actualAtRisk,
-    };
-
-    // Project future states based on predicted_days_to_risk
-    const forecast: Array<{
-      week: number;
-      engaged: number;
-      moderate: number;
-      at_risk: number;
-    }> = [{ week: 0, ...currentState }];
-
-    for (let week = 1; week <= weeksAhead; week++) {
-      const daysCutoff = week * 7;
-
-      // Count how many in sample will become at-risk by this week
-      const sampleWillBecomeAtRisk = predictions.filter((p) => {
-        const pred = p.prediction;
-        return (
-          pred.predicted_status !== 'at_risk' &&
-          pred.predicted_days_to_risk !== undefined &&
-          pred.predicted_days_to_risk <= daysCutoff
-        );
-      }).length;
-
-      // Scale to full population (if sample < total)
-      const scaleFactor = sampleSize > 0 ? actualTotal / sampleSize : 1;
-      const willBecomeAtRisk = Math.round(sampleWillBecomeAtRisk * scaleFactor);
-
-      // Estimate state changes
-      const projectedAtRisk = Math.min(actualTotal, currentState.at_risk + willBecomeAtRisk);
-      const projectedModerate = Math.max(
-        0,
-        currentState.moderate - Math.floor(willBecomeAtRisk * 0.6),
-      );
-      const projectedEngaged = actualTotal - projectedAtRisk - projectedModerate;
-
-      forecast.push({
-        week,
-        engaged: Math.max(0, projectedEngaged),
-        moderate: projectedModerate,
-        at_risk: projectedAtRisk,
-      });
+      return {
+        forecast: cachedSummary.forecast.slice(0, weeksToReturn + 1),
+        current_total: cachedSummary.current_total,
+        high_risk_students: cachedSummary.high_risk_students,
+      };
     }
 
+    const summary = await computePredictionSummaryFromCache(ctx, universityId, forecastWeeks);
+
     return {
-      forecast,
-      current_total: actualTotal,
-      high_risk_students: predictions
-        .filter((p) => p.prediction.risk_score >= 70)
-        .slice(0, 10)
-        .map((p) => ({
-          id: p.student_id,
-          name: p.student_name,
-          risk_score: p.prediction.risk_score,
-          predicted_days_to_risk: p.prediction.predicted_days_to_risk,
-        })),
+      forecast: summary.forecast,
+      current_total: summary.current_total,
+      high_risk_students: summary.high_risk_students,
     };
   },
 });

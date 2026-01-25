@@ -75,6 +75,17 @@ export function requireTenant(sessionCtx: AdvisorSessionContext): Id<'universiti
 }
 
 /**
+ * Get user's university_id if available (doesn't throw)
+ * Returns undefined if user is not associated with a university
+ *
+ * Use this for queries where super_admin without university should see empty results
+ * rather than an error.
+ */
+export function optionalTenant(sessionCtx: AdvisorSessionContext): Id<'universities'> | undefined {
+  return sessionCtx.universityId;
+}
+
+/**
  * Require user to be an advisor
  * Throws if user role is not advisor, university_admin, or super_admin
  */

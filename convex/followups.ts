@@ -282,6 +282,23 @@ export const createFollowupFromSignal = internalMutation({
       throw new ConvexError({ message: 'Student not found', code: 'NOT_FOUND' });
     }
 
+    // Verify the user has a student role (includes legacy 'user' role)
+    if (student.role !== 'student' && student.role !== 'user') {
+      throw new ConvexError({
+        message: 'User must have student role',
+        code: 'INVALID_ROLE',
+      });
+    }
+
+    // Enforce tenant isolation: use student's university_id as authoritative source
+    const universityId = student.university_id;
+    if (args.universityId && args.universityId !== universityId) {
+      throw new ConvexError({
+        message: 'University ID mismatch with student',
+        code: 'TENANT_ISOLATION_VIOLATION',
+      });
+    }
+
     // Idempotency check: prevent duplicate follow-ups for the same signal
     const existing = await ctx.db
       .query('follow_ups')
@@ -307,8 +324,8 @@ export const createFollowupFromSignal = internalMutation({
       owner_id: args.studentId, // Student is responsible for follow-up
       created_by_type: 'system', // No created_by_id for system-generated follow-ups
 
-      // Multi-tenancy
-      university_id: args.universityId,
+      // Multi-tenancy (uses student's university for tenant isolation)
+      university_id: universityId,
 
       // Signal reference
       engagement_signal_id: args.signalId,

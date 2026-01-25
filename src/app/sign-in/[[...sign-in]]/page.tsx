@@ -45,8 +45,8 @@ export default function Page() {
 
   // If a session already exists, redirect based on role to avoid redirect chains
   useEffect(() => {
-    if (authLoaded && userLoaded && isSignedIn && user) {
-      const role = user.publicMetadata?.role as string | undefined;
+    if (authLoaded && userLoaded && isSignedIn) {
+      const role = user?.publicMetadata?.role as string | undefined;
       router.replace(getRedirectPath(role));
     }
   }, [authLoaded, userLoaded, isSignedIn, user, router]);

@@ -476,9 +476,12 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Current Role</label>
               <div>
-                <Badge variant="outline" className={roleColors[dialogState.user?.role || 'user']}>
+                <Badge
+                  variant="outline"
+                  className={roleColors[dialogState.user?.role || 'individual']}
+                >
                   <span className="flex items-center gap-1">
-                    {roleIcons[dialogState.user?.role || 'user']}
+                    {roleIcons[dialogState.user?.role || 'individual']}
                     {dialogState.user?.role?.replace(/_/g, ' ')}
                   </span>
                 </Badge>

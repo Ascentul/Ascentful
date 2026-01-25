@@ -101,6 +101,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Limit subscriptions per request to prevent resource exhaustion
+    if (subscriptions.length > 1000) {
+      return NextResponse.json(
+        { success: false, error: 'Too many subscriptions. Maximum 1000 per request.' },
+        { status: 400 },
+      );
+    }
+
     if (!payload || !payload.title || !payload.body) {
       return NextResponse.json(
         { success: false, error: 'Invalid payload. Title and body required.' },

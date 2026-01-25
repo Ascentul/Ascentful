@@ -10,6 +10,15 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Basic validation that a value looks like it could be a Convex ID.
+ * Only checks for non-empty string - actual ID validation is handled
+ * by Convex when the query runs (IDs are opaque identifiers).
+ */
+function isValidConvexId(id: unknown): id is string {
+  return typeof id === 'string' && id.length > 0;
+}
+
 interface ExportFilters {
   cohortIds?: string[];
   degreeLevels?: string[];
@@ -129,6 +138,21 @@ export async function POST(request: NextRequest) {
     // If snapshotId provided, get data from snapshot
     // Otherwise, get live data with filters
     if (snapshotId) {
+      // Validate snapshotId format before casting
+      if (!isValidConvexId(snapshotId)) {
+        log.warn('Invalid snapshot ID format', {
+          event: 'validation.failed',
+          errorCode: 'BAD_REQUEST',
+        });
+        return NextResponse.json(
+          { error: 'Invalid snapshot ID format' },
+          {
+            status: 400,
+            headers: { 'x-correlation-id': correlationId },
+          },
+        );
+      }
+
       try {
         const snapshot = await convexServer.query(
           api.graduation_outcomes.getSnapshot,
@@ -162,7 +186,9 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // For snapshot export, we need to re-fetch the outcomes with the snapshot's filters
+        // For snapshot export, re-fetch outcomes with the snapshot's filters
+        // Use live analytics.summary for consistency with live outcomes data
+        // (snapshot.metrics is point-in-time and may be stale)
         const analytics = await convexServer.query(
           api.graduation_outcomes.getOutcomesAnalytics,
           {
@@ -177,7 +203,7 @@ export async function POST(request: NextRequest) {
 
         outcomeData = {
           outcomes: analytics.outcomes,
-          summary: snapshot.metrics,
+          summary: analytics.summary,
         };
       } catch (error) {
         log.error('Error fetching snapshot', toErrorCode(error), { event: 'data.fetch_failed' });
@@ -190,6 +216,24 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
+      // Validate cohortIds format if provided
+      if (filters?.cohortIds) {
+        const invalidCohortId = filters.cohortIds.find((id) => !isValidConvexId(id));
+        if (invalidCohortId) {
+          log.warn('Invalid cohort ID format', {
+            event: 'validation.failed',
+            errorCode: 'BAD_REQUEST',
+          });
+          return NextResponse.json(
+            { error: 'Invalid cohort ID format' },
+            {
+              status: 400,
+              headers: { 'x-correlation-id': correlationId },
+            },
+          );
+        }
+      }
+
       // Fetch live data with filters
       try {
         const analytics = await convexServer.query(

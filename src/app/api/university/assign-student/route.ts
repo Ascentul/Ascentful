@@ -115,8 +115,11 @@ export async function POST(req: NextRequest) {
     // Note: This mutation should be idempotent - if the student is already assigned,
     // it should update rather than fail, to prevent issues on retry
     // Validate role if provided
+    const normalizedRole = role === 'user' ? 'student' : role;
     const assignedRole =
-      role && (ASSIGNABLE_STUDENT_ROLES as readonly string[]).includes(role) ? role : 'user';
+      normalizedRole && (ASSIGNABLE_STUDENT_ROLES as readonly string[]).includes(normalizedRole)
+        ? normalizedRole
+        : 'student';
 
     const result = await convexServer.mutation(
       api.university_admin.assignStudentByEmail,

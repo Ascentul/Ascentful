@@ -51,9 +51,12 @@ export function DataPrivacySection() {
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      try {
+        a.click();
+      } finally {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
 
       toast({
         title: 'Data exported successfully',

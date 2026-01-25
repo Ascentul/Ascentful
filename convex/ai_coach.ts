@@ -69,7 +69,8 @@ export const createConversation = mutation({
         entityType: 'conversation',
         entityId: conversationId,
         metadata: {
-          title: args.title,
+          // Avoid storing raw title which may contain PII
+          titleLength: args.title.length,
         },
       });
     } catch {
