@@ -18,7 +18,8 @@ function sanitizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return url;
+      // Return normalized URL to prevent injection via unescaped characters
+      return parsed.toString();
     }
   } catch {
     // Invalid URL

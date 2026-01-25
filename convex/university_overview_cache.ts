@@ -83,12 +83,13 @@ export async function computeUniversityOverviewMetrics(
         studentsLastMonth++;
       }
 
-      if (student.department_id) {
+      if (student.department_id && departmentCounts.has(student.department_id)) {
         departmentCounts.set(
           student.department_id,
           (departmentCounts.get(student.department_id) || 0) + 1,
         );
       } else {
+        // Count as unassigned if no department or department no longer exists
         unassignedStudents++;
       }
     }

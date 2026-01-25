@@ -479,5 +479,13 @@ reviews:
         - Add configurability when actual use cases require different values, not speculatively
         - YAGNI (You Aren't Gonna Need It) - add parameters when needed, not before
 
+        ### Signal Condition Boundaries Are Semantic Distinctions
+        - Don't suggest broadening signal conditions to cover edge cases that are semantically different
+        - Pattern: `checkNoProgressCondition` requires `totalApplications > rejectionCount` intentionally
+        - This distinguishes "stalled with active pipeline" from "pipeline exhausted (all rejected)"
+        - Different edge cases often warrant different signals with different advisor actions
+        - Example: "No progress" = keep trying with adjustments; "All rejected" = restart pipeline entirely
+        - If an edge case seems uncovered, check for a separate signal handling that scenario
+
 chat:
   auto_reply: true
