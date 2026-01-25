@@ -10,6 +10,14 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Validates that a string looks like a valid Convex ID.
+ * Convex IDs are non-empty alphanumeric strings (base62-encoded).
+ */
+function isValidConvexId(id: unknown): id is string {
+  return typeof id === 'string' && id.length > 0 && /^[a-zA-Z0-9]+$/.test(id);
+}
+
 interface ExportFilters {
   cohortIds?: string[];
   degreeLevels?: string[];
@@ -129,6 +137,21 @@ export async function POST(request: NextRequest) {
     // If snapshotId provided, get data from snapshot
     // Otherwise, get live data with filters
     if (snapshotId) {
+      // Validate snapshotId format before casting
+      if (!isValidConvexId(snapshotId)) {
+        log.warn('Invalid snapshot ID format', {
+          event: 'validation.failed',
+          errorCode: 'BAD_REQUEST',
+        });
+        return NextResponse.json(
+          { error: 'Invalid snapshot ID format' },
+          {
+            status: 400,
+            headers: { 'x-correlation-id': correlationId },
+          },
+        );
+      }
+
       try {
         const snapshot = await convexServer.query(
           api.graduation_outcomes.getSnapshot,
@@ -192,6 +215,24 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
+      // Validate cohortIds format if provided
+      if (filters?.cohortIds) {
+        const invalidCohortId = filters.cohortIds.find((id) => !isValidConvexId(id));
+        if (invalidCohortId) {
+          log.warn('Invalid cohort ID format', {
+            event: 'validation.failed',
+            errorCode: 'BAD_REQUEST',
+          });
+          return NextResponse.json(
+            { error: 'Invalid cohort ID format' },
+            {
+              status: 400,
+              headers: { 'x-correlation-id': correlationId },
+            },
+          );
+        }
+      }
+
       // Fetch live data with filters
       try {
         const analytics = await convexServer.query(

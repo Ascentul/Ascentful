@@ -315,12 +315,11 @@ export default function BatchImportPage() {
 
     try {
       // Generate external outcome IDs for each row
-      // NOTE: When rows lack both externalStudentId and studentEmail, we fall back to
-      // position-based IDs (row_${index}). This means:
-      // - Re-importing the same unmodified file will correctly match existing records
-      // - Re-importing a modified file (rows added/removed) could create duplicates or
-      //   miss updates for position-dependent records
-      // The preview step validates and warns users about rows missing identifiers.
+      // NOTE: Rows lacking both externalStudentId and studentEmail will generate
+      // position-based IDs (row_${index}), but these are REJECTED server-side.
+      // The preview step marks these as errors and disables the import button.
+      // This code path should not execute for rows without identifiers due to
+      // UI validation, but server-side validation provides defense-in-depth.
       const outcomesWithIds = parsedData.map((row, index) => {
         // Match importUtils.ts: preserve case for external student IDs, lowercase emails
         const normalizedId = row.externalStudentId
@@ -620,6 +619,20 @@ export default function BatchImportPage() {
             )}
 
             {/* Warnings */}
+            {previewImport && previewImport.summary.missingIdentifiers > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Missing Required Identifiers</AlertTitle>
+                <AlertDescription>
+                  <strong>{previewImport.summary.missingIdentifiers} rows</strong> are missing both{' '}
+                  <code className="bg-neutral-200 px-1 rounded">external_student_id</code> and{' '}
+                  <code className="bg-neutral-200 px-1 rounded">email</code>. These rows cannot be
+                  imported because they lack a stable identifier for future updates. Please add
+                  identifiers to your CSV and re-upload.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {previewImport && previewImport.summary.needsReview > 0 && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />

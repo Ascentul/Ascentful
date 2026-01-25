@@ -370,6 +370,59 @@ export function UniversityDashboard() {
     ];
   }, [studentProgress]);
 
+  // Feature engagement by risk level - computed from real student progress data
+  const featureEngagementByRisk = useMemo(() => {
+    if (!studentProgress || studentProgress.length === 0) {
+      return [
+        { feature: 'Resume Builder', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Applications', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Goals', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+        { feature: 'Networking', highRisk: 0, mediumRisk: 0, lowRisk: 0 },
+      ];
+    }
+
+    // Categorize students by risk level
+    const highRiskStudents = studentProgress.filter((s) => s.completion < 20);
+    const mediumRiskStudents = studentProgress.filter(
+      (s) => s.completion >= 20 && s.completion < 50,
+    );
+    const lowRiskStudents = studentProgress.filter((s) => s.completion >= 50);
+
+    // Helper to calculate average, returning 0 if no students
+    const avg = (students: typeof studentProgress, key: keyof (typeof studentProgress)[0]) => {
+      if (students.length === 0) return 0;
+      const sum = students.reduce((acc, s) => acc + (Number(s[key]) || 0), 0);
+      return Math.round((sum / students.length) * 10) / 10; // Round to 1 decimal
+    };
+
+    return [
+      {
+        feature: 'Resume Builder',
+        highRisk: avg(highRiskStudents, 'resumes'),
+        mediumRisk: avg(mediumRiskStudents, 'resumes'),
+        lowRisk: avg(lowRiskStudents, 'resumes'),
+      },
+      {
+        feature: 'Applications',
+        highRisk: avg(highRiskStudents, 'applications'),
+        mediumRisk: avg(mediumRiskStudents, 'applications'),
+        lowRisk: avg(lowRiskStudents, 'applications'),
+      },
+      {
+        feature: 'Goals',
+        highRisk: avg(highRiskStudents, 'goals'),
+        mediumRisk: avg(mediumRiskStudents, 'goals'),
+        lowRisk: avg(lowRiskStudents, 'goals'),
+      },
+      {
+        feature: 'Projects',
+        highRisk: avg(highRiskStudents, 'projects'),
+        mediumRisk: avg(mediumRiskStudents, 'projects'),
+        lowRisk: avg(lowRiskStudents, 'projects'),
+      },
+    ];
+  }, [studentProgress]);
+
   // Filter students based on current filters
   const filteredStudents = useMemo(() => {
     if (!students) return [];
@@ -757,6 +810,7 @@ export function UniversityDashboard() {
       });
 
       // Sync role change to Clerk (Clerk is source of truth for auth)
+      let clerkSyncFailed = false;
       if (roleChanged && result.studentClerkId) {
         try {
           const response = await fetch('/api/university/sync-student-role', {
@@ -769,20 +823,29 @@ export function UniversityDashboard() {
             }),
           });
           if (!response.ok) {
-            // Log but don't fail - Convex update succeeded
+            clerkSyncFailed = true;
             console.error('Failed to sync role to Clerk:', await response.text());
           }
         } catch (syncError) {
-          // Log but don't fail - Convex update succeeded
+          clerkSyncFailed = true;
           console.error('Failed to sync role to Clerk:', syncError);
         }
       }
 
-      toast({
-        title: 'Student updated',
-        description: `${editForm.name || editingStudent.email} has been updated successfully.`,
-        variant: 'success',
-      });
+      if (clerkSyncFailed) {
+        toast({
+          title: 'Student updated with warning',
+          description:
+            'Role updated locally but Clerk sync failed. The change may not take effect until the student logs out and back in.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Student updated',
+          description: `${editForm.name || editingStudent.email} has been updated successfully.`,
+          variant: 'success',
+        });
+      }
       setEditOpen(false);
       setEditingStudent(null);
     } catch (error: any) {
@@ -813,6 +876,7 @@ export function UniversityDashboard() {
 
       // Sync role change to Clerk (Clerk is source of truth for auth)
       // The mutation updated Convex role to 'individual', now sync to Clerk
+      let clerkSyncFailed = false;
       if (studentToDelete.clerkId) {
         try {
           const response = await fetch('/api/university/remove-student-clerk-sync', {
@@ -824,20 +888,29 @@ export function UniversityDashboard() {
             }),
           });
           if (!response.ok) {
-            // Log but don't fail - Convex update succeeded
+            clerkSyncFailed = true;
             console.error('Failed to sync role to Clerk:', await response.text());
           }
         } catch (syncError) {
-          // Log but don't fail - Convex update succeeded
+          clerkSyncFailed = true;
           console.error('Failed to sync role to Clerk:', syncError);
         }
       }
 
-      toast({
-        title: 'Student removed',
-        description: `${studentToDelete.name || studentToDelete.email} has been removed from the university.`,
-        variant: 'success',
-      });
+      if (clerkSyncFailed) {
+        toast({
+          title: 'Student removed with warning',
+          description:
+            'Student removed locally but Clerk sync failed. Their access may not be fully revoked until they log out.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Student removed',
+          description: `${studentToDelete.name || studentToDelete.email} has been removed from the university.`,
+          variant: 'success',
+        });
+      }
       setDeleteConfirmOpen(false);
       setStudentToDelete(null);
     } catch (error: any) {
@@ -1543,75 +1616,30 @@ export function UniversityDashboard() {
                 <CardHeader>
                   <CardTitle>Student Activity Trends</CardTitle>
                   <CardDescription>
-                    Weekly student engagement and feature usage patterns
+                    Daily active students and advisors over the last 30 days
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={[
-                        {
-                          week: 'Week 1',
-                          logins: 180,
-                          goals: 45,
-                          applications: 12,
-                          documents: 28,
-                        },
-                        {
-                          week: 'Week 2',
-                          logins: 210,
-                          goals: 52,
-                          applications: 18,
-                          documents: 35,
-                        },
-                        {
-                          week: 'Week 3',
-                          logins: 195,
-                          goals: 48,
-                          applications: 15,
-                          documents: 32,
-                        },
-                        {
-                          week: 'Week 4',
-                          logins: 240,
-                          goals: 58,
-                          applications: 22,
-                          documents: 41,
-                        },
-                      ]}
-                    >
+                    <LineChart data={activeUsersData?.data || []}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
+                      <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
                       <Line
                         type="monotone"
-                        dataKey="logins"
+                        dataKey="students"
                         stroke="#4F46E5"
                         strokeWidth={2}
-                        name="Daily Logins"
+                        name="Active Students"
                       />
                       <Line
                         type="monotone"
-                        dataKey="goals"
+                        dataKey="advisors"
                         stroke="#10B981"
                         strokeWidth={2}
-                        name="Goals Set"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="applications"
-                        stroke="#F59E0B"
-                        strokeWidth={2}
-                        name="Applications"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="documents"
-                        stroke="#EC4899"
-                        strokeWidth={2}
-                        name="Documents Created"
+                        name="Active Advisors"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1841,17 +1869,7 @@ export function UniversityDashboard() {
                   <CardContent className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={[
-                          {
-                            feature: 'Resume Builder',
-                            highRisk: 0.2,
-                            mediumRisk: 1.5,
-                            lowRisk: 3.2,
-                          },
-                          { feature: 'Applications', highRisk: 0.1, mediumRisk: 0.8, lowRisk: 2.5 },
-                          { feature: 'Goals', highRisk: 0.3, mediumRisk: 1.2, lowRisk: 2.8 },
-                          { feature: 'Networking', highRisk: 0.1, mediumRisk: 0.5, lowRisk: 1.9 },
-                        ]}
+                        data={featureEngagementByRisk}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -1885,48 +1903,43 @@ export function UniversityDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {students.slice(0, 5).map((s: any) => {
-                        // Map engagement_status to risk level display
-                        const riskLevel =
-                          s.engagement_status === 'at_risk'
-                            ? 'high'
-                            : s.engagement_status === 'moderate'
-                              ? 'medium'
-                              : 'low';
-                        // Calculate actual days since last activity
-                        const daysAgo = s.last_active
-                          ? Math.floor((Date.now() - s.last_active) / (1000 * 60 * 60 * 24))
-                          : null;
-                        return (
-                          <TableRow key={s._id}>
-                            <TableCell className="font-medium">{s.name || 'Unknown'}</TableCell>
-                            <TableCell>{s.email}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  riskLevel === 'high'
-                                    ? 'destructive'
-                                    : riskLevel === 'medium'
-                                      ? 'default'
-                                      : 'secondary'
-                                }
-                                className={riskLevel === 'medium' ? 'bg-orange-600' : ''}
-                              >
-                                {riskLevel.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
-                            </TableCell>
-                            <TableCell>
-                              <Button size="sm" variant="outline">
-                                <Mail className="h-3 w-3 mr-1" />
-                                Send Reminder
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {students
+                        .filter(
+                          (s: any) =>
+                            s.engagement_status === 'at_risk' || s.engagement_status === 'moderate',
+                        )
+                        .slice(0, 5)
+                        .map((s: any) => {
+                          // Map engagement_status to risk level display
+                          const riskLevel = s.engagement_status === 'at_risk' ? 'high' : 'medium';
+                          // Calculate actual days since last activity
+                          const daysAgo = s.last_active
+                            ? Math.floor((Date.now() - s.last_active) / (1000 * 60 * 60 * 24))
+                            : null;
+                          return (
+                            <TableRow key={s._id}>
+                              <TableCell className="font-medium">{s.name || 'Unknown'}</TableCell>
+                              <TableCell>{s.email}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={riskLevel === 'high' ? 'destructive' : 'default'}
+                                  className={riskLevel === 'medium' ? 'bg-orange-600' : ''}
+                                >
+                                  {riskLevel.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
+                              </TableCell>
+                              <TableCell>
+                                <Button size="sm" variant="outline">
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  Send Reminder
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </CardContent>

@@ -849,6 +849,17 @@ export const resolveSignal = mutation({
     // Role-scoped access - advisors can only resolve signals for their assigned students
     await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
 
+    // Status validation - prevent resolving already resolved/dismissed/archived signals
+    if (signal.status === 'resolved') {
+      throw new Error('Cannot resolve signal: Signal is already resolved');
+    }
+    if (signal.status === 'dismissed') {
+      throw new Error('Cannot resolve signal: Signal has already been dismissed');
+    }
+    if (signal.status === 'archived') {
+      throw new Error('Cannot resolve signal: Signal has been archived');
+    }
+
     const now = Date.now();
 
     await ctx.db.patch(args.signalId, {
@@ -914,6 +925,17 @@ export const dismissSignal = mutation({
 
     // Role-scoped access - advisors can only dismiss signals for their assigned students
     await assertSignalAccessForStudent(ctx, sessionCtx, signal.university_id, signal.student_id);
+
+    // Status validation - prevent dismissing already resolved/dismissed/archived signals
+    if (signal.status === 'resolved') {
+      throw new Error('Cannot dismiss signal: Signal is already resolved');
+    }
+    if (signal.status === 'dismissed') {
+      throw new Error('Cannot dismiss signal: Signal is already dismissed');
+    }
+    if (signal.status === 'archived') {
+      throw new Error('Cannot dismiss signal: Signal has been archived');
+    }
 
     const now = Date.now();
 
@@ -1119,6 +1141,11 @@ export const bulkResolveSignals = mutation({
         continue; // Skip signals for unassigned students
       }
 
+      // Status validation - skip signals that are already resolved/dismissed/archived
+      if (['resolved', 'dismissed', 'archived'].includes(signal.status)) {
+        continue;
+      }
+
       await ctx.db.patch(signalId, {
         status: 'resolved',
         resolved_at: now,
@@ -1126,6 +1153,19 @@ export const bulkResolveSignals = mutation({
         resolution_type: args.resolutionType,
         resolution_notes: args.resolutionNotes,
         updated_at: now,
+      });
+
+      // Audit log for compliance and traceability
+      await safeLogAudit(ctx, {
+        category: 'user_action',
+        action: 'signal.bulk_resolved',
+        actorUserId: sessionCtx.userId,
+        actorRole: sessionCtx.role,
+        actorUniversityId: signal.university_id,
+        targetType: 'signal',
+        targetId: signalId,
+        previousValue: { status: signal.status },
+        newValue: { status: 'resolved', resolutionType: args.resolutionType },
       });
 
       resolved++;
@@ -1315,7 +1355,7 @@ export const evaluateSignalRules = internalMutation({
       // Batch fetch recent signals for cooldown checking (capped at MAX_RULE_LOOKBACK_DAYS)
       const maxCooldownDays = Math.min(
         MAX_RULE_LOOKBACK_DAYS,
-        Math.max(...rules.map((r) => r.cooldown_days ?? 0)),
+        rules.length > 0 ? Math.max(...rules.map((r) => r.cooldown_days ?? 0)) : 0,
       );
       const cooldownLookback = now - maxCooldownDays * 24 * 60 * 60 * 1000;
       const ruleIds = new Set(rules.map((r) => r._id));

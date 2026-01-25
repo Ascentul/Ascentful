@@ -1197,6 +1197,19 @@ export const bulkUpsertOutcomes = mutation({
       const outcomeData = args.outcomes[i];
 
       try {
+        // Reject position-based external IDs (e.g., "cohortId_row_0")
+        // These are unstable - re-importing a modified file would create duplicates or miss updates.
+        // Rows must have either external_student_id or email for reliable deduplication.
+        if (/_row_\d+$/.test(outcomeData.externalOutcomeId)) {
+          results.errors.push({
+            row: i + 1,
+            externalId: outcomeData.externalOutcomeId,
+            error:
+              'Row is missing external_student_id and email - cannot import without stable identifier',
+          });
+          continue;
+        }
+
         // Validate majorId belongs to the same institution
         if (outcomeData.majorId) {
           const major = await ctx.db.get(outcomeData.majorId);
@@ -1525,6 +1538,11 @@ export const previewOutcomeImport = query({
       identityMatched: preview.filter((p) => p.identityMatch.matched).length,
       needsReview: preview.filter(
         (p) => !p.identityMatch.matched && p.identityMatch.confidence === 'low',
+      ).length,
+      // Count rows specifically missing both external_student_id and email
+      // These would require position-based fallback IDs which are risky for re-imports
+      missingIdentifiers: preview.filter((p) =>
+        p.validationErrors.includes('Either external_student_id or student_email is required'),
       ).length,
     };
 
