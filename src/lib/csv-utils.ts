@@ -41,7 +41,10 @@ export const OUTCOME_CSV_FIELDS: Array<{
   { header: 'outcome_type', getValue: (o) => o.outcome_type || '' },
   { header: 'employer_name', getValue: (o) => o.employer_name || '' },
   { header: 'job_title', getValue: (o) => o.job_title || '' },
-  { header: 'is_verified', getValue: (o) => (o.is_verified ? 'true' : 'false') },
+  {
+    header: 'is_verified',
+    getValue: (o) => (o.is_verified === undefined ? '' : o.is_verified ? 'true' : 'false'),
+  },
   { header: 'confidence_score', getValue: (o) => o.confidence_score?.toString() || '' },
   { header: 'evidence_count', getValue: (o) => o.evidence_files?.length?.toString() || '0' },
   { header: 'data_source', getValue: (o) => o.data_source || '' },

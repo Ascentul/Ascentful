@@ -551,9 +551,9 @@ export default function SignalRulesPage() {
 
         <TabsContent value="templates" className="mt-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {templates?.map((template) => (
+            {templates?.map((template, index) => (
               <Card
-                key={`${template.name}-${template.signalType}`}
+                key={`template-${index}-${template.name}`}
                 className="cursor-pointer hover:border-primary-500 transition-colors"
               >
                 <CardHeader className="pb-2">

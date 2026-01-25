@@ -228,6 +228,7 @@ export const seedOutcomesDemo = internalMutation({
     ];
 
     const cohortIds: Id<'graduation_cohorts'>[] = [];
+    let newCohortsCount = 0;
 
     for (const config of cohortConfigs) {
       // Check if cohort already exists (must match term AND year to avoid reusing wrong cohort)
@@ -257,6 +258,7 @@ export const seedOutcomesDemo = internalMutation({
 
       console.log(`Created cohort: ${config.term} ${config.year}`);
       cohortIds.push(cohortId);
+      newCohortsCount++;
     }
 
     // Get existing majors (don't create new ones - they require department_id)
@@ -450,7 +452,7 @@ export const seedOutcomesDemo = internalMutation({
     // Return summary
     return {
       success: true,
-      cohortsCreated: cohortIds.length,
+      cohortsCreated: newCohortsCount,
       outcomesCreated: createdCount,
     };
   },

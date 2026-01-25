@@ -2202,17 +2202,22 @@ export const getSignalAnalytics = query({
     };
 
     // Resolution type breakdown (resolved signals only)
-    const resolvedSignals = signalsInRange.filter((s) => s.status === 'resolved');
+    // Use allSignals filtered by resolved_at in range, not signalsInRange (which filters by created_at)
+    // This ensures we count signals resolved during the period even if created before the cutoff
+    const resolvedInRange = allSignals.filter(
+      (s) =>
+        s.status === 'resolved' && s.resolved_at && s.resolved_at >= start && s.resolved_at <= end,
+    );
     const resolutionCounts = {
-      action_taken: resolvedSignals.filter((s) => s.resolution_type === 'action_taken').length,
-      no_action_needed: resolvedSignals.filter((s) => s.resolution_type === 'no_action_needed')
+      action_taken: resolvedInRange.filter((s) => s.resolution_type === 'action_taken').length,
+      no_action_needed: resolvedInRange.filter((s) => s.resolution_type === 'no_action_needed')
         .length,
-      dismissed: resolvedSignals.filter((s) => s.resolution_type === 'dismissed').length,
-      auto_resolved: resolvedSignals.filter((s) => s.resolution_type === 'auto_resolved').length,
+      dismissed: resolvedInRange.filter((s) => s.resolution_type === 'dismissed').length,
+      auto_resolved: resolvedInRange.filter((s) => s.resolution_type === 'auto_resolved').length,
     };
 
     // Calculate average resolution time
-    const resolvedWithTimes = resolvedSignals.filter((s) => s.resolved_at && s.triggered_at);
+    const resolvedWithTimes = resolvedInRange.filter((s) => s.resolved_at && s.triggered_at);
     let avgResolutionTimeHours: number | null = null;
     if (resolvedWithTimes.length > 0) {
       const totalMs = resolvedWithTimes.reduce(
@@ -2304,7 +2309,7 @@ export const getSignalAnalytics = query({
         totalSignals: allSignals.length,
         activeSignals: statusCounts.active,
         signalsInPeriod: signalsInRange.length,
-        resolvedInPeriod: resolvedSignals.length,
+        resolvedInPeriod: resolvedInRange.length,
         avgResolutionTimeHours,
       },
       statusCounts,

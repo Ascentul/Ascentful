@@ -157,7 +157,7 @@ export function EvidenceViewer({
                     />
                   </div>
                   <span className="text-sm font-medium text-neutral-700">
-                    {verification.confidence_score}%
+                    {Math.min(100, Math.max(0, verification.confidence_score))}%
                   </span>
                 </div>
               </div>

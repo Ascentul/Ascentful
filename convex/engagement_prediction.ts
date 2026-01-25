@@ -546,6 +546,11 @@ export const predictStudentEngagement = query({
     const student = await ctx.db.get(studentId);
     if (!student) return null;
 
+    // Guard against non-student IDs - predictions only make sense for students
+    if (student.role !== 'student') {
+      throw new Error('Predictions are only supported for student accounts');
+    }
+
     // Authorization: Only advisors, admins, or super_admin can access predictions
     const sessionCtx = await getCurrentUser(ctx);
     const allowedRoles = ['super_admin', 'university_admin', 'advisor'];

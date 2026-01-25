@@ -1,7 +1,7 @@
 /**
- * University Workspace - Invitations
+ * Admin - Invitations
  *
- * Wrapper for university student invitations view.
+ * Aliases the university student invitations page for the admin route.
  * Re-exports the existing university invite page.
  */
 export { default } from '@/app/(dashboard)/university/invite/page';

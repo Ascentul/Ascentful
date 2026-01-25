@@ -400,6 +400,11 @@ export function UniversityDashboard() {
   // Assign student licenses
   const assignStudent = useMutation(api.university_admin.assignStudentByEmail);
 
+  // Student management mutations
+  const updateStudentMutation = useMutation(api.university_admin.updateStudentByAdmin);
+  const removeStudentMutation = useMutation(api.university_admin.removeStudentFromUniversity);
+  const resendInvitationMutation = useMutation(api.admin_users.regenerateActivationToken);
+
   // Access is role-based only - university_admin or super_admin can access this dashboard
   // subscription.isUniversity is NOT used for access control here; it determines what
   // features are available within the dashboard, not whether the user can access it
@@ -672,8 +677,15 @@ export function UniversityDashboard() {
 
     setUpdatingStudent(true);
     try {
-      // Simulate API call to update student
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await updateStudentMutation({
+        clerkId: clerkUser.id,
+        studentId: editingStudent._id,
+        updates: {
+          name: editForm.name || undefined,
+          email: editForm.email || undefined,
+          role: editForm.role as 'student' | 'user' | 'advisor' | undefined,
+        },
+      });
 
       toast({
         title: 'Student updated',
@@ -703,12 +715,14 @@ export function UniversityDashboard() {
 
     setDeletingStudent(true);
     try {
-      // Simulate API call to remove student
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await removeStudentMutation({
+        clerkId: clerkUser.id,
+        studentId: studentToDelete._id,
+      });
 
       toast({
         title: 'Student removed',
-        description: `${studentToDelete.name || studentToDelete.email} has been removed successfully.`,
+        description: `${studentToDelete.name || studentToDelete.email} has been removed from the university.`,
         variant: 'success',
       });
       setDeleteConfirmOpen(false);
@@ -728,8 +742,10 @@ export function UniversityDashboard() {
     if (!clerkUser?.id) return;
 
     try {
-      // Simulate API call to resend invitation
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await resendInvitationMutation({
+        adminClerkId: clerkUser.id,
+        userId: student._id,
+      });
 
       toast({
         title: 'Invitation sent',
@@ -2065,6 +2081,7 @@ export function UniversityDashboard() {
                       </TableHeader>
                       <TableBody>
                         {students
+                          .slice()
                           .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
                           .map((s: any) => {
                             const dept = departments.find((d) => d._id === s.department_id);

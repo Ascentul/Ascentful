@@ -1,7 +1,7 @@
 /**
- * University Workspace - Admin Dashboard
+ * Admin - Dashboard
  *
- * Wrapper for university admin dashboard view.
+ * Aliases the university admin dashboard page for the admin route.
  * Re-exports the existing university dashboard page.
  */
 export { default } from '@/app/(dashboard)/university/page';

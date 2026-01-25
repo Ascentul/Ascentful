@@ -988,6 +988,28 @@ export const upsertOutcome = mutation({
 
     assertUniversityAccess(user, cohort.institution_id);
 
+    // Validate studentId belongs to the same institution
+    if (args.studentId) {
+      const student = await ctx.db.get(args.studentId);
+      if (!student) {
+        throw new Error('Student not found');
+      }
+      if (student.university_id !== cohort.institution_id) {
+        throw new Error('Student does not belong to the cohort institution');
+      }
+    }
+
+    // Validate majorId belongs to the same institution
+    if (args.majorId) {
+      const major = await ctx.db.get(args.majorId);
+      if (!major) {
+        throw new Error('Major not found');
+      }
+      if (major.university_id !== cohort.institution_id) {
+        throw new Error('Major does not belong to the cohort institution');
+      }
+    }
+
     const now = Date.now();
 
     // Check for existing by external_outcome_id
@@ -1175,6 +1197,27 @@ export const bulkUpsertOutcomes = mutation({
       const outcomeData = args.outcomes[i];
 
       try {
+        // Validate majorId belongs to the same institution
+        if (outcomeData.majorId) {
+          const major = await ctx.db.get(outcomeData.majorId);
+          if (!major) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: 'Major not found',
+            });
+            continue;
+          }
+          if (major.university_id !== cohort.institution_id) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: 'Major does not belong to the cohort institution',
+            });
+            continue;
+          }
+        }
+
         // Check for existing
         const existing = await ctx.db
           .query('graduate_outcomes')
@@ -1442,7 +1485,7 @@ export const previewOutcomeImport = query({
       }
 
       preview.push({
-        rowIndex: i,
+        rowIndex: i + 1,
         identifierUsed: row.externalStudentId || row.studentEmail || row.studentName || 'Unknown',
         identityMatch: {
           matched: identityMatch.matched,

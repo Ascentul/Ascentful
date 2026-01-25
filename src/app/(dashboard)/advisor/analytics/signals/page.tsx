@@ -134,13 +134,13 @@ export default function SignalAnalyticsPage() {
   const priorityData = Object.entries(analytics.priorityCounts).map(([name, value]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),
     value,
-    fill: PRIORITY_COLORS[name as keyof typeof PRIORITY_COLORS],
+    fill: PRIORITY_COLORS[name as keyof typeof PRIORITY_COLORS] ?? '#9ca3af',
   }));
 
   const typeData = Object.entries(analytics.typeCounts).map(([name, value]) => ({
     name: TYPE_LABELS[name] || name,
     value,
-    fill: TYPE_COLORS[name as keyof typeof TYPE_COLORS],
+    fill: TYPE_COLORS[name as keyof typeof TYPE_COLORS] ?? '#9ca3af',
   }));
 
   const sourceData = [
@@ -152,7 +152,7 @@ export default function SignalAnalyticsPage() {
   const statusData = Object.entries(analytics.statusCounts).map(([name, value]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),
     value,
-    fill: STATUS_COLORS[name as keyof typeof STATUS_COLORS],
+    fill: STATUS_COLORS[name as keyof typeof STATUS_COLORS] ?? '#9ca3af',
   }));
 
   return (

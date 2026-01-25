@@ -1,7 +1,7 @@
 /**
- * University Workspace - Departments
+ * Admin - Departments
  *
- * Wrapper for university departments management view.
+ * Aliases the university departments management page for the admin route.
  * Re-exports the existing university departments page.
  */
 export { default } from '@/app/(dashboard)/university/departments/page';

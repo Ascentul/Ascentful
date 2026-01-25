@@ -949,3 +949,103 @@ export const universitySearch = query({
     };
   },
 });
+
+/**
+ * Update a student's profile as university admin
+ * Allows updating name, email, and role for students in the admin's university
+ */
+export const updateStudentByAdmin = mutation({
+  args: {
+    clerkId: v.string(),
+    studentId: v.id('users'),
+    updates: v.object({
+      name: v.optional(v.string()),
+      email: v.optional(v.string()),
+      role: v.optional(v.union(v.literal('student'), v.literal('user'), v.literal('advisor'))),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx, args.clerkId);
+    requireAdmin(admin);
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Verify student belongs to admin's university
+    if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
+      throw new Error('Unauthorized: Cannot update students outside your university');
+    }
+
+    // Build updates object
+    const updates: Record<string, unknown> = {
+      updated_at: Date.now(),
+    };
+
+    if (args.updates.name !== undefined) {
+      updates.name = args.updates.name;
+    }
+    if (args.updates.email !== undefined) {
+      updates.email = args.updates.email;
+    }
+    if (args.updates.role !== undefined) {
+      updates.role = args.updates.role;
+    }
+
+    await ctx.db.patch(args.studentId, updates);
+
+    return {
+      success: true,
+      studentId: args.studentId,
+    };
+  },
+});
+
+/**
+ * Remove a student from the university
+ * Unlinks the student from the university but does not delete the user account
+ */
+export const removeStudentFromUniversity = mutation({
+  args: {
+    clerkId: v.string(),
+    studentId: v.id('users'),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx, args.clerkId);
+    requireAdmin(admin);
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Verify student belongs to admin's university
+    if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
+      throw new Error('Unauthorized: Cannot remove students outside your university');
+    }
+
+    // Unlink from university (soft removal)
+    await ctx.db.patch(args.studentId, {
+      university_id: undefined,
+      department_id: undefined,
+      role: 'individual', // Convert to individual user
+      updated_at: Date.now(),
+    });
+
+    // Also remove any advisor assignments for this student
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
+      .collect();
+
+    for (const assignment of advisorAssignments) {
+      await ctx.db.delete(assignment._id);
+    }
+
+    return {
+      success: true,
+      studentId: args.studentId,
+    };
+  },
+});
