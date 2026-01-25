@@ -1078,9 +1078,9 @@ export const updateStudentByAdmin = mutation({
  * Unlinks the student from the university but does not delete the user account.
  *
  * IMPORTANT: This mutation updates the Convex role to 'individual' for caching purposes.
- * The frontend MUST call /api/admin/sync-role to update Clerk's publicMetadata.role
- * to 'individual' after this mutation succeeds. The returned studentClerkId should be
- * used for the sync call. See CLAUDE.md for role management architecture.
+ * The frontend MUST call /api/university/remove-student-clerk-sync to update Clerk's
+ * publicMetadata.role to 'individual' after this mutation succeeds. The returned
+ * studentClerkId should be used for the sync call. See CLAUDE.md for role management architecture.
  */
 export const removeStudentFromUniversity = mutation({
   args: {

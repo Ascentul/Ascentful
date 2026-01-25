@@ -18,6 +18,10 @@
 
 import { Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
+import { EVENT_TYPES } from '../activity_events';
+
+// Re-export EVENT_TYPES as ACTIVITY_EVENTS for backward compatibility
+export { EVENT_TYPES as ACTIVITY_EVENTS };
 
 // Event categories
 export type EventCategory =
@@ -28,47 +32,6 @@ export type EventCategory =
   | 'networking'
   | 'ai_coach'
   | 'career_explorer';
-
-// Common event types (matches EVENT_TYPES in activity_events.ts)
-export const ACTIVITY_EVENTS = {
-  // Auth events
-  LOGIN: 'login',
-  LOGOUT: 'logout',
-  SESSION_START: 'session_start',
-
-  // Application events
-  APPLICATION_CREATED: 'application_created',
-  APPLICATION_UPDATED: 'application_updated',
-  APPLICATION_STAGE_CHANGED: 'application_stage_changed',
-  APPLICATION_DELETED: 'application_deleted',
-
-  // Document events
-  RESUME_CREATED: 'resume_created',
-  RESUME_UPDATED: 'resume_updated',
-  RESUME_ANALYZED: 'resume_analyzed',
-  COVER_LETTER_CREATED: 'cover_letter_created',
-  COVER_LETTER_UPDATED: 'cover_letter_updated',
-
-  // Goal events
-  GOAL_CREATED: 'goal_created',
-  GOAL_UPDATED: 'goal_updated',
-  GOAL_COMPLETED: 'goal_completed',
-  GOAL_CHECKLIST_ITEM_COMPLETED: 'goal_checklist_item_completed',
-
-  // Networking events
-  CONTACT_ADDED: 'contact_added',
-  CONTACT_UPDATED: 'contact_updated',
-  INTERACTION_LOGGED: 'interaction_logged',
-
-  // AI Coach events
-  COACH_CONVERSATION_STARTED: 'coach_conversation_started',
-  COACH_MESSAGE_SENT: 'coach_message_sent',
-
-  // Career Explorer events
-  CAREER_QUIZ_COMPLETED: 'career_quiz_completed',
-  CAREER_PATH_CREATED: 'career_path_created',
-  ROLE_SAVED: 'role_saved',
-} as const;
 
 export interface TrackActivityArgs {
   userId: Id<'users'>;

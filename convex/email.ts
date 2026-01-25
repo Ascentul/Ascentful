@@ -479,7 +479,12 @@ export const sendUrgentSignalNotificationEmail = action({
     studentName: v.string(),
     signalTitle: v.string(),
     signalDescription: v.optional(v.string()),
-    signalPriority: v.string(),
+    signalPriority: v.union(
+      v.literal('low'),
+      v.literal('medium'),
+      v.literal('high'),
+      v.literal('urgent'),
+    ),
     signalType: v.string(),
     queueUrl: v.string(),
   },
@@ -493,11 +498,11 @@ export const sendUrgentSignalNotificationEmail = action({
     const priorityLabelRaw =
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
 
-    // Sanitize user-provided content to prevent email header injection
+    // Sanitize all content in subject to prevent email header injection (defense-in-depth)
     const safeSubjectTitle = sanitizeSubject(args.signalTitle);
     const safeSubjectName = sanitizeSubject(args.studentName);
-    // Use raw priorityLabel in subject - it's plain text context
-    const subject = `${priorityEmoji} ${priorityLabelRaw} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
+    const safePriorityLabel = sanitizeSubject(priorityLabelRaw);
+    const subject = `${priorityEmoji} ${safePriorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
 
     // Use raw values in plain text body (no HTML escaping needed)
     const text = `Hello ${args.advisorName},

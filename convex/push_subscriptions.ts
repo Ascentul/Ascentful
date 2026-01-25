@@ -93,6 +93,7 @@ export const subscribe = mutation({
       device_info: deviceInfo,
       university_id: universityId,
       is_active: true,
+      failure_count: 0,
       created_at: Date.now(),
       updated_at: Date.now(),
     });

@@ -35,7 +35,14 @@ export const recalculateStudentEngagement = internalMutation({
         q.eq('university_id', student.university_id!).eq('is_active', true),
       )
       .collect();
-    const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+    // Sort by created_at for deterministic fallback when no default is set
+    const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+    const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
+
+    // Early return if no active definition exists
+    if (!definition) {
+      return { updated: false, reason: 'no_active_engagement_definition' as const };
+    }
 
     const { status, score } = await calculateStudentEngagement(ctx, args.studentId, definition);
 
@@ -57,7 +64,7 @@ export const recalculateUniversityEngagement = internalMutation({
   args: {
     universityId: v.id('universities'),
     batchSize: v.optional(v.number()),
-    cursor: v.optional(v.number()), // Last processed _creationTime for pagination
+    cursor: v.optional(v.id('users')), // Last processed _id for pagination (unique, unlike _creationTime)
   },
   handler: async (ctx, args) => {
     const batchSize = args.batchSize || 100;
@@ -69,7 +76,19 @@ export const recalculateUniversityEngagement = internalMutation({
         q.eq('university_id', args.universityId).eq('is_active', true),
       )
       .collect();
-    const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+    // Sort by created_at for deterministic fallback when no default is set
+    const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+    const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
+
+    // Early return if no active definition exists for this university
+    if (!definition) {
+      return {
+        updated: 0,
+        hasMore: false,
+        nextCursor: undefined,
+        reason: 'no_active_engagement_definition' as const,
+      };
+    }
 
     // Get students to process
     let query = ctx.db
@@ -77,10 +96,11 @@ export const recalculateUniversityEngagement = internalMutation({
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .filter((q) => q.eq(q.field('role'), 'student'));
 
-    // Apply cursor-based pagination using _creationTime (guaranteed chronological)
+    // Apply cursor-based pagination using _id (guaranteed unique per document)
+    // Note: _creationTime can have duplicates within same millisecond, causing skipped records
     if (args.cursor !== undefined) {
       const cursorValue = args.cursor;
-      query = query.filter((q) => q.gt(q.field('_creationTime'), cursorValue));
+      query = query.filter((q) => q.gt(q.field('_id'), cursorValue));
     }
 
     const students = await query.take(batchSize + 1); // Take one extra to check if there's more
@@ -103,7 +123,7 @@ export const recalculateUniversityEngagement = internalMutation({
     return {
       updated,
       hasMore,
-      nextCursor: studentsToProcess[studentsToProcess.length - 1]?._creationTime,
+      nextCursor: studentsToProcess[studentsToProcess.length - 1]?._id,
     };
   },
 });
@@ -199,6 +219,12 @@ export const refreshEngagementCacheJob = internalMutation({
           )
           .collect();
         const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+
+        // Skip universities without an active engagement definition
+        // They'll be processed once an admin creates a definition
+        if (!definition) {
+          continue;
+        }
 
         // Get all stale students for this university (limit batch size)
         const staleStudents = await ctx.db

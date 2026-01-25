@@ -196,6 +196,11 @@ export const createRule = mutation({
     if (args.cooldownDays !== undefined && args.cooldownDays < 0) {
       throw new Error('cooldown_days must be non-negative');
     }
+    if (args.cooldownDays !== undefined && args.cooldownDays > MAX_RULE_LOOKBACK_DAYS) {
+      throw new Error(
+        `cooldown_days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (signal evaluation only looks back this far)`,
+      );
+    }
 
     // Validate default-active invariant: default rules must be active
     const willBeActive = args.isActive ?? true; // defaults to true
@@ -262,6 +267,11 @@ export const updateRule = mutation({
     // Validate cooldown
     if (args.cooldownDays !== undefined && args.cooldownDays < 0) {
       throw new Error('cooldown_days must be non-negative');
+    }
+    if (args.cooldownDays !== undefined && args.cooldownDays > MAX_RULE_LOOKBACK_DAYS) {
+      throw new Error(
+        `cooldown_days cannot exceed ${MAX_RULE_LOOKBACK_DAYS} (signal evaluation only looks back this far)`,
+      );
     }
 
     // Validate default-active invariant: default rules must be active

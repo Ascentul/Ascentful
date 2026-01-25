@@ -272,6 +272,20 @@ export default function SignalRulesPage() {
       return;
     }
 
+    // Validate stalled rules have at least one qualifying event type
+    if (
+      formData.condition.type === 'stalled' &&
+      (!formData.condition.qualifying_event_types ||
+        formData.condition.qualifying_event_types.length === 0)
+    ) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select at least one qualifying activity for stalled rules.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       if (editingId) {
@@ -385,21 +399,22 @@ export default function SignalRulesPage() {
   };
 
   const getConditionDescription = (condition: ConditionFormData): string => {
+    // Use ?? for numeric defaults to preserve valid 0 values (|| treats 0 as falsy)
     switch (condition.type) {
       case 'inactivity':
-        return `No activity for ${condition.days || 14} days`;
+        return `No activity for ${condition.days ?? 14} days`;
       case 'stalled':
-        return `No qualifying activity for ${condition.days || 14} days`;
+        return `No qualifying activity for ${condition.days ?? 14} days`;
       case 'application_stall':
-        return `Application stuck at ${condition.stage || 'any stage'} for ${condition.days || 14} days`;
+        return `Application stuck at ${condition.stage || 'any stage'} for ${condition.days ?? 14} days`;
       case 'stage_stuck':
-        return `Application in "${condition.stage || 'Interview'}" stage for ${condition.days || 14}+ days`;
+        return `Application in "${condition.stage || 'Interview'}" stage for ${condition.days ?? 14}+ days`;
       case 'high_intent_low_conversion':
-        return `${condition.applications_threshold || 3}+ applications in ${condition.application_period_days || 14} days, no appointment in ${condition.appointment_days || 30} days`;
+        return `${condition.applications_threshold ?? 3}+ applications in ${condition.application_period_days ?? 14} days, no appointment in ${condition.appointment_days ?? 30} days`;
       case 'engagement_drop':
         return `Engagement dropped from ${condition.from || 'engaged'} to ${condition.to || 'at_risk'}`;
       case 'no_progress':
-        return `${condition.rejections_min || 5}+ rejections, ${condition.offers || 0} offers`;
+        return `${condition.rejections_min ?? 5}+ rejections, ${condition.offers ?? 0} offers`;
       case 'custom':
         return 'Custom condition';
       default:

@@ -165,7 +165,8 @@ export const createGoal = mutation({
         entityType: 'goal',
         entityId: id,
         metadata: {
-          title: args.title,
+          // Avoid storing raw title which may contain PII
+          titleLength: args.title.length,
           category: args.category,
           status: args.status ?? 'not_started',
         },
@@ -310,7 +311,8 @@ export const updateGoal = mutation({
         entityType: 'goal',
         entityId: args.goalId,
         metadata: {
-          title: goal.title,
+          // Avoid storing raw title which may contain PII
+          titleLength: goal.title.length,
           previousStatus: goal.status,
           newStatus: args.updates.status,
           updatedFields: Object.keys(restUpdates),

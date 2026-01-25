@@ -2471,7 +2471,7 @@ export const getUniversityStudentFunnel = query({
         );
         if (hasOffer) withOffers++;
 
-        // Check for accepted (stage field is the canonical source)
+        // Check for accepted (no status fallback needed - 'accepted' was never a valid status value per schema)
         const hasAccepted = applications.some((app) => app.stage === 'Accepted');
         if (hasAccepted) withAccepted++;
       }

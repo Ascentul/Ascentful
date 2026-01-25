@@ -988,11 +988,17 @@ export const upsertOutcome = mutation({
 
     assertUniversityAccess(user, cohort.institution_id);
 
-    // Validate studentId belongs to the same institution
+    // Validate studentId belongs to the same institution and is actually a student
     if (args.studentId) {
       const student = await ctx.db.get(args.studentId);
       if (!student) {
         throw new Error('Student not found');
+      }
+      // Check student role (includes legacy "user" role with university_id for backward compatibility)
+      const isStudent =
+        student.role === 'student' || (student.role === 'user' && student.university_id);
+      if (!isStudent) {
+        throw new Error('Outcome can only be linked to a user with student role');
       }
       if (student.university_id !== cohort.institution_id) {
         throw new Error('Student does not belong to the cohort institution');
@@ -1176,6 +1182,16 @@ export const bulkUpsertOutcomes = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUniversityAdmin(ctx);
+
+    // Guard against oversized batches to avoid Convex execution timeouts
+    // Each row does ~3 database operations (major lookup, existing check, insert/patch)
+    const MAX_BATCH_SIZE = 200;
+    if (args.outcomes.length > MAX_BATCH_SIZE) {
+      throw new Error(
+        `Cannot import more than ${MAX_BATCH_SIZE} outcomes per call. ` +
+          `Split your import into smaller batches.`,
+      );
+    }
 
     const cohort = await ctx.db.get(args.cohortId);
     if (!cohort) {
@@ -1606,7 +1622,7 @@ export const getOutcomesAnalytics = query({
       cohorts = cohorts.filter((c) => c.degree_level && degreeLevelSet.has(c.degree_level));
     }
 
-    // If no cohorts after filtering, return empty results
+    // If no cohorts after filtering, return empty results with consistent shape
     if (cohorts.length === 0) {
       return {
         summary: {
@@ -1627,6 +1643,8 @@ export const getOutcomesAnalytics = query({
         },
         breakdown: {},
         outcomes: [],
+        totalOutcomes: 0,
+        hasMoreOutcomes: false,
       };
     }
 

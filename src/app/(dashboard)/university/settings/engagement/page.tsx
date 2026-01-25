@@ -454,7 +454,10 @@ export default function EngagementDefinitionsPage() {
                     max={100}
                     value={formData.engagedThreshold}
                     onChange={(e) =>
-                      setFormData({ ...formData, engagedThreshold: parseInt(e.target.value) || 0 })
+                      setFormData({
+                        ...formData,
+                        engagedThreshold: Math.max(1, parseInt(e.target.value) || 1),
+                      })
                     }
                   />
                   <p className="text-xs text-muted-foreground">Score at or above this = Engaged</p>

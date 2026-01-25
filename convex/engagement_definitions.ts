@@ -142,7 +142,9 @@ export const getDefaultDefinition = query({
       )
       .collect();
 
-    return definitions.find((d) => d.is_default) || definitions[0] || null;
+    // Sort by created_at for deterministic fallback when no default is set (oldest first)
+    const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+    return sorted.find((d) => d.is_default) || sorted[0] || null;
   },
 });
 

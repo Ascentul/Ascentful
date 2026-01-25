@@ -36,7 +36,8 @@ export const getBackfillStats = internalQuery({
 
       for (const student of page.page) {
         total++;
-        if (student.engagement_status !== undefined) {
+        // Use != null to catch both null and undefined (defensive against data corruption)
+        if (student.engagement_status != null) {
           withCache++;
         } else {
           withoutCache++;

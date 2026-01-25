@@ -2,27 +2,11 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { api } from 'convex/_generated/api';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { isClerkApiError } from '@/lib/clerkAdmin';
 import { hasPlatformAdminAccess, hasUniversityAdminAccess } from '@/lib/constants/roles';
 import { convexServer } from '@/lib/convex-server';
 import { getErrorMessage } from '@/lib/errors';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
-
-/**
- * Type guard to check if an error is a Clerk API error
- * Clerk API errors have a `clerkError: true` flag and a `status` property
- */
-function isClerkApiError(
-  error: unknown,
-): error is { clerkError: true; status: number; clerkTraceId?: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'clerkError' in error &&
-    (error as Record<string, unknown>).clerkError === true &&
-    'status' in error &&
-    typeof (error as Record<string, unknown>).status === 'number'
-  );
-}
 
 /**
  * Sync student role change to Clerk

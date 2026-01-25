@@ -222,7 +222,7 @@ export function UniversityDashboard() {
   );
   const students = useQuery(
     api.university_admin.listStudents,
-    clerkUser?.id ? { clerkId: clerkUser.id, limit: 50 } : 'skip',
+    clerkUser?.id ? { clerkId: clerkUser.id, limit: 500 } : 'skip', // Backend max is 500
   );
   const departments = useQuery(
     api.university_admin.listDepartments,
@@ -2045,7 +2045,11 @@ export function UniversityDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle>All Students</CardTitle>
-                    <CardDescription>Complete list of enrolled students</CardDescription>
+                    <CardDescription>
+                      {overview?.totalStudents && overview.totalStudents > 500
+                        ? 'Showing up to 500 enrolled students'
+                        : 'Complete list of enrolled students'}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -3162,7 +3166,7 @@ export function UniversityDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">Student</SelectItem>
-                  <SelectItem value="staff">Advisor / Staff</SelectItem>
+                  <SelectItem value="advisor">Advisor / Staff</SelectItem>
                 </SelectContent>
               </Select>
             </div>

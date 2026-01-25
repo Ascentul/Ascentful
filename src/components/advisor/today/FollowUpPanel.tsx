@@ -67,6 +67,7 @@ function FollowUpRow({
   routePrefix?: string;
 }) {
   const isOverdue = followUp.due_at && isPast(followUp.due_at) && !isToday(followUp.due_at);
+  const studentHref = `${routePrefix}/students/${followUp.student_id}`;
 
   return (
     <div
@@ -87,10 +88,7 @@ function FollowUpRow({
 
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <User className="h-3 w-3" />
-          <Link
-            href={`${routePrefix}/students/${followUp.student_id}`}
-            className="hover:text-primary-600 hover:underline"
-          >
+          <Link href={studentHref} className="hover:text-primary-600 hover:underline">
             {followUp.student_name}
           </Link>
           {followUp.due_at && (
@@ -138,7 +136,7 @@ function FollowUpRow({
           className="h-7 w-7 text-slate-500 hover:text-slate-700"
           asChild
         >
-          <Link href={`${routePrefix}/students/${followUp.student_id}`} title="View student">
+          <Link href={studentHref} title="View student">
             <ChevronRight className="h-4 w-4" />
           </Link>
         </Button>

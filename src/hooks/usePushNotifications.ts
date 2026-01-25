@@ -41,6 +41,19 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
   // Track when local mutation just happened to prevent server sync from overwriting optimistic state
   const skipServerSyncRef = useRef(false);
+  const skipServerSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to schedule server sync resume - clears any existing timer to prevent race conditions
+  const scheduleServerSyncResume = useCallback(() => {
+    skipServerSyncRef.current = true;
+    if (skipServerSyncTimeoutRef.current) {
+      clearTimeout(skipServerSyncTimeoutRef.current);
+    }
+    skipServerSyncTimeoutRef.current = setTimeout(() => {
+      skipServerSyncRef.current = false;
+      skipServerSyncTimeoutRef.current = null;
+    }, 2000);
+  }, []);
 
   // Convex mutations
   const subscribe = useMutation(api.push_subscriptions.subscribe);
@@ -219,10 +232,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
 
       // Skip server sync briefly to prevent overwriting optimistic state
-      skipServerSyncRef.current = true;
-      setTimeout(() => {
-        skipServerSyncRef.current = false;
-      }, 2000);
+      scheduleServerSyncResume();
 
       return true;
     } catch (error) {
@@ -245,6 +255,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     subscribe,
     onPermissionDenied,
     onSubscriptionError,
+    scheduleServerSyncResume,
   ]);
 
   // Unsubscribe from push notifications
@@ -280,10 +291,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
 
       // Skip server sync briefly to prevent overwriting optimistic state
-      skipServerSyncRef.current = true;
-      setTimeout(() => {
-        skipServerSyncRef.current = false;
-      }, 2000);
+      scheduleServerSyncResume();
 
       return true;
     } catch (error) {
@@ -295,7 +303,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       }));
       return false;
     }
-  }, [registration, unsubscribe]);
+  }, [registration, unsubscribe, scheduleServerSyncResume]);
 
   // Sync subscription state with Convex (skip briefly after local mutations to prevent flicker)
   useEffect(() => {

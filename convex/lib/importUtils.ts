@@ -278,6 +278,9 @@ export function generateExternalOutcomeId(
   const normalizedIdentifier = externalStudentId
     ? externalStudentId.trim()
     : identifier.toLowerCase().trim();
+  if (!normalizedIdentifier) {
+    throw new Error('externalStudentId or email must be non-empty after trimming whitespace');
+  }
   return `${cohortId}_${normalizedIdentifier}`;
 }
 
