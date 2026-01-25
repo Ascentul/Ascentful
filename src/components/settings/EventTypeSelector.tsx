@@ -71,13 +71,44 @@ export const EVENT_TYPE_GROUPS = {
       { value: 'role_saved', label: 'Role Saved' },
     ],
   },
-};
+} as const;
+
+/**
+ * Union type of all valid event type values.
+ * Derived from EVENT_TYPE_GROUPS for type-safe event references.
+ */
+export type EventType =
+  (typeof EVENT_TYPE_GROUPS)[keyof typeof EVENT_TYPE_GROUPS]['events'][number]['value'];
+
+/**
+ * Type for event type group keys (auth, application, document, etc.)
+ */
+export type EventTypeGroup = keyof typeof EVENT_TYPE_GROUPS;
 
 /**
  * Get all event types as a flat array.
  */
-export function getAllEventTypes(): string[] {
-  return Object.values(EVENT_TYPE_GROUPS).flatMap((group) => group.events.map((e) => e.value));
+export function getAllEventTypes(): EventType[] {
+  return Object.values(EVENT_TYPE_GROUPS).flatMap((group) =>
+    group.events.map((e) => e.value),
+  ) as EventType[];
+}
+
+/**
+ * Pre-computed lookup map for event value -> label.
+ * O(1) lookup instead of linear search through all groups.
+ */
+const eventLabelMap = new Map<string, string>(
+  Object.values(EVENT_TYPE_GROUPS).flatMap((group) =>
+    group.events.map((event) => [event.value, event.label] as const),
+  ),
+);
+
+/**
+ * Get the display label for an event type value.
+ */
+export function getEventLabel(eventType: string): string {
+  return eventLabelMap.get(eventType) ?? eventType;
 }
 
 /**
@@ -95,7 +126,7 @@ export const DEFAULT_QUALIFYING_EVENTS = [
   'goal_completed',
   'coach_conversation_started',
   'coach_message_sent',
-];
+] as const satisfies readonly EventType[];
 
 interface EventTypeSelectorProps {
   selectedEvents: string[];
@@ -123,10 +154,10 @@ export function EventTypeSelector({ selectedEvents, onChange, className }: Event
   };
 
   const handleSelectDefaults = () => {
-    onChange(DEFAULT_QUALIFYING_EVENTS);
+    onChange([...DEFAULT_QUALIFYING_EVENTS]);
   };
 
-  const allSelected = selectedEvents.length === allEventTypes.length;
+  const allSelected = allEventTypes.every((e) => selectedEvents.includes(e));
   const noneSelected = selectedEvents.length === 0;
 
   return (
@@ -203,15 +234,6 @@ export function EventTypeBadges({
   maxDisplay = 5,
   className,
 }: EventTypeBadgesProps) {
-  // Get label for event type
-  const getEventLabel = (eventType: string): string => {
-    for (const group of Object.values(EVENT_TYPE_GROUPS)) {
-      const event = group.events.find((e) => e.value === eventType);
-      if (event) return event.label;
-    }
-    return eventType;
-  };
-
   const displayEvents = events.slice(0, maxDisplay);
   const remaining = events.length - maxDisplay;
 
@@ -224,7 +246,7 @@ export function EventTypeBadges({
             <button
               type="button"
               onClick={() => onRemove(event)}
-              className="ml-0.5 rounded-full p-0.5 hover:bg-neutral-300"
+              className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
               aria-label={`Remove ${getEventLabel(event)}`}
             >
               <X className="h-3 w-3" />

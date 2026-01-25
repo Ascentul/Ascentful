@@ -1428,12 +1428,17 @@ export const recordLogin = mutation({
     });
 
     // Track as activity event for engagement scoring (fire-and-forget)
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: user.university_id,
-      eventType: ACTIVITY_EVENTS.LOGIN,
-      eventCategory: 'auth',
-    });
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.LOGIN,
+        eventCategory: 'auth',
+      });
+    } catch (error) {
+      console.error('Failed to track login activity:', error);
+      // Don't fail the login record if activity tracking fails
+    }
 
     return { success: true, userId: user._id };
   },

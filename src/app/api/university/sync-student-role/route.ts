@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
     const { studentClerkId, universityId, newRole } = body;
 
-    if (!studentClerkId || !universityId || !newRole) {
+    if (!studentClerkId?.trim() || !universityId?.trim() || !newRole?.trim()) {
       log.warn('Missing required fields', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
       return NextResponse.json(
         { error: 'Missing studentClerkId, universityId, or newRole' },

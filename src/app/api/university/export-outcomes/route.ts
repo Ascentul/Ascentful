@@ -12,10 +12,11 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Validates that a string looks like a valid Convex ID.
- * Convex IDs are non-empty alphanumeric strings (base62-encoded).
+ * Convex IDs use Crockford's Base32 encoding: digits 0-9 plus
+ * lowercase letters a-z excluding i, l, o, u.
  */
 function isValidConvexId(id: unknown): id is string {
-  return typeof id === 'string' && id.length > 0 && /^[a-zA-Z0-9]+$/.test(id);
+  return typeof id === 'string' && id.length > 0 && /^[0-9a-hj-km-np-tv-z]+$/.test(id);
 }
 
 interface ExportFilters {

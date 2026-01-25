@@ -1568,6 +1568,9 @@ export const getOutcomesAnalytics = query({
     groupBy: v.optional(
       v.union(v.literal('cohort'), v.literal('program'), v.literal('degree_level')),
     ),
+    // Pagination for outcomes list (summary/breakdown always include all data)
+    outcomeLimit: v.optional(v.number()),
+    outcomeOffset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx);
@@ -1799,10 +1802,19 @@ export const getOutcomesAnalytics = query({
       cohort_name: cohortMap.get(o.cohort_id) || 'Unknown',
     }));
 
+    // Apply pagination to outcomes list for dashboard performance
+    // Summary and breakdown always reflect all data for accurate KPIs
+    const totalOutcomes = outcomesWithDetails.length;
+    const limit = args.outcomeLimit ?? 1000; // Default limit for dashboard views
+    const offset = args.outcomeOffset ?? 0;
+    const paginatedOutcomes = outcomesWithDetails.slice(offset, offset + limit);
+
     return {
       summary,
       breakdown,
-      outcomes: outcomesWithDetails,
+      outcomes: paginatedOutcomes,
+      totalOutcomes,
+      hasMoreOutcomes: offset + paginatedOutcomes.length < totalOutcomes,
     };
   },
 });

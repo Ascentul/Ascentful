@@ -107,14 +107,12 @@ export function NotificationButtons({
 
   // Handle mark all as read
   const handleMarkAllAsRead = useCallback(async () => {
-    if (userId) {
-      try {
-        await markAllAsRead({});
-      } catch (error) {
-        console.error('Failed to mark notifications as read:', error);
-      }
+    try {
+      await markAllAsRead({});
+    } catch (error) {
+      console.error('Failed to mark notifications as read:', error);
     }
-  }, [markAllAsRead, userId]);
+  }, [markAllAsRead]);
 
   return (
     <div className="flex items-center gap-2">

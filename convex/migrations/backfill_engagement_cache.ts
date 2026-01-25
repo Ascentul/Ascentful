@@ -17,25 +17,39 @@ import { internalMutation, internalQuery } from '../_generated/server';
 import { calculateStudentEngagement } from '../lib/engagementHelpers';
 
 /**
- * Get stats on backfill progress
+ * Get stats on backfill progress.
+ * Uses pagination to avoid loading entire table into memory.
  */
 export const getBackfillStats = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const students = await ctx.db
-      .query('users')
-      .filter((q) => q.eq(q.field('role'), 'student'))
-      .collect();
+    let total = 0;
+    let withCache = 0;
+    let withoutCache = 0;
 
-    const withCache = students.filter((s) => s.engagement_status !== undefined);
-    const withoutCache = students.filter((s) => s.engagement_status === undefined);
+    let cursor: string | null = null;
+    do {
+      const page = await ctx.db
+        .query('users')
+        .filter((q) => q.eq(q.field('role'), 'student'))
+        .paginate({ cursor, numItems: 1000 });
+
+      for (const student of page.page) {
+        total++;
+        if (student.engagement_status !== undefined) {
+          withCache++;
+        } else {
+          withoutCache++;
+        }
+      }
+      cursor = page.isDone ? null : page.continueCursor;
+    } while (cursor);
 
     return {
-      total: students.length,
-      withCache: withCache.length,
-      withoutCache: withoutCache.length,
-      percentComplete:
-        students.length > 0 ? Math.round((withCache.length / students.length) * 100) : 100,
+      total,
+      withCache,
+      withoutCache,
+      percentComplete: total > 0 ? Math.round((withCache / total) * 100) : 100,
     };
   },
 });
@@ -90,7 +104,8 @@ export const backfillUniversity = internalMutation({
 });
 
 /**
- * Get list of universities that need backfill
+ * Get list of universities that need backfill.
+ * Uses pagination to count students without loading entire tables into memory.
  */
 export const getUniversitiesNeedingBackfill = internalQuery({
   args: {},
@@ -103,28 +118,39 @@ export const getUniversitiesNeedingBackfill = internalQuery({
     const needsBackfill: Array<{ id: string; name: string; studentsWithoutCache: number }> = [];
 
     for (const university of universities) {
-      const studentsWithoutCache = await ctx.db
+      // Quick check: does this university have any students needing backfill?
+      const hasStudentsWithoutCache = await ctx.db
         .query('users')
         .withIndex('by_university', (q) => q.eq('university_id', university._id))
         .filter((q) =>
           q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('engagement_status'), undefined)),
         )
-        .take(1);
+        .first();
 
-      if (studentsWithoutCache.length > 0) {
-        // Count total students needing backfill
-        const allStudentsWithoutCache = await ctx.db
-          .query('users')
-          .withIndex('by_university', (q) => q.eq('university_id', university._id))
-          .filter((q) =>
-            q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('engagement_status'), undefined)),
-          )
-          .collect();
+      if (hasStudentsWithoutCache) {
+        // Count using pagination to avoid memory issues for large universities
+        let count = 0;
+        let cursor: string | null = null;
+        do {
+          const page = await ctx.db
+            .query('users')
+            .withIndex('by_university', (q) => q.eq('university_id', university._id))
+            .filter((q) =>
+              q.and(
+                q.eq(q.field('role'), 'student'),
+                q.eq(q.field('engagement_status'), undefined),
+              ),
+            )
+            .paginate({ cursor, numItems: 1000 });
+
+          count += page.page.length;
+          cursor = page.isDone ? null : page.continueCursor;
+        } while (cursor);
 
         needsBackfill.push({
           id: university._id,
           name: university.name,
-          studentsWithoutCache: allStudentsWithoutCache.length,
+          studentsWithoutCache: count,
         });
       }
     }

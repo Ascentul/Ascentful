@@ -18,7 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StudentPredictionCard } from '@/components/analytics/EngagementPredictionPanel';
-import { Signal, SignalList } from '@/components/signals/SignalCard';
+import { SignalList } from '@/components/signals/SignalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

@@ -1023,6 +1023,11 @@ export const updateStudentByAdmin = mutation({
       throw new Error('Student not found');
     }
 
+    // Verify the target user has a student-like role
+    if (!['user', 'student'].includes(student.role)) {
+      throw new Error('Target user is not a student');
+    }
+
     // Verify student belongs to admin's university
     if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
       throw new Error('Unauthorized: Cannot update students outside your university');
@@ -1041,6 +1046,22 @@ export const updateStudentByAdmin = mutation({
     }
 
     await ctx.db.patch(args.studentId, updates);
+
+    // If role is changing to advisor, update the membership record
+    if (args.updates.role === 'advisor' && student.role !== 'advisor' && student.university_id) {
+      const membership = await ctx.db
+        .query('memberships')
+        .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
+        .filter((q) => q.eq(q.field('university_id'), student.university_id!))
+        .first();
+
+      if (membership) {
+        await ctx.db.patch(membership._id, {
+          role: 'advisor',
+          updated_at: Date.now(),
+        });
+      }
+    }
 
     return {
       success: true,

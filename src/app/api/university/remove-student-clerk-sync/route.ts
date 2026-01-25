@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
     const { studentClerkId, universityId } = body;
 
-    if (!studentClerkId || !universityId) {
+    if (!studentClerkId?.trim() || !universityId?.trim()) {
       log.warn('Missing required fields', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
       return NextResponse.json(
         { error: 'Missing studentClerkId or universityId' },

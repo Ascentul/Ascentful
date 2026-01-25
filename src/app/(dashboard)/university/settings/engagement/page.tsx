@@ -72,7 +72,7 @@ const defaultFormData: DefinitionFormData = {
   appliesTo: 'all_students',
   criteria: {
     // New fields for activity-based engagement scoring
-    qualifying_event_types: DEFAULT_QUALIFYING_EVENTS,
+    qualifying_event_types: [...DEFAULT_QUALIFYING_EVENTS],
     period_days: 14,
     min_events_in_period: 3,
     // Legacy fields (still supported for backwards compatibility)
@@ -126,7 +126,7 @@ export default function EngagementDefinitionsPage() {
       appliesTo: def.applies_to,
       criteria: {
         // New activity-based scoring fields
-        qualifying_event_types: criteria?.qualifying_event_types ?? DEFAULT_QUALIFYING_EVENTS,
+        qualifying_event_types: criteria?.qualifying_event_types ?? [...DEFAULT_QUALIFYING_EVENTS],
         period_days: criteria?.period_days ?? 14,
         min_events_in_period: criteria?.min_events_in_period ?? 3,
         // Legacy fields

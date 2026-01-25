@@ -37,7 +37,7 @@ const colorSchemes = {
     valueText: 'text-red-900',
   },
   neutral: {
-    bg: 'bg-neutral-50',
+    bg: 'bg-white',
     text: 'text-neutral-600',
     valueText: 'text-neutral-900',
   },
@@ -65,7 +65,7 @@ export function KPICard({
     <div
       className={cn(
         'rounded-card p-6 shadow-card transition-shadow hover:shadow-md',
-        colorScheme === 'neutral' ? 'bg-white' : colors.bg,
+        colors.bg,
         className,
       )}
     >
