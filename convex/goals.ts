@@ -155,19 +155,24 @@ export const createGoal = mutation({
 
     // Track activity event for engagement scoring
     // Use goalUniversityId for accurate attribution to the university where the goal was created
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: goalUniversityId,
-      eventType: ACTIVITY_EVENTS.GOAL_CREATED,
-      eventCategory: 'goal',
-      entityType: 'goal',
-      entityId: id,
-      metadata: {
-        title: args.title,
-        category: args.category,
-        status: args.status ?? 'not_started',
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: goalUniversityId,
+        eventType: ACTIVITY_EVENTS.GOAL_CREATED,
+        eventCategory: 'goal',
+        entityType: 'goal',
+        entityId: id,
+        metadata: {
+          title: args.title,
+          category: args.category,
+          status: args.status ?? 'not_started',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track goal activity:', error);
+    }
 
     log('info', 'Goal created successfully', {
       ...logCtx,
@@ -294,21 +299,26 @@ export const updateGoal = mutation({
 
     // Track activity event for engagement scoring
     // Use goal.university_id for accurate attribution to the university where the goal was created
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
     const wasCompleted = goal.status !== 'completed' && args.updates.status === 'completed';
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId: goal.university_id,
-      eventType: wasCompleted ? ACTIVITY_EVENTS.GOAL_COMPLETED : ACTIVITY_EVENTS.GOAL_UPDATED,
-      eventCategory: 'goal',
-      entityType: 'goal',
-      entityId: args.goalId,
-      metadata: {
-        title: goal.title,
-        previousStatus: goal.status,
-        newStatus: args.updates.status,
-        updatedFields: Object.keys(restUpdates),
-      },
-    });
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: goal.university_id,
+        eventType: wasCompleted ? ACTIVITY_EVENTS.GOAL_COMPLETED : ACTIVITY_EVENTS.GOAL_UPDATED,
+        eventCategory: 'goal',
+        entityType: 'goal',
+        entityId: args.goalId,
+        metadata: {
+          title: goal.title,
+          previousStatus: goal.status,
+          newStatus: args.updates.status,
+          updatedFields: Object.keys(restUpdates),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track goal activity:', error);
+    }
 
     log('info', 'Goal updated successfully', {
       ...logCtx,

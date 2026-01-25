@@ -1510,6 +1510,7 @@ export default defineSchema({
   ai_coach_conversations: defineTable({
     user_id: v.id('users'),
     university_id: v.optional(v.id('universities')), // For bulk analytics queries
+    university_id_backfill_checked: v.optional(v.boolean()), // Migration sentinel - true if checked but user has no university
     title: v.string(),
     created_at: v.number(),
     updated_at: v.number(),

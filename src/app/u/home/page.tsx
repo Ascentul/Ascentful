@@ -13,8 +13,8 @@
 import { useUser } from '@clerk/nextjs';
 import { Loader2 } from 'lucide-react';
 
-import AdvisorTodayPage from '@/app/(dashboard)/advisor/advising/today/page';
-import UniversityDashboardPage from '@/app/(dashboard)/university/page';
+import { AdvisorTodayDashboard } from '@/components/dashboard/AdvisorTodayDashboard';
+import { UniversityDashboard } from '@/components/dashboard/UniversityDashboard';
 
 export default function UniversityHomePage() {
   const { user, isLoaded } = useUser();
@@ -43,11 +43,11 @@ export default function UniversityHomePage() {
 
   // University admins and super admins see admin dashboard
   if (role === 'university_admin' || role === 'super_admin') {
-    return <UniversityDashboardPage />;
+    return <UniversityDashboard />;
   }
 
   // Advisors (and any other role that passes the parent layout's RequireRole guard)
   // see Today's schedule view. The /u layout restricts access to university_admin,
   // advisor, and super_admin roles, so unexpected roles cannot reach this fallback.
-  return <AdvisorTodayPage />;
+  return <AdvisorTodayDashboard />;
 }

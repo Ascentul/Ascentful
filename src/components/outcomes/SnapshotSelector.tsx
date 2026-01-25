@@ -163,9 +163,9 @@ export function SnapshotSelector({
                     if (
                       window.confirm(`Delete snapshot "${snapshot.name}"? This cannot be undone.`)
                     ) {
-                      // Error handling delegated to parent (e.g., toast notification)
-                      onDeleteSnapshot(snapshot._id).catch(() => {
-                        // Error handling delegated to parent
+                      // Parent handles error via Promise rejection (e.g., toast notification)
+                      onDeleteSnapshot(snapshot._id).catch((error) => {
+                        console.error('Failed to delete snapshot:', error);
                       });
                     }
                   }}

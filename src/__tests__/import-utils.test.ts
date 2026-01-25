@@ -27,7 +27,8 @@ describe('Import Utilities', () => {
   describe('generateExternalOutcomeId', () => {
     it('should generate ID from external student ID', () => {
       const result = generateExternalOutcomeId(mockCohortId, 'STU001', 'test@example.com');
-      expect(result).toBe(`${mockCohortId}_stu001`);
+      // External student IDs preserve case (only emails are lowercased)
+      expect(result).toBe(`${mockCohortId}_STU001`);
     });
 
     it('should generate ID from email when no external ID', () => {
@@ -37,7 +38,8 @@ describe('Import Utilities', () => {
 
     it('should prefer external ID over email', () => {
       const result = generateExternalOutcomeId(mockCohortId, 'STU001', 'test@example.com');
-      expect(result).toContain('stu001');
+      // External student IDs preserve case (only emails are lowercased)
+      expect(result).toContain('STU001');
       expect(result).not.toContain('@example.com');
     });
 
@@ -47,9 +49,10 @@ describe('Import Utilities', () => {
       );
     });
 
-    it('should normalize whitespace and case', () => {
+    it('should normalize whitespace but preserve case for student IDs', () => {
       const result = generateExternalOutcomeId(mockCohortId, ' STU001 ', undefined);
-      expect(result).toBe(`${mockCohortId}_stu001`);
+      // External student IDs preserve case, only whitespace is trimmed
+      expect(result).toBe(`${mockCohortId}_STU001`);
     });
   });
 

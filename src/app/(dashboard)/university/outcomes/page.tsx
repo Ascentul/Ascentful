@@ -260,13 +260,13 @@ export default function OutcomesDashboardPage() {
 
     setIsExporting(true);
     try {
+      // Server authenticates via session - no need to send clerkId
       const response = await fetch('/api/university/export-outcomes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          clerkId: clerkUser.id,
           filters,
           snapshotId: selectedSnapshotId,
         }),
@@ -294,6 +294,7 @@ export default function OutcomesDashboardPage() {
         description: 'The CSV file has been downloaded.',
       });
     } catch (error) {
+      console.error('Export failed:', error);
       toast({
         title: 'Export failed',
         description: 'Unable to export data. Please try again.',

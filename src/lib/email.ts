@@ -150,7 +150,7 @@ Your Ascentful account has been created by your administrator.
 
 To activate your account and set up your password, please click the link below:
 
-${activationUrl}
+${sanitizeUrl(activationUrl)}
 
 Your login email: ${email}
 
@@ -189,7 +189,7 @@ The Ascentful Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${activationUrl}"
+        <a href="${sanitizeUrl(activationUrl)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -291,7 +291,7 @@ You've been invited to join using this email: ${email}
 Your university has provided you with complimentary access to all premium features.
 
 Click here to activate your account:
-${inviteLink}
+${sanitizeUrl(inviteLink)}
 
 What You'll Have Access To:
 • AI-powered resume and cover letter builder
@@ -329,7 +329,7 @@ www.ascentful.io`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${inviteLink}"
+        <a href="${sanitizeUrl(inviteLink)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -427,7 +427,7 @@ Response:
 ${responseMessage}
 
 You can view the full conversation and reply at:
-${ticketUrl}
+${sanitizeUrl(ticketUrl)}
 
 If you have any further questions, please respond through the support portal.
 
@@ -459,7 +459,7 @@ The Ascentful Support Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${ticketUrl}"
+        <a href="${sanitizeUrl(ticketUrl)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -540,7 +540,7 @@ What You Can Do Today:
 • Organize your projects, achievements, and contacts in one place for quick access and portfolio use
 
 Start Building Your Career OS:
-${dashboardUrl}
+${sanitizeUrl(dashboardUrl)}
 
 Need help getting started? Reach out to support@ascentful.io.
 
@@ -659,7 +659,7 @@ You've been invited using this email: ${email}
 Your account will have ${role} access, allowing you to collaborate with students and manage university data.
 
 Click here to activate your account:
-${inviteLink}
+${sanitizeUrl(inviteLink)}
 
 What You'll Be Able To Do:
 • View and track student progress across career goals and applications
@@ -693,7 +693,7 @@ The Ascentful Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${inviteLink}"
+        <a href="${sanitizeUrl(inviteLink)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -783,7 +783,7 @@ You've been invited to create an Admin account for ${universityName}, giving you
 You've been invited using this email: ${email}
 
 Click here to set up your admin account:
-${inviteLink}
+${sanitizeUrl(inviteLink)}
 
 With Your Admin Access, You Can:
 • Add students, advisors, and department admins
@@ -816,7 +816,7 @@ The Ascentful Partnerships Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${inviteLink}"
+        <a href="${sanitizeUrl(inviteLink)}"
            style="background-color: #5371FF;
                   color: white;
                   padding: 14px 32px;
@@ -955,7 +955,7 @@ Type: ${typeLabel}
 ${signalDescription || 'No additional details.'}
 
 View and take action on this signal:
-${dashboardUrl}
+${sanitizeUrl(dashboardUrl)}
 
 If you have questions, contact support@ascentful.io.
 
@@ -1114,7 +1114,7 @@ Active Signals Summary:
 
 ${topSignals.length > 0 ? `Top Signals Requiring Attention:\n${signalListText}` : 'No urgent signals today.'}
 
-View your full queue: ${dashboardUrl}
+View your full queue: ${sanitizeUrl(dashboardUrl)}
 
 Best,
 The Ascentful Team`;
@@ -1258,7 +1258,7 @@ Good news! Your advisor has completed their review of your ${reviewType}.
 The feedback is now available for you to view. Your advisor has provided personalized suggestions to help you improve and succeed.
 
 View your review and feedback here:
-${reviewUrl}
+${sanitizeUrl(reviewUrl)}
 
 We recommend reviewing the feedback carefully and taking action on the suggestions provided. If you have questions about the feedback, please reach out to your advisor.
 
@@ -1281,7 +1281,7 @@ The Ascentful Team`;
       </div>
 
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${reviewUrl}"
+        <a href="${sanitizeUrl(reviewUrl)}"
            style="background-color: #0C29AB;
                   color: white;
                   padding: 14px 32px;

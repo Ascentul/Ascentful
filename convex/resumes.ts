@@ -95,19 +95,24 @@ export const createResume = mutation({
     });
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId,
-      eventType: ACTIVITY_EVENTS.RESUME_CREATED,
-      eventCategory: 'document',
-      entityType: 'resume',
-      entityId: resumeId,
-      metadata: {
-        title: args.title,
-        source: args.source,
-        visibility: args.visibility,
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId,
+        eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+        eventCategory: 'document',
+        entityType: 'resume',
+        entityId: resumeId,
+        metadata: {
+          title: args.title,
+          source: args.source,
+          visibility: args.visibility,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track resume activity:', error);
+    }
 
     // Audit log: resume created
     await safeLogAudit(ctx, {
@@ -412,20 +417,25 @@ export const createResumeFromFunnel = mutation({
     });
 
     // Track activity event for engagement scoring
-    await trackActivity(ctx, {
-      userId: user._id,
-      universityId,
-      eventType: ACTIVITY_EVENTS.RESUME_CREATED,
-      eventCategory: 'document',
-      entityType: 'resume',
-      entityId: resumeId,
-      metadata: {
-        title: args.title,
-        intent: args.intent,
-        startSource: args.startSource,
-        templateId: args.templateId,
-      },
-    });
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId,
+        eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+        eventCategory: 'document',
+        entityType: 'resume',
+        entityId: resumeId,
+        metadata: {
+          title: args.title,
+          intent: args.intent,
+          startSource: args.startSource,
+          templateId: args.templateId,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track resume funnel activity:', error);
+    }
 
     return resumeId;
   },

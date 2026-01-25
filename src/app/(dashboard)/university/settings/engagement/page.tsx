@@ -227,6 +227,8 @@ export default function EngagementDefinitionsPage() {
   };
 
   const handleDuplicate = async (id: Id<'engagement_definitions'>) => {
+    if (loading) return;
+    setLoading(true);
     try {
       await duplicateDefinition({ definitionId: id });
       toast({
@@ -239,6 +241,8 @@ export default function EngagementDefinitionsPage() {
         description: error instanceof Error ? error.message : 'Failed to duplicate definition.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 

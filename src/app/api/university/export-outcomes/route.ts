@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
   log.info('Export outcomes request started', { event: 'request.start' });
 
   try {
-    // Get authentication from request
+    // Get authentication from request - userId is derived from session, not client
     const { userId, token } = await requireConvexToken();
     log.debug('User authenticated', { event: 'auth.success', clerkId: userId });
 
-    let body: { clerkId: string; filters?: ExportFilters; snapshotId?: string };
+    let body: { filters?: ExportFilters; snapshotId?: string };
     try {
       body = await request.json();
     } catch {
@@ -49,35 +49,12 @@ export async function POST(request: NextRequest) {
         },
       );
     }
-    const { clerkId, filters, snapshotId } = body;
+    const { filters, snapshotId } = body;
 
-    if (!clerkId) {
-      log.warn('Missing clerkId', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
-      return NextResponse.json(
-        { error: 'Missing clerkId' },
-        {
-          status: 400,
-          headers: { 'x-correlation-id': correlationId },
-        },
-      );
-    }
-
-    // For additional security, verify the clerkId matches the authenticated user
-    if (userId !== clerkId) {
-      log.warn('ClerkId mismatch', { event: 'auth.forbidden', errorCode: 'FORBIDDEN' });
-      return NextResponse.json(
-        { error: 'ClerkId mismatch' },
-        {
-          status: 403,
-          headers: { 'x-correlation-id': correlationId },
-        },
-      );
-    }
-
-    // Get the current user to verify admin access
+    // Get the current user to verify admin access using server-side authenticated userId
     let user;
     try {
-      user = await convexServer.query(api.users.getUserByClerkId, { clerkId }, token);
+      user = await convexServer.query(api.users.getUserByClerkId, { clerkId: userId }, token);
     } catch (error) {
       log.error('Error fetching user', toErrorCode(error), { event: 'data.fetch_failed' });
       return NextResponse.json(
