@@ -97,8 +97,8 @@ export function escapeCSV(field: string | number | undefined | null): string {
   if (needsQuoting) {
     // Escape embedded quotes by doubling them
     const escaped = stringField.replace(/"/g, '""');
-    // Prefix with tab to prevent formula interpretation in Excel
-    return startsWithFormula ? `"\t${escaped}"` : `"${escaped}"`;
+    // Prefix with single quote to mark as text and prevent formula interpretation (OWASP CWE-1236)
+    return startsWithFormula ? `"'${escaped}"` : `"${escaped}"`;
   }
 
   return stringField;

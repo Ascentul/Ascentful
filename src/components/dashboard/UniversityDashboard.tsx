@@ -501,12 +501,14 @@ export function UniversityDashboard() {
     const successfulEmails: string[] = [];
 
     // Step 1: Assign students in Convex (creates pending users or updates existing)
+    // Map 'advisor' to 'staff' for mutation schema compatibility
+    const roleForApi = role === 'advisor' ? 'staff' : role;
     for (const email of emails) {
       try {
         await assignStudent({
           clerkId: clerkUser.id,
           email,
-          role,
+          role: roleForApi,
           departmentId,
         });
         successCount++;
@@ -1168,7 +1170,7 @@ export function UniversityDashboard() {
                 <CardContent>
                   <div className="flex items-center">
                     <Users className="h-5 w-5 text-muted-foreground mr-2" />
-                    <div className="text-2xl font-bold">{overview.totalStudents}</div>
+                    <div className="text-2xl font-bold">{overview.activeStudents ?? 0}</div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">This month</div>
                 </CardContent>
@@ -1499,7 +1501,7 @@ export function UniversityDashboard() {
                 </TableHeader>
                 <TableBody>
                   {students
-                    .filter((s: any) => s.role === 'user')
+                    .filter((s: any) => s.role === 'user' || s.role === 'student')
                     .slice(0, 8)
                     .map((s: any) => (
                       <TableRow
@@ -1518,8 +1520,12 @@ export function UniversityDashboard() {
               </Table>
             </CardContent>
             <CardFooter className="text-sm text-muted-foreground">
-              Showing {Math.min(8, students.filter((s: any) => s.role === 'user').length)} of{' '}
-              {students.filter((s: any) => s.role === 'user').length}
+              Showing{' '}
+              {Math.min(
+                8,
+                students.filter((s: any) => s.role === 'user' || s.role === 'student').length,
+              )}{' '}
+              of {students.filter((s: any) => s.role === 'user' || s.role === 'student').length}
             </CardFooter>
           </Card>
         </>

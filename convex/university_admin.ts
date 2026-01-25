@@ -1018,6 +1018,12 @@ export const updateStudentByAdmin = mutation({
     const admin = await getCurrentUser(ctx, args.clerkId);
     requireAdmin(admin);
 
+    // Only super_admin and university_admin can change roles (prevent advisor privilege escalation)
+    const canChangeRole = admin.role === 'super_admin' || admin.role === 'university_admin';
+    if (args.updates.role !== undefined && !canChangeRole) {
+      throw new Error('Unauthorized: Only university admins can change roles');
+    }
+
     const student = await ctx.db.get(args.studentId);
     if (!student) {
       throw new Error('Student not found');
@@ -1096,10 +1102,18 @@ export const removeStudentFromUniversity = mutation({
       throw new Error('Student not found');
     }
 
+    // Validate target is a student (prevent removing admins/advisors)
+    if (!['user', 'student'].includes(student.role)) {
+      throw new Error('Target user is not a student');
+    }
+
     // Verify student belongs to admin's university
     if (admin.role !== 'super_admin' && student.university_id !== admin.university_id) {
       throw new Error('Unauthorized: Cannot remove students outside your university');
     }
+
+    // Store university_id before clearing for membership deactivation
+    const universityId = student.university_id;
 
     // Unlink from university (soft removal)
     // Note: Role is updated here for Convex caching; frontend must sync to Clerk
@@ -1109,6 +1123,18 @@ export const removeStudentFromUniversity = mutation({
       role: 'individual', // Convert to individual user (must sync to Clerk)
       updated_at: Date.now(),
     });
+
+    // Deactivate memberships to update license counts
+    if (universityId) {
+      const memberships = await ctx.db
+        .query('memberships')
+        .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
+        .filter((q) => q.eq(q.field('university_id'), universityId))
+        .collect();
+      for (const membership of memberships) {
+        await ctx.db.patch(membership._id, { status: 'inactive', updated_at: Date.now() });
+      }
+    }
 
     // Also remove any advisor assignments for this student
     const advisorAssignments = await ctx.db
