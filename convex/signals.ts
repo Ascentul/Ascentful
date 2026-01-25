@@ -1469,6 +1469,19 @@ export const evaluateSignalRules = internalMutation({
               updated_at: now,
             });
 
+            // Auto-create follow-up if configured on the rule
+            if (rule.auto_create_followup) {
+              await ctx.scheduler.runAfter(0, internal.followups.createFollowupFromSignal, {
+                signalId,
+                studentId: student._id,
+                universityId: university._id,
+                title: rule.followup_template || `Action needed: ${rule.name}`,
+                description: rule.description,
+                priority: rule.priority,
+                dueInDays: 7,
+              });
+            }
+
             // Schedule notification for advisors (only for urgent/high priority)
             if (rule.priority === 'urgent' || rule.priority === 'high') {
               await ctx.scheduler.runAfter(

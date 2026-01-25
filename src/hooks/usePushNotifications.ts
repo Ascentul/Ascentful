@@ -55,6 +55,15 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     }, 2000);
   }, []);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (skipServerSyncTimeoutRef.current) {
+        clearTimeout(skipServerSyncTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Convex mutations
   const subscribe = useMutation(api.push_subscriptions.subscribe);
   const unsubscribe = useMutation(api.push_subscriptions.unsubscribe);

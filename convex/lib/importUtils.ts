@@ -268,19 +268,19 @@ export function generateExternalOutcomeId(
   externalStudentId?: string,
   email?: string,
 ): string {
-  const identifier = externalStudentId ?? email;
-  if (!identifier) {
+  // Normalize inputs: trim and convert empty/whitespace strings to undefined for proper fallback
+  const trimmedExternalId = externalStudentId?.trim() || undefined;
+  const trimmedEmail = email?.trim() || undefined;
+
+  if (!trimmedExternalId && !trimmedEmail) {
     throw new Error(
       'Either externalStudentId or email is required to generate external_outcome_id',
     );
   }
+
   // Preserve case for external student IDs, lowercase only emails
-  const normalizedIdentifier = externalStudentId
-    ? externalStudentId.trim()
-    : identifier.toLowerCase().trim();
-  if (!normalizedIdentifier) {
-    throw new Error('externalStudentId or email must be non-empty after trimming whitespace');
-  }
+  const normalizedIdentifier = trimmedExternalId ? trimmedExternalId : trimmedEmail!.toLowerCase();
+
   return `${cohortId}_${normalizedIdentifier}`;
 }
 

@@ -93,6 +93,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalize inputs after validation
+    const normalizedStudentClerkId = studentClerkId.trim();
+    const normalizedUniversityId = universityId.trim();
+
     // Verify the requester is a university admin
     const adminUser = await convexServer.query(
       api.users.getUserByClerkId,
@@ -117,7 +121,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the admin belongs to this university (unless super_admin)
-    if (!hasPlatformAdminAccess(adminUser.role) && adminUser.university_id !== universityId) {
+    if (
+      !hasPlatformAdminAccess(adminUser.role) &&
+      adminUser.university_id !== normalizedUniversityId
+    ) {
       log.warn('Admin attempting cross-university removal', {
         event: 'auth.forbidden',
         errorCode: 'FORBIDDEN',
@@ -133,7 +140,7 @@ export async function POST(req: NextRequest) {
     // Get the student's current Clerk user
     let studentClerkUser;
     try {
-      studentClerkUser = await client.users.getUser(studentClerkId);
+      studentClerkUser = await client.users.getUser(normalizedStudentClerkId);
     } catch (clerkError: unknown) {
       // Distinguish Clerk API errors from other failures
       if (isClerkApiError(clerkError)) {
@@ -164,7 +171,7 @@ export async function POST(req: NextRequest) {
     const studentCurrentUniversityId = studentClerkUser.publicMetadata?.university_id as
       | string
       | undefined;
-    if (!studentCurrentUniversityId || studentCurrentUniversityId !== universityId) {
+    if (!studentCurrentUniversityId || studentCurrentUniversityId !== normalizedUniversityId) {
       log.warn('Student does not belong to this university', {
         event: 'auth.forbidden',
         errorCode: 'FORBIDDEN',
@@ -175,13 +182,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Only allow modifying users with roles that can be removed from university
+    // Prevents accidental demotion of university_admin or other privileged roles
+    const studentCurrentRole = studentClerkUser.publicMetadata?.role as string | undefined;
+    const removableRoles = ['student', 'user', 'advisor'];
+    if (!studentCurrentRole || !removableRoles.includes(studentCurrentRole)) {
+      log.warn('Cannot remove user with privileged role from university', {
+        event: 'auth.forbidden',
+        errorCode: 'FORBIDDEN',
+        currentRole: studentCurrentRole,
+      });
+      return NextResponse.json(
+        { error: 'Cannot modify role of this user type' },
+        { status: 403, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     // Update Clerk publicMetadata: set role to 'individual' and clear university_id
     // Preserve other metadata fields
     const { university_id: _removed, ...restMetadata } = studentClerkUser.publicMetadata as Record<
       string,
       unknown
     >;
-    await client.users.updateUser(studentClerkId, {
+    await client.users.updateUser(normalizedStudentClerkId, {
       publicMetadata: {
         ...restMetadata,
         role: 'individual',
@@ -193,7 +216,7 @@ export async function POST(req: NextRequest) {
     log.info('Student Clerk metadata updated for removal', {
       event: 'university.student_removed_clerk_synced',
       adminClerkId: userId,
-      studentClerkId,
+      studentClerkId: normalizedStudentClerkId,
       httpStatus: 200,
       durationMs,
     });
