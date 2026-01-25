@@ -51,16 +51,20 @@ interface FollowUpPanelProps {
   onComplete?: (followUpId: Id<'follow_ups'>) => void;
   onSnooze?: (followUpId: Id<'follow_ups'>, title?: string) => void;
   isLoading?: boolean;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
 function FollowUpRow({
   followUp,
   onComplete,
   onSnooze,
+  routePrefix = '/advisor',
 }: {
   followUp: FollowUp;
   onComplete?: (id: Id<'follow_ups'>) => void;
   onSnooze?: (id: Id<'follow_ups'>, title?: string) => void;
+  routePrefix?: string;
 }) {
   const isOverdue = followUp.due_at && isPast(followUp.due_at) && !isToday(followUp.due_at);
 
@@ -84,7 +88,7 @@ function FollowUpRow({
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <User className="h-3 w-3" />
           <Link
-            href={`/advisor/students/${followUp.student_id}`}
+            href={`${routePrefix}/students/${followUp.student_id}`}
             className="hover:text-primary-600 hover:underline"
           >
             {followUp.student_name}
@@ -134,7 +138,7 @@ function FollowUpRow({
           className="h-7 w-7 text-slate-500 hover:text-slate-700"
           asChild
         >
-          <Link href={`/advisor/students/${followUp.student_id}`} title="View student">
+          <Link href={`${routePrefix}/students/${followUp.student_id}`} title="View student">
             <ChevronRight className="h-4 w-4" />
           </Link>
         </Button>
@@ -168,6 +172,7 @@ export function FollowUpPanel({
   onComplete,
   onSnooze,
   isLoading,
+  routePrefix = '/advisor',
 }: FollowUpPanelProps) {
   const overdueCount = followUps.overdue.length;
   const todayCount = followUps.today.length;
@@ -241,6 +246,7 @@ export function FollowUpPanel({
                     followUp={followUp}
                     onComplete={onComplete}
                     onSnooze={onSnooze}
+                    routePrefix={routePrefix}
                   />
                 ))}
               </div>
@@ -258,6 +264,7 @@ export function FollowUpPanel({
                     followUp={followUp}
                     onComplete={onComplete}
                     onSnooze={onSnooze}
+                    routePrefix={routePrefix}
                   />
                 ))}
               </div>
@@ -275,6 +282,7 @@ export function FollowUpPanel({
                     followUp={followUp}
                     onComplete={onComplete}
                     onSnooze={onSnooze}
+                    routePrefix={routePrefix}
                   />
                 ))}
               </div>

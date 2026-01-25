@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireMembership } from './lib/roles';
 
@@ -66,10 +67,11 @@ export const createResume = mutation({
         : null;
 
     const now = Date.now();
+    const universityId = membership?.university_id ?? user.university_id;
 
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: universityId,
       title: args.title,
       content: args.content,
       visibility: args.visibility,
@@ -92,13 +94,33 @@ export const createResume = mutation({
       created_at: now,
     });
 
+    // Track activity event for engagement scoring
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId,
+        eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+        eventCategory: 'document',
+        entityType: 'resume',
+        entityId: resumeId,
+        metadata: {
+          title: args.title,
+          source: args.source,
+          visibility: args.visibility,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track resume activity:', error);
+    }
+
     // Audit log: resume created
     await safeLogAudit(ctx, {
       category: 'user_action',
       action: 'resume.created',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: universityId,
       targetType: 'resume',
       targetId: resumeId,
       metadata: {
@@ -336,11 +358,12 @@ export const createResumeFromFunnel = mutation({
         : null;
 
     const now = Date.now();
+    const universityId = membership?.university_id ?? user.university_id;
 
     // Create the resume
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: universityId,
       title: args.title,
       content: args.content,
       visibility: 'private',
@@ -382,7 +405,7 @@ export const createResumeFromFunnel = mutation({
       action: 'resume.created_from_funnel',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: universityId,
       targetType: 'resume',
       targetId: resumeId,
       metadata: {
@@ -392,6 +415,27 @@ export const createResumeFromFunnel = mutation({
         templateId: args.templateId,
       },
     });
+
+    // Track activity event for engagement scoring
+    // Wrapped in try/catch to ensure activity tracking failures don't break the main mutation
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId,
+        eventType: ACTIVITY_EVENTS.RESUME_CREATED,
+        eventCategory: 'document',
+        entityType: 'resume',
+        entityId: resumeId,
+        metadata: {
+          title: args.title,
+          intent: args.intent,
+          startSource: args.startSource,
+          templateId: args.templateId,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track resume funnel activity:', error);
+    }
 
     return resumeId;
   },

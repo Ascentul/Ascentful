@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { convexServer } from '@/lib/convex-server';
+import { csvFilename, toCSV } from '@/lib/csv-utils';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -274,21 +275,8 @@ export async function POST(request: NextRequest) {
       ];
     });
 
-    // Escape CSV cells to handle commas and quotes
-    const escapeCSV = (field: string | number) => {
-      const stringField = String(field);
-      if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
-        return `"${stringField.replace(/"/g, '""')}"`;
-      }
-      return stringField;
-    };
-
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map((row) => row.map(escapeCSV).join(',')),
-    ].join('\n');
-
-    const filename = `university-report-${new Date().toISOString().split('T')[0]}.csv`;
+    const csvContent = toCSV(csvHeaders, csvRows);
+    const filename = csvFilename('university-report');
 
     const durationMs = Date.now() - startTime;
     log.info('Export reports completed', {

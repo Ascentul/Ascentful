@@ -14,7 +14,6 @@ import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 interface ComingUpSession {
   _id: Id<'advisor_sessions'>;
@@ -34,6 +33,8 @@ interface ComingUpDay {
 interface ComingUpPanelProps {
   days: ComingUpDay[];
   isLoading?: boolean;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
 const sessionTypeLabels: Record<string, string> = {
@@ -96,7 +97,7 @@ function DayRow({ day }: { day: ComingUpDay }) {
   );
 }
 
-export function ComingUpPanel({ days, isLoading }: ComingUpPanelProps) {
+export function ComingUpPanel({ days, isLoading, routePrefix = '/advisor' }: ComingUpPanelProps) {
   const totalUpcoming = days.reduce((sum, day) => sum + day.sessions.length, 0);
 
   if (isLoading) {
@@ -133,7 +134,7 @@ export function ComingUpPanel({ days, isLoading }: ComingUpPanelProps) {
             )}
           </CardTitle>
           <Link
-            href="/advisor/advising/calendar"
+            href={`${routePrefix}/advising/calendar`}
             className="text-xs text-slate-500 hover:text-primary-600 flex items-center gap-1"
           >
             Calendar

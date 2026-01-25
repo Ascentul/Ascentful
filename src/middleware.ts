@@ -7,6 +7,8 @@ const isProtectedRoute = createRouteMatcher([
   '/admin(.*)',
   '/university(.*)',
   '/advisor(.*)', // Advisor routes
+  '/u', // Unified university workspace base
+  '/u/(.*)', // Unified university workspace child routes
   '/student/advisor(.*)', // Student Advisor Hub routes
   '/account(.*)',
   '/goals(.*)',
@@ -41,6 +43,8 @@ export const config = {
     '/admin/:path*',
     '/university/:path*',
     '/advisor/:path*', // Advisor routes
+    '/u', // Unified university workspace base
+    '/u/:path*', // Unified university workspace child routes
     '/student/advisor/:path*', // Student Advisor Hub routes
     '/account/:path*',
     '/goals/:path*',

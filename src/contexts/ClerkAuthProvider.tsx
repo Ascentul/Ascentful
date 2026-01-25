@@ -116,6 +116,9 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize user profile mutation (client-callable, unlike createUser which is webhook-only)
   const initializeUserProfile = useMutation(api.users.initializeUserProfile);
 
+  // Record login for engagement tracking
+  const recordLogin = useMutation(api.users.recordLogin);
+
   useEffect(() => {
     const initializeUser = async () => {
       if (!clerkLoaded) return;
@@ -198,6 +201,17 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [clerkLoaded, clerkUser, userProfile]);
+
+  // Track login activity for engagement predictions
+  useEffect(() => {
+    if (!clerkLoaded || !clerkUser || !userProfile) return;
+
+    // Record the login (mutation handles deduplication for sessions < 1 hour)
+    recordLogin({ clerkId: clerkUser.id }).catch((err) => {
+      // Silently fail - login tracking should not block the app
+      console.warn('[ClerkAuthProvider] Failed to record login:', err);
+    });
+  }, [clerkLoaded, clerkUser?.id, userProfile?._id, recordLogin]);
 
   const signOut = useCallback(async () => {
     try {

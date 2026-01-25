@@ -78,6 +78,8 @@ interface CalendarViewProps {
   isLoading?: boolean;
   currentDate?: Date;
   onDateChange?: (date: Date) => void;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
 export function CalendarView({
@@ -86,6 +88,7 @@ export function CalendarView({
   isLoading,
   currentDate: controlledDate,
   onDateChange,
+  routePrefix = '/advisor',
 }: CalendarViewProps) {
   const [internalDate, setInternalDate] = useState<Date>(() => controlledDate ?? new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -222,6 +225,7 @@ export function CalendarView({
                 sessions={getSessionsForDay(day)}
                 followUps={getFollowUpsForDay(day)}
                 now={now}
+                routePrefix={routePrefix}
               />
             ))}
           </div>
@@ -236,6 +240,7 @@ export function CalendarView({
               sessions={getSessionsForDay(day)}
               followUps={getFollowUpsForDay(day)}
               now={now}
+              routePrefix={routePrefix}
             />
           ))}
         </div>

@@ -130,3 +130,29 @@ export function sanitizeRichText(html: string): string {
 export function sanitizeCommentBody(body: string): string {
   return sanitizeStrict(body);
 }
+
+/**
+ * Simple HTML entity escaping for text interpolation.
+ * Lightweight alternative to full sanitization when you just need
+ * to safely embed plain text in HTML contexts (e.g., email templates).
+ *
+ * Escapes: & < > " '
+ *
+ * Use for: Email template interpolation, text display in HTML
+ *
+ * NOTE: Intentionally duplicated in src/lib/utils.ts for client-side use.
+ * Convex runtime isolation prevents importing from src/ safely.
+ * Keep implementations in sync if changes are needed.
+ *
+ * @param text - Plain text to escape
+ * @returns HTML-safe string with entities escaped
+ */
+export function escapeHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

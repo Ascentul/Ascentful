@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 
 // Get conversations for a user
 export const getConversations = query({
@@ -52,10 +53,28 @@ export const createConversation = mutation({
     const now = Date.now();
     const conversationId = await ctx.db.insert('ai_coach_conversations', {
       user_id: user._id,
+      university_id: user.university_id,
       title: args.title,
       created_at: now,
       updated_at: now,
     });
+
+    // Track activity event for engagement scoring
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.COACH_CONVERSATION_STARTED,
+        eventCategory: 'ai_coach',
+        entityType: 'conversation',
+        entityId: conversationId,
+        metadata: {
+          title: args.title,
+        },
+      });
+    } catch {
+      // Don't fail conversation creation if activity tracking fails
+    }
 
     return {
       id: conversationId,
@@ -155,6 +174,23 @@ export const addMessages = mutation({
     await ctx.db.patch(args.conversationId, {
       updated_at: now,
     });
+
+    // Track activity event for engagement scoring
+    try {
+      await trackActivity(ctx, {
+        userId: user._id,
+        universityId: user.university_id,
+        eventType: ACTIVITY_EVENTS.COACH_MESSAGE_SENT,
+        eventCategory: 'ai_coach',
+        entityType: 'conversation',
+        entityId: args.conversationId,
+        metadata: {
+          messageLength: args.userMessage.length,
+        },
+      });
+    } catch {
+      // Don't fail message addition if activity tracking fails
+    }
 
     return [
       {

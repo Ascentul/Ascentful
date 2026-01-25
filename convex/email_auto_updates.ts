@@ -2,7 +2,14 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, mutation, query } from './_generated/server';
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  MutationCtx,
+  query,
+  QueryCtx,
+} from './_generated/server';
 import { STAGE_TRANSITIONS } from './advisor_constants';
 import { safeLogAudit } from './lib/auditLogger';
 import { auth } from './lib/authorization';
@@ -37,20 +44,22 @@ function isTransitionAllowed(currentStage: ApplicationStage, newStage: Applicati
 }
 
 async function getTopSortOrderForStatus(
-  ctx: { db: any },
+  ctx: QueryCtx,
   userId: Id<'users'>,
   status: string,
   excludeApplicationId?: Id<'applications'>,
 ): Promise<number> {
   const apps = await ctx.db
     .query('applications')
-    .withIndex('by_user_status_order', (q: any) => q.eq('user_id', userId).eq('status', status))
+    .withIndex('by_user_status_order', (q) =>
+      q.eq('user_id', userId).eq('status', status as Doc<'applications'>['status']),
+    )
     .collect();
 
   const orders = apps
-    .filter((a: any) => a._id !== excludeApplicationId)
-    .map((a: any) => a.sort_order)
-    .filter((o: any) => typeof o === 'number');
+    .filter((a) => a._id !== excludeApplicationId)
+    .map((a) => a.sort_order)
+    .filter((o): o is number => typeof o === 'number');
 
   const min = orders.length > 0 ? Math.min(...orders) : 0;
   return min - SORT_ORDER_GAP;
@@ -1354,7 +1363,7 @@ export const ingestScanResults = internalMutation({
 });
 
 async function applyStageChangeFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     applicationId: Id<'applications'>;
@@ -1482,7 +1491,7 @@ async function applyStageChangeFromSignal(
  * This is the enhanced version for the new tiered routing system.
  */
 async function applyStageChangeFromSignalWithAudit(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     applicationId: Id<'applications'>;
@@ -1704,7 +1713,7 @@ async function applyStageChangeFromSignalWithAudit(
 }
 
 async function createApplicationFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     userId: Id<'users'>;
@@ -1840,7 +1849,7 @@ async function createApplicationFromSignal(
  * Similar to createApplicationFromSignal but with auto-update specific fields.
  */
 async function autoCreateApplicationFromSignal(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     signal: Doc<'email_application_signals'>;
     userId: Id<'users'>;
@@ -2018,7 +2027,7 @@ async function autoCreateApplicationFromSignal(
  * Used for undo support and tracking.
  */
 async function createAutoUpdateAudit(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     userId: Id<'users'>;
     provider: EmailProvider;
@@ -2063,7 +2072,7 @@ async function createAutoUpdateAudit(
  * Emit a notification for auto-add actions.
  */
 async function emitAutoAddNotification(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     userId: Id<'users'>;
     applicationId: Id<'applications'>;

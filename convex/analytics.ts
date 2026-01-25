@@ -2144,3 +2144,373 @@ export const getRevenueAnalytics = query({
     };
   },
 });
+
+/**
+ * Get active users over time for a university (real data from activity_events)
+ */
+export const getUniversityActiveUsersOverTime = query({
+  args: {
+    universityId: v.id('universities'),
+    timeRange: v.union(v.literal('daily'), v.literal('weekly'), v.literal('monthly')),
+  },
+  handler: async (ctx, args) => {
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, args.universityId);
+
+    const { universityId, timeRange } = args;
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+
+    // Get all students in this university
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIds = new Set(students.map((s) => s._id));
+
+    // Get advisors
+    const advisors = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'advisor'))
+      .collect();
+
+    const advisorIds = new Set(advisors.map((a) => a._id));
+
+    // Determine lookback period and bucket size
+    let lookbackDays: number;
+    let bucketMs: number;
+    let bucketCount: number;
+
+    if (timeRange === 'daily') {
+      lookbackDays = 30;
+      bucketMs = msPerDay;
+      bucketCount = 30;
+    } else if (timeRange === 'weekly') {
+      lookbackDays = 84; // 12 weeks
+      bucketMs = 7 * msPerDay;
+      bucketCount = 12;
+    } else {
+      lookbackDays = 365; // 12 months
+      bucketMs = 30 * msPerDay; // Approximate month
+      bucketCount = 12;
+    }
+
+    const startTime = now - lookbackDays * msPerDay;
+
+    // Get activity events for the university
+    // Use occurred_at (canonical timestamp) for filtering, not created_at
+    // Limit to 50k events to prevent unbounded queries for high-activity universities
+    const events = await ctx.db
+      .query('activity_events')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.gte(q.field('occurred_at'), startTime))
+      .take(50000);
+
+    // Group events by bucket and count unique users
+    const data: Array<{ date: string; students: number; advisors: number }> = [];
+
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const bucketStart = now - (i + 1) * bucketMs;
+      const bucketEnd = now - i * bucketMs;
+
+      const bucketEvents = events.filter(
+        (e) => e.occurred_at >= bucketStart && e.occurred_at < bucketEnd,
+      );
+
+      const activeStudentIds = new Set(
+        bucketEvents.filter((e) => studentIds.has(e.user_id)).map((e) => e.user_id),
+      );
+      const activeAdvisorIds = new Set(
+        bucketEvents.filter((e) => advisorIds.has(e.user_id)).map((e) => e.user_id),
+      );
+
+      // Format date label
+      let dateLabel: string;
+      const bucketDate = new Date(bucketEnd);
+
+      if (timeRange === 'daily') {
+        dateLabel = bucketDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      } else if (timeRange === 'weekly') {
+        dateLabel = `Week ${bucketCount - i}`;
+      } else {
+        dateLabel = bucketDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      }
+
+      data.push({
+        date: dateLabel,
+        students: activeStudentIds.size,
+        advisors: activeAdvisorIds.size,
+      });
+    }
+
+    return {
+      data,
+      totalStudents: students.length,
+      totalAdvisors: advisors.length,
+    };
+  },
+});
+
+/**
+ * Get feature usage stats for a university (networking contacts, AI coach)
+ */
+export const getUniversityFeatureUsage = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students in this university
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIdSet = new Set(students.map((s) => s._id.toString()));
+
+    // Bulk fetch networking contacts for the university, filter to students
+    const allContacts = await ctx.db
+      .query('networking_contacts')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const networkingContactsCount = allContacts.filter((c) =>
+      studentIdSet.has(c.user_id.toString()),
+    ).length;
+
+    // Bulk fetch AI coach conversations for the university
+    const allConversations = await ctx.db
+      .query('ai_coach_conversations')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const aiCoachConversationsCount = allConversations.filter((c) =>
+      studentIdSet.has(c.user_id.toString()),
+    ).length;
+
+    return {
+      networkingContacts: networkingContactsCount,
+      aiCoachConversations: aiCoachConversationsCount,
+    };
+  },
+});
+
+/**
+ * Get department-level analytics (real goals and applications by department)
+ */
+export const getUniversityDepartmentAnalytics = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all departments
+    const departments = await ctx.db
+      .query('departments')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Get all students
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    // Collect all student IDs for bulk queries
+    const allStudentIds = students.map((s) => s._id);
+    const studentIdSet = new Set(allStudentIds.map((id) => id.toString()));
+
+    // Bulk fetch all goals for the university and filter to students
+    const allGoals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const studentGoals = allGoals.filter((g) => studentIdSet.has(g.user_id.toString()));
+
+    // Bulk fetch all applications for the university and filter to students
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const studentApplications = allApplications.filter((a) =>
+      studentIdSet.has(a.user_id.toString()),
+    );
+
+    // Pre-compute counts by user_id for O(1) lookups
+    const goalsCountByUser = new Map<string, number>();
+    for (const goal of studentGoals) {
+      const key = goal.user_id.toString();
+      goalsCountByUser.set(key, (goalsCountByUser.get(key) || 0) + 1);
+    }
+
+    const applicationsCountByUser = new Map<string, number>();
+    for (const app of studentApplications) {
+      const key = app.user_id.toString();
+      applicationsCountByUser.set(key, (applicationsCountByUser.get(key) || 0) + 1);
+    }
+
+    // Build department stats using pre-computed maps
+    const departmentStats: Array<{
+      departmentId: string;
+      departmentName: string;
+      departmentCode?: string;
+      studentCount: number;
+      goalsCount: number;
+      applicationsCount: number;
+    }> = [];
+
+    for (const dept of departments) {
+      const deptStudents = students.filter((s) => s.department_id === dept._id);
+
+      // Aggregate counts from pre-computed maps
+      let goalsCount = 0;
+      let applicationsCount = 0;
+      for (const student of deptStudents) {
+        const key = student._id.toString();
+        goalsCount += goalsCountByUser.get(key) || 0;
+        applicationsCount += applicationsCountByUser.get(key) || 0;
+      }
+
+      departmentStats.push({
+        departmentId: dept._id,
+        departmentName: dept.name,
+        departmentCode: dept.code,
+        studentCount: deptStudents.length,
+        goalsCount,
+        applicationsCount,
+      });
+    }
+
+    return departmentStats;
+  },
+});
+
+/**
+ * Get student funnel/pipeline stages (real data from applications)
+ */
+export const getUniversityStudentFunnel = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .collect();
+
+    const studentIdSet = new Set(students.map((s) => s._id.toString()));
+    const totalStudents = students.length;
+
+    // Bulk fetch all applications for this university
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Group applications by student for O(1) lookups
+    const applicationsByStudent = new Map<string, typeof allApplications>();
+    for (const app of allApplications) {
+      const key = app.user_id.toString();
+      if (studentIdSet.has(key)) {
+        const existing = applicationsByStudent.get(key) || [];
+        existing.push(app);
+        applicationsByStudent.set(key, existing);
+      }
+    }
+
+    // Count students at each stage
+    let withProfileComplete = 0;
+    let withApplications = 0;
+    let withInterviews = 0;
+    let withOffers = 0;
+    let withAccepted = 0;
+
+    for (const student of students) {
+      // Check if profile is complete (has key fields)
+      const hasProfile =
+        student.name && student.email && (student.bio || student.skills || student.education);
+      if (hasProfile) withProfileComplete++;
+
+      // Get applications for this student from pre-fetched map
+      const applications = applicationsByStudent.get(student._id.toString()) || [];
+
+      if (applications.length > 0) {
+        withApplications++;
+
+        // Check for interview stage
+        const hasInterview = applications.some(
+          (app) => app.stage === 'Interview' || app.status === 'interview',
+        );
+        if (hasInterview) withInterviews++;
+
+        // Check for offer
+        const hasOffer = applications.some(
+          (app) => app.stage === 'Offer' || app.status === 'offer',
+        );
+        if (hasOffer) withOffers++;
+
+        // Check for accepted (stage field is the canonical source)
+        const hasAccepted = applications.some((app) => app.stage === 'Accepted');
+        if (hasAccepted) withAccepted++;
+      }
+    }
+
+    return {
+      totalStudents,
+      funnel: [
+        {
+          stage: 'Active Students',
+          count: totalStudents,
+          percent: 100,
+        },
+        {
+          stage: 'Profile Complete',
+          count: withProfileComplete,
+          percent: totalStudents > 0 ? Math.round((withProfileComplete / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Applied',
+          count: withApplications,
+          percent: totalStudents > 0 ? Math.round((withApplications / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Interviewing',
+          count: withInterviews,
+          percent: totalStudents > 0 ? Math.round((withInterviews / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Offers Received',
+          count: withOffers,
+          percent: totalStudents > 0 ? Math.round((withOffers / totalStudents) * 100) : 0,
+        },
+        {
+          stage: 'Accepted',
+          count: withAccepted,
+          percent: totalStudents > 0 ? Math.round((withAccepted / totalStudents) * 100) : 0,
+        },
+      ],
+    };
+  },
+});

@@ -61,6 +61,8 @@ interface EnhancedSessionCardProps {
   session: EnhancedSession;
   onAddNote?: (sessionId: Id<'advisor_sessions'>) => void;
   onAddFollowUp?: (studentId: Id<'users'>, sessionTitle?: string) => void;
+  /** Route prefix for links (e.g., '/u' or '/advisor') */
+  routePrefix?: string;
 }
 
 const sessionTypeLabels: Record<string, string> = {
@@ -82,6 +84,7 @@ export function EnhancedSessionCard({
   session,
   onAddNote,
   onAddFollowUp,
+  routePrefix = '/advisor',
 }: EnhancedSessionCardProps) {
   const { studentContext } = session;
   const isPast = session.start_at < Date.now();
@@ -144,7 +147,7 @@ export function EnhancedSessionCard({
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-slate-400" />
             <Link
-              href={`/advisor/students/${session.student_id}`}
+              href={`${routePrefix}/students/${session.student_id}`}
               className="font-medium text-slate-900 hover:text-primary-600 hover:underline"
             >
               {session.student_name}
@@ -242,7 +245,7 @@ export function EnhancedSessionCard({
             Follow-up
           </Button>
           <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 ml-auto" asChild>
-            <Link href={`/advisor/advising/sessions/${session._id}`}>
+            <Link href={`${routePrefix}/advising/sessions/${session._id}`}>
               <ExternalLink className="h-3 w-3" />
               View
             </Link>

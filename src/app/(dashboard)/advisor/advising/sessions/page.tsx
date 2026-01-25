@@ -20,7 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
@@ -102,6 +102,7 @@ export default function AdvisorSessionsPage() {
   const { user: clerkUser } = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // Filter state
@@ -153,9 +154,10 @@ export default function AdvisorSessionsPage() {
         setNewSession((prev) => ({ ...prev, student_id: studentId }));
       }
       // Clear URL params to prevent dialog reopening on refresh
-      router.replace('/advisor/advising/sessions', { scroll: false });
+      // Use current pathname to preserve /u/ or /advisor/ route context
+      router.replace(pathname, { scroll: false });
     }
-  }, [searchParams, router, caseload]);
+  }, [searchParams, router, caseload, pathname]);
 
   // Mutations
   const createSession = useMutation(api.advisor_sessions_mutations.createSession);
@@ -558,7 +560,7 @@ export default function AdvisorSessionsPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem asChild>
-                                    <Link href={`/advisor/advising/sessions/${session._id}`}>
+                                    <Link href={`${pathname}/${session._id}`}>
                                       <ExternalLink className="h-4 w-4 mr-2" />
                                       View Details
                                     </Link>

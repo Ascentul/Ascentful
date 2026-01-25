@@ -17,14 +17,16 @@ interface FollowUp {
 interface FollowUpItemProps {
   followUp: FollowUp;
   now: number;
+  /** Route prefix for links (e.g., '/u' or '/advisor'). Must not include trailing slash. */
+  routePrefix?: string;
 }
 
-export function FollowUpItem({ followUp, now }: FollowUpItemProps) {
+export function FollowUpItem({ followUp, now, routePrefix = '/advisor' }: FollowUpItemProps) {
   const isOverdue = followUp.due_at != null && followUp.due_at < now;
 
   return (
     <Link
-      href={`/advisor/students/${followUp.student_id}`}
+      href={`${routePrefix}/students/${followUp.student_id}`}
       aria-label={
         isOverdue ? `Overdue follow-up: ${followUp.title}` : `Follow-up: ${followUp.title}`
       }

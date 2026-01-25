@@ -40,9 +40,11 @@ interface DayCardProps {
   sessions: Session[];
   followUps: FollowUp[];
   now: number;
+  /** Route prefix for links (e.g., '/u' or '/advisor'). Must not include trailing slash. */
+  routePrefix?: string;
 }
 
-export function DayCard({ day, sessions, followUps, now }: DayCardProps) {
+export function DayCard({ day, sessions, followUps, now, routePrefix = '/advisor' }: DayCardProps) {
   const isToday = isSameDay(day, new Date(now));
 
   return (
@@ -72,12 +74,22 @@ export function DayCard({ day, sessions, followUps, now }: DayCardProps) {
           <div className="space-y-2">
             {/* Sessions */}
             {sessions.map((session) => (
-              <SessionItem key={session._id} session={session} now={now} />
+              <SessionItem
+                key={session._id}
+                session={session}
+                now={now}
+                routePrefix={routePrefix}
+              />
             ))}
 
             {/* Follow-ups */}
             {followUps.map((followUp) => (
-              <FollowUpItem key={followUp._id} followUp={followUp} now={now} />
+              <FollowUpItem
+                key={followUp._id}
+                followUp={followUp}
+                now={now}
+                routePrefix={routePrefix}
+              />
             ))}
           </div>
         )}

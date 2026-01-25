@@ -913,3 +913,1017 @@ export const hardDeleteOutcome = mutation({
     return args.outcomeId;
   },
 });
+
+// ============================================================================
+// IDEMPOTENT IMPORT
+// ============================================================================
+
+/**
+ * Upsert a graduate outcome using external_outcome_id for deduplication.
+ *
+ * This is the preferred method for CSV imports as it:
+ * - Creates new records if no match exists
+ * - Updates existing records if external_outcome_id matches
+ * - Returns the action taken (created/updated/skipped)
+ *
+ * Requires university_admin role.
+ */
+export const upsertOutcome = mutation({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+    externalOutcomeId: v.string(),
+    studentId: v.optional(v.id('users')),
+    majorId: v.optional(v.id('majors')),
+    externalStudentId: v.optional(v.string()),
+    studentEmail: v.optional(v.string()),
+    studentName: v.optional(v.string()),
+    outcomeStatus: v.union(v.literal('unknown'), v.literal('known'), v.literal('partial')),
+    outcomeType: v.optional(
+      v.union(
+        v.literal('employed_fulltime'),
+        v.literal('employed_parttime'),
+        v.literal('continuing_education'),
+        v.literal('military'),
+        v.literal('volunteer'),
+        v.literal('seeking'),
+        v.literal('not_seeking'),
+      ),
+    ),
+    employerName: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    jobFunction: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    naicsCode: v.optional(v.string()),
+    isFullTime: v.optional(v.boolean()),
+    salary: v.optional(v.number()),
+    startDate: v.optional(v.number()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    country: v.optional(v.string()),
+    isRemote: v.optional(v.boolean()),
+    gradSchoolName: v.optional(v.string()),
+    gradSchoolProgram: v.optional(v.string()),
+    gradSchoolDegree: v.optional(v.string()),
+    isMajorRelated: v.optional(v.boolean()),
+    dataSource: v.optional(
+      v.union(
+        v.literal('survey'),
+        v.literal('linkedin'),
+        v.literal('advisor_input'),
+        v.literal('student_self_report'),
+        v.literal('employer_report'),
+        v.literal('platform_inference'),
+      ),
+    ),
+    notes: v.optional(v.string()),
+    skipIfManuallyEdited: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    assertUniversityAccess(user, cohort.institution_id);
+
+    const now = Date.now();
+
+    // Check for existing by external_outcome_id
+    const existing = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_external_outcome_id', (q) =>
+        q
+          .eq('institution_id', cohort.institution_id)
+          .eq('external_outcome_id', args.externalOutcomeId),
+      )
+      .first();
+
+    if (existing) {
+      // Guard against cross-cohort collision: external_outcome_id must belong to same cohort
+      if (existing.cohort_id !== args.cohortId) {
+        throw new Error(
+          `external_outcome_id "${args.externalOutcomeId}" is already used by a different cohort`,
+        );
+      }
+
+      // Check if we should skip manually edited records
+      if (args.skipIfManuallyEdited) {
+        const manualSources = ['advisor_input', 'student_self_report'];
+        if (existing.data_source && manualSources.includes(existing.data_source)) {
+          return {
+            action: 'skipped' as const,
+            outcomeId: existing._id,
+            reason: 'manually_edited',
+          };
+        }
+      }
+
+      // Update existing record
+      const updates: Record<string, unknown> = { updated_at: now };
+
+      if (args.studentId !== undefined) updates.student_id = args.studentId;
+      if (args.majorId !== undefined) updates.major_id = args.majorId;
+      if (args.externalStudentId !== undefined)
+        updates.external_student_id = args.externalStudentId;
+      if (args.studentEmail !== undefined) updates.student_email = args.studentEmail;
+      if (args.studentName !== undefined) updates.student_name = args.studentName;
+      if (args.outcomeStatus !== undefined) updates.outcome_status = args.outcomeStatus;
+      if (args.outcomeType !== undefined) updates.outcome_type = args.outcomeType;
+      if (args.employerName !== undefined) updates.employer_name = args.employerName;
+      if (args.jobTitle !== undefined) updates.job_title = args.jobTitle;
+      if (args.jobFunction !== undefined) updates.job_function = args.jobFunction;
+      if (args.industry !== undefined) updates.industry = args.industry;
+      if (args.naicsCode !== undefined) updates.naics_code = args.naicsCode;
+      if (args.isFullTime !== undefined) updates.is_full_time = args.isFullTime;
+      if (args.salary !== undefined) updates.salary = args.salary;
+      if (args.startDate !== undefined) updates.start_date = args.startDate;
+      if (args.city !== undefined) updates.city = args.city;
+      if (args.state !== undefined) updates.state = args.state;
+      if (args.country !== undefined) updates.country = args.country;
+      if (args.isRemote !== undefined) updates.is_remote = args.isRemote;
+      if (args.gradSchoolName !== undefined) updates.grad_school_name = args.gradSchoolName;
+      if (args.gradSchoolProgram !== undefined)
+        updates.grad_school_program = args.gradSchoolProgram;
+      if (args.gradSchoolDegree !== undefined) updates.grad_school_degree = args.gradSchoolDegree;
+      if (args.isMajorRelated !== undefined) updates.is_major_related = args.isMajorRelated;
+      if (args.dataSource !== undefined) updates.data_source = args.dataSource;
+      if (args.notes !== undefined) updates.notes = args.notes;
+
+      await ctx.db.patch(existing._id, updates);
+
+      return {
+        action: 'updated' as const,
+        outcomeId: existing._id,
+      };
+    }
+
+    // Create new record
+    const outcomeId = await ctx.db.insert('graduate_outcomes', {
+      cohort_id: args.cohortId,
+      institution_id: cohort.institution_id,
+      external_outcome_id: args.externalOutcomeId,
+      student_id: args.studentId,
+      major_id: args.majorId,
+      external_student_id: args.externalStudentId,
+      student_email: args.studentEmail,
+      student_name: args.studentName,
+      outcome_status: args.outcomeStatus,
+      outcome_type: args.outcomeType,
+      employer_name: args.employerName,
+      job_title: args.jobTitle,
+      job_function: args.jobFunction,
+      industry: args.industry,
+      naics_code: args.naicsCode,
+      is_full_time: args.isFullTime,
+      salary: args.salary,
+      start_date: args.startDate,
+      city: args.city,
+      state: args.state,
+      country: args.country,
+      is_remote: args.isRemote,
+      grad_school_name: args.gradSchoolName,
+      grad_school_program: args.gradSchoolProgram,
+      grad_school_degree: args.gradSchoolDegree,
+      is_major_related: args.isMajorRelated,
+      data_source: args.dataSource ?? 'survey',
+      is_verified: false,
+      is_active: true,
+      notes: args.notes,
+      created_at: now,
+      updated_at: now,
+    });
+
+    return {
+      action: 'created' as const,
+      outcomeId,
+    };
+  },
+});
+
+/**
+ * Bulk upsert outcomes with idempotent behavior.
+ * Processes each row and returns detailed results.
+ *
+ * Requires university_admin role.
+ */
+export const bulkUpsertOutcomes = mutation({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+    outcomes: v.array(
+      v.object({
+        externalOutcomeId: v.string(),
+        externalStudentId: v.optional(v.string()),
+        studentEmail: v.optional(v.string()),
+        studentName: v.optional(v.string()),
+        majorId: v.optional(v.id('majors')),
+        outcomeStatus: v.union(v.literal('unknown'), v.literal('known'), v.literal('partial')),
+        outcomeType: v.optional(
+          v.union(
+            v.literal('employed_fulltime'),
+            v.literal('employed_parttime'),
+            v.literal('continuing_education'),
+            v.literal('military'),
+            v.literal('volunteer'),
+            v.literal('seeking'),
+            v.literal('not_seeking'),
+          ),
+        ),
+        employerName: v.optional(v.string()),
+        jobTitle: v.optional(v.string()),
+        salary: v.optional(v.number()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        country: v.optional(v.string()),
+        gradSchoolName: v.optional(v.string()),
+        gradSchoolProgram: v.optional(v.string()),
+      }),
+    ),
+    dataSource: v.optional(
+      v.union(
+        v.literal('survey'),
+        v.literal('linkedin'),
+        v.literal('advisor_input'),
+        v.literal('student_self_report'),
+        v.literal('employer_report'),
+        v.literal('platform_inference'),
+      ),
+    ),
+    skipIfManuallyEdited: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    assertUniversityAccess(user, cohort.institution_id);
+
+    const now = Date.now();
+    const results = {
+      total: args.outcomes.length,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; externalId: string; error: string }>,
+    };
+
+    for (let i = 0; i < args.outcomes.length; i++) {
+      const outcomeData = args.outcomes[i];
+
+      try {
+        // Check for existing
+        const existing = await ctx.db
+          .query('graduate_outcomes')
+          .withIndex('by_external_outcome_id', (q) =>
+            q
+              .eq('institution_id', cohort.institution_id)
+              .eq('external_outcome_id', outcomeData.externalOutcomeId),
+          )
+          .first();
+
+        if (existing) {
+          // Guard against cross-cohort collision: external_outcome_id must belong to same cohort
+          if (existing.cohort_id !== args.cohortId) {
+            results.errors.push({
+              row: i + 1,
+              externalId: outcomeData.externalOutcomeId,
+              error: `external_outcome_id is already used by a different cohort`,
+            });
+            continue;
+          }
+
+          // Check if we should skip manually edited records
+          if (args.skipIfManuallyEdited) {
+            const manualSources = ['advisor_input', 'student_self_report'];
+            if (existing.data_source && manualSources.includes(existing.data_source)) {
+              results.skipped++;
+              continue;
+            }
+          }
+
+          // Update - only override fields that are explicitly provided (not undefined)
+          // This prevents bulk imports from accidentally clearing existing data
+          await ctx.db.patch(existing._id, {
+            // Always update required fields and timestamp
+            outcome_status: outcomeData.outcomeStatus,
+            updated_at: now,
+            // Only override optional fields if explicitly provided
+            ...(outcomeData.externalStudentId !== undefined && {
+              external_student_id: outcomeData.externalStudentId,
+            }),
+            ...(outcomeData.studentEmail !== undefined && {
+              student_email: outcomeData.studentEmail,
+            }),
+            ...(outcomeData.studentName !== undefined && {
+              student_name: outcomeData.studentName,
+            }),
+            ...(outcomeData.majorId !== undefined && {
+              major_id: outcomeData.majorId,
+            }),
+            ...(outcomeData.outcomeType !== undefined && {
+              outcome_type: outcomeData.outcomeType,
+            }),
+            ...(outcomeData.employerName !== undefined && {
+              employer_name: outcomeData.employerName,
+            }),
+            ...(outcomeData.jobTitle !== undefined && {
+              job_title: outcomeData.jobTitle,
+            }),
+            ...(outcomeData.salary !== undefined && {
+              salary: outcomeData.salary,
+            }),
+            ...(outcomeData.city !== undefined && {
+              city: outcomeData.city,
+            }),
+            ...(outcomeData.state !== undefined && {
+              state: outcomeData.state,
+            }),
+            ...(outcomeData.country !== undefined && {
+              country: outcomeData.country,
+            }),
+            ...(outcomeData.gradSchoolName !== undefined && {
+              grad_school_name: outcomeData.gradSchoolName,
+            }),
+            ...(outcomeData.gradSchoolProgram !== undefined && {
+              grad_school_program: outcomeData.gradSchoolProgram,
+            }),
+            ...(args.dataSource !== undefined && {
+              data_source: args.dataSource,
+            }),
+          });
+          results.updated++;
+        } else {
+          // Create
+          await ctx.db.insert('graduate_outcomes', {
+            cohort_id: args.cohortId,
+            institution_id: cohort.institution_id,
+            external_outcome_id: outcomeData.externalOutcomeId,
+            external_student_id: outcomeData.externalStudentId,
+            student_email: outcomeData.studentEmail,
+            student_name: outcomeData.studentName,
+            major_id: outcomeData.majorId,
+            outcome_status: outcomeData.outcomeStatus,
+            outcome_type: outcomeData.outcomeType,
+            employer_name: outcomeData.employerName,
+            job_title: outcomeData.jobTitle,
+            salary: outcomeData.salary,
+            city: outcomeData.city,
+            state: outcomeData.state,
+            country: outcomeData.country,
+            grad_school_name: outcomeData.gradSchoolName,
+            grad_school_program: outcomeData.gradSchoolProgram,
+            data_source: args.dataSource ?? 'survey',
+            is_verified: false,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+          });
+          results.created++;
+        }
+      } catch (error) {
+        results.errors.push({
+          row: i + 1,
+          externalId: outcomeData.externalOutcomeId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
+// ============================================================================
+// IMPORT PREVIEW
+// ============================================================================
+
+/**
+ * Preview an import without making changes.
+ * Uses identity resolution to match students and returns preview data.
+ *
+ * Requires university_admin role.
+ */
+export const previewOutcomeImport = query({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+    outcomes: v.array(
+      v.object({
+        externalStudentId: v.optional(v.string()),
+        studentEmail: v.optional(v.string()),
+        studentName: v.optional(v.string()),
+        outcomeStatus: v.union(v.literal('unknown'), v.literal('known'), v.literal('partial')),
+        outcomeType: v.optional(
+          v.union(
+            v.literal('employed_fulltime'),
+            v.literal('employed_parttime'),
+            v.literal('continuing_education'),
+            v.literal('military'),
+            v.literal('volunteer'),
+            v.literal('seeking'),
+            v.literal('not_seeking'),
+          ),
+        ),
+        employerName: v.optional(v.string()),
+        jobTitle: v.optional(v.string()),
+        salary: v.optional(v.number()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        country: v.optional(v.string()),
+        gradSchoolName: v.optional(v.string()),
+        gradSchoolProgram: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    // Super admins can access any cohort
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (cohort.institution_id !== universityId) {
+        throw new Error('Unauthorized: Cohort is not in your university');
+      }
+    }
+
+    const { resolveStudentIdentity, generateExternalOutcomeId } = await import('./lib/importUtils');
+
+    const preview: Array<{
+      rowIndex: number;
+      identifierUsed: string;
+      identityMatch: {
+        matched: boolean;
+        confidence: 'exact' | 'high' | 'low' | 'none';
+        matchedBy?: string;
+        userId?: string;
+        userName?: string;
+        userEmail?: string;
+        suggestions?: Array<{ name: string; email: string; confidence: number }>;
+      };
+      existingOutcome: boolean;
+      action: 'create' | 'update' | 'skip';
+      validationErrors: string[];
+      data: {
+        studentName?: string;
+        studentEmail?: string;
+        externalStudentId?: string;
+        outcomeStatus: string;
+        outcomeType?: string;
+        employerName?: string;
+        jobTitle?: string;
+        salary?: number;
+      };
+    }> = [];
+
+    for (let i = 0; i < args.outcomes.length; i++) {
+      const row = args.outcomes[i];
+      const validationErrors: string[] = [];
+
+      // Validate required fields
+      if (!row.externalStudentId && !row.studentEmail) {
+        validationErrors.push('Either external_student_id or student_email is required');
+      }
+
+      // Resolve identity
+      const identityMatch = await resolveStudentIdentity(ctx, cohort.institution_id, {
+        externalStudentId: row.externalStudentId,
+        email: row.studentEmail,
+        name: row.studentName,
+      });
+
+      // Check for existing outcome
+      const identifier = row.externalStudentId || row.studentEmail || '';
+      const externalOutcomeId = identifier
+        ? generateExternalOutcomeId(args.cohortId, row.externalStudentId, row.studentEmail)
+        : '';
+
+      let existingOutcome = false;
+      let action: 'create' | 'update' | 'skip' = 'create';
+
+      if (externalOutcomeId) {
+        const existing = await ctx.db
+          .query('graduate_outcomes')
+          .withIndex('by_external_outcome_id', (q) =>
+            q
+              .eq('institution_id', cohort.institution_id)
+              .eq('external_outcome_id', externalOutcomeId),
+          )
+          .first();
+
+        if (existing) {
+          existingOutcome = true;
+          action = 'update';
+        }
+      }
+
+      // Mark invalid rows as skip to keep willCreate/willUpdate counts accurate
+      if (validationErrors.length > 0) {
+        action = 'skip';
+      }
+
+      // Get matched user details if found
+      let userName: string | undefined;
+      let userEmail: string | undefined;
+      if (identityMatch.matched && identityMatch.userId) {
+        const matchedUser = await ctx.db.get(identityMatch.userId);
+        if (matchedUser) {
+          userName = matchedUser.name || undefined;
+          userEmail = matchedUser.email || undefined;
+        }
+      }
+
+      preview.push({
+        rowIndex: i,
+        identifierUsed: row.externalStudentId || row.studentEmail || row.studentName || 'Unknown',
+        identityMatch: {
+          matched: identityMatch.matched,
+          confidence: identityMatch.confidence,
+          matchedBy: identityMatch.matchedBy,
+          userId: identityMatch.userId,
+          userName,
+          userEmail,
+          suggestions: identityMatch.suggestions?.map((s) => ({
+            name: s.name,
+            email: s.email,
+            confidence: s.confidence,
+          })),
+        },
+        existingOutcome,
+        action,
+        validationErrors,
+        data: {
+          studentName: row.studentName,
+          studentEmail: row.studentEmail,
+          externalStudentId: row.externalStudentId,
+          outcomeStatus: row.outcomeStatus,
+          outcomeType: row.outcomeType,
+          employerName: row.employerName,
+          jobTitle: row.jobTitle,
+          salary: row.salary,
+        },
+      });
+    }
+
+    // Summary stats
+    const summary = {
+      total: preview.length,
+      willCreate: preview.filter((p) => p.action === 'create').length,
+      willUpdate: preview.filter((p) => p.action === 'update').length,
+      hasErrors: preview.filter((p) => p.validationErrors.length > 0).length,
+      identityMatched: preview.filter((p) => p.identityMatch.matched).length,
+      needsReview: preview.filter(
+        (p) => !p.identityMatch.matched && p.identityMatch.confidence === 'low',
+      ).length,
+    };
+
+    return { preview, summary };
+  },
+});
+
+// ============================================================================
+// OUTCOMES ANALYTICS - For Leadership Dashboard
+// ============================================================================
+
+/**
+ * Get aggregated outcomes analytics with filters
+ * Used for Leadership Outcomes Dashboard KPIs and breakdowns
+ */
+export const getOutcomesAnalytics = query({
+  args: {
+    institutionId: v.id('universities'),
+    cohortIds: v.optional(v.array(v.id('graduation_cohorts'))),
+    degreeLevels: v.optional(v.array(v.string())),
+    programs: v.optional(v.array(v.string())),
+    graduationYear: v.optional(v.number()),
+    groupBy: v.optional(
+      v.union(v.literal('cohort'), v.literal('program'), v.literal('degree_level')),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    // Verify access
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (universityId !== args.institutionId) {
+        throw new Error('Unauthorized: Different university');
+      }
+    }
+
+    // Get all cohorts for this institution
+    let cohorts = await ctx.db
+      .query('graduation_cohorts')
+      .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
+      .collect();
+
+    // Filter cohorts if specific IDs provided
+    if (args.cohortIds && args.cohortIds.length > 0) {
+      const cohortIdSet = new Set(args.cohortIds);
+      cohorts = cohorts.filter((c) => cohortIdSet.has(c._id));
+    }
+
+    // Filter by graduation year
+    if (args.graduationYear) {
+      cohorts = cohorts.filter((c) => c.graduation_year === args.graduationYear);
+    }
+
+    // Filter by degree level
+    if (args.degreeLevels && args.degreeLevels.length > 0) {
+      const degreeLevelSet = new Set(args.degreeLevels);
+      cohorts = cohorts.filter((c) => c.degree_level && degreeLevelSet.has(c.degree_level));
+    }
+
+    // If no cohorts after filtering, return empty results
+    if (cohorts.length === 0) {
+      return {
+        summary: {
+          total_students: 0,
+          known_outcomes: 0,
+          unknown_outcomes: 0,
+          partial_outcomes: 0,
+          knowledge_rate: 0,
+          employed_fulltime: 0,
+          employed_parttime: 0,
+          continuing_education: 0,
+          military: 0,
+          volunteer: 0,
+          seeking: 0,
+          not_seeking: 0,
+          employment_rate: 0,
+          continuing_ed_rate: 0,
+        },
+        breakdown: {},
+        outcomes: [],
+      };
+    }
+
+    // Get outcomes for filtered cohorts using by_cohort index for efficiency
+    const cohortIds = cohorts.map((c) => c._id);
+    const outcomesByCohort = await Promise.all(
+      cohortIds.map((cohortId) =>
+        ctx.db
+          .query('graduate_outcomes')
+          .withIndex('by_cohort', (q) => q.eq('cohort_id', cohortId))
+          .filter((q) => q.neq(q.field('is_active'), false))
+          .collect(),
+      ),
+    );
+    let outcomes = outcomesByCohort.flat();
+
+    // Filter by program (major) if specified
+    if (args.programs && args.programs.length > 0) {
+      const programSet = new Set(args.programs.map((p) => p.toLowerCase()));
+      // Get unique majors to map major_id to name (deduplicate to avoid redundant fetches)
+      const uniqueMajorIds = [
+        ...new Set(outcomes.filter((o) => o.major_id).map((o) => o.major_id!)),
+      ];
+      const majors = await Promise.all(uniqueMajorIds.map((id) => ctx.db.get(id)));
+      const majorNameMap = new Map<string, string>();
+      majors.forEach((m) => {
+        if (m) majorNameMap.set(m._id, m.name.toLowerCase());
+      });
+
+      outcomes = outcomes.filter((o) => {
+        if (o.major_id) {
+          const majorName = majorNameMap.get(o.major_id);
+          return majorName && programSet.has(majorName);
+        }
+        return false;
+      });
+    }
+
+    // Helper function to compute metrics for a set of outcomes
+    const computeMetrics = (
+      outcomesList: typeof outcomes,
+    ): {
+      total_students: number;
+      known_outcomes: number;
+      unknown_outcomes: number;
+      partial_outcomes: number;
+      knowledge_rate: number;
+      employed_fulltime: number;
+      employed_parttime: number;
+      continuing_education: number;
+      military: number;
+      volunteer: number;
+      seeking: number;
+      not_seeking: number;
+      employment_rate: number;
+      continuing_ed_rate: number;
+    } => {
+      const total = outcomesList.length;
+      const known = outcomesList.filter((o) => o.outcome_status === 'known').length;
+      const unknown = outcomesList.filter((o) => o.outcome_status === 'unknown').length;
+      const partial = outcomesList.filter((o) => o.outcome_status === 'partial').length;
+
+      const employed_fulltime = outcomesList.filter(
+        (o) => o.outcome_type === 'employed_fulltime',
+      ).length;
+      const employed_parttime = outcomesList.filter(
+        (o) => o.outcome_type === 'employed_parttime',
+      ).length;
+      const continuing_education = outcomesList.filter(
+        (o) => o.outcome_type === 'continuing_education',
+      ).length;
+      const military = outcomesList.filter((o) => o.outcome_type === 'military').length;
+      const volunteer = outcomesList.filter((o) => o.outcome_type === 'volunteer').length;
+      const seeking = outcomesList.filter((o) => o.outcome_type === 'seeking').length;
+      const not_seeking = outcomesList.filter((o) => o.outcome_type === 'not_seeking').length;
+
+      const knowledge_rate = total > 0 ? Math.round((known / total) * 1000) / 10 : 0;
+      const employment_rate =
+        known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 1000) / 10 : 0;
+      const continuing_ed_rate =
+        known > 0 ? Math.round((continuing_education / known) * 1000) / 10 : 0;
+
+      return {
+        total_students: total,
+        known_outcomes: known,
+        unknown_outcomes: unknown,
+        partial_outcomes: partial,
+        knowledge_rate,
+        employed_fulltime,
+        employed_parttime,
+        continuing_education,
+        military,
+        volunteer,
+        seeking,
+        not_seeking,
+        employment_rate,
+        continuing_ed_rate,
+      };
+    };
+
+    // Compute overall summary
+    const summary = computeMetrics(outcomes);
+
+    // Compute breakdown if groupBy specified
+    type BreakdownRecord = Record<string, ReturnType<typeof computeMetrics>>;
+    let breakdown: BreakdownRecord = {};
+
+    if (args.groupBy === 'cohort') {
+      const cohortMap = new Map(cohorts.map((c) => [c._id, c]));
+      const groups = new Map<string, typeof outcomes>();
+
+      for (const outcome of outcomes) {
+        const cohort = cohortMap.get(outcome.cohort_id);
+        const key = cohort
+          ? `${cohort.graduation_term} ${cohort.graduation_year}`
+          : 'Unknown Cohort';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(outcome);
+      }
+
+      for (const [key, groupOutcomes] of groups) {
+        breakdown[key] = computeMetrics(groupOutcomes);
+      }
+    } else if (args.groupBy === 'program') {
+      // Get all majors for this institution
+      const allMajors = await ctx.db
+        .query('majors')
+        .withIndex('by_university', (q) => q.eq('university_id', args.institutionId))
+        .collect();
+      const majorMap = new Map(allMajors.map((m) => [m._id, m.name]));
+
+      const groups = new Map<string, typeof outcomes>();
+
+      for (const outcome of outcomes) {
+        const key = outcome.major_id
+          ? majorMap.get(outcome.major_id) || 'Unknown Program'
+          : 'No Program';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(outcome);
+      }
+
+      for (const [key, groupOutcomes] of groups) {
+        breakdown[key] = computeMetrics(groupOutcomes);
+      }
+    } else if (args.groupBy === 'degree_level') {
+      const cohortMap = new Map(cohorts.map((c) => [c._id, c.degree_level || 'Unknown']));
+      const groups = new Map<string, typeof outcomes>();
+
+      for (const outcome of outcomes) {
+        const key = cohortMap.get(outcome.cohort_id) || 'Unknown';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(outcome);
+      }
+
+      for (const [key, groupOutcomes] of groups) {
+        breakdown[key] = computeMetrics(groupOutcomes);
+      }
+    }
+
+    // Get cohort names for outcome display
+    const cohortMap = new Map(
+      cohorts.map((c) => [c._id, `${c.graduation_term} ${c.graduation_year}`]),
+    );
+
+    // Return outcomes with cohort name included
+    const outcomesWithDetails = outcomes.map((o) => ({
+      ...o,
+      cohort_name: cohortMap.get(o.cohort_id) || 'Unknown',
+    }));
+
+    return {
+      summary,
+      breakdown,
+      outcomes: outcomesWithDetails,
+    };
+  },
+});
+
+// ============================================================================
+// SNAPSHOT QUERIES & MUTATIONS
+// ============================================================================
+
+/**
+ * Create a point-in-time snapshot of outcomes analytics
+ */
+export const createSnapshot = mutation({
+  args: {
+    institutionId: v.id('universities'),
+    name: v.string(),
+    description: v.optional(v.string()),
+    filters: v.object({
+      cohortIds: v.optional(v.array(v.id('graduation_cohorts'))),
+      degreeLevels: v.optional(v.array(v.string())),
+      programs: v.optional(v.array(v.string())),
+      graduationYear: v.optional(v.number()),
+    }),
+    metrics: v.object({
+      total_students: v.number(),
+      known_outcomes: v.number(),
+      unknown_outcomes: v.number(),
+      partial_outcomes: v.number(),
+      knowledge_rate: v.number(),
+      employed_fulltime: v.number(),
+      employed_parttime: v.number(),
+      continuing_education: v.number(),
+      military: v.number(),
+      volunteer: v.number(),
+      seeking: v.number(),
+      not_seeking: v.number(),
+      employment_rate: v.number(),
+      continuing_ed_rate: v.number(),
+    }),
+    breakdownByProgram: v.optional(
+      v.record(
+        v.string(),
+        v.object({
+          knowledge_rate: v.number(),
+          employment_rate: v.number(),
+          total_students: v.number(),
+        }),
+      ),
+    ),
+    breakdownByDegree: v.optional(
+      v.record(
+        v.string(),
+        v.object({
+          knowledge_rate: v.number(),
+          employment_rate: v.number(),
+          total_students: v.number(),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+    assertUniversityAccess(user, args.institutionId);
+
+    const now = Date.now();
+
+    const snapshotId = await ctx.db.insert('outcome_snapshots', {
+      institution_id: args.institutionId,
+      name: args.name,
+      description: args.description,
+      snapshot_date: now,
+      filters: {
+        cohort_ids: args.filters.cohortIds,
+        degree_levels: args.filters.degreeLevels,
+        programs: args.filters.programs,
+        graduation_year: args.filters.graduationYear,
+      },
+      metrics: args.metrics,
+      breakdown_by_program: args.breakdownByProgram,
+      breakdown_by_degree: args.breakdownByDegree,
+      created_by: user._id,
+      created_at: now,
+    });
+
+    return snapshotId;
+  },
+});
+
+/**
+ * List all snapshots for an institution
+ */
+export const listSnapshots = query({
+  args: {
+    institutionId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (universityId !== args.institutionId) {
+        throw new Error('Unauthorized: Different university');
+      }
+    }
+
+    const snapshots = await ctx.db
+      .query('outcome_snapshots')
+      .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
+      .filter((q) => q.neq(q.field('is_active'), false)) // Exclude soft-deleted snapshots
+      .order('desc')
+      .collect();
+
+    // Get creator names
+    const creatorIds = [...new Set(snapshots.map((s) => s.created_by))];
+    const creators = await Promise.all(creatorIds.map((id) => ctx.db.get(id)));
+    const creatorMap = new Map(creators.filter(Boolean).map((c) => [c!._id, c!.name || 'Unknown']));
+
+    return snapshots.map((s) => ({
+      ...s,
+      created_by_name: creatorMap.get(s.created_by) || 'Unknown',
+    }));
+  },
+});
+
+/**
+ * Get a single snapshot by ID
+ */
+export const getSnapshot = query({
+  args: {
+    snapshotId: v.id('outcome_snapshots'),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    const snapshot = await ctx.db.get(args.snapshotId);
+    if (!snapshot) {
+      throw new Error('Snapshot not found');
+    }
+
+    // Check if snapshot is soft deleted
+    if (snapshot.is_active === false) {
+      throw new Error('Snapshot not found'); // Don't reveal it was deleted
+    }
+
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (snapshot.institution_id !== universityId) {
+        throw new Error('Unauthorized: Snapshot is not in your university');
+      }
+    }
+
+    // Get creator name
+    const creator = await ctx.db.get(snapshot.created_by);
+
+    return {
+      ...snapshot,
+      created_by_name: creator?.name || 'Unknown',
+    };
+  },
+});
+
+/**
+ * Delete a snapshot (soft delete for audit trail)
+ */
+export const deleteSnapshot = mutation({
+  args: {
+    snapshotId: v.id('outcome_snapshots'),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const snapshot = await ctx.db.get(args.snapshotId);
+    if (!snapshot) {
+      throw new Error('Snapshot not found');
+    }
+
+    // Don't allow deleting already deleted snapshots
+    if (snapshot.is_active === false) {
+      throw new Error('Snapshot is already deleted');
+    }
+
+    assertUniversityAccess(user, snapshot.institution_id);
+
+    // Soft delete - preserve for audit trail
+    await ctx.db.patch(args.snapshotId, {
+      is_active: false,
+      deleted_at: Date.now(),
+      deleted_by: user._id,
+    });
+    return { success: true };
+  },
+});

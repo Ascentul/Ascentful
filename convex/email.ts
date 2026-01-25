@@ -9,6 +9,43 @@ import { v } from 'convex/values';
 
 import { action } from './_generated/server';
 import { sanitizeError } from './lib/piiSafe';
+import { escapeHtml } from './lib/sanitizeHtml';
+
+/**
+ * Validates a URL is on the app's origin to prevent open redirect/phishing attacks.
+ * Returns the validated URL if safe, or a fallback URL if the origin doesn't match.
+ */
+function validateAppUrl(url: string, fallbackPath: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.ascentful.io';
+
+  try {
+    const parsedUrl = new URL(url);
+    const parsedAppUrl = new URL(appUrl);
+
+    // Check if origins match (protocol + host)
+    if (parsedUrl.origin === parsedAppUrl.origin) {
+      return url;
+    }
+
+    // Origin doesn't match - use fallback
+    console.warn(
+      `[email] URL origin mismatch detected. Expected: ${parsedAppUrl.origin}, got: ${parsedUrl.origin}. Using fallback.`,
+    );
+    return `${appUrl}${fallbackPath}`;
+  } catch {
+    // Invalid URL - use fallback
+    console.warn(`[email] Invalid URL provided: ${url}. Using fallback.`);
+    return `${appUrl}${fallbackPath}`;
+  }
+}
+
+/**
+ * Sanitizes a string for use in email subject lines.
+ * Strips newlines and control characters to prevent email header injection.
+ */
+function sanitizeSubject(input: string): string {
+  return input.replace(/[\r\n\x00-\x1F\x7F]/g, ' ').trim();
+}
 
 /**
  * Send activation email to newly created user with magic link
@@ -422,6 +459,167 @@ export const sendReviewCompletionEmail = action({
       }
 
       // Return failure but don't throw - email is non-critical
+      return {
+        success: false,
+        messageId: null,
+        message: 'Email service error: ' + errorMessage,
+      };
+    }
+  },
+});
+
+/**
+ * Send urgent signal notification to advisor
+ * Called when a high-priority or urgent signal is created for a student
+ */
+export const sendUrgentSignalNotificationEmail = action({
+  args: {
+    advisorEmail: v.string(),
+    advisorName: v.string(),
+    studentName: v.string(),
+    signalTitle: v.string(),
+    signalDescription: v.optional(v.string()),
+    signalPriority: v.string(),
+    signalType: v.string(),
+    queueUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { sendEmail } = await import('../src/lib/email');
+
+    // Validate queueUrl is on app origin to prevent phishing/open-redirect attacks
+    const validatedQueueUrl = validateAppUrl(args.queueUrl, '/advisor/queue');
+
+    const priorityEmoji = args.signalPriority === 'urgent' ? '🚨' : '⚠️';
+    const priorityLabelRaw =
+      args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
+    const priorityLabel = escapeHtml(priorityLabelRaw);
+
+    // Sanitize user-provided content to prevent email header injection
+    const safeSubjectTitle = sanitizeSubject(args.signalTitle);
+    const safeSubjectName = sanitizeSubject(args.studentName);
+    const subject = `${priorityEmoji} ${priorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
+
+    const text = `Hello ${args.advisorName},
+
+A ${args.signalPriority} priority signal has been triggered for one of your students.
+
+Student: ${args.studentName}
+Signal: ${args.signalTitle}
+Priority: ${priorityLabel}
+Type: ${args.signalType}
+${args.signalDescription ? `\nDescription: ${args.signalDescription}` : ''}
+
+Please review and take action:
+${validatedQueueUrl}
+
+Best regards,
+The Ascentul Team`;
+
+    // Escape user-provided content for defense-in-depth
+    const safeAdvisorName = escapeHtml(args.advisorName);
+    const safeStudentName = escapeHtml(args.studentName);
+    const safeSignalTitle = escapeHtml(args.signalTitle);
+    const safeSignalType = escapeHtml(args.signalType);
+    const safeSignalDescription = args.signalDescription ? escapeHtml(args.signalDescription) : '';
+    const safeQueueUrl = escapeHtml(validatedQueueUrl);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://xzi7cpcc4c.ufs.sh/f/jgOWCCH530yezbLhC1EM8wQTKjxNoftXCJYv6Emls0pb1qyI" alt="Ascentul" style="max-width: 100%; height: auto;">
+        </div>
+
+        <div style="background-color: ${args.signalPriority === 'urgent' ? '#FEF2F2' : '#FEF9C3'}; border-left: 4px solid ${args.signalPriority === 'urgent' ? '#DC2626' : '#CA8A04'}; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+          <h2 style="color: ${args.signalPriority === 'urgent' ? '#DC2626' : '#CA8A04'}; margin: 0 0 8px 0; font-size: 18px;">
+            ${priorityEmoji} ${priorityLabel} Priority Signal
+          </h2>
+          <p style="margin: 0; font-size: 16px; font-weight: bold;">${safeSignalTitle}</p>
+        </div>
+
+        <p>Hello ${safeAdvisorName},</p>
+
+        <p>A ${priorityLabel.toLowerCase()} priority signal requires your attention:</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Student:</strong></td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeStudentName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Signal:</strong></td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalTitle}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Priority:</strong></td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
+              <span style="background-color: ${args.signalPriority === 'urgent' ? '#DC2626' : '#CA8A04'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${priorityLabel}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Type:</strong></td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalType}</td>
+          </tr>
+          ${
+            safeSignalDescription
+              ? `
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Description:</strong></td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${safeSignalDescription}</td>
+          </tr>
+          `
+              : ''
+          }
+        </table>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${safeQueueUrl}"
+             style="background-color: #0C29AB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+            View Signal Queue
+          </a>
+        </div>
+
+        <p>Best regards,<br>The Ascentul Team</p>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+          <p>You are receiving this because you are an advisor for this student.</p>
+          <p>© ${new Date().getFullYear()} Ascentul, Inc. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await sendEmail({
+        to: args.advisorEmail,
+        subject,
+        text,
+        html,
+      });
+
+      return {
+        success: true,
+        messageId: result.id,
+        message: 'Urgent signal notification email sent successfully',
+      };
+    } catch (error) {
+      console.error('Failed to send urgent signal notification email:', sanitizeError(error));
+
+      const errorMessage = (error as Error).message;
+      if (
+        errorMessage.includes('No email service configured') ||
+        errorMessage.includes('MAILGUN_SENDING_API_KEY') ||
+        errorMessage.includes('SENDGRID_API_KEY')
+      ) {
+        console.warn(
+          'Email service not configured - signal created but notification email not sent',
+        );
+        return {
+          success: false,
+          messageId: null,
+          message:
+            'Signal created, but notification email could not be sent (email service not configured)',
+        };
+      }
+
       return {
         success: false,
         messageId: null,

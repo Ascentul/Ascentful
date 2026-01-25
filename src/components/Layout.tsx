@@ -2,7 +2,8 @@
 
 import { useUser } from '@clerk/nextjs';
 import { ChevronRight, Loader2, Menu } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ReactNode, useEffect, useState } from 'react';
 
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
@@ -95,9 +96,25 @@ function LayoutContent({ children }: { children: ReactNode }) {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { isLoaded } = useUser();
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
+  const [shouldRedirect, setShouldRedirect] = useState<boolean | null>(null);
 
-  if (!isLoaded) {
+  // Redirect university users (advisor, university_admin) to unified workspace
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const role = user?.publicMetadata?.role as string | undefined;
+    if (role === 'advisor' || role === 'university_admin') {
+      router.replace('/u/home');
+      setShouldRedirect(true);
+    } else {
+      setShouldRedirect(false);
+    }
+  }, [isLoaded, user, router]);
+
+  // Show loading spinner during initial load, redirect determination, or active redirect
+  if (!isLoaded || shouldRedirect === null || shouldRedirect) {
     return (
       <>
         <AuroraBackground />

@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { buildApplicationRelationship } from './lib/followUpValidation';
 import { getAuthenticatedUser } from './lib/roles';
 
@@ -238,5 +238,95 @@ export const deleteFollowup = mutation({
 
     await ctx.db.delete(args.followupId);
     return args.followupId;
+  },
+});
+
+// ============================================================================
+// INTERNAL MUTATIONS (System/Cron Use)
+// ============================================================================
+
+/**
+ * Create a follow-up from an engagement signal.
+ * Called by the signal evaluation system when a rule with auto_create_followup is triggered.
+ *
+ * @param signalId - The signal that triggered this follow-up
+ * @param studentId - The student who needs follow-up
+ * @param universityId - The university for tenant isolation
+ * @param title - Title of the follow-up task
+ * @param description - Description of what needs to be done
+ * @param priority - Priority level
+ * @param dueInDays - Number of days until due (optional)
+ */
+export const createFollowupFromSignal = internalMutation({
+  args: {
+    signalId: v.id('signals'),
+    studentId: v.id('users'),
+    universityId: v.optional(v.id('universities')),
+    title: v.string(),
+    description: v.optional(v.string()),
+    priority: v.optional(
+      v.union(v.literal('low'), v.literal('medium'), v.literal('high'), v.literal('urgent')),
+    ),
+    dueInDays: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Defensive: verify signal exists before creating follow-up
+    const signal = await ctx.db.get(args.signalId);
+    if (!signal) {
+      throw new ConvexError({ message: 'Signal not found', code: 'NOT_FOUND' });
+    }
+
+    // Defensive: verify student exists
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new ConvexError({ message: 'Student not found', code: 'NOT_FOUND' });
+    }
+
+    // Idempotency check: prevent duplicate follow-ups for the same signal
+    const existing = await ctx.db
+      .query('follow_ups')
+      .withIndex('by_engagement_signal', (q) => q.eq('engagement_signal_id', args.signalId))
+      .first();
+    if (existing) {
+      return existing._id;
+    }
+
+    const now = Date.now();
+
+    // Calculate due date if specified
+    const dueAt = args.dueInDays ? now + args.dueInDays * 24 * 60 * 60 * 1000 : undefined;
+
+    const followupId = await ctx.db.insert('follow_ups', {
+      // Core fields
+      title: args.title,
+      description: args.description,
+      type: 'signal_followup',
+
+      // Ownership - system-created for student
+      user_id: args.studentId,
+      owner_id: args.studentId, // Student is responsible for follow-up
+      created_by_type: 'system', // No created_by_id for system-generated follow-ups
+
+      // Multi-tenancy
+      university_id: args.universityId,
+
+      // Signal reference
+      engagement_signal_id: args.signalId,
+
+      // Related entity (using generic pattern for signals)
+      related_type: 'general',
+
+      // Task management
+      due_at: dueAt,
+      priority: args.priority ?? 'medium',
+      status: 'open',
+      version: 0,
+
+      // Timestamps
+      created_at: now,
+      updated_at: now,
+    });
+
+    return followupId;
   },
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { Check, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
@@ -10,9 +10,26 @@ import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { SignInForm } from '@/components/auth/SignInForm';
 
+/**
+ * Get the appropriate redirect path based on user role.
+ * Eliminates redirect chains by sending users directly to their home.
+ */
+function getRedirectPath(role: string | undefined): string {
+  switch (role) {
+    case 'advisor':
+    case 'university_admin':
+      return '/u/home';
+    case 'super_admin':
+      return '/admin';
+    default:
+      return '/dashboard';
+  }
+}
+
 export default function Page() {
   const router = useRouter();
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { user, isLoaded: userLoaded } = useUser();
 
   const [step, setStep] = useState<'signin' | 'forgot' | 'reset'>('signin');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -26,21 +43,33 @@ export default function Page() {
     }
   }, []);
 
-  // If a session already exists, redirect to dashboard to avoid Clerk "session_exists" errors
+  // If a session already exists, redirect based on role to avoid redirect chains
   useEffect(() => {
-    if (authLoaded && isSignedIn) {
-      router.replace('/dashboard');
+    if (authLoaded && userLoaded && isSignedIn && user) {
+      const role = user.publicMetadata?.role as string | undefined;
+      router.replace(getRedirectPath(role));
     }
-  }, [authLoaded, isSignedIn, router]);
+  }, [authLoaded, userLoaded, isSignedIn, user, router]);
 
   // Show loading state while checking authentication
-  if (!authLoaded) {
-    return null;
+  if (!authLoaded || !userLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+      </div>
+    );
   }
 
-  // Don't render if redirecting
+  // Show loading state during redirect after sign-in
   if (isSignedIn) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent mx-auto mb-4" />
+          <p className="text-neutral-600">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleForgotPassword = () => {

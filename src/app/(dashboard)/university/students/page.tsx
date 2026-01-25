@@ -138,6 +138,17 @@ export default function UniversityStudentsPage() {
     setParseError(null);
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      console.error('FileReader error:', reader.error);
+      setCsvFile(null);
+      setCsvData([]);
+      setParseError('Failed to read the file');
+      toast({
+        title: 'Read Error',
+        description: 'Failed to read the file. Please try again.',
+        variant: 'destructive',
+      });
+    };
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
