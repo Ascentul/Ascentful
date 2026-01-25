@@ -901,7 +901,24 @@ export const getUniqueEngagedStats = query({
     // Apply filters
     // Note: cohort filtering not directly available on users table
     if (args.cohortIds && args.cohortIds.length > 0) {
-      // TODO: Implement cohort filtering via student_outcomes join
+      // Query graduate_outcomes for students in the specified cohorts
+      const outcomesByCohort = await Promise.all(
+        args.cohortIds.map((cohortId) =>
+          ctx.db
+            .query('graduate_outcomes')
+            .withIndex('by_cohort', (q) => q.eq('cohort_id', cohortId as Id<'graduation_cohorts'>))
+            .collect(),
+        ),
+      );
+      const outcomes = outcomesByCohort.flat();
+
+      // Build set of student IDs that belong to the specified cohorts
+      const cohortStudentIds = new Set(
+        outcomes.filter((o) => o.student_id != null).map((o) => o.student_id!.toString()),
+      );
+
+      // Filter students to only those in the specified cohorts
+      students = students.filter((s) => cohortStudentIds.has(s._id.toString()));
     }
     if (args.programIds && args.programIds.length > 0) {
       students = students.filter(
