@@ -10,15 +10,15 @@
  * Check if inactivity threshold has been exceeded.
  *
  * @param daysSinceActivity - Days since last activity (null if never active)
- * @param thresholdDays - The threshold in days
- * @returns true if inactivity exceeds threshold
+ * @param thresholdDays - The threshold in days (inclusive: triggers at exactly N days)
+ * @returns true if inactivity meets or exceeds threshold
  */
 export function checkInactivityCondition(
   daysSinceActivity: number | null,
   thresholdDays: number,
 ): boolean {
   if (daysSinceActivity === null) return true; // No activity ever = triggered
-  return daysSinceActivity > thresholdDays;
+  return daysSinceActivity >= thresholdDays;
 }
 
 /**
@@ -43,7 +43,7 @@ export function checkHighIntentLowConversionCondition(
  * @param currentStage - The application's current stage
  * @param targetStage - The stage to check ('any' matches all stages)
  * @param daysInStage - Days the application has been in current stage
- * @param thresholdDays - Maximum days before considered stuck
+ * @param thresholdDays - Days threshold (inclusive: triggers at exactly N days)
  * @returns true if application is stuck
  */
 export function checkStageStuckCondition(
@@ -53,7 +53,7 @@ export function checkStageStuckCondition(
   thresholdDays: number,
 ): boolean {
   const stageMatches = targetStage === 'any' || currentStage === targetStage;
-  return stageMatches && daysInStage > thresholdDays;
+  return stageMatches && daysInStage >= thresholdDays;
 }
 
 /**
