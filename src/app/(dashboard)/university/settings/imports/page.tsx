@@ -180,7 +180,9 @@ function mapRowToData(headers: string[], row: string[]): ParsedRow {
         data.outcomeType = OUTCOME_TYPE_MAP[value.toLowerCase()];
         break;
       case 'salary':
-        const numValue = parseInt(value.replace(/[^0-9]/g, ''), 10);
+        // Remove currency symbols and commas, then parse as float and round
+        const cleanedValue = value.replace(/[^0-9.]/g, '');
+        const numValue = Math.round(parseFloat(cleanedValue));
         if (!isNaN(numValue)) data.salary = numValue;
         break;
     }

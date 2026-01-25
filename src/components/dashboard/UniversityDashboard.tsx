@@ -666,9 +666,12 @@ export function UniversityDashboard() {
         const filename = `${reportName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
         a.download = `${filename}.csv`;
         document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          a.click();
+        } finally {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
 
         toast({
           title: 'Download Complete',
@@ -729,9 +732,12 @@ export function UniversityDashboard() {
           exportFilename.trim() || `university-report-${new Date().toISOString().split('T')[0]}`;
         a.download = `${filename}.csv`;
         document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          a.click();
+        } finally {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
         toast({
           title: 'Export successful',
           description: 'Report downloaded successfully',
@@ -3305,9 +3311,12 @@ export function UniversityDashboard() {
                   a.href = url;
                   a.download = 'student_import_template.csv';
                   document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  window.URL.revokeObjectURL(url);
+                  try {
+                    a.click();
+                  } finally {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  }
                 }}
               >
                 Download CSV Template

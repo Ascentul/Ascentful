@@ -216,6 +216,10 @@ export async function POST(req: NextRequest) {
       clerkId: userId,
       httpStatus: 200,
       durationMs,
+      extra: {
+        studentClerkId,
+        newRole,
+      },
     });
 
     return NextResponse.json(

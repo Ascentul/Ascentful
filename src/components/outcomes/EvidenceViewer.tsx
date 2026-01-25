@@ -35,6 +35,12 @@ const FILE_TYPE_LABELS: Record<EvidenceFile['type'], string> = {
   other: 'Other Document',
 };
 
+/** Confidence score thresholds for verification display styling */
+const CONFIDENCE_THRESHOLDS = {
+  HIGH: 80,
+  MEDIUM: 50,
+} as const;
+
 export function EvidenceViewer({
   evidenceFiles = [],
   verification,
@@ -145,9 +151,9 @@ export function EvidenceViewer({
                     <div
                       className={cn(
                         'h-2 rounded-full',
-                        verification.confidence_score >= 80
+                        verification.confidence_score >= CONFIDENCE_THRESHOLDS.HIGH
                           ? 'bg-green-500'
-                          : verification.confidence_score >= 50
+                          : verification.confidence_score >= CONFIDENCE_THRESHOLDS.MEDIUM
                             ? 'bg-amber-500'
                             : 'bg-red-500',
                       )}
