@@ -74,7 +74,9 @@ export const backfillUniversity = internalMutation({
         q.eq('university_id', args.universityId).eq('is_active', true),
       )
       .collect();
-    const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+    // Sort by created_at for deterministic fallback when no default is set
+    const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+    const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
 
     // Skip if university has no engagement definition configured
     if (!definition) {
@@ -203,7 +205,9 @@ export const backfillAllStudents = internalMutation({
           q.eq('university_id', university._id).eq('is_active', true),
         )
         .collect();
-      const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+      // Sort by created_at for deterministic fallback when no default is set
+      const sorted = definitions.sort((a, b) => a.created_at - b.created_at);
+      const definition = sorted.find((d) => d.is_default) || sorted[0] || null;
 
       // Skip universities without engagement definitions configured
       if (!definition) {

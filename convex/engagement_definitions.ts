@@ -957,12 +957,14 @@ export const getUniqueEngagedStats = query({
 
       let status: 'engaged' | 'moderate' | 'at_risk';
 
+      // Only use cache when using the default definition (cache is computed from default)
+      const useCache = !args.definitionId;
       // Validate cached status is a known value before using it
       const cachedStatus = student.engagement_status;
       const isValidCachedStatus =
         cachedStatus === 'engaged' || cachedStatus === 'moderate' || cachedStatus === 'at_risk';
 
-      if (isValidCachedStatus && student.engagement_score != null && isCacheFresh) {
+      if (useCache && isValidCachedStatus && student.engagement_score != null && isCacheFresh) {
         // Use cached values (score not needed here, only status is used for counting)
         status = cachedStatus;
       } else {

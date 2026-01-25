@@ -718,7 +718,7 @@ export const getEngagementForecast = query({
       const sampleWillBecomeAtRisk = predictions.filter((p) => {
         const pred = p.prediction;
         return (
-          pred.predicted_status !== 'at_risk' &&
+          (pred.current_status === 'engaged' || pred.current_status === 'moderate') &&
           pred.predicted_days_to_risk !== undefined &&
           pred.predicted_days_to_risk <= daysCutoff
         );

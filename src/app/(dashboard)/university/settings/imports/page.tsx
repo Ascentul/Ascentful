@@ -689,9 +689,7 @@ export default function BatchImportPage() {
                           .slice(0, 50)
                           .map((row) => (
                             <TableRow key={row.rowIndex}>
-                              <TableCell className="font-mono text-sm">
-                                {row.rowIndex + 1}
-                              </TableCell>
+                              <TableCell className="font-mono text-sm">{row.rowIndex}</TableCell>
                               <TableCell>
                                 <div className="max-w-[200px] truncate font-medium">
                                   {row.identifierUsed}
