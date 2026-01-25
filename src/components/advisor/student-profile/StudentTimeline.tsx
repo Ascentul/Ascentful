@@ -188,10 +188,10 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
       : 'skip',
   );
 
-  // Query signals for this student
+  // Query signals for this student (skip until auth is ready, matching timeline query pattern)
   const signalsData = useQuery(
     api.signals.getSignalsByStudent,
-    studentId
+    clerkId && studentId
       ? {
           studentId,
           limit: 10,
@@ -305,7 +305,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
         </CardTitle>
         {/* Filter pills */}
         <div className="flex flex-wrap gap-1.5 pt-2">
-          {activeSignalCount > 0 && (
+          {signalsData && signalsData.length > 0 && (
             <Button
               variant={showSignals ? 'default' : 'outline'}
               size="sm"

@@ -66,12 +66,14 @@ export const subscribe = mutation({
       }
 
       // Update existing subscription (including university_id in case it changed)
+      // Reset failure_count to avoid immediate re-deactivation after previous failures
       await ctx.db.patch(existing._id, {
         subscription,
         device_info: deviceInfo,
         university_id: universityId,
         updated_at: Date.now(),
         is_active: true,
+        failure_count: 0,
       });
       return existing._id;
     }

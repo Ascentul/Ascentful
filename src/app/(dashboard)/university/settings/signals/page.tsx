@@ -626,7 +626,7 @@ export default function SignalRulesPage() {
                 <Select
                   value={formData.condition.type}
                   onValueChange={(v) => {
-                    // Initialize conditions with required fields to pass backend validation
+                    // Initialize conditions with default values to match UI display and pass validation
                     const conditionDefaults: Record<string, ConditionFormData> = {
                       inactivity: { type: 'inactivity', days: 14 },
                       stalled: {
@@ -641,6 +641,17 @@ export default function SignalRulesPage() {
                       application_stall: { type: 'application_stall', days: 14 },
                       stage_stuck: { type: 'stage_stuck', days: 14, stage: 'Interview' },
                       engagement_drop: { type: 'engagement_drop', from: 'engaged', to: 'at_risk' },
+                      high_intent_low_conversion: {
+                        type: 'high_intent_low_conversion',
+                        applications_threshold: 3,
+                        application_period_days: 14,
+                        appointment_days: 30,
+                      },
+                      no_progress: {
+                        type: 'no_progress',
+                        rejections_min: 5,
+                        offers: 0,
+                      },
                     };
                     setFormData({
                       ...formData,

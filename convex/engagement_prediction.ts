@@ -231,7 +231,11 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
   }
 
   // Calculate risk score
-  let riskScore = 30; // Base risk
+  // Base risk of 30 represents a neutral starting point.
+  // Negative factors add their full weight; positive factors reduce by 70% of weight.
+  // This asymmetry intentionally makes negative signals more impactful, reflecting
+  // that disengagement warning signs require more attention than positive indicators.
+  let riskScore = 30;
   for (const factor of factors) {
     if (factor.impact === 'negative') {
       riskScore += factor.weight;

@@ -1020,8 +1020,8 @@ export const upsertOutcome = mutation({
         }
       }
 
-      // Update existing record
-      const updates: Record<string, unknown> = { updated_at: now };
+      // Update existing record - reactivate if previously archived
+      const updates: Record<string, unknown> = { updated_at: now, is_active: true };
 
       if (args.studentId !== undefined) updates.student_id = args.studentId;
       if (args.majorId !== undefined) updates.major_id = args.majorId;
@@ -1208,9 +1208,10 @@ export const bulkUpsertOutcomes = mutation({
           // Update - only override fields that are explicitly provided (not undefined)
           // This prevents bulk imports from accidentally clearing existing data
           await ctx.db.patch(existing._id, {
-            // Always update required fields and timestamp
+            // Always update required fields and timestamp - reactivate if previously archived
             outcome_status: outcomeData.outcomeStatus,
             updated_at: now,
+            is_active: true,
             // Only override optional fields if explicitly provided
             ...(outcomeData.externalStudentId !== undefined && {
               external_student_id: outcomeData.externalStudentId,
@@ -1676,7 +1677,9 @@ export const getOutcomesAnalytics = query({
       for (const outcome of outcomes) {
         const cohort = cohortMap.get(outcome.cohort_id);
         const key = cohort
-          ? `${cohort.graduation_term} ${cohort.graduation_year}`
+          ? `${cohort.graduation_term} ${cohort.graduation_year}${
+              cohort.degree_level ? ` (${cohort.degree_level})` : ''
+            }`
           : 'Unknown Cohort';
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(outcome);
@@ -1842,7 +1845,7 @@ export const listSnapshots = query({
 
     const snapshots = await ctx.db
       .query('outcome_snapshots')
-      .withIndex('by_institution', (q) => q.eq('institution_id', args.institutionId))
+      .withIndex('by_institution_date', (q) => q.eq('institution_id', args.institutionId))
       .filter((q) => q.neq(q.field('is_active'), false)) // Exclude soft-deleted snapshots
       .order('desc')
       .collect();

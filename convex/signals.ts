@@ -24,7 +24,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query, QueryCtx } from './_generated/server';
-import { getCurrentUser, requireTenant } from './advisor_auth';
+import { getCurrentUser, optionalTenant, requireTenant } from './advisor_auth';
 import { safeLogAudit } from './lib/auditLogger';
 import { requireAdvisor } from './lib/authorization';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';

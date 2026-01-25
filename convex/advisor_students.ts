@@ -17,6 +17,7 @@ import {
   createAuditLog,
   getCurrentUser,
   getOwnedStudentIds,
+  optionalTenant,
   requireAdvisorRole,
   requireTenant,
 } from './advisor_auth';
@@ -41,7 +42,14 @@ export const getMyCaseload = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty caseload gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      // User is not associated with a university (typically super_admin viewing workspace)
+      // Return empty array - they have no caseload in this context
+      return [];
+    }
 
     // Get student IDs this advisor owns
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);

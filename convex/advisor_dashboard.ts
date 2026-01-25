@@ -14,8 +14,8 @@ import { query } from './_generated/server';
 import {
   getCurrentUser,
   getOwnedStudentIds,
+  optionalTenant,
   requireAdvisorRole,
-  requireTenant,
 } from './advisor_auth';
 import { ACTIVE_STAGES } from './advisor_constants';
 
@@ -30,7 +30,19 @@ export const getDashboardStats = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty stats gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return {
+        totalStudents: 0,
+        activeApplications: 0,
+        sessionsThisWeek: 0,
+        pendingReviews: 0,
+        atRiskStudents: 0,
+        averageApplicationsPerStudent: 0,
+      };
+    }
 
     // Get owned student IDs
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
@@ -127,7 +139,12 @@ export const getUpcomingItems = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     // Get owned student IDs for filtering
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);
@@ -227,7 +244,12 @@ export const getActivityChart = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     const now = Date.now();
     const fourWeeksAgo = now - 28 * 24 * 60 * 60 * 1000;
@@ -286,7 +308,12 @@ export const getReviewQueueSnapshot = query({
   handler: async (ctx, args) => {
     const sessionCtx = await getCurrentUser(ctx, args.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     // SECURITY: Filter by advisor's caseload to prevent data leaks
     const studentIds = await getOwnedStudentIds(ctx, sessionCtx);

@@ -20,6 +20,7 @@ import {
   assertCanAccessStudent,
   createAuditLog,
   getCurrentUser,
+  optionalTenant,
   requireAdvisorRole,
   requireTenant,
 } from './advisor_auth';
@@ -36,7 +37,12 @@ export const getSessionById = query({
     const user = await getAuthenticatedUser(ctx);
     const sessionCtx = await getCurrentUser(ctx, user.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return null gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return null;
+    }
 
     const session = await ctx.db.get(args.sessionId);
     if (!session) {
@@ -95,7 +101,12 @@ export const getSessions = query({
     const user = await getAuthenticatedUser(ctx);
     const sessionCtx = await getCurrentUser(ctx, user.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     let sessions;
 
@@ -166,7 +177,12 @@ export const getTodaySessions = query({
     const user = await getAuthenticatedUser(ctx);
     const sessionCtx = await getCurrentUser(ctx, user.clerkId);
     requireAdvisorRole(sessionCtx);
-    const universityId = requireTenant(sessionCtx);
+
+    // Get university_id - for super_admin without a university, return empty results gracefully
+    const universityId = optionalTenant(sessionCtx);
+    if (!universityId) {
+      return [];
+    }
 
     // Calculate today's boundaries in client's timezone
     // If no offset provided, fall back to server time (legacy behavior)

@@ -2459,6 +2459,7 @@ export function UniversityDashboard() {
                         let successCount = 0;
                         let errorCount = 0;
                         const errors: string[] = [];
+                        const successfulEmails: string[] = [];
 
                         try {
                           // Step 1: Assign students in Convex (creates pending users or updates existing)
@@ -2472,6 +2473,7 @@ export function UniversityDashboard() {
                                   selectedProgram !== 'none' ? selectedProgram : undefined,
                               });
                               successCount++;
+                              successfulEmails.push(email);
                             } catch (e: any) {
                               errorCount++;
                               errors.push(`${email}: ${e?.message || 'Unknown error'}`);
@@ -2479,7 +2481,7 @@ export function UniversityDashboard() {
                           }
 
                           // Step 2: Send activation emails via API
-                          if (successCount > 0) {
+                          if (successfulEmails.length > 0) {
                             try {
                               const response = await fetch('/api/university/send-invitations', {
                                 method: 'POST',
@@ -2487,7 +2489,7 @@ export function UniversityDashboard() {
                                   'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                  emails: emails.slice(0, successCount),
+                                  emails: successfulEmails,
                                 }),
                               });
 
@@ -3529,6 +3531,7 @@ export function UniversityDashboard() {
                 let successCount = 0;
                 let errorCount = 0;
                 const errors: string[] = [];
+                const successfulEmails: string[] = [];
 
                 try {
                   // Step 1: Assign students in Convex (creates pending users or updates existing)
@@ -3541,6 +3544,7 @@ export function UniversityDashboard() {
                         departmentId: selectedProgram !== 'none' ? selectedProgram : undefined,
                       });
                       successCount++;
+                      successfulEmails.push(email);
                     } catch (e: any) {
                       errorCount++;
                       errors.push(`${email}: ${e?.message || 'Unknown error'}`);
@@ -3548,13 +3552,13 @@ export function UniversityDashboard() {
                   }
 
                   // Step 2: Send activation emails via API
-                  if (successCount > 0) {
+                  if (successfulEmails.length > 0) {
                     try {
                       const response = await fetch('/api/university/send-invitations', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          emails: emails.slice(0, successCount),
+                          emails: successfulEmails,
                         }),
                       });
 

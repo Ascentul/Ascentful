@@ -230,12 +230,13 @@ export const seedOutcomesDemo = internalMutation({
     const cohortIds: Id<'graduation_cohorts'>[] = [];
 
     for (const config of cohortConfigs) {
-      // Check if cohort already exists
+      // Check if cohort already exists (must match term AND year to avoid reusing wrong cohort)
       const existing = await ctx.db
         .query('graduation_cohorts')
         .withIndex('by_institution_year', (q) =>
           q.eq('institution_id', args.universityId).eq('graduation_year', config.year),
         )
+        .filter((q) => q.eq(q.field('graduation_term'), config.term))
         .first();
 
       if (existing) {

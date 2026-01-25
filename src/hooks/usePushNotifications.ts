@@ -100,8 +100,9 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         // Wait for service worker to be ready before sending message
         // Send base64 string (not ArrayBuffer) so SW can use it for pushsubscriptionchange
         await navigator.serviceWorker.ready;
-        if (reg.active) {
-          reg.active.postMessage({
+        const activeWorker = reg.active || reg.waiting || reg.installing;
+        if (activeWorker) {
+          activeWorker.postMessage({
             type: 'SET_VAPID_KEY',
             key: vapidPublicKey,
           });
@@ -251,7 +252,14 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         await subscription.unsubscribe();
 
         // Then remove from Convex - if this fails, scheduled cleanup will handle stale records
-        await unsubscribe({ endpoint: subscription.endpoint });
+        try {
+          await unsubscribe({ endpoint: subscription.endpoint });
+        } catch (convexError) {
+          console.warn(
+            'Failed to remove subscription from server, will be cleaned up by scheduled job:',
+            convexError,
+          );
+        }
       }
 
       setState((prev) => ({

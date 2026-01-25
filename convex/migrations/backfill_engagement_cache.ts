@@ -224,10 +224,13 @@ export const backfillAllStudents = internalMutation({
     continueFromUniversityId: v.optional(v.id('universities')),
   },
   handler: async (ctx, args) => {
-    let universities = await ctx.db
-      .query('universities')
-      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
-      .collect();
+    // Order by _id to ensure deterministic continuation across calls
+    let universities = (
+      await ctx.db
+        .query('universities')
+        .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+        .collect()
+    ).sort((a, b) => (a._id < b._id ? -1 : a._id > b._id ? 1 : 0));
 
     // If continuing from a specific university, skip universities we've already processed
     if (args.continueFromUniversityId) {
