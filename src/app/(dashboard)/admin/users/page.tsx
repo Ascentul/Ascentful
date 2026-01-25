@@ -852,6 +852,7 @@ export default function AdminUsersPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="individual">Individual</SelectItem>
+                          <SelectItem value="user">User (legacy)</SelectItem>
                           <SelectItem value="student">Student</SelectItem>
                           <SelectItem value="staff">Staff</SelectItem>
                           <SelectItem value="university_admin">University Admin</SelectItem>
