@@ -208,9 +208,9 @@ export function SnapshotSelector({
           <form
             id="create-snapshot-form"
             className="space-y-4 py-4"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              handleCreateSnapshot();
+              await handleCreateSnapshot();
             }}
           >
             <div className="space-y-2">

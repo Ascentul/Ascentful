@@ -315,7 +315,8 @@ export const getUniversityActivityTrends = query({
       throw new Error('Unauthorized: Only administrators can access university activity trends');
     }
 
-    const daysBack = args.daysBack ?? 30;
+    // Clamp to safe bounds (1-365 days) to prevent unbounded lookback periods
+    const daysBack = Math.min(Math.max(args.daysBack ?? 30, 1), 365);
 
     // Authorization check - ensure user can only access their own university
     if (sessionCtx.role !== 'super_admin') {

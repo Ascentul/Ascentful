@@ -5,7 +5,6 @@ import { Briefcase, Building2, GraduationCap, Mail, MapPin, User } from 'lucide-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 
 import { EvidenceFile, EvidenceViewer } from './EvidenceViewer';
 

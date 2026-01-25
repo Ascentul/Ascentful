@@ -132,7 +132,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     };
 
     init();
-  }, [vapidPublicKey, urlBase64ToUint8Array]);
+  }, [vapidPublicKey]);
 
   // Request permission and subscribe
   const requestPermission = useCallback(async (): Promise<boolean> => {

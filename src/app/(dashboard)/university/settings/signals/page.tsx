@@ -625,25 +625,28 @@ export default function SignalRulesPage() {
                 <Label>Condition Type</Label>
                 <Select
                   value={formData.condition.type}
-                  onValueChange={(v) =>
+                  onValueChange={(v) => {
+                    // Initialize conditions with required fields to pass backend validation
+                    const conditionDefaults: Record<string, ConditionFormData> = {
+                      inactivity: { type: 'inactivity', days: 14 },
+                      stalled: {
+                        type: 'stalled',
+                        days: 14,
+                        qualifying_event_types: [
+                          'login',
+                          'application_created',
+                          'application_updated',
+                        ],
+                      },
+                      application_stall: { type: 'application_stall', days: 14 },
+                      stage_stuck: { type: 'stage_stuck', days: 14, stage: 'Interview' },
+                      engagement_drop: { type: 'engagement_drop', from: 'engaged', to: 'at_risk' },
+                    };
                     setFormData({
                       ...formData,
-                      condition:
-                        v === 'inactivity'
-                          ? { type: 'inactivity', days: 14 }
-                          : v === 'stalled'
-                            ? {
-                                type: 'stalled',
-                                days: 14,
-                                qualifying_event_types: [
-                                  'login',
-                                  'application_created',
-                                  'application_updated',
-                                ],
-                              }
-                            : { type: v as ConditionType },
-                    })
-                  }
+                      condition: conditionDefaults[v] || { type: v as ConditionType },
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />

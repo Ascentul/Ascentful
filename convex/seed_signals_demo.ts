@@ -363,7 +363,7 @@ export const seedSignalsDemo = internalMutation({
         { type: 'goal_created', category: 'goal' },
         { type: 'goal_completed', category: 'goal' },
         { type: 'coach_conversation_started', category: 'ai_coach' },
-      ];
+      ] as const;
 
       // Create varied activity patterns for different engagement levels
       for (let i = 0; i < students.length; i++) {

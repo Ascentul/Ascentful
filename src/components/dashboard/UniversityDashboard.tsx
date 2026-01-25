@@ -127,7 +127,7 @@ export function UniversityDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Platform Usage states
-  const [usageTimeFilter, setUsageTimeFilter] = useState('Last 30 days');
+  const [usageTimeFilter, setUsageTimeFilter] = useState('Last 3 months');
   const [usageProgramFilter, setUsageProgramFilter] = useState('All Programs');
   const [usageView, setUsageView] = useState<'overview' | 'features' | 'programs'>('overview');
 
@@ -288,12 +288,12 @@ export function UniversityDashboard() {
 
     const data = analytics.platformUsageData;
     switch (usageTimeFilter) {
-      case 'Last 7 days':
-        return data.slice(-1); // Last 1 month
-      case 'Last 30 days':
-        return data.slice(-1); // Last 1 month
-      case 'Last 90 days':
-        return data.slice(-3); // Last 3 months
+      case 'Last month':
+        return data.slice(-1);
+      case 'Last 3 months':
+        return data.slice(-3);
+      case 'Last 6 months':
+        return data.slice(-6);
       default:
         return data; // All data
     }
@@ -1888,9 +1888,18 @@ export function UniversityDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {students.slice(0, 5).map((s: any, index: number) => {
-                        const riskLevel = index < 1 ? 'high' : index < 3 ? 'medium' : 'low';
-                        const daysAgo = index < 1 ? 18 : index < 3 ? 9 : 3;
+                      {students.slice(0, 5).map((s: any) => {
+                        // Map engagement_status to risk level display
+                        const riskLevel =
+                          s.engagement_status === 'at_risk'
+                            ? 'high'
+                            : s.engagement_status === 'moderate'
+                              ? 'medium'
+                              : 'low';
+                        // Calculate actual days since last activity
+                        const daysAgo = s.last_active
+                          ? Math.floor((Date.now() - s.last_active) / (1000 * 60 * 60 * 24))
+                          : null;
                         return (
                           <TableRow key={s._id}>
                             <TableCell className="font-medium">{s.name || 'Unknown'}</TableCell>
@@ -1910,7 +1919,7 @@ export function UniversityDashboard() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {daysAgo} days ago
+                              {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
                             </TableCell>
                             <TableCell>
                               <Button size="sm" variant="outline">
@@ -2335,7 +2344,7 @@ export function UniversityDashboard() {
 
                     <div className="flex items-center gap-2">
                       <input
-                        id="studentEmailsCsv"
+                        id="studentEmailsCsvInvite"
                         type="file"
                         accept=".csv,text/csv"
                         className="hidden"
@@ -2361,7 +2370,7 @@ export function UniversityDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => document.getElementById('studentEmailsCsv')?.click()}
+                        onClick={() => document.getElementById('studentEmailsCsvInvite')?.click()}
                         disabled={importingEmails}
                       >
                         {importingEmails ? 'Parsing...' : 'Upload CSV'}
@@ -2973,9 +2982,9 @@ export function UniversityDashboard() {
                     value={usageTimeFilter}
                     onChange={(e) => setUsageTimeFilter(e.target.value)}
                   >
-                    <option>Last 7 days</option>
-                    <option>Last 30 days</option>
-                    <option>Last 90 days</option>
+                    <option>Last month</option>
+                    <option>Last 3 months</option>
+                    <option>Last 6 months</option>
                   </select>
                   <select
                     className="px-3 py-1 text-sm border rounded-md bg-white"
@@ -3451,7 +3460,7 @@ export function UniversityDashboard() {
                 Download CSV Template
               </Button>
               <input
-                id="studentEmailsCsv"
+                id="studentEmailsCsvAssign"
                 type="file"
                 accept=".csv,text/csv"
                 className="hidden"
@@ -3477,7 +3486,7 @@ export function UniversityDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => document.getElementById('studentEmailsCsv')?.click()}
+                onClick={() => document.getElementById('studentEmailsCsvAssign')?.click()}
                 disabled={importingEmails}
               >
                 {importingEmails ? 'Parsing...' : 'Import CSV'}
