@@ -9,7 +9,7 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import { Doc, Id } from './_generated/dataModel';
-import { internalMutation } from './_generated/server';
+import { internalMutation, MutationCtx, QueryCtx } from './_generated/server';
 import { normalizeLegacyUserRole, type UserRole } from './lib/roleValidation';
 
 const STUDENT_PAGE_SIZE = 1000;
@@ -24,7 +24,7 @@ function isUniversityStudent(user: Doc<'users'>) {
 }
 
 export async function computeUniversityOverviewMetrics(
-  ctx: { db: any },
+  ctx: QueryCtx | MutationCtx,
   universityId: Id<'universities'>,
 ) {
   const university = (await ctx.db.get(universityId)) as Doc<'universities'> | null;
@@ -45,7 +45,7 @@ export async function computeUniversityOverviewMetrics(
 
   const departments = await ctx.db
     .query('departments')
-    .withIndex('by_university', (q: any) => q.eq('university_id', universityId))
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
     .collect();
 
   const departmentCounts = new Map<string, number>(
@@ -63,7 +63,7 @@ export async function computeUniversityOverviewMetrics(
   while (!isDone) {
     const page = await ctx.db
       .query('users')
-      .withIndex('by_university', (q: any) => q.eq('university_id', universityId))
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .paginate({ cursor, numItems: STUDENT_PAGE_SIZE });
 
     for (const student of page.page) {
@@ -103,7 +103,7 @@ export async function computeUniversityOverviewMetrics(
   while (!coursesDone) {
     const page = await ctx.db
       .query('courses')
-      .withIndex('by_university', (q: any) => q.eq('university_id', universityId))
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .paginate({ cursor: courseCursor, numItems: COURSE_PAGE_SIZE });
 
     totalCourses += page.page.length;
@@ -144,10 +144,13 @@ export async function computeUniversityOverviewMetrics(
   };
 }
 
-async function upsertUniversityOverviewMetrics(ctx: { db: any }, metrics: any) {
+async function upsertUniversityOverviewMetrics(
+  ctx: MutationCtx,
+  metrics: Omit<Doc<'university_overview_metrics'>, '_id' | '_creationTime'>,
+) {
   const existing = await ctx.db
     .query('university_overview_metrics')
-    .withIndex('by_university', (q: any) => q.eq('university_id', metrics.university_id))
+    .withIndex('by_university', (q) => q.eq('university_id', metrics.university_id))
     .unique();
 
   if (existing) {

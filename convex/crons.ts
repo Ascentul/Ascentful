@@ -204,7 +204,6 @@ crons.daily(
 crons.daily(
   'refresh university overview metrics',
   { hourUTC: 3, minuteUTC: 15 },
-  // @ts-expect-error - Module reference valid after `npx convex dev` regenerates types
   internal.university_overview_cache.refreshUniversityOverviewMetricsJob,
   {},
 );

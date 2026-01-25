@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import { Id, Doc } from './_generated/dataModel';
-import { internalMutation, query, QueryCtx } from './_generated/server';
+import { internalMutation, MutationCtx, query, QueryCtx } from './_generated/server';
 import { getCurrentUser, requireTenant } from './advisor_auth';
 
 /**
@@ -415,10 +415,13 @@ function mapPredictionCacheToResponse(prediction: Doc<'engagement_prediction_cac
   };
 }
 
-async function upsertPredictionCache(ctx: { db: any }, record: any) {
+async function upsertPredictionCache(
+  ctx: MutationCtx,
+  record: Omit<Doc<'engagement_prediction_cache'>, '_id' | '_creationTime'>,
+) {
   const existing = await ctx.db
     .query('engagement_prediction_cache')
-    .withIndex('by_student', (q: any) => q.eq('student_id', record.student_id))
+    .withIndex('by_student', (q) => q.eq('student_id', record.student_id))
     .collect();
 
   if (existing.length > 0) {
@@ -431,10 +434,13 @@ async function upsertPredictionCache(ctx: { db: any }, record: any) {
   }
 }
 
-async function upsertPredictionSummary(ctx: { db: any }, summary: any) {
+async function upsertPredictionSummary(
+  ctx: MutationCtx,
+  summary: Omit<Doc<'engagement_prediction_summary'>, '_id' | '_creationTime'>,
+) {
   const existing = await ctx.db
     .query('engagement_prediction_summary')
-    .withIndex('by_university', (q: any) => q.eq('university_id', summary.university_id))
+    .withIndex('by_university', (q) => q.eq('university_id', summary.university_id))
     .unique();
 
   if (existing) {
@@ -445,7 +451,7 @@ async function upsertPredictionSummary(ctx: { db: any }, summary: any) {
 }
 
 async function computePredictionSummaryFromCache(
-  ctx: { db: any },
+  ctx: QueryCtx | MutationCtx,
   universityId: Id<'universities'>,
   weeksAhead = DEFAULT_FORECAST_WEEKS,
 ) {
@@ -489,7 +495,7 @@ async function computePredictionSummaryFromCache(
   do {
     const page = await ctx.db
       .query('engagement_prediction_cache')
-      .withIndex('by_university', (q: any) => q.eq('university_id', universityId))
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .paginate({ cursor, numItems: SUMMARY_PAGE_SIZE });
 
     for (const prediction of page.page as Doc<'engagement_prediction_cache'>[]) {
