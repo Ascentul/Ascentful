@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
       log.warn('Cannot modify role of privileged user', {
         event: 'auth.forbidden',
         errorCode: 'FORBIDDEN',
-        currentRole: studentCurrentRole,
+        extra: { currentRole: studentCurrentRole || 'unknown' },
       });
       return NextResponse.json(
         { error: 'Cannot modify role of this user type' },

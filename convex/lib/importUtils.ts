@@ -359,9 +359,11 @@ export function validateOutcomeImportRow(row: {
     errors.push('Either external_student_id or student_email is required');
   }
 
-  // Validate outcome_status if provided
+  // Validate outcome_status (required field)
   const validStatuses = ['unknown', 'known', 'partial'];
-  if (row.outcomeStatus && !validStatuses.includes(row.outcomeStatus)) {
+  if (!row.outcomeStatus) {
+    errors.push('outcome_status is required');
+  } else if (!validStatuses.includes(row.outcomeStatus)) {
     errors.push(
       `Invalid outcome_status: ${row.outcomeStatus}. Must be one of: ${validStatuses.join(', ')}`,
     );

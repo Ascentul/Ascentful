@@ -210,6 +210,7 @@ export function SnapshotSelector({
             className="space-y-4 py-4"
             onSubmit={async (e) => {
               e.preventDefault();
+              if (isCreating) return;
               await handleCreateSnapshot();
             }}
           >

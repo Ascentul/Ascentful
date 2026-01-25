@@ -328,10 +328,11 @@ describe('CSV Export Format', () => {
 
   it('should protect against CSV injection with formula characters', () => {
     // Formula characters that could trigger Excel/Sheets formula execution
-    expect(escapeCSV('=SUM(A1:A10)')).toBe('"\t=SUM(A1:A10)"');
-    expect(escapeCSV('+1234567890')).toBe('"\t+1234567890"');
-    expect(escapeCSV('-cmd|calc')).toBe('"\t-cmd|calc"');
-    expect(escapeCSV('@SUM(A1)')).toBe('"\t@SUM(A1)"');
+    // Implementation uses single quote prefix per OWASP CWE-1236 guidance
+    expect(escapeCSV('=SUM(A1:A10)')).toBe('"\'=SUM(A1:A10)"');
+    expect(escapeCSV('+1234567890')).toBe('"\'+1234567890"');
+    expect(escapeCSV('-cmd|calc')).toBe('"\'-cmd|calc"');
+    expect(escapeCSV('@SUM(A1)')).toBe('"\'@SUM(A1)"');
   });
 
   it('should count evidence files correctly using field extractor', () => {

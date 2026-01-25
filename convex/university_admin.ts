@@ -1066,6 +1066,16 @@ export const updateStudentByAdmin = mutation({
           role: 'advisor',
           updated_at: Date.now(),
         });
+      } else {
+        // Create membership for new advisor if none exists
+        await ctx.db.insert('memberships', {
+          user_id: args.studentId,
+          university_id: student.university_id!,
+          role: 'advisor',
+          status: 'active',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        });
       }
     }
 

@@ -267,6 +267,9 @@ export const getAdvisorQueue = query({
           .order('asc') // Oldest first within priority
           .collect();
 
+        // Ensure deterministic ordering before pagination
+        signals.sort((a, b) => a.triggered_at - b.triggered_at);
+
         const total = signals.length;
         const page = signals.slice(startIndex, startIndex + limit);
         const nextCursor = startIndex + limit < total ? String(startIndex + limit) : null;
@@ -1411,6 +1414,9 @@ export const evaluateSignalRules = internalMutation({
           q.eq('university_id', university._id).eq('is_active', true),
         )
         .collect();
+      const engagementDefinitionsById = new Map(
+        engagementDefinitions.map((d) => [d._id as string, d]),
+      );
       const defaultDefinition =
         engagementDefinitions.find((d) => d.is_default) || engagementDefinitions[0] || null;
 
@@ -1420,6 +1426,7 @@ export const evaluateSignalRules = internalMutation({
         applicationsByUser,
         followupsByUser,
         engagementDefinition: defaultDefinition,
+        engagementDefinitionsById,
       };
 
       for (const rule of rules) {
@@ -1536,6 +1543,10 @@ interface PrefetchedData {
     at_risk_threshold: number;
     criteria?: unknown;
   } | null;
+  engagementDefinitionsById: Map<
+    string,
+    { engaged_threshold: number; at_risk_threshold: number; criteria?: unknown }
+  >;
 }
 
 /**
@@ -1646,9 +1657,12 @@ async function evaluateRuleCondition(
       const toLevel = condition.to as string;
       const previousLevel = student.engagement_status;
 
-      // Use prefetched engagement definition
+      // Use rule-specific definition if specified, otherwise fall back to default
       if (!student.university_id) return { triggered: false };
-      const definition = prefetchedData.engagementDefinition;
+      const definitionId = condition.definition_id as string | undefined;
+      const definition =
+        (definitionId && prefetchedData.engagementDefinitionsById.get(definitionId)) ||
+        prefetchedData.engagementDefinition;
       if (!definition) return { triggered: false };
 
       // Calculate current engagement score using the canonical scoring model

@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
       log.warn('Cannot remove user with privileged role from university', {
         event: 'auth.forbidden',
         errorCode: 'FORBIDDEN',
-        currentRole: studentCurrentRole,
+        extra: { currentRole: studentCurrentRole || 'unknown' },
       });
       return NextResponse.json(
         { error: 'Cannot modify role of this user type' },
@@ -215,10 +215,10 @@ export async function POST(req: NextRequest) {
     const durationMs = Date.now() - startTime;
     log.info('Student Clerk metadata updated for removal', {
       event: 'university.student_removed_clerk_synced',
-      adminClerkId: userId,
-      studentClerkId: normalizedStudentClerkId,
+      clerkId: userId,
       httpStatus: 200,
       durationMs,
+      extra: { studentClerkId: normalizedStudentClerkId },
     });
 
     return NextResponse.json(
