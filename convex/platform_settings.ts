@@ -32,7 +32,7 @@ export const getPlatformSettings = query({
       session_timeout: await getSetting(ctx, 'session_timeout', 24),
       max_file_upload_size: await getSetting(ctx, 'max_file_upload_size', 10),
       debug_mode: await getSetting(ctx, 'debug_mode', false),
-      default_user_role: await getSetting(ctx, 'default_user_role', 'user'),
+      default_user_role: await getSetting(ctx, 'default_user_role', 'individual'),
 
       // General Settings
       platform_name: await getSetting(ctx, 'platform_name', 'Ascentul'),

@@ -340,11 +340,7 @@ export default function OutcomesDashboardPage() {
     );
   }
 
-  const isLoading =
-    !cohorts ||
-    !majors ||
-    (!analytics && !selectedSnapshot) ||
-    !!(selectedSnapshotId && !selectedSnapshot);
+  const isLoading = !cohorts || !majors || (selectedSnapshotId ? !selectedSnapshot : !analytics);
 
   return (
     <div className="max-w-screen-2xl mx-auto p-4 md:p-6 space-y-6">

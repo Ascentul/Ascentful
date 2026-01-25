@@ -91,7 +91,7 @@ export const STUDENT_COUNTABLE_ROLES = [
 /**
  * Roles that can be assigned to university students via assign-student API.
  */
-export const ASSIGNABLE_STUDENT_ROLES = ['user', 'student', 'staff'] as const;
+export const ASSIGNABLE_STUDENT_ROLES = ['student', 'staff'] as const;
 
 // =============================================================================
 // Role Check Helpers

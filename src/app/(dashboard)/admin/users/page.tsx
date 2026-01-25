@@ -67,7 +67,14 @@ interface UserRow {
   email: string;
   name: string;
   username?: string;
-  role: 'user' | 'student' | 'staff' | 'university_admin' | 'advisor' | 'super_admin';
+  role:
+    | 'individual'
+    | 'user'
+    | 'student'
+    | 'staff'
+    | 'university_admin'
+    | 'advisor'
+    | 'super_admin';
   subscription_plan?: 'free' | 'premium' | 'university' | null; // Cached from Clerk for display (read-only), null for internal roles like staff
   subscription_status: 'active' | 'inactive' | 'cancelled' | 'past_due'; // Cached from Clerk for display (read-only)
   account_status?: 'pending_activation' | 'pending_deletion' | 'active' | 'suspended' | 'deleted';
@@ -267,7 +274,13 @@ export default function AdminUsersPage() {
         adminClerkId: clerkUser.id,
         email: newUserForm.email,
         name: newUserForm.name,
-        role: newUserForm.role as 'user' | 'student' | 'staff' | 'university_admin' | 'advisor',
+        role: newUserForm.role as
+          | 'individual'
+          | 'user'
+          | 'student'
+          | 'staff'
+          | 'university_admin'
+          | 'advisor',
         sendActivationEmail: newUserForm.sendActivationEmail,
       });
 
@@ -1030,7 +1043,7 @@ export default function AdminUsersPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="individual">Individual</SelectItem>
                       <SelectItem value="student">Student (University)</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
                       <SelectItem value="university_admin">University Admin</SelectItem>

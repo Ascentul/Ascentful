@@ -71,7 +71,7 @@ describe.skip('AdminSettingsPage - Settings Persistence', () => {
       openai_max_tokens: 4000,
       maintenance_mode: false,
       allow_signups: true,
-      default_user_role: 'user',
+      default_user_role: 'individual',
     });
   });
 
@@ -174,7 +174,7 @@ describe.skip('AdminSettingsPage - Settings Persistence', () => {
       openai_max_tokens: 8000,
       maintenance_mode: true,
       allow_signups: false,
-      default_user_role: 'user',
+      default_user_role: 'individual',
     });
 
     render(<AdminSettingsPage />);

@@ -444,7 +444,8 @@ export default defineSchema({
     .index('by_user', ['user_id'])
     .index('by_created_at', ['created_at'])
     // SECURITY: Tenant-scoped index for university reporting
-    .index('by_university', ['university_id']),
+    .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at']),
 
   // Cover letters table
   cover_letters: defineTable({
@@ -470,7 +471,8 @@ export default defineSchema({
     .index('by_user', ['user_id'])
     .index('by_created_at', ['created_at'])
     // SECURITY: Tenant-scoped index for university reporting
-    .index('by_university', ['university_id']),
+    .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at']),
 
   // Support tickets table
   support_tickets: defineTable({
@@ -1131,7 +1133,8 @@ export default defineSchema({
   })
     .index('by_user', ['user_id'])
     // SECURITY: Tenant-scoped index for university reporting
-    .index('by_university', ['university_id']),
+    .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at']),
 
   // Resume Builder 2.0: Version history for undo support
   resume_versions: defineTable({
@@ -1258,6 +1261,7 @@ export default defineSchema({
     .index('by_stage_due_date', ['stage', 'due_date']) // For active + overdue filtering
     // SECURITY: Tenant-scoped indexes for university reporting
     .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at'])
     .index('by_university_stage', ['university_id', 'stage']) // University pipeline view
     .index('by_university_status', ['university_id', 'status']) // Legacy university queries
     // Kanban board indexes for efficient drag-and-drop ordering
@@ -1504,7 +1508,8 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_target_date', ['target_date'])
     // SECURITY: Tenant-scoped index for university reporting
-    .index('by_university', ['university_id']),
+    .index('by_university', ['university_id'])
+    .index('by_university_created_at', ['university_id', 'created_at']),
 
   // AI Coach conversations table
   ai_coach_conversations: defineTable({

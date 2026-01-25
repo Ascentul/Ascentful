@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { normalizeLegacyUserRole } from './lib/roleValidation';
 
 function requireAdmin(user: any, options?: { allowMissingUniversity?: boolean }) {
   const isAdmin = ['super_admin', 'university_admin', 'advisor'].includes(user.role);
@@ -228,11 +229,11 @@ export const getUniversityAnalytics = query({
       const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
 
-      // OPTIMIZED: Get applications created on this day with limit
+      // Use university + created_at index for tenant-scoped daily counts
       const dayApplications = await ctx.db
         .query('applications')
-        .filter((q: any) =>
-          q.and(q.gte(q.field('created_at'), dayStart), q.lte(q.field('created_at'), dayEnd)),
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', dayStart).lte('created_at', dayEnd),
         )
         .take(500); // Limit to 500 applications per day
 
@@ -259,19 +260,27 @@ export const getUniversityAnalytics = query({
     const [allApplications, allResumes, allCoverLetters, allGoals] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(2000), // Limit to 2000 per category
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', uniId).gte('created_at', sixMonthsAgo),
+        )
         .take(1000),
     ]);
 
@@ -370,11 +379,16 @@ export const assignStudentByEmail = mutation({
     }
 
     if (existingStudent) {
+      const requestedRole =
+        args.role || (existingStudent.role === 'user' ? ('student' as const) : undefined);
+      const normalizedRole =
+        requestedRole && normalizeLegacyUserRole(requestedRole, admin.university_id);
+
       // Update existing user
       await ctx.db.patch(existingStudent._id, {
         university_id: admin.university_id,
         subscription_plan: 'university',
-        ...(args.role ? { role: args.role } : {}),
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         ...(args.departmentId ? { department_id: args.departmentId } : {}),
         updated_at: now,
       });
@@ -400,6 +414,10 @@ export const assignStudentByEmail = mutation({
       }
       return { userId: existingStudent._id, isNew: false };
     } else {
+      const requestedRole = args.role || 'student';
+      const normalizedRole =
+        normalizeLegacyUserRole(requestedRole, admin.university_id) || 'student';
+
       // Create pending user invitation
       // This user will be activated when they click the magic link in their email
       const userId = await ctx.db.insert('users', {
@@ -409,7 +427,7 @@ export const assignStudentByEmail = mutation({
         university_id: admin.university_id,
         subscription_plan: 'university',
         subscription_status: 'active',
-        role: args.role || 'user',
+        role: normalizedRole,
         account_status: 'pending_activation',
         ...(args.departmentId ? { department_id: args.departmentId } : {}),
         created_at: now,
@@ -731,23 +749,33 @@ export const getStudentMetrics = query({
     const [applications, resumes, coverLetters, goals, projects] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(3000),
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('projects')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
     ]);
 
@@ -818,23 +846,33 @@ export const getStudentProgress = query({
     const [applications, resumes, coverLetters, goals, projects] = await Promise.all([
       ctx.db
         .query('applications')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(3000),
       ctx.db
         .query('resumes')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('cover_letters')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('goals')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
       ctx.db
         .query('projects')
-        .filter((q) => q.gte(q.field('created_at'), sixMonthsAgo))
+        .withIndex('by_university_created_at', (q) =>
+          q.eq('university_id', user.university_id!).gte('created_at', sixMonthsAgo),
+        )
         .take(1500),
     ]);
 
@@ -1024,6 +1062,8 @@ export const updateStudentByAdmin = mutation({
       throw new Error('Unauthorized: Only university admins can change roles');
     }
 
+    const normalizedRole = args.updates.role === 'user' ? 'student' : args.updates.role;
+
     const student = await ctx.db.get(args.studentId);
     if (!student) {
       throw new Error('Student not found');
@@ -1047,14 +1087,14 @@ export const updateStudentByAdmin = mutation({
     if (args.updates.name !== undefined) {
       updates.name = args.updates.name;
     }
-    if (args.updates.role !== undefined) {
-      updates.role = args.updates.role;
+    if (normalizedRole !== undefined) {
+      updates.role = normalizedRole;
     }
 
     await ctx.db.patch(args.studentId, updates);
 
     // If role is changing to advisor, update the membership record
-    if (args.updates.role === 'advisor' && student.role !== 'advisor' && student.university_id) {
+    if (normalizedRole === 'advisor' && student.role !== 'advisor' && student.university_id) {
       const membership = await ctx.db
         .query('memberships')
         .withIndex('by_user', (q) => q.eq('user_id', args.studentId))
@@ -1083,8 +1123,8 @@ export const updateStudentByAdmin = mutation({
       success: true,
       studentId: args.studentId,
       studentClerkId: student.clerkId, // Return for Clerk sync when role changes
-      roleChanged: args.updates.role !== undefined && args.updates.role !== student.role,
-      newRole: args.updates.role,
+      roleChanged: normalizedRole !== undefined && normalizedRole !== student.role,
+      newRole: normalizedRole,
     };
   },
 });

@@ -64,7 +64,7 @@ export const recalculateUniversityEngagement = internalMutation({
   args: {
     universityId: v.id('universities'),
     batchSize: v.optional(v.number()),
-    cursor: v.optional(v.id('users')), // Last processed _id for pagination (unique, unlike _creationTime)
+    cursor: v.optional(v.string()), // Opaque cursor from Convex paginate()
   },
   handler: async (ctx, args) => {
     const batchSize = args.batchSize || 100;
@@ -90,23 +90,16 @@ export const recalculateUniversityEngagement = internalMutation({
       };
     }
 
-    // Get students to process
-    let query = ctx.db
+    // Get students to process using Convex's built-in pagination
+    // This ensures stable, non-overlapping pages (unlike manual _id comparison)
+    const paginationResult = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'));
+      .filter((q) => q.eq(q.field('role'), 'student'))
+      .paginate({ numItems: batchSize, cursor: args.cursor ?? null });
 
-    // Apply cursor-based pagination using _id (guaranteed unique per document)
-    // Note: _creationTime can have duplicates within same millisecond, causing skipped records
-    if (args.cursor !== undefined) {
-      const cursorValue = args.cursor;
-      query = query.filter((q) => q.gt(q.field('_id'), cursorValue));
-    }
-
-    const students = await query.take(batchSize + 1); // Take one extra to check if there's more
-
-    const hasMore = students.length > batchSize;
-    const studentsToProcess = hasMore ? students.slice(0, batchSize) : students;
+    const studentsToProcess = paginationResult.page;
+    const hasMore = !paginationResult.isDone;
 
     let updated = 0;
     for (const student of studentsToProcess) {
@@ -123,7 +116,7 @@ export const recalculateUniversityEngagement = internalMutation({
     return {
       updated,
       hasMore,
-      nextCursor: studentsToProcess[studentsToProcess.length - 1]?._id,
+      nextCursor: paginationResult.continueCursor,
     };
   },
 });

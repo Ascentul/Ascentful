@@ -343,6 +343,12 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
               onSnooze={handleSnooze}
               onDismiss={handleDismiss}
               onResolve={handleResolve}
+              onScheduleMeeting={() => {
+                toast({
+                  title: 'Coming soon',
+                  description: 'Meeting scheduling will be available soon',
+                });
+              }}
               showResolved
             />
           </div>

@@ -8,6 +8,7 @@ import { v } from 'convex/values';
 import { api, internal } from './_generated/api';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { assertUniversityAccess, getAuthenticatedUser, requireSuperAdmin } from './lib/roles';
+import { normalizeLegacyUserRole } from './lib/roleValidation';
 
 /**
  * Generate a random activation token
@@ -27,6 +28,7 @@ export const createUserByAdmin = mutation({
     name: v.string(),
     role: v.optional(
       v.union(
+        v.literal('individual'),
         v.literal('user'),
         v.literal('student'),
         v.literal('staff'),
@@ -78,15 +80,19 @@ export const createUserByAdmin = mutation({
     // Create user with pending activation status
     // Note: This creates a placeholder in Convex. Actual Clerk account
     // will be created when user activates via the activation link.
+    const requestedRole = args.role ?? (args.university_id ? 'student' : 'individual');
+    const normalizedRole =
+      normalizeLegacyUserRole(requestedRole, args.university_id) ?? requestedRole;
+
     const userId = await ctx.db.insert('users', {
       clerkId: `pending_${activationToken}`, // Temporary until activated
       email: args.email,
       name: args.name,
       username: args.email.split('@')[0],
-      role: args.role || 'user',
+      role: normalizedRole,
       // Students always get university plan, others get university plan if they have university_id
       subscription_plan:
-        args.role === 'student' ? 'university' : args.university_id ? 'university' : 'free',
+        normalizedRole === 'student' ? 'university' : args.university_id ? 'university' : 'free',
       subscription_status: 'active',
       university_id: args.university_id,
       account_status: 'pending_activation',
@@ -109,7 +115,7 @@ export const createUserByAdmin = mutation({
           const universityName = university?.name || 'University';
 
           // Send university-specific invitation email based on role
-          const userRole = args.role || 'user';
+          const userRole = normalizedRole;
 
           if (userRole === 'university_admin') {
             await ctx.scheduler.runAfter(0, api.email.sendUniversityAdminInvitationEmail, {

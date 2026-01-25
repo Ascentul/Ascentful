@@ -45,7 +45,7 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 
 export default function UniversityAnalyticsPage() {
   const { user: clerkUser } = useUser();
-  const { user, isAdmin, subscription } = useAuth();
+  const { user, isAdmin, isLoading, subscription } = useAuth();
   const [analyticsView, setAnalyticsView] = useState<
     'engagement' | 'features' | 'risk' | 'predictions'
   >('engagement');
@@ -60,49 +60,61 @@ export default function UniversityAnalyticsPage() {
   // subscription.isUniversity is NOT sufficient - it includes regular students
   const canAccess =
     !!user && (isAdmin || user.role === 'university_admin' || user.role === 'advisor');
+  const canQuery = !isLoading && canAccess && !!clerkUser?.id;
+  const canQueryUniversity = !isLoading && canAccess && !!universityId;
 
   const overview = useQuery(
     api.university_admin.getOverview,
-    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id } : 'skip',
   );
   const students = useQuery(
     api.university_admin.listStudents,
-    clerkUser?.id ? { clerkId: clerkUser.id, limit: 200 } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id, limit: 200 } : 'skip',
   );
   const departments = useQuery(
     api.university_admin.listDepartments,
-    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+    canQuery ? { clerkId: clerkUser!.id } : 'skip',
   );
 
   // Engagement stats from the new engagement engine
   const engagementStats = useQuery(
     api.engagement_definitions.getUniqueEngagedStats,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Signal analytics for active signals count
   const signalAnalytics = useQuery(
     api.signals.getSignalAnalytics,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Real active users over time data
   const activeUsersData = useQuery(
     api.analytics.getUniversityActiveUsersOverTime,
-    universityId ? { universityId, timeRange: activeUsersTimeRange } : 'skip',
+    canQueryUniversity ? { universityId: universityId!, timeRange: activeUsersTimeRange } : 'skip',
   );
 
   // Real feature usage data (networking, AI coach)
   const featureUsage = useQuery(
     api.analytics.getUniversityFeatureUsage,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
   // Real department analytics
   const departmentAnalytics = useQuery(
     api.analytics.getUniversityDepartmentAnalytics,
-    universityId ? { universityId } : 'skip',
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (

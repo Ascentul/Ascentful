@@ -18,6 +18,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { api } from '../../../../../convex/_generated/api';
 
+function resolveActivationRole(pendingUser: {
+  role?: string | null;
+  university_id?: string | null;
+}): string {
+  const baseRole = pendingUser.role || (pendingUser.university_id ? 'student' : 'individual');
+  if (baseRole === 'user') {
+    return pendingUser.university_id ? 'student' : 'individual';
+  }
+  return baseRole;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -55,6 +66,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const resolvedRole = resolveActivationRole(pendingUser);
+
     const clerk = await clerkClient();
 
     // Step 2: Create Clerk user with email + password
@@ -67,7 +80,7 @@ export async function POST(request: NextRequest) {
         firstName: pendingUser.name?.split(' ')[0] || '',
         lastName: pendingUser.name?.split(' ').slice(1).join(' ') || '',
         publicMetadata: {
-          role: pendingUser.role || 'user',
+          role: resolvedRole,
         },
       });
     } catch (clerkError: any) {
@@ -146,7 +159,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Account activated successfully!',
       signInToken: signInToken.token,
-      role: pendingUser.role || 'user',
+      role: resolvedRole,
     });
   } catch (error) {
     console.error('Activation error:', error);

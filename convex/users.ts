@@ -5,6 +5,7 @@ import { internalMutation, mutation, MutationCtx, query } from './_generated/ser
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { logPermissionChange } from './lib/auditLogger';
 import { isServiceRequest } from './lib/roles';
+import { normalizeLegacyUserRole } from './lib/roleValidation';
 
 // ============================================
 // Shared Validators
@@ -465,23 +466,27 @@ export const createUser = mutation({
       .unique();
 
     if (existingUser) {
-      if (args.role) {
-        if (existingUser.university_id && isIndividualRole(args.role)) {
+      const normalizedRole = args.role
+        ? normalizeLegacyUserRole(args.role, existingUser.university_id)
+        : undefined;
+
+      if (normalizedRole) {
+        if (existingUser.university_id && isIndividualRole(normalizedRole)) {
           throw new Error(
-            `Cannot set role '${args.role}' for user with university assignment. ` +
+            `Cannot set role '${normalizedRole}' for user with university assignment. ` +
               `Individual roles must not have university_id. Remove university_id first or choose a university role.`,
           );
         }
-        if (!existingUser.university_id && isUniversityRole(args.role)) {
+        if (!existingUser.university_id && isUniversityRole(normalizedRole)) {
           throw new Error(
-            `Cannot set role '${args.role}' without university assignment. ` +
+            `Cannot set role '${normalizedRole}' without university assignment. ` +
               `University-affiliated roles require university_id.`,
           );
         }
       }
 
       // Track role change for audit (service-initiated via webhook)
-      const roleChanged = args.role && args.role !== existingUser.role;
+      const roleChanged = normalizedRole && normalizedRole !== existingUser.role;
       const oldRole = existingUser.role;
 
       // Update existing user
@@ -491,7 +496,7 @@ export const createUser = mutation({
         username: args.username,
         profile_image: args.profile_image,
         // If an explicit role is provided (e.g., from Clerk metadata), sync it
-        ...(args.role ? { role: args.role } : {}),
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         // Update cached subscription data if provided
         ...(args.subscription_plan ? { subscription_plan: args.subscription_plan } : {}),
         ...(args.subscription_status ? { subscription_status: args.subscription_status } : {}),
@@ -499,8 +504,8 @@ export const createUser = mutation({
       });
 
       // Audit log service-initiated role changes
-      if (roleChanged && args.role) {
-        await logRoleChange(ctx, existingUser, oldRole, args.role, true);
+      if (roleChanged && normalizedRole) {
+        await logRoleChange(ctx, existingUser, oldRole, normalizedRole, true);
       }
 
       return existingUser._id;
@@ -536,23 +541,23 @@ export const createUser = mutation({
         }
       }
 
-      // Validate existing pending user state when no role override is provided
-      const finalRole = args.role || pendingUser.role;
-      if (pendingUser.university_id && isIndividualRole(finalRole)) {
+      const requestedRole = args.role || pendingUser.role;
+      const normalizedRole = normalizeLegacyUserRole(requestedRole, pendingUser.university_id);
+      if (pendingUser.university_id && normalizedRole && isIndividualRole(normalizedRole)) {
         throw new Error(
-          `Cannot activate pending user: role '${finalRole}' conflicts with university assignment. ` +
+          `Cannot activate pending user: role '${normalizedRole}' conflicts with university assignment. ` +
             `Individual roles must not have university_id.`,
         );
       }
-      if (!pendingUser.university_id && isUniversityRole(finalRole)) {
+      if (!pendingUser.university_id && normalizedRole && isUniversityRole(normalizedRole)) {
         throw new Error(
-          `Cannot activate pending user: role '${finalRole}' requires university assignment. ` +
+          `Cannot activate pending user: role '${normalizedRole}' requires university assignment. ` +
             `University-affiliated roles require university_id.`,
         );
       }
 
       // Track role change for audit (service-initiated via webhook)
-      const pendingRoleChanged = args.role && args.role !== pendingUser.role;
+      const pendingRoleChanged = normalizedRole && normalizedRole !== pendingUser.role;
       const pendingOldRole = pendingUser.role;
 
       // Activate the pending user by updating with Clerk ID
@@ -562,9 +567,8 @@ export const createUser = mutation({
         username: args.username || pendingUser.username,
         profile_image: args.profile_image,
         account_status: 'active',
-        // Preserve university assignment and role from pending user
-        // Only override role if explicitly provided in args (from Clerk metadata)
-        ...(args.role ? { role: args.role } : {}),
+        // Preserve university assignment but normalize legacy roles
+        ...(normalizedRole ? { role: normalizedRole } : {}),
         // Update cached subscription data if provided, otherwise keep university plan
         subscription_plan: args.subscription_plan || pendingUser.subscription_plan || 'free',
         subscription_status:
@@ -573,16 +577,19 @@ export const createUser = mutation({
       });
 
       // Audit log service-initiated role changes during activation
-      if (pendingRoleChanged && args.role) {
-        await logRoleChange(ctx, pendingUser, pendingOldRole, args.role, true);
+      if (pendingRoleChanged && normalizedRole) {
+        await logRoleChange(ctx, pendingUser, pendingOldRole, normalizedRole, true);
       }
 
-      console.log(`[createUser] Activated pending user: ${pendingUser._id} (role: ${finalRole})`);
+      console.log(
+        `[createUser] Activated pending user: ${pendingUser._id} (role: ${normalizedRole})`,
+      );
       return pendingUser._id;
     }
 
     // Create new user
-    const finalRole = args.role ?? 'user';
+    const requestedRole = args.role ?? 'individual';
+    const finalRole = normalizeLegacyUserRole(requestedRole, undefined) ?? 'individual';
     if (isUniversityRole(finalRole)) {
       throw new Error(
         `Cannot create user with role '${finalRole}' without university assignment. ` +
@@ -596,7 +603,7 @@ export const createUser = mutation({
       name: args.name,
       username: args.username || `user_${Date.now()}`,
       profile_image: args.profile_image,
-      role: args.role ?? 'user',
+      role: finalRole,
       subscription_plan: args.subscription_plan ?? 'free',
       subscription_status: args.subscription_status ?? 'active',
       onboarding_completed: false,
@@ -606,7 +613,7 @@ export const createUser = mutation({
 
     // Send welcome email to new self-registered users
     // Only send if not created by admin and is a regular user
-    if (!args.role || args.role === 'user') {
+    if (!args.role || finalRole === 'individual') {
       try {
         await ctx.scheduler.runAfter(0, api.email.sendWelcomeEmail, {
           email: args.email,
@@ -685,16 +692,17 @@ export const initializeUserProfile = mutation({
 
     if (pendingUser) {
       // Activate the pending user
-      const finalRole = args.role || pendingUser.role;
+      const requestedRole = args.role || pendingUser.role;
+      const finalRole = normalizeLegacyUserRole(requestedRole, pendingUser.university_id);
 
       // Validate role-university invariant
-      if (pendingUser.university_id && isIndividualRole(finalRole)) {
+      if (pendingUser.university_id && finalRole && isIndividualRole(finalRole)) {
         throw new Error(
           `Cannot activate with role '${finalRole}' - user has university assignment. ` +
             `Individual roles must not have university_id.`,
         );
       }
-      if (!pendingUser.university_id && isUniversityRole(finalRole)) {
+      if (!pendingUser.university_id && finalRole && isUniversityRole(finalRole)) {
         throw new Error(`Cannot activate with role '${finalRole}' without university assignment.`);
       }
 
@@ -704,7 +712,7 @@ export const initializeUserProfile = mutation({
         username: args.username || pendingUser.username,
         profile_image: args.profile_image,
         account_status: 'active',
-        ...(args.role ? { role: args.role } : {}),
+        ...(finalRole ? { role: finalRole } : {}),
         updated_at: Date.now(),
       });
 
@@ -713,7 +721,8 @@ export const initializeUserProfile = mutation({
     }
 
     // Validate role for new user creation
-    const finalRole = args.role ?? 'user';
+    const requestedRole = args.role ?? 'individual';
+    const finalRole = normalizeLegacyUserRole(requestedRole, undefined) ?? 'individual';
     if (isUniversityRole(finalRole)) {
       throw new Error(`Cannot create user with role '${finalRole}' without university assignment.`);
     }
@@ -734,7 +743,7 @@ export const initializeUserProfile = mutation({
     });
 
     // Send welcome email
-    if (finalRole === 'user' || finalRole === 'individual') {
+    if (finalRole === 'individual') {
       try {
         await ctx.scheduler.runAfter(0, api.email.sendWelcomeEmail, {
           email: args.email,

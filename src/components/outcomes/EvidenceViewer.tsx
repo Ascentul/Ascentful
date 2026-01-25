@@ -49,7 +49,12 @@ export function EvidenceViewer({
   className,
 }: EvidenceViewerProps) {
   const hasEvidence = evidenceFiles.length > 0;
-  const hasVerification = verification?.is_verified !== undefined;
+  const hasVerification =
+    verification != null &&
+    (verification.is_verified !== undefined ||
+      verification.confidence_score !== undefined ||
+      !!verification.verified_by_name ||
+      !!verification.verified_at);
 
   if (!hasEvidence && !hasVerification) {
     return (

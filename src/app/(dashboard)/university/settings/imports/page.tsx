@@ -259,6 +259,7 @@ export default function BatchImportPage() {
       reader.onload = (e) => {
         const text = e.target?.result;
         if (typeof text !== 'string') {
+          setParsedData([]);
           toast({
             title: 'Read Error',
             description: 'Could not read file content.',
@@ -269,6 +270,7 @@ export default function BatchImportPage() {
         const { headers, rows } = parseCSV(text);
 
         if (headers.length === 0) {
+          setParsedData([]);
           toast({
             title: 'Invalid File',
             description: 'Could not parse CSV headers.',
@@ -290,6 +292,7 @@ export default function BatchImportPage() {
   );
 
   const handlePreview = useCallback(() => {
+    const MAX_BATCH_SIZE = 200;
     if (!selectedCohort) {
       toast({
         title: 'Select Cohort',
@@ -302,6 +305,14 @@ export default function BatchImportPage() {
       toast({
         title: 'No Data',
         description: 'Please upload a CSV file first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (parsedData.length > MAX_BATCH_SIZE) {
+      toast({
+        title: 'Too Many Rows',
+        description: `Please split your CSV into batches of ${MAX_BATCH_SIZE} rows or fewer.`,
         variant: 'destructive',
       });
       return;

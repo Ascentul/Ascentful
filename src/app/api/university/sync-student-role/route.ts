@@ -16,9 +16,9 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
  * publicMetadata to maintain consistency (Clerk is the source of truth for auth).
  *
  * Allowed role transitions within university context:
- * - student <-> user (both are regular student roles)
- * - student/user -> advisor (promotion to advisor)
- * - advisor -> student/user (demotion from advisor)
+ * - student -> advisor (promotion to advisor)
+ * - advisor -> student (demotion from advisor)
+ * Legacy role "user" is normalized to "student".
  */
 export async function POST(req: NextRequest) {
   const correlationId = getCorrelationIdFromRequest(req);
@@ -89,9 +89,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const normalizedRole = newRole === 'user' ? 'student' : newRole;
     // Validate newRole is within allowed university roles
-    const allowedRoles = ['student', 'user', 'advisor'];
-    if (!allowedRoles.includes(newRole)) {
+    const allowedRoles = ['student', 'advisor'];
+    if (!allowedRoles.includes(normalizedRole)) {
       log.warn('Invalid role for university context', {
         event: 'validation.failed',
         errorCode: 'BAD_REQUEST',
@@ -206,7 +207,7 @@ export async function POST(req: NextRequest) {
     await client.users.updateUser(studentClerkId, {
       publicMetadata: {
         ...studentClerkUser.publicMetadata,
-        role: newRole,
+        role: normalizedRole,
       },
     });
 
@@ -218,14 +219,14 @@ export async function POST(req: NextRequest) {
       durationMs,
       extra: {
         studentClerkId,
-        newRole,
+        newRole: normalizedRole,
       },
     });
 
     return NextResponse.json(
       {
         success: true,
-        message: `Student role updated to ${newRole} in Clerk`,
+        message: `Student role updated to ${normalizedRole} in Clerk`,
       },
       { headers: { 'x-correlation-id': correlationId } },
     );

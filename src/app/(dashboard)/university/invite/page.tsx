@@ -190,7 +190,7 @@ export default function UniversityInviteStudentsPage() {
         body: JSON.stringify({
           clerkId: clerkUser.id,
           email: manualForm.email.trim(),
-          role: 'user',
+          role: 'student',
         }),
       });
 

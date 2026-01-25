@@ -101,7 +101,7 @@ export default function ActivateAccountPage({ params }: PageProps) {
             setSuccessMessage('Account activated successfully! Redirecting...');
 
             // Redirect based on user role
-            const userRole = userWithToken?.role || data.role || 'user';
+            const userRole = userWithToken?.role || data.role || 'individual';
             setTimeout(() => {
               switch (userRole) {
                 case 'super_admin':

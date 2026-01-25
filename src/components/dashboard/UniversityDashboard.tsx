@@ -135,7 +135,7 @@ export function UniversityDashboard() {
   // Assign student licenses states
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignText, setAssignText] = useState('');
-  const [assignRole, setAssignRole] = useState<'user' | 'advisor'>('user');
+  const [assignRole, setAssignRole] = useState<'student' | 'advisor'>('student');
   const [selectedProgram, setSelectedProgram] = useState<Id<'departments'> | 'none'>('none');
   const [assigning, setAssigning] = useState(false);
   const [importingEmails, setImportingEmails] = useState(false);
@@ -152,7 +152,7 @@ export function UniversityDashboard() {
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    role: 'user',
+    role: 'student',
   });
   const [editOpen, setEditOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -465,7 +465,7 @@ export function UniversityDashboard() {
     departmentId,
   }: {
     emailsText: string;
-    role: 'user' | 'advisor';
+    role: 'student' | 'advisor';
     departmentId?: Id<'departments'>;
   }): Promise<{ success: boolean; successCount: number }> => {
     if (!clerkUser?.id) {
@@ -794,7 +794,7 @@ export function UniversityDashboard() {
     setEditForm({
       name: student.name || '',
       email: student.email || '',
-      role: student.role || 'user',
+      role: student.role === 'user' ? 'student' : student.role || 'student',
     });
     setEditOpen(true);
   };
@@ -804,7 +804,7 @@ export function UniversityDashboard() {
 
     setUpdatingStudent(true);
     try {
-      const newRole = editForm.role as 'student' | 'user' | 'advisor' | undefined;
+      const newRole = editForm.role as 'student' | 'advisor' | undefined;
       const roleChanged = newRole !== undefined && newRole !== editingStudent.role;
 
       const result = await updateStudentMutation({
@@ -2411,9 +2411,9 @@ export function UniversityDashboard() {
                         <Label className="text-sm">Default role for invited students:</Label>
                         <div className="flex gap-2">
                           <Button
-                            variant={assignRole === 'user' ? 'default' : 'outline'}
+                            variant={assignRole === 'student' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setAssignRole('user')}
+                            onClick={() => setAssignRole('student')}
                           >
                             Student
                           </Button>
@@ -3171,7 +3171,8 @@ export function UniversityDashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Student</SelectItem>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="user">Student (legacy)</SelectItem>
                   <SelectItem value="advisor">Advisor / Staff</SelectItem>
                 </SelectContent>
               </Select>
@@ -3293,9 +3294,9 @@ export function UniversityDashboard() {
               <Label className="text-sm">Assign role:</Label>
               <div className="flex gap-2">
                 <Button
-                  variant={assignRole === 'user' ? 'default' : 'outline'}
+                  variant={assignRole === 'student' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAssignRole('user')}
+                  onClick={() => setAssignRole('student')}
                 >
                   Student
                 </Button>
