@@ -323,6 +323,13 @@ export const deleteDefinition = mutation({
 
     assertUniversityAccess(user, definition.university_id);
 
+    // Prevent deleting default definition
+    if (definition.is_default) {
+      throw new Error(
+        'Cannot delete the default definition. Set another definition as default first.',
+      );
+    }
+
     // Check if any signal rules reference this definition
     const referencingRules = await ctx.db
       .query('signal_rules')

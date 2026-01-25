@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeLegacyUserRole } from './lib/roleValidation';
+import { computeUniversityOverviewMetrics } from './university_overview_cache';
 
 function requireAdmin(user: any, options?: { allowMissingUniversity?: boolean }) {
   const isAdmin = ['super_admin', 'university_admin', 'advisor'].includes(user.role);
@@ -54,92 +55,38 @@ export const getOverview = query({
       };
     }
 
-    // OPTIMIZED: Add limits to prevent bandwidth issues
-    const [students, departments, courses] = await Promise.all([
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(2000), // Limit students to 2000 max
-      ctx.db
-        .query('departments')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(100), // Limit departments to 100 max
-      ctx.db
-        .query('courses')
-        .withIndex('by_university', (q: any) => q.eq('university_id', uniId))
-        .take(500), // Limit courses to 500 max
-    ]);
+    const cachedOverview = await ctx.db
+      .query('university_overview_metrics')
+      .withIndex('by_university', (q) => q.eq('university_id', uniId))
+      .unique();
 
-    // Filter to count only actual students (exclude university_admin)
-    // Include both legacy 'user' role and current 'student' role
-    const actualStudents = students.filter((s: any) => s.role === 'user' || s.role === 'student');
-
-    // Calculate time-based metrics
-    const now = Date.now();
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-
-    // Active students (activity within 30 days)
-    const activeStudents = actualStudents.filter(
-      (s: any) => s.last_active && s.last_active > thirtyDaysAgo,
-    ).length;
-
-    // New students this month
-    const thisMonthStart = new Date();
-    thisMonthStart.setDate(1);
-    thisMonthStart.setHours(0, 0, 0, 0);
-    const newStudentsThisMonth = actualStudents.filter(
-      (s: any) => s.created_at && s.created_at >= thisMonthStart.getTime(),
-    ).length;
-
-    // Calculate growth from last month
-    const lastMonthStart = new Date();
-    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-    lastMonthStart.setDate(1);
-    const lastMonthEnd = new Date();
-    lastMonthEnd.setDate(0); // Last day of previous month
-
-    const studentsLastMonth = actualStudents.filter(
-      (s: any) => s.created_at <= lastMonthEnd.getTime(),
-    ).length;
-
-    const studentGrowth =
-      studentsLastMonth > 0
-        ? ((actualStudents.length - studentsLastMonth) / studentsLastMonth) * 100
-        : 0;
-
-    // Department distribution for charts (computed server-side for accuracy)
-    const departmentDistribution = departments.map((dept: any) => {
-      const deptStudents = actualStudents.filter((s: any) => s.department_id === dept._id);
+    if (cachedOverview) {
       return {
-        id: dept._id,
-        name: dept.name,
-        count: deptStudents.length,
-        percentage:
-          actualStudents.length > 0
-            ? Math.round((deptStudents.length / actualStudents.length) * 100)
-            : 0,
+        totalStudents: cachedOverview.total_students,
+        activeLicenses: cachedOverview.active_licenses,
+        licenseCapacity: cachedOverview.license_capacity,
+        departments: cachedOverview.departments,
+        totalCourses: cachedOverview.total_courses,
+        studentGrowthPercent: cachedOverview.student_growth_percent,
+        activeStudents: cachedOverview.active_students,
+        newStudentsThisMonth: cachedOverview.new_students_this_month,
+        departmentDistribution: cachedOverview.department_distribution,
+        unassignedStudents: cachedOverview.unassigned_students,
       };
-    });
+    }
 
-    // Add unassigned students count
-    const unassignedCount = actualStudents.filter((s: any) => !s.department_id).length;
-
-    // Use university license seats if available
-    const uni = (await ctx.db.get(uniId as Id<'universities'>)) as Doc<'universities'> | null;
-    const licenseCapacity = (uni?.license_seats as number | undefined) ?? actualStudents.length;
-
+    const metrics = await computeUniversityOverviewMetrics(ctx, uniId);
     return {
-      totalStudents: actualStudents.length,
-      activeLicenses: actualStudents.length,
-      licenseCapacity,
-      departments: departments.length,
-      totalCourses: courses.length,
-      studentGrowthPercent: Math.round(studentGrowth * 10) / 10, // Round to 1 decimal
-      // New aggregate metrics for dashboard KPIs
-      activeStudents,
-      newStudentsThisMonth,
-      departmentDistribution,
-      unassignedStudents: unassignedCount,
+      totalStudents: metrics.total_students,
+      activeLicenses: metrics.active_licenses,
+      licenseCapacity: metrics.license_capacity,
+      departments: metrics.departments,
+      totalCourses: metrics.total_courses,
+      studentGrowthPercent: metrics.student_growth_percent,
+      activeStudents: metrics.active_students,
+      newStudentsThisMonth: metrics.new_students_this_month,
+      departmentDistribution: metrics.department_distribution,
+      unassignedStudents: metrics.unassigned_students,
     };
   },
 });

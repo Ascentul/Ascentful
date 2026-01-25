@@ -9,6 +9,14 @@ Use `npm run dev` for local development, `npm run build` to compile the Next.js 
 ## Coding Style & Naming Conventions
 Follow the default Next.js + ESLint rules: 2-space indentation, single quotes, and trailing commas. Write React components in PascalCase, hooks prefixed with `use`, and utilities in camelCase. Prefer Tailwind utility classes inline; reserve `src/styles` for global styles. Reuse `zod` validators from `src/utils` and colocate Convex modules beside their schemas.
 
+## Data Access & Scalability Guidelines
+- Gate Convex `useQuery` calls on auth readiness + access checks; render an auth-loading state before unauthorized UI.
+- Prefer index-backed filters/orderings (e.g., `by_university_created_at`, `by_institution_date`) and avoid implicit `_creationTime` ordering.
+- Use deterministic ordering for continuation/iteration flows (e.g., sort by `_id`) to prevent skipping or reprocessing.
+- Avoid cross-tenant scans for dashboard KPIs; use cached aggregate tables updated by cron jobs with exact counts.
+- For prediction analytics, read from cached tables; only fall back to on-demand computation when cache is missing.
+- Keep role semantics consistent: do not create new `role: 'user'`; normalize legacy `user` to `student` (with university) or `individual` (without).
+
 ## Testing Guidelines
 Tests rely on Jest with `@testing-library/react`. Mirror feature paths under `src/__tests__/*.test.tsx` for UI and `*.test.ts` for helpers. Keep suites deterministic, seed mocks via `__mocks__/`, and ensure new behavior ships with assertions. Run `npm run test` locally before submitting; add coverage checks when logic expands.
 

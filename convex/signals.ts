@@ -1748,8 +1748,15 @@ async function evaluateRuleCondition(
       // Check application outcomes - many rejections, no offers (use prefetched data)
       const rejectionsMin = (condition.rejections_min as number) ?? 5;
       const offersMax = (condition.offers as number) ?? 0;
+      const applicationsMin =
+        typeof condition.applications === 'number' ? condition.applications : undefined;
 
       const applications = studentApplications;
+
+      // Check minimum applications threshold if configured
+      if (applicationsMin !== undefined && applications.length < applicationsMin) {
+        return { triggered: false };
+      }
 
       const rejections = applications.filter(
         (app) => normalizeStage(app.stage ?? app.status) === 'rejected',
@@ -1766,6 +1773,7 @@ async function evaluateRuleCondition(
             offerCount: offers,
             rejectionsThreshold: rejectionsMin,
             totalApplications: applications.length,
+            applicationsThreshold: applicationsMin ?? null,
           },
         };
       }

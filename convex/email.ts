@@ -528,7 +528,6 @@ The Ascentul Team`;
     const safeSignalTitle = escapeHtml(args.signalTitle);
     const safeSignalType = escapeHtml(args.signalType);
     const safeSignalDescription = args.signalDescription ? escapeHtml(args.signalDescription) : '';
-    const safeQueueUrl = escapeHtml(validatedQueueUrl);
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -579,7 +578,7 @@ The Ascentul Team`;
         </table>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${safeQueueUrl}"
+          <a href="${validatedQueueUrl}"
              style="background-color: #0C29AB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
             View Signal Queue
           </a>

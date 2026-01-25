@@ -535,7 +535,8 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="individual">Individual</SelectItem>
+                  <SelectItem value="user">User (legacy)</SelectItem>
                   <SelectItem value="student">Student</SelectItem>
                   <SelectItem value="staff">Staff</SelectItem>
                   <SelectItem value="university_admin">University Admin</SelectItem>
@@ -850,7 +851,7 @@ export default function AdminUsersPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="individual">Individual</SelectItem>
                           <SelectItem value="student">Student</SelectItem>
                           <SelectItem value="staff">Staff</SelectItem>
                           <SelectItem value="university_admin">University Admin</SelectItem>

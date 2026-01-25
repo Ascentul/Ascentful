@@ -348,6 +348,29 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_admin_email', ['admin_email']),
 
+  // University overview metrics cache (nightly refresh for dashboard KPIs)
+  university_overview_metrics: defineTable({
+    university_id: v.id('universities'),
+    computed_at: v.number(),
+    total_students: v.number(),
+    active_students: v.number(),
+    new_students_this_month: v.number(),
+    student_growth_percent: v.number(),
+    departments: v.number(),
+    total_courses: v.number(),
+    license_capacity: v.number(),
+    active_licenses: v.number(),
+    unassigned_students: v.number(),
+    department_distribution: v.array(
+      v.object({
+        id: v.id('departments'),
+        name: v.string(),
+        count: v.number(),
+        percentage: v.number(),
+      }),
+    ),
+  }).index('by_university', ['university_id']),
+
   // University departments
   departments: defineTable({
     university_id: v.id('universities'),
@@ -3072,6 +3095,62 @@ export default defineSchema({
   })
     .index('by_university', ['university_id'])
     .index('by_university_active', ['university_id', 'is_active']),
+
+  // Engagement prediction cache (nightly precompute for analytics)
+  engagement_prediction_cache: defineTable({
+    university_id: v.id('universities'),
+    student_id: v.id('users'),
+    student_name: v.string(),
+    student_email: v.optional(v.string()),
+    current_status: v.union(v.literal('engaged'), v.literal('moderate'), v.literal('at_risk')),
+    predicted_status: v.union(v.literal('engaged'), v.literal('moderate'), v.literal('at_risk')),
+    confidence: v.number(),
+    risk_score: v.number(),
+    predicted_days_to_risk: v.optional(v.number()),
+    factors: v.array(
+      v.object({
+        factor: v.string(),
+        impact: v.union(v.literal('positive'), v.literal('negative'), v.literal('neutral')),
+        weight: v.number(),
+        description: v.string(),
+      }),
+    ),
+    recommendations: v.array(v.string()),
+    computed_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_university_risk', ['university_id', 'risk_score'])
+    .index('by_university_status', ['university_id', 'predicted_status'])
+    .index('by_university_predicted_days', ['university_id', 'predicted_days_to_risk'])
+    .index('by_student', ['student_id']),
+
+  // Engagement prediction summary cache (drives dashboard cards and forecasts)
+  engagement_prediction_summary: defineTable({
+    university_id: v.id('universities'),
+    computed_at: v.number(),
+    total: v.number(),
+    engaged: v.number(),
+    moderate: v.number(),
+    at_risk: v.number(),
+    avg_risk_score: v.number(),
+    forecast: v.array(
+      v.object({
+        week: v.number(),
+        engaged: v.number(),
+        moderate: v.number(),
+        at_risk: v.number(),
+      }),
+    ),
+    current_total: v.number(),
+    high_risk_students: v.array(
+      v.object({
+        id: v.id('users'),
+        name: v.string(),
+        risk_score: v.number(),
+        predicted_days_to_risk: v.optional(v.number()),
+      }),
+    ),
+  }).index('by_university', ['university_id']),
 
   // Signal rules - conditions that trigger advisor action signals
   signal_rules: defineTable({

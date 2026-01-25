@@ -178,4 +178,35 @@ crons.interval(
   {},
 );
 
+/**
+ * Refresh engagement prediction cache for analytics dashboards.
+ *
+ * Runs nightly to precompute student-level predictions and summary metrics.
+ * Schedule: Daily at 3:45 AM UTC.
+ */
+crons.daily(
+  'refresh engagement prediction cache',
+  { hourUTC: 3, minuteUTC: 45 },
+  internal.engagement_prediction.refreshEngagementPredictionCacheJob,
+  {},
+);
+
+// ============================================================================
+// UNIVERSITY OVERVIEW METRICS CACHE
+// ============================================================================
+
+/**
+ * Refresh university overview metrics for dashboard KPIs.
+ *
+ * Runs nightly to keep counts exact without per-request scans.
+ * Schedule: Daily at 3:15 AM UTC.
+ */
+crons.daily(
+  'refresh university overview metrics',
+  { hourUTC: 3, minuteUTC: 15 },
+  // @ts-expect-error - Module reference valid after `npx convex dev` regenerates types
+  internal.university_overview_cache.refreshUniversityOverviewMetricsJob,
+  {},
+);
+
 export default crons;

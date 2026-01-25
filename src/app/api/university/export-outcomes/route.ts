@@ -11,12 +11,12 @@ import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@
 export const dynamic = 'force-dynamic';
 
 /**
- * Validates that a string looks like a valid Convex ID.
- * Convex IDs use Crockford's Base32 encoding: digits 0-9 plus
- * lowercase letters a-z excluding i, l, o, u.
+ * Basic validation that a value looks like it could be a Convex ID.
+ * Only checks for non-empty string - actual ID validation is handled
+ * by Convex when the query runs (IDs are opaque identifiers).
  */
 function isValidConvexId(id: unknown): id is string {
-  return typeof id === 'string' && id.length > 0 && /^[0-9a-hj-km-np-tv-z]+$/.test(id);
+  return typeof id === 'string' && id.length > 0;
 }
 
 interface ExportFilters {

@@ -73,7 +73,7 @@ const FORMULA_CHARS = ['=', '+', '-', '@', '|'];
  * Security features:
  * - Quotes fields containing commas, quotes, newlines, or carriage returns
  * - Escapes embedded quotes by doubling them
- * - Prefixes formula-starting cells with a tab to prevent Excel formula injection
+ * - Prefixes formula-starting cells with a single quote to prevent Excel formula injection
  *
  * @param field - The cell value to escape (undefined/null return empty string)
  * @returns The escaped CSV cell value

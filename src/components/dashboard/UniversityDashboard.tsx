@@ -1368,16 +1368,23 @@ export function UniversityDashboard() {
                           label={({ value }) => `${value}%`}
                           labelLine={true}
                         >
-                          {departmentDistributionData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={
-                                ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444'][
-                                  index % 6
-                                ]
-                              }
-                            />
-                          ))}
+                          {departmentDistributionData.map(
+                            (entry: { name: string; value: number }, index: number) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  [
+                                    '#4F46E5',
+                                    '#10B981',
+                                    '#F59E0B',
+                                    '#EC4899',
+                                    '#8B5CF6',
+                                    '#EF4444',
+                                  ][index % 6]
+                                }
+                              />
+                            ),
+                          )}
                         </Pie>
                         <Tooltip
                           formatter={(value, name, props) => [

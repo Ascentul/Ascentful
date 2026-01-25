@@ -491,8 +491,8 @@ export default function BatchImportPage() {
             <div className="space-y-2">
               <Label>Select Cohort *</Label>
               <Select
-                value={selectedCohort || ''}
-                onValueChange={(v) => setSelectedCohort(v as Id<'graduation_cohorts'>)}
+                value={selectedCohort ?? undefined}
+                onValueChange={(v) => setSelectedCohort(v ? (v as Id<'graduation_cohorts'>) : null)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a graduation cohort..." />

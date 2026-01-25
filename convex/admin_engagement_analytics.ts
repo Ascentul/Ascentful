@@ -19,6 +19,7 @@ async function getUniversityStudentEngagementStats(
   engagedCount: number;
   atRiskCount: number;
   totalScore: number;
+  scoredCount: number;
 }> {
   const students = await ctx.db
     .query('users')
@@ -30,10 +31,12 @@ async function getUniversityStudentEngagementStats(
   let engagedCount = 0;
   let atRiskCount = 0;
   let totalScore = 0;
+  let scoredCount = 0;
 
   // Use cached engagement data when available.
   for (const student of students) {
     if (student.engagement_status) {
+      scoredCount++;
       if (student.engagement_status === 'engaged') {
         engagedCount++;
       } else if (student.engagement_status === 'at_risk') {
@@ -48,6 +51,7 @@ async function getUniversityStudentEngagementStats(
     engagedCount,
     atRiskCount,
     totalScore,
+    scoredCount,
   };
 }
 
@@ -98,7 +102,7 @@ export const getCrossUniversityEngagement = query({
     }> = [];
 
     for (const university of universities) {
-      const { totalStudents, engagedCount, atRiskCount, totalScore } =
+      const { totalStudents, engagedCount, atRiskCount, totalScore, scoredCount } =
         await getUniversityStudentEngagementStats(ctx, university._id);
 
       // Get active signals count
@@ -109,8 +113,8 @@ export const getCrossUniversityEngagement = query({
         )
         .collect();
 
-      // Use total student count for percentage calculations (no sampling needed with cached scores)
-      const processedCount = totalStudents;
+      // Use scoredCount for averages to avoid bias from students without cached engagement data
+      const processedCount = scoredCount > 0 ? scoredCount : totalStudents;
       universityMetrics.push({
         universityId: university._id,
         universityName: university.name,
@@ -276,11 +280,12 @@ export const getUniversityEngagementRanking = query({
     }> = [];
 
     for (const university of universities) {
-      const { totalStudents, engagedCount, atRiskCount, totalScore } =
+      const { totalStudents, engagedCount, atRiskCount, totalScore, scoredCount } =
         await getUniversityStudentEngagementStats(ctx, university._id);
       if (totalStudents === 0) continue;
 
-      const processedCount = totalStudents;
+      // Use scoredCount for averages to avoid bias from students without cached engagement data
+      const processedCount = scoredCount > 0 ? scoredCount : totalStudents;
       rankings.push({
         rank: 0, // Will be set after sorting
         universityId: university._id,
