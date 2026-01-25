@@ -76,6 +76,11 @@ export const backfillUniversity = internalMutation({
       .collect();
     const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
 
+    // Skip if university has no engagement definition configured
+    if (!definition) {
+      return { updated: 0, hasMore: false };
+    }
+
     // Get students without cached engagement
     const students = await ctx.db
       .query('users')
@@ -199,6 +204,12 @@ export const backfillAllStudents = internalMutation({
         )
         .collect();
       const definition = definitions.find((d) => d.is_default) || definitions[0] || null;
+
+      // Skip universities without engagement definitions configured
+      if (!definition) {
+        universitiesProcessed++;
+        continue;
+      }
 
       // Get students without cached engagement (up to 50)
       const students = await ctx.db

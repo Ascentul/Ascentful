@@ -77,7 +77,12 @@ export async function POST(req: NextRequest) {
     }
     const { studentClerkId, universityId } = body;
 
-    if (!studentClerkId?.trim() || !universityId?.trim()) {
+    if (
+      typeof studentClerkId !== 'string' ||
+      typeof universityId !== 'string' ||
+      !studentClerkId.trim() ||
+      !universityId.trim()
+    ) {
       log.warn('Missing required fields', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
       return NextResponse.json(
         { error: 'Missing studentClerkId or universityId' },
@@ -187,7 +192,8 @@ export async function POST(req: NextRequest) {
     const durationMs = Date.now() - startTime;
     log.info('Student Clerk metadata updated for removal', {
       event: 'university.student_removed_clerk_synced',
-      clerkId: userId,
+      adminClerkId: userId,
+      studentClerkId,
       httpStatus: 200,
       durationMs,
     });

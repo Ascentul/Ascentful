@@ -175,6 +175,22 @@ export async function POST(req: NextRequest) {
     const studentCurrentUniversityId = studentClerkUser.publicMetadata?.university_id as
       | string
       | undefined;
+    const studentCurrentRole = studentClerkUser.publicMetadata?.role as string | undefined;
+
+    // Only allow modifying users with roles in the allowed set (prevents privilege escalation)
+    const modifiableRoles = ['student', 'user', 'advisor'];
+    if (!studentCurrentRole || !modifiableRoles.includes(studentCurrentRole)) {
+      log.warn('Cannot modify role of privileged user', {
+        event: 'auth.forbidden',
+        errorCode: 'FORBIDDEN',
+        currentRole: studentCurrentRole,
+      });
+      return NextResponse.json(
+        { error: 'Cannot modify role of this user type' },
+        { status: 403, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     if (!studentCurrentUniversityId || studentCurrentUniversityId !== universityId) {
       log.warn('Student does not belong to this university', {
         event: 'auth.forbidden',

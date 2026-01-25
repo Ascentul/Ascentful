@@ -129,15 +129,15 @@ export const DEFAULT_QUALIFYING_EVENTS = [
 ] as const satisfies readonly EventType[];
 
 interface EventTypeSelectorProps {
-  selectedEvents: string[];
-  onChange: (events: string[]) => void;
+  selectedEvents: EventType[];
+  onChange: (events: EventType[]) => void;
   className?: string;
 }
 
 export function EventTypeSelector({ selectedEvents, onChange, className }: EventTypeSelectorProps) {
   const allEventTypes = useMemo(() => getAllEventTypes(), []);
 
-  const handleToggle = (eventType: string) => {
+  const handleToggle = (eventType: EventType) => {
     if (selectedEvents.includes(eventType)) {
       onChange(selectedEvents.filter((e) => e !== eventType));
     } else {

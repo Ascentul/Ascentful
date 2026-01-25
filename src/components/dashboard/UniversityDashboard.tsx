@@ -135,7 +135,7 @@ export function UniversityDashboard() {
   // Assign student licenses states
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignText, setAssignText] = useState('');
-  const [assignRole, setAssignRole] = useState<'user' | 'staff'>('user');
+  const [assignRole, setAssignRole] = useState<'user' | 'advisor'>('user');
   const [selectedProgram, setSelectedProgram] = useState<Id<'departments'> | 'none'>('none');
   const [assigning, setAssigning] = useState(false);
   const [importingEmails, setImportingEmails] = useState(false);
@@ -465,7 +465,7 @@ export function UniversityDashboard() {
     departmentId,
   }: {
     emailsText: string;
-    role: 'user' | 'staff';
+    role: 'user' | 'advisor';
     departmentId?: Id<'departments'>;
   }): Promise<{ success: boolean; successCount: number }> => {
     if (!clerkUser?.id) {
@@ -1255,8 +1255,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -1670,8 +1670,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -2412,9 +2412,9 @@ export function UniversityDashboard() {
                             Student
                           </Button>
                           <Button
-                            variant={assignRole === 'staff' ? 'default' : 'outline'}
+                            variant={assignRole === 'advisor' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setAssignRole('staff')}
+                            onClick={() => setAssignRole('advisor')}
                           >
                             Advisor / Staff
                           </Button>
@@ -3294,9 +3294,9 @@ export function UniversityDashboard() {
                   Student
                 </Button>
                 <Button
-                  variant={assignRole === 'staff' ? 'default' : 'outline'}
+                  variant={assignRole === 'advisor' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAssignRole('staff')}
+                  onClick={() => setAssignRole('advisor')}
                 >
                   Advisor / Staff
                 </Button>

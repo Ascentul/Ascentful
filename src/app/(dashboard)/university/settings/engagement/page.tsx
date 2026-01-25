@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 
 import {
   DEFAULT_QUALIFYING_EVENTS,
+  EventType,
   EventTypeBadges,
   EventTypeSelector,
 } from '@/components/settings/EventTypeSelector';
@@ -45,7 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CriteriaFormData {
   // New engagement criteria fields
-  qualifying_event_types: string[];
+  qualifying_event_types: EventType[];
   period_days: number;
   min_events_in_period: number;
   // Legacy fields (still supported)

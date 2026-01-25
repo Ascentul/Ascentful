@@ -71,9 +71,13 @@ export async function POST(req: NextRequest) {
         },
       );
     }
-    const { studentEmail, universityId } = body;
+    const { studentEmail: rawEmail, universityId: rawUniversityId } = body;
 
-    if (!studentEmail?.trim() || !universityId?.trim()) {
+    // Normalize and validate inputs
+    const studentEmail = typeof rawEmail === 'string' ? rawEmail.trim() : '';
+    const universityId = typeof rawUniversityId === 'string' ? rawUniversityId.trim() : '';
+
+    if (!studentEmail || !universityId) {
       log.warn('Missing required fields', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
       return NextResponse.json(
         { error: 'Missing studentEmail or universityId' },

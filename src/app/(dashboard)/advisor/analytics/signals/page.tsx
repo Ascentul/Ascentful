@@ -466,7 +466,7 @@ export default function SignalAnalyticsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ruleEffectiveness?.map((rule) => (
+                    {ruleEffectiveness.map((rule) => (
                       <TableRow key={rule.ruleId}>
                         <TableCell className="font-medium">{rule.name}</TableCell>
                         <TableCell>
