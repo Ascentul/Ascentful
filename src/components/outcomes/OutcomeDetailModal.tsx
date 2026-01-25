@@ -55,7 +55,7 @@ interface OutcomeDetailModalProps {
 }
 
 const OUTCOME_STATUS_LABELS: Record<
-  string,
+  OutcomeRecord['outcome_status'],
   { label: string; variant: 'default' | 'secondary' | 'outline' }
 > = {
   known: { label: 'Known', variant: 'default' },
@@ -63,7 +63,7 @@ const OUTCOME_STATUS_LABELS: Record<
   unknown: { label: 'Unknown', variant: 'outline' },
 };
 
-const OUTCOME_TYPE_LABELS: Record<string, string> = {
+const OUTCOME_TYPE_LABELS: Record<NonNullable<OutcomeRecord['outcome_type']>, string> = {
   employed_fulltime: 'Employed Full-time',
   employed_parttime: 'Employed Part-time',
   continuing_education: 'Continuing Education',

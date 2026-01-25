@@ -46,7 +46,7 @@ import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
 
 const OUTCOME_STATUS_CONFIG: Record<
-  string,
+  OutcomeRecord['outcome_status'],
   { label: string; variant: 'default' | 'secondary' | 'outline' }
 > = {
   known: { label: 'Known', variant: 'default' },
@@ -54,7 +54,7 @@ const OUTCOME_STATUS_CONFIG: Record<
   unknown: { label: 'Unknown', variant: 'outline' },
 };
 
-const OUTCOME_TYPE_LABELS: Record<string, string> = {
+const OUTCOME_TYPE_LABELS: Record<NonNullable<OutcomeRecord['outcome_type']>, string> = {
   employed_fulltime: 'Full-time',
   employed_parttime: 'Part-time',
   continuing_education: 'Cont. Ed.',
