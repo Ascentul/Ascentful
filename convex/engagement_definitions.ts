@@ -427,8 +427,8 @@ function calculateEngagementScore(
       daysSinceLastActivity,
     },
     {
-      minEventsInPeriod: criteria.min_events_in_period || 3,
-      periodDays: criteria.period_days || 14,
+      minEventsInPeriod: criteria.min_events_in_period ?? 3,
+      periodDays: criteria.period_days ?? 14,
     },
   );
 }
@@ -447,7 +447,7 @@ async function getQualifyingEvents(
   lastEventAt: number | null;
 }> {
   const now = Date.now();
-  const periodDays = criteria.period_days || 14;
+  const periodDays = criteria.period_days ?? 14;
   const cutoffTime = now - periodDays * 24 * 60 * 60 * 1000;
 
   // Get all events for the student in the period
@@ -615,7 +615,7 @@ export const evaluateStudentEngagement = query({
       last_qualifying_event: lastEventAt,
       days_since_activity: daysSinceActivity,
       unique_active_days: uniqueDays,
-      period_days: criteria.period_days || 14,
+      period_days: criteria.period_days ?? 14,
       definition_id: definition._id,
       definition_name: definition.name,
     };
@@ -730,6 +730,20 @@ export const getEngagementAnalytics = query({
       programId?: string;
     }> = [];
 
+    // Build student→cohort map if grouping by cohort
+    let cohortByStudent = new Map<string, string>();
+    if (args.groupBy === 'cohort') {
+      const outcomes = await ctx.db
+        .query('graduate_outcomes')
+        .withIndex('by_institution', (q) => q.eq('institution_id', args.universityId))
+        .collect();
+      for (const o of outcomes) {
+        if (o.student_id) {
+          cohortByStudent.set(o.student_id.toString(), o.cohort_id.toString());
+        }
+      }
+    }
+
     for (const student of students) {
       // Use cached engagement status/score if available and fresh (< 24 hours old)
       const cacheAge = student.engagement_calculated_at
@@ -746,7 +760,7 @@ export const getEngagementAnalytics = query({
           studentId: student._id,
           status: cachedStatus,
           score: student.engagement_score,
-          cohortId: undefined,
+          cohortId: cohortByStudent.get(student._id.toString()),
           programId: student.department_id?.toString(),
         });
       } else {
@@ -768,7 +782,7 @@ export const getEngagementAnalytics = query({
           studentId: student._id,
           status,
           score,
-          cohortId: undefined,
+          cohortId: cohortByStudent.get(student._id.toString()),
           programId: student.department_id?.toString(),
         });
       }

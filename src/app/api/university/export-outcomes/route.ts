@@ -162,7 +162,9 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // For snapshot export, we need to re-fetch the outcomes with the snapshot's filters
+        // For snapshot export, re-fetch outcomes with the snapshot's filters
+        // Use live analytics.summary for consistency with live outcomes data
+        // (snapshot.metrics is point-in-time and may be stale)
         const analytics = await convexServer.query(
           api.graduation_outcomes.getOutcomesAnalytics,
           {
@@ -177,7 +179,7 @@ export async function POST(request: NextRequest) {
 
         outcomeData = {
           outcomes: analytics.outcomes,
-          summary: snapshot.metrics,
+          summary: analytics.summary,
         };
       } catch (error) {
         log.error('Error fetching snapshot', toErrorCode(error), { event: 'data.fetch_failed' });

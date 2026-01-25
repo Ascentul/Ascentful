@@ -100,12 +100,23 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         // Wait for service worker to be ready before sending message
         // Send base64 string (not ArrayBuffer) so SW can use it for pushsubscriptionchange
         await navigator.serviceWorker.ready;
-        const activeWorker = reg.active || reg.waiting || reg.installing;
-        if (activeWorker) {
-          activeWorker.postMessage({
+        if (reg.active) {
+          reg.active.postMessage({
             type: 'SET_VAPID_KEY',
             key: vapidPublicKey,
           });
+        } else {
+          // Wait for the worker to activate before posting
+          navigator.serviceWorker.addEventListener(
+            'controllerchange',
+            () => {
+              navigator.serviceWorker.controller?.postMessage({
+                type: 'SET_VAPID_KEY',
+                key: vapidPublicKey,
+              });
+            },
+            { once: true },
+          );
         }
 
         // Check current permission
@@ -288,13 +299,13 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
   // Sync subscription state with Convex (skip briefly after local mutations to prevent flicker)
   useEffect(() => {
-    if (hasActiveSubscription !== undefined && !skipServerSyncRef.current) {
+    if (hasActiveSubscription !== undefined && !skipServerSyncRef.current && !state.isLoading) {
       setState((prev) => ({
         ...prev,
         isSubscribed: hasActiveSubscription,
       }));
     }
-  }, [hasActiveSubscription]);
+  }, [hasActiveSubscription, state.isLoading]);
 
   return {
     ...state,

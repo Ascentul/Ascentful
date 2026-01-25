@@ -1664,23 +1664,26 @@ export const getOutcomesAnalytics = query({
       continuing_ed_rate: number;
     } => {
       const total = outcomesList.length;
-      const known = outcomesList.filter((o) => o.outcome_status === 'known').length;
+      // Filter to known outcomes for type counts - unknown/partial may have stale outcome_type
+      const knownOutcomes = outcomesList.filter((o) => o.outcome_status === 'known');
+      const known = knownOutcomes.length;
       const unknown = outcomesList.filter((o) => o.outcome_status === 'unknown').length;
       const partial = outcomesList.filter((o) => o.outcome_status === 'partial').length;
 
-      const employed_fulltime = outcomesList.filter(
+      // Count outcome types from known outcomes only (aligns with finalizeCohort logic)
+      const employed_fulltime = knownOutcomes.filter(
         (o) => o.outcome_type === 'employed_fulltime',
       ).length;
-      const employed_parttime = outcomesList.filter(
+      const employed_parttime = knownOutcomes.filter(
         (o) => o.outcome_type === 'employed_parttime',
       ).length;
-      const continuing_education = outcomesList.filter(
+      const continuing_education = knownOutcomes.filter(
         (o) => o.outcome_type === 'continuing_education',
       ).length;
-      const military = outcomesList.filter((o) => o.outcome_type === 'military').length;
-      const volunteer = outcomesList.filter((o) => o.outcome_type === 'volunteer').length;
-      const seeking = outcomesList.filter((o) => o.outcome_type === 'seeking').length;
-      const not_seeking = outcomesList.filter((o) => o.outcome_type === 'not_seeking').length;
+      const military = knownOutcomes.filter((o) => o.outcome_type === 'military').length;
+      const volunteer = knownOutcomes.filter((o) => o.outcome_type === 'volunteer').length;
+      const seeking = knownOutcomes.filter((o) => o.outcome_type === 'seeking').length;
+      const not_seeking = knownOutcomes.filter((o) => o.outcome_type === 'not_seeking').length;
 
       const knowledge_rate = total > 0 ? Math.round((known / total) * 1000) / 10 : 0;
       const employment_rate =

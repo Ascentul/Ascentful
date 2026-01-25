@@ -130,8 +130,9 @@ export const createContact = mutation({
         entityType: 'contact',
         entityId: id,
         metadata: {
-          name: args.name,
-          company: args.company,
+          // Note: Contact name is third-party PII - only log presence, not value
+          hasName: !!args.name,
+          hasCompany: !!args.company,
           relationship: args.relationship,
         },
       });

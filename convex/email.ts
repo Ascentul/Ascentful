@@ -492,20 +492,21 @@ export const sendUrgentSignalNotificationEmail = action({
     const priorityEmoji = args.signalPriority === 'urgent' ? '🚨' : '⚠️';
     const priorityLabelRaw =
       args.signalPriority.charAt(0).toUpperCase() + args.signalPriority.slice(1);
-    const priorityLabel = escapeHtml(priorityLabelRaw);
 
     // Sanitize user-provided content to prevent email header injection
     const safeSubjectTitle = sanitizeSubject(args.signalTitle);
     const safeSubjectName = sanitizeSubject(args.studentName);
-    const subject = `${priorityEmoji} ${priorityLabel} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
+    // Use raw priorityLabel in subject - it's plain text context
+    const subject = `${priorityEmoji} ${priorityLabelRaw} Signal: ${safeSubjectTitle} - ${safeSubjectName}`;
 
+    // Use raw values in plain text body (no HTML escaping needed)
     const text = `Hello ${args.advisorName},
 
 A ${args.signalPriority} priority signal has been triggered for one of your students.
 
 Student: ${args.studentName}
 Signal: ${args.signalTitle}
-Priority: ${priorityLabel}
+Priority: ${priorityLabelRaw}
 Type: ${args.signalType}
 ${args.signalDescription ? `\nDescription: ${args.signalDescription}` : ''}
 
@@ -515,7 +516,8 @@ ${validatedQueueUrl}
 Best regards,
 The Ascentul Team`;
 
-    // Escape user-provided content for defense-in-depth
+    // Escape user-provided content for HTML context (defense-in-depth)
+    const priorityLabel = escapeHtml(priorityLabelRaw);
     const safeAdvisorName = escapeHtml(args.advisorName);
     const safeStudentName = escapeHtml(args.studentName);
     const safeSignalTitle = escapeHtml(args.signalTitle);

@@ -49,7 +49,7 @@ async function calculateStudentEngagement(
   };
 
   const now = Date.now();
-  const periodDays = criteria.period_days || 14;
+  const periodDays = criteria.period_days ?? 14;
   const cutoffTime = now - periodDays * 24 * 60 * 60 * 1000;
 
   // Get qualifying events for the student
@@ -93,7 +93,7 @@ async function calculateStudentEngagement(
       daysSinceLastActivity,
     },
     {
-      minEventsInPeriod: criteria.min_events_in_period || 3,
+      minEventsInPeriod: criteria.min_events_in_period ?? 3,
       periodDays,
     },
   );

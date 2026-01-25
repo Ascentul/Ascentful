@@ -96,6 +96,12 @@ export const subscribe = mutation({
 
 /**
  * Unsubscribe from push notifications
+ *
+ * Returns:
+ * - { success: true } - Subscription was successfully deactivated
+ * - { success: false, reason: 'not_found' } - No subscription with this endpoint exists
+ * - { success: false, reason: 'not_owned' } - Subscription belongs to another user
+ * - { success: false, reason: 'already_inactive' } - Subscription was already inactive
  */
 export const unsubscribe = mutation({
   args: {
@@ -110,13 +116,22 @@ export const unsubscribe = mutation({
       .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
       .first();
 
-    // Only allow unsubscribing own subscriptions
-    if (existing && existing.user_id === actingUser._id) {
-      await ctx.db.patch(existing._id, {
-        is_active: false,
-        updated_at: Date.now(),
-      });
+    if (!existing) {
+      return { success: false, reason: 'not_found' as const };
     }
+
+    if (existing.user_id !== actingUser._id) {
+      return { success: false, reason: 'not_owned' as const };
+    }
+
+    if (!existing.is_active) {
+      return { success: false, reason: 'already_inactive' as const };
+    }
+
+    await ctx.db.patch(existing._id, {
+      is_active: false,
+      updated_at: Date.now(),
+    });
 
     return { success: true };
   },

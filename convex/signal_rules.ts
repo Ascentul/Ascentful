@@ -311,6 +311,11 @@ export const deleteRule = mutation({
 
     assertUniversityAccess(user, rule.university_id);
 
+    // Prevent deleting default rules - must clear is_default first
+    if (rule.is_default) {
+      throw new Error('Cannot delete a default rule. Remove default status first.');
+    }
+
     // Check if there are any active or snoozed signals from this rule
     // Snoozed signals will become active when snooze expires, so they also block deletion
     const pendingSignals = await ctx.db

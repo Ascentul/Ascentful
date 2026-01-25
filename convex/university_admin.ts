@@ -45,6 +45,11 @@ export const getOverview = query({
         activeLicenses: 0,
         departments: 0,
         totalCourses: 0,
+        studentGrowthPercent: 0,
+        activeStudents: 0,
+        newStudentsThisMonth: 0,
+        departmentDistribution: [],
+        unassignedStudents: 0,
       };
     }
 
@@ -68,8 +73,24 @@ export const getOverview = query({
     // Include both legacy 'user' role and current 'student' role
     const actualStudents = students.filter((s: any) => s.role === 'user' || s.role === 'student');
 
-    // Calculate growth from last month
+    // Calculate time-based metrics
     const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    // Active students (activity within 30 days)
+    const activeStudents = actualStudents.filter(
+      (s: any) => s.last_active && s.last_active > thirtyDaysAgo,
+    ).length;
+
+    // New students this month
+    const thisMonthStart = new Date();
+    thisMonthStart.setDate(1);
+    thisMonthStart.setHours(0, 0, 0, 0);
+    const newStudentsThisMonth = actualStudents.filter(
+      (s: any) => s.created_at && s.created_at >= thisMonthStart.getTime(),
+    ).length;
+
+    // Calculate growth from last month
     const lastMonthStart = new Date();
     lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
     lastMonthStart.setDate(1);
@@ -85,6 +106,23 @@ export const getOverview = query({
         ? ((actualStudents.length - studentsLastMonth) / studentsLastMonth) * 100
         : 0;
 
+    // Department distribution for charts (computed server-side for accuracy)
+    const departmentDistribution = departments.map((dept: any) => {
+      const deptStudents = actualStudents.filter((s: any) => s.department_id === dept._id);
+      return {
+        id: dept._id,
+        name: dept.name,
+        count: deptStudents.length,
+        percentage:
+          actualStudents.length > 0
+            ? Math.round((deptStudents.length / actualStudents.length) * 100)
+            : 0,
+      };
+    });
+
+    // Add unassigned students count
+    const unassignedCount = actualStudents.filter((s: any) => !s.department_id).length;
+
     // Use university license seats if available
     const uni = (await ctx.db.get(uniId as Id<'universities'>)) as Doc<'universities'> | null;
     const licenseCapacity = (uni?.license_seats as number | undefined) ?? actualStudents.length;
@@ -96,6 +134,11 @@ export const getOverview = query({
       departments: departments.length,
       totalCourses: courses.length,
       studentGrowthPercent: Math.round(studentGrowth * 10) / 10, // Round to 1 decimal
+      // New aggregate metrics for dashboard KPIs
+      activeStudents,
+      newStudentsThisMonth,
+      departmentDistribution,
+      unassignedStudents: unassignedCount,
     };
   },
 });
@@ -952,7 +995,14 @@ export const universitySearch = query({
 
 /**
  * Update a student's profile as university admin
- * Allows updating name, email, and role for students in the admin's university
+ * Allows updating name and role for students in the admin's university.
+ *
+ * NOTE: Email is not editable here - Clerk is the source of truth for email.
+ * Users should change their email through their Clerk account settings.
+ *
+ * IMPORTANT: For role changes, the frontend MUST call /api/university/sync-student-role
+ * to update Clerk's publicMetadata.role after this mutation succeeds.
+ * Clerk is the source of truth for authorization; Convex role is cached for display.
  */
 export const updateStudentByAdmin = mutation({
   args: {
@@ -960,7 +1010,7 @@ export const updateStudentByAdmin = mutation({
     studentId: v.id('users'),
     updates: v.object({
       name: v.optional(v.string()),
-      email: v.optional(v.string()),
+      // email intentionally removed - Clerk is source of truth for email
       role: v.optional(v.union(v.literal('student'), v.literal('user'), v.literal('advisor'))),
     }),
   },
@@ -986,9 +1036,6 @@ export const updateStudentByAdmin = mutation({
     if (args.updates.name !== undefined) {
       updates.name = args.updates.name;
     }
-    if (args.updates.email !== undefined) {
-      updates.email = args.updates.email;
-    }
     if (args.updates.role !== undefined) {
       updates.role = args.updates.role;
     }
@@ -998,13 +1045,21 @@ export const updateStudentByAdmin = mutation({
     return {
       success: true,
       studentId: args.studentId,
+      studentClerkId: student.clerkId, // Return for Clerk sync when role changes
+      roleChanged: args.updates.role !== undefined && args.updates.role !== student.role,
+      newRole: args.updates.role,
     };
   },
 });
 
 /**
  * Remove a student from the university
- * Unlinks the student from the university but does not delete the user account
+ * Unlinks the student from the university but does not delete the user account.
+ *
+ * IMPORTANT: This mutation updates the Convex role to 'individual' for caching purposes.
+ * The frontend MUST call /api/admin/sync-role to update Clerk's publicMetadata.role
+ * to 'individual' after this mutation succeeds. The returned studentClerkId should be
+ * used for the sync call. See CLAUDE.md for role management architecture.
  */
 export const removeStudentFromUniversity = mutation({
   args: {
@@ -1026,10 +1081,11 @@ export const removeStudentFromUniversity = mutation({
     }
 
     // Unlink from university (soft removal)
+    // Note: Role is updated here for Convex caching; frontend must sync to Clerk
     await ctx.db.patch(args.studentId, {
       university_id: undefined,
       department_id: undefined,
-      role: 'individual', // Convert to individual user
+      role: 'individual', // Convert to individual user (must sync to Clerk)
       updated_at: Date.now(),
     });
 
@@ -1046,6 +1102,7 @@ export const removeStudentFromUniversity = mutation({
     return {
       success: true,
       studentId: args.studentId,
+      studentClerkId: student.clerkId, // Return for Clerk sync
     };
   },
 });

@@ -2148,24 +2148,33 @@ export const getSignalAnalytics = query({
       }
     }
 
+    // Get allowed student IDs for advisors (returns null for full-access roles)
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
     const now = Date.now();
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
     const start = args.dateRange?.start ?? thirtyDaysAgo;
     const end = args.dateRange?.end ?? now;
 
     // Get all signals for this university (for status/priority counts)
-    const allSignals = await ctx.db
+    let allSignals = await ctx.db
       .query('signals')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
 
     // Get signals in date range using indexed query (more efficient for large datasets)
-    const signalsInRange = await ctx.db
+    let signalsInRange = await ctx.db
       .query('signals')
       .withIndex('by_university_created_at', (q) =>
         q.eq('university_id', args.universityId).gte('created_at', start).lte('created_at', end),
       )
       .collect();
+
+    // Filter signals to advisor's assigned students if applicable
+    if (allowedStudentIds !== null) {
+      allSignals = allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+      signalsInRange = signalsInRange.filter((s) => allowedStudentIds.has(s.student_id));
+    }
 
     // Current status breakdown
     const statusCounts = {
@@ -2349,6 +2358,9 @@ export const getRuleEffectiveness = query({
       }
     }
 
+    // Get allowed student IDs for advisors (returns null for full-access roles)
+    const allowedStudentIds = await getAllowedStudentIds(ctx, sessionCtx, args.universityId);
+
     // Get all rules for this university
     const rules = await ctx.db
       .query('signal_rules')
@@ -2356,10 +2368,15 @@ export const getRuleEffectiveness = query({
       .collect();
 
     // Get all signals for this university
-    const allSignals = await ctx.db
+    let allSignals = await ctx.db
       .query('signals')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
       .collect();
+
+    // Filter signals to advisor's assigned students if applicable
+    if (allowedStudentIds !== null) {
+      allSignals = allSignals.filter((s) => allowedStudentIds.has(s.student_id));
+    }
 
     const ruleMetrics: Array<{
       ruleId: string;

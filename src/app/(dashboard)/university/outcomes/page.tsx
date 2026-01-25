@@ -565,6 +565,7 @@ export default function OutcomesDashboardPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  aria-label="View outcome details"
                                   onClick={() => setSelectedOutcome(outcome)}
                                 >
                                   <Eye className="h-4 w-4" />

@@ -118,6 +118,7 @@ export function countByStatus(outcomes: OutcomeRecord[]): {
 
 /**
  * Count outcomes by type (only counts known outcomes).
+ * Filters to known outcomes first to ensure rates are consistent with knowledge_rate denominator.
  */
 export function countByType(outcomes: OutcomeRecord[]): {
   employed_fulltime: number;
@@ -128,23 +129,28 @@ export function countByType(outcomes: OutcomeRecord[]): {
   seeking: number;
   not_seeking: number;
 } {
+  const knownOutcomes = outcomes.filter((o) => o.outcome_status === 'known');
   return {
-    employed_fulltime: outcomes.filter((o) => o.outcome_type === 'employed_fulltime').length,
-    employed_parttime: outcomes.filter((o) => o.outcome_type === 'employed_parttime').length,
-    continuing_education: outcomes.filter((o) => o.outcome_type === 'continuing_education').length,
-    military: outcomes.filter((o) => o.outcome_type === 'military').length,
-    volunteer: outcomes.filter((o) => o.outcome_type === 'volunteer').length,
-    seeking: outcomes.filter((o) => o.outcome_type === 'seeking').length,
-    not_seeking: outcomes.filter((o) => o.outcome_type === 'not_seeking').length,
+    employed_fulltime: knownOutcomes.filter((o) => o.outcome_type === 'employed_fulltime').length,
+    employed_parttime: knownOutcomes.filter((o) => o.outcome_type === 'employed_parttime').length,
+    continuing_education: knownOutcomes.filter((o) => o.outcome_type === 'continuing_education')
+      .length,
+    military: knownOutcomes.filter((o) => o.outcome_type === 'military').length,
+    volunteer: knownOutcomes.filter((o) => o.outcome_type === 'volunteer').length,
+    seeking: knownOutcomes.filter((o) => o.outcome_type === 'seeking').length,
+    not_seeking: knownOutcomes.filter((o) => o.outcome_type === 'not_seeking').length,
   };
 }
 
 /**
  * Count total employed (fulltime + parttime).
+ * Only counts known outcomes to be consistent with rate calculations.
  */
 export function countEmployed(outcomes: OutcomeRecord[]): number {
   return outcomes.filter(
-    (o) => o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime',
+    (o) =>
+      o.outcome_status === 'known' &&
+      (o.outcome_type === 'employed_fulltime' || o.outcome_type === 'employed_parttime'),
   ).length;
 }
 
