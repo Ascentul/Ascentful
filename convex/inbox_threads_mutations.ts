@@ -742,6 +742,67 @@ export const markAsRead = mutation({
       }
     }
 
+    // RBAC: Advisors can only access threads they have permission for
+    if (sessionCtx.role === 'advisor') {
+      let hasAccess = false;
+
+      // Check if assigned to this thread
+      if (thread.assigned_to === sessionCtx.userId) {
+        hasAccess = true;
+      }
+
+      // For student threads: check if owns the student
+      if (!hasAccess && thread.student_id && thread.thread_type !== 'internal') {
+        const ownership = await ctx.db
+          .query('student_advisors')
+          .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+          .filter((q) =>
+            q.and(q.eq(q.field('student_id'), thread.student_id), q.eq(q.field('is_owner'), true)),
+          )
+          .unique();
+
+        if (ownership) {
+          hasAccess = true;
+        }
+      }
+
+      // For internal threads: check if mentioned or if owns the referenced student
+      if (!hasAccess && thread.thread_type === 'internal') {
+        // Check if mentioned in this thread
+        const mention = await ctx.db
+          .query('inbox_mentions')
+          .withIndex('by_thread', (q) => q.eq('thread_id', args.threadId))
+          .filter((q) => q.eq(q.field('mentioned_user_id'), sessionCtx.userId))
+          .first();
+
+        if (mention) {
+          hasAccess = true;
+        }
+
+        // Check if owns the referenced student
+        if (!hasAccess && thread.referenced_student_id) {
+          const ownership = await ctx.db
+            .query('student_advisors')
+            .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+            .filter((q) =>
+              q.and(
+                q.eq(q.field('student_id'), thread.referenced_student_id),
+                q.eq(q.field('is_owner'), true),
+              ),
+            )
+            .unique();
+
+          if (ownership) {
+            hasAccess = true;
+          }
+        }
+      }
+
+      if (!hasAccess) {
+        throw new Error('Unauthorized: You do not have access to this thread');
+      }
+    }
+
     const now = Date.now();
 
     // Upsert read state

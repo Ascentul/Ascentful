@@ -2739,8 +2739,7 @@ export const getInterventionCorrelation = query({
             // Check if employed (includes full-time, part-time employment)
             if (
               outcome.outcome_type === 'employed_fulltime' ||
-              outcome.outcome_type === 'employed_parttime' ||
-              outcome.outcome_status === 'known'
+              outcome.outcome_type === 'employed_parttime'
             ) {
               employedInBracket++;
             }

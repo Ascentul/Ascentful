@@ -57,5 +57,17 @@ export function sanitizeUserHtml(
   options?: sanitizeHtml.IOptions,
 ): string {
   if (!dirty) return '';
-  return sanitizeHtml(dirty, options ?? defaultOptions);
+  // Merge custom options with defaults, ensuring transformTags is always applied
+  const mergedOptions: sanitizeHtml.IOptions = options
+    ? {
+        ...defaultOptions,
+        ...options,
+        // Always enforce safe link behavior
+        transformTags: {
+          ...defaultOptions.transformTags,
+          ...options.transformTags,
+        },
+      }
+    : defaultOptions;
+  return sanitizeHtml(dirty, mergedOptions);
 }

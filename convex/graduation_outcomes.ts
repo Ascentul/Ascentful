@@ -861,16 +861,7 @@ export const recordSurveyResponse = mutation({
     if (args.startDate) {
       const cohort = await ctx.db.get(outcome.cohort_id);
       if (cohort) {
-        // Estimate graduation date from cohort (assume May 15 for spring, Dec 15 for fall/winter)
-        const gradMonth = cohort.graduation_term === 'spring' ? 4 : 11;
-        const gradDay = 15;
-        const gradDate = new Date(cohort.graduation_year, gradMonth, gradDay);
-        const startDateObj = new Date(args.startDate);
-        const daysToEmployment = Math.max(
-          0,
-          Math.floor((startDateObj.getTime() - gradDate.getTime()) / (1000 * 60 * 60 * 24)),
-        );
-        updates.days_to_employment = daysToEmployment;
+        updates.days_to_employment = calculateDaysToEmployment(cohort, args.startDate);
       }
     }
 

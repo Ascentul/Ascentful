@@ -351,9 +351,13 @@ export const getLinkableQueueItems = query({
       .filter((q) => q.or(q.eq(q.field('status'), 'OPEN'), q.eq(q.field('status'), 'IN_PROGRESS')))
       .collect();
 
-    // Filter to same university and exclude already linked
+    // Filter to same university, exclude items already linked to other threads,
+    // and exclude the item already linked to this thread
     const filteredItems = queueItems.filter(
-      (item) => item.university_id === universityId && item._id !== thread.linked_queue_item_id,
+      (item) =>
+        item.university_id === universityId &&
+        !item.linked_thread_id &&
+        item._id !== thread.linked_queue_item_id,
     );
 
     // Enrich with owner info

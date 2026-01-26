@@ -120,7 +120,7 @@ export const searchStudentMatches = query({
           matches.push({
             student: {
               _id: student._id,
-              name: student.name,
+              name: student.name || '',
               email: student.email,
               imageUrl: student.profile_image,
             },
@@ -150,7 +150,7 @@ export const searchStudentMatches = query({
             matches.push({
               student: {
                 _id: student._id,
-                name: student.name,
+                name: student.name || '',
                 email: student.email,
                 imageUrl: student.profile_image,
               },
@@ -416,7 +416,7 @@ export const getIdentityHistory = query({
           if (student) {
             matchedStudent = {
               _id: student._id,
-              name: student.name,
+              name: student.name || '',
               email: student.email,
             };
           }
@@ -427,7 +427,7 @@ export const getIdentityHistory = query({
           if (user) {
             matchedBy = {
               _id: user._id,
-              name: user.name,
+              name: user.name || '',
               email: user.email,
             };
           }

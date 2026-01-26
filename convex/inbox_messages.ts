@@ -84,7 +84,7 @@ export const addMessage = mutation({
     // Update thread aggregates
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
-      last_message_at: now,
+      last_message_at: isInternal ? thread.last_message_at : now,
       last_message_sender_type: isInternal ? thread.last_message_sender_type : 'advisor',
       snippet: isInternal ? thread.snippet : snippet,
       has_unread: !isInternal, // Internal notes don't trigger unread for students

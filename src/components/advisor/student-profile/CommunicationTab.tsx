@@ -224,11 +224,26 @@ export function CommunicationTab({ studentId, studentName }: CommunicationTabPro
             <CardDescription>Messages with {studentName} and internal discussions</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsNewInternalOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setNewSubject('');
+                setNewBody('');
+                setIsNewInternalOpen(true);
+              }}
+            >
               <Users className="h-4 w-4 mr-1" />
               Internal Thread
             </Button>
-            <Button size="sm" onClick={() => setIsNewMessageOpen(true)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setNewSubject('');
+                setNewBody('');
+                setIsNewMessageOpen(true);
+              }}
+            >
               <Plus className="h-4 w-4 mr-1" />
               New Message
             </Button>

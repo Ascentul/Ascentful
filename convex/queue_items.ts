@@ -281,6 +281,7 @@ export const resolveQueueItem = mutation({
     const now = Date.now();
     const previousStatus = queueItem.status;
     const newStatus = args.status ?? 'RESOLVED';
+    const actionType = newStatus === 'CLOSED' ? 'closed' : 'resolved';
 
     await ctx.db.patch(args.queueItemId, {
       status: newStatus,
@@ -295,7 +296,7 @@ export const resolveQueueItem = mutation({
     await ctx.db.insert('queue_item_actions', {
       queue_item_id: args.queueItemId,
       actor_id: sessionCtx.userId,
-      action_type: 'resolved',
+      action_type: actionType,
       notes: args.notes?.trim(),
       previous_value: { status: previousStatus },
       new_value: { status: newStatus, closedReason: args.closedReason.trim() },
@@ -304,7 +305,7 @@ export const resolveQueueItem = mutation({
 
     // Audit log (FERPA)
     await logUserAction(ctx, {
-      action: 'queue_item.resolved',
+      action: newStatus === 'CLOSED' ? 'queue_item.closed' : 'queue_item.resolved',
       actorUserId: sessionCtx.userId,
       actorRole: sessionCtx.role,
       actorUniversityId: universityId,
@@ -749,7 +750,8 @@ export const getMyQueue = query({
 
     let queueItems: Doc<'queue_items'>[] = [];
 
-    // Advisors see only their owned items
+    // Collect all matching items first, then filter/sort/limit
+    // This ensures we don't miss higher-priority items that appear later in the index
     if (sessionCtx.role === 'advisor') {
       if (args.status && args.status !== 'ALL') {
         queueItems = await ctx.db
@@ -757,12 +759,12 @@ export const getMyQueue = query({
           .withIndex('by_owner_status', (q) =>
             q.eq('owner_id', sessionCtx.userId).eq('status', args.status as QueueItemStatus),
           )
-          .take(limit);
+          .collect();
       } else {
         queueItems = await ctx.db
           .query('queue_items')
           .withIndex('by_owner_status', (q) => q.eq('owner_id', sessionCtx.userId))
-          .take(limit);
+          .collect();
       }
     } else {
       // university_admin and super_admin see all in university
@@ -772,12 +774,12 @@ export const getMyQueue = query({
           .withIndex('by_university_status', (q) =>
             q.eq('university_id', universityId).eq('status', args.status as QueueItemStatus),
           )
-          .take(limit);
+          .collect();
       } else {
         queueItems = await ctx.db
           .query('queue_items')
           .withIndex('by_university', (q) => q.eq('university_id', universityId))
-          .take(limit);
+          .collect();
       }
     }
 
@@ -801,6 +803,9 @@ export const getMyQueue = query({
       if (priorityDiff !== 0) return priorityDiff;
       return b.created_at - a.created_at; // Newer first within same priority
     });
+
+    // Apply limit after filtering and sorting
+    filtered = filtered.slice(0, limit);
 
     // Enrich with student data
     const enrichedItems = await Promise.all(
@@ -863,18 +868,20 @@ export const getTeamQueue = query({
 
     let queueItems: Doc<'queue_items'>[];
 
+    // Collect all matching items first, then filter/sort/limit
+    // This ensures we don't miss higher-priority items that appear later in the index
     if (args.status && args.status !== 'ALL') {
       queueItems = await ctx.db
         .query('queue_items')
         .withIndex('by_university_status', (q) =>
           q.eq('university_id', universityId).eq('status', args.status as QueueItemStatus),
         )
-        .take(limit);
+        .collect();
     } else {
       queueItems = await ctx.db
         .query('queue_items')
         .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .take(limit);
+        .collect();
     }
 
     // Filter to unassigned if requested
@@ -889,6 +896,9 @@ export const getTeamQueue = query({
       if (priorityDiff !== 0) return priorityDiff;
       return b.created_at - a.created_at;
     });
+
+    // Apply limit after filtering and sorting
+    queueItems = queueItems.slice(0, limit);
 
     // Enrich with student and owner data
     const enrichedItems = await Promise.all(

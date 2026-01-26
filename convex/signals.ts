@@ -466,8 +466,14 @@ export const getStudentSignalsWithFactors = query({
       .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
       .unique();
 
-    // Get student info
+    // Get student info and verify university match
     const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+    if (student.university_id !== args.universityId) {
+      throw new Error('Unauthorized: Student is not in this university');
+    }
 
     // Return signals with prediction factors
     return {

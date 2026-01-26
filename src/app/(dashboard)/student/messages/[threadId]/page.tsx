@@ -366,19 +366,21 @@ function MessageBubble({ message, isStudent }: MessageBubbleProps) {
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="mt-2 space-y-1">
-            {message.attachments.map((att) => (
-              <a
-                key={att.id}
-                href={att.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-primary-600 hover:underline"
-              >
-                <span>📎</span>
-                <span>{att.name}</span>
-                <span className="text-muted-foreground">({Math.round(att.size / 1024)}KB)</span>
-              </a>
-            ))}
+            {message.attachments
+              .filter((att) => att.url)
+              .map((att) => (
+                <a
+                  key={att.id}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-primary-600 hover:underline"
+                >
+                  <span>📎</span>
+                  <span>{att.name}</span>
+                  <span className="text-muted-foreground">({Math.round(att.size / 1024)}KB)</span>
+                </a>
+              ))}
           </div>
         )}
       </div>
