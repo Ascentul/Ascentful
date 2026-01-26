@@ -39,6 +39,15 @@ function validateOutcomeData(
     employerName?: string;
     jobTitle?: string;
     notes?: string;
+    // Additional fields for comprehensive survey validation
+    gradSchoolName?: string;
+    gradSchoolProgram?: string;
+    gradSchoolDegree?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    industry?: string;
+    jobFunction?: string;
   },
   rowIndex?: number,
 ): void {
@@ -47,6 +56,14 @@ function validateOutcomeData(
   // Validation: Salary must be non-negative (OUT-H1)
   if (data.salary !== undefined && data.salary < 0) {
     throw new Error(`${rowPrefix}Salary must be a non-negative number`);
+  }
+
+  // Validation: Salary upper bound to catch typos (OUT-H3)
+  const MAX_SALARY = 2_000_000; // $2M reasonable cap
+  if (data.salary !== undefined && data.salary > MAX_SALARY) {
+    throw new Error(
+      `${rowPrefix}Salary exceeds maximum allowed value of $${MAX_SALARY.toLocaleString()}`,
+    );
   }
 
   // Validation: PII string length limits (OUT-H2)
@@ -64,6 +81,32 @@ function validateOutcomeData(
   }
   if (data.notes !== undefined && data.notes.length > 2000) {
     throw new Error(`${rowPrefix}Notes must be 2000 characters or less`);
+  }
+
+  // Validation: Additional text field length limits (OUT-H4)
+  if (data.gradSchoolName !== undefined && data.gradSchoolName.length > 255) {
+    throw new Error(`${rowPrefix}Graduate school name must be 255 characters or less`);
+  }
+  if (data.gradSchoolProgram !== undefined && data.gradSchoolProgram.length > 255) {
+    throw new Error(`${rowPrefix}Graduate school program must be 255 characters or less`);
+  }
+  if (data.gradSchoolDegree !== undefined && data.gradSchoolDegree.length > 100) {
+    throw new Error(`${rowPrefix}Graduate school degree must be 100 characters or less`);
+  }
+  if (data.city !== undefined && data.city.length > 100) {
+    throw new Error(`${rowPrefix}City must be 100 characters or less`);
+  }
+  if (data.state !== undefined && data.state.length > 100) {
+    throw new Error(`${rowPrefix}State must be 100 characters or less`);
+  }
+  if (data.country !== undefined && data.country.length > 100) {
+    throw new Error(`${rowPrefix}Country must be 100 characters or less`);
+  }
+  if (data.industry !== undefined && data.industry.length > 255) {
+    throw new Error(`${rowPrefix}Industry must be 255 characters or less`);
+  }
+  if (data.jobFunction !== undefined && data.jobFunction.length > 255) {
+    throw new Error(`${rowPrefix}Job function must be 255 characters or less`);
   }
 }
 
@@ -820,6 +863,21 @@ export const recordSurveyResponse = mutation({
 
     const outcome = outcomes[0];
     const now = Date.now();
+
+    // Validate survey-submitted fields (ensures same constraints as other entry points)
+    validateOutcomeData({
+      salary: args.salary,
+      employerName: args.employerName,
+      jobTitle: args.jobTitle,
+      gradSchoolName: args.gradSchoolName,
+      gradSchoolProgram: args.gradSchoolProgram,
+      gradSchoolDegree: args.gradSchoolDegree,
+      city: args.city,
+      state: args.state,
+      country: args.country,
+      industry: args.industry,
+      jobFunction: args.jobFunction,
+    });
 
     // Build update object
     const updates: Record<string, unknown> = {

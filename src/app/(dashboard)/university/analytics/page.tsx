@@ -1138,11 +1138,13 @@ export default function UniversityAnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card
               className={`border-l-4 ${
-                advisorCaseloadMetrics?.benchmark.status === 'optimal'
-                  ? 'border-l-green-500'
-                  : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
-                    ? 'border-l-amber-500'
-                    : 'border-l-red-500'
+                !advisorCaseloadMetrics
+                  ? 'border-l-neutral-300'
+                  : advisorCaseloadMetrics.benchmark.status === 'optimal'
+                    ? 'border-l-green-500'
+                    : advisorCaseloadMetrics.benchmark.status === 'acceptable'
+                      ? 'border-l-amber-500'
+                      : 'border-l-red-500'
               }`}
             >
               <CardHeader className="pb-2">
@@ -1153,23 +1155,27 @@ export default function UniversityAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">
-                  {advisorCaseloadMetrics?.summary.studentsPerAdvisor ?? 0}
+                  {advisorCaseloadMetrics?.summary.studentsPerAdvisor ?? '—'}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">NACADA benchmark: 250-300</p>
                 <div
                   className={`text-xs mt-2 px-2 py-1 rounded-full inline-block ${
-                    advisorCaseloadMetrics?.benchmark.status === 'optimal'
-                      ? 'bg-green-100 text-green-700'
-                      : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-red-100 text-red-700'
+                    !advisorCaseloadMetrics
+                      ? 'bg-neutral-100 text-neutral-500'
+                      : advisorCaseloadMetrics.benchmark.status === 'optimal'
+                        ? 'bg-green-100 text-green-700'
+                        : advisorCaseloadMetrics.benchmark.status === 'acceptable'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
                   }`}
                 >
-                  {advisorCaseloadMetrics?.benchmark.status === 'optimal'
-                    ? 'Optimal'
-                    : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
-                      ? 'Acceptable'
-                      : 'Overloaded'}
+                  {!advisorCaseloadMetrics
+                    ? 'Loading...'
+                    : advisorCaseloadMetrics.benchmark.status === 'optimal'
+                      ? 'Optimal'
+                      : advisorCaseloadMetrics.benchmark.status === 'acceptable'
+                        ? 'Acceptable'
+                        : 'Overloaded'}
                 </div>
               </CardContent>
             </Card>

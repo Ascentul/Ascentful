@@ -515,9 +515,12 @@ export const resolveThread = mutation({
       created_at: now,
     });
 
-    // Update message count
+    // Update message count and last message metadata
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
+      last_message_at: now,
+      last_message_sender_type: 'system',
+      updated_at: now,
     });
 
     // Create action log

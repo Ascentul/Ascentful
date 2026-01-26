@@ -132,7 +132,7 @@ export default function AvailabilityPage() {
     canQuery ? {} : 'skip',
   );
 
-  const isLoading = availability === undefined;
+  const isLoading = canQuery && availability === undefined;
 
   // Group availability by day
   const availabilityByDay = DAYS_OF_WEEK.map((day) => ({

@@ -7,17 +7,38 @@
  * Supports status workflow, SLA tracking, and queue integration.
  */
 
+import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { AlertCircle, Clock, Inbox, MessageSquare, Plus, Search, UserX } from 'lucide-react';
+import {
+  AlertCircle,
+  Clock,
+  Inbox,
+  Loader2,
+  Lock,
+  MessageSquare,
+  Plus,
+  Search,
+  Users,
+  UserX,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -39,6 +60,8 @@ type StatusFilter =
   | 'RESOLVED';
 
 type AssignmentFilter = 'me' | 'unassigned' | 'all';
+type ThreadTypeFilter = 'student' | 'internal' | 'all';
+type RecipientType = 'student' | 'internal';
 
 const priorityConfig = {
   P1: { label: 'P1', className: 'bg-red-500 text-white' },
@@ -90,17 +113,33 @@ function formatSLARemaining(
 
 export default function InboxPage() {
   const { toast } = useToast();
+  const { user } = useUser();
+  const clerkId = user?.id;
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL_ACTIVE');
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('me');
+  const [threadTypeFilter, setThreadTypeFilter] = useState<ThreadTypeFilter>('student');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState<Id<'inbox_threads'> | null>(null);
+
+  // Unified dialog state
+  const [showNewThreadDialog, setShowNewThreadDialog] = useState(false);
+  const [recipientType, setRecipientType] = useState<RecipientType>('student');
+  const [newMessageStudentId, setNewMessageStudentId] = useState<Id<'users'> | ''>('');
+  const [newMessageSubject, setNewMessageSubject] = useState('');
+  const [newMessageBody, setNewMessageBody] = useState('');
+  const [internalReferencedStudentId, setInternalReferencedStudentId] = useState<Id<'users'> | ''>(
+    '',
+  );
+  const [selectedAdvisorIds, setSelectedAdvisorIds] = useState<Id<'users'>[]>([]);
+  const [isCreatingThread, setIsCreatingThread] = useState(false);
 
   // Queries
   const threads = useQuery(api.inbox_threads.listThreads, {
     status: statusFilter,
     assignedTo: assignmentFilter === 'all' ? undefined : assignmentFilter,
+    threadType: threadTypeFilter,
     search: searchQuery || undefined,
     sortBy: 'newest',
     limit: 50,
@@ -113,12 +152,20 @@ export default function InboxPage() {
     selectedThreadId ? { threadId: selectedThreadId } : 'skip',
   );
 
+  // Get advisor's students for new message dialog
+  const myStudents = useQuery(api.advisor_students.getMyCaseload, clerkId ? { clerkId } : 'skip');
+
+  // Get university advisors for internal thread advisor selection
+  const universityAdvisors = useQuery(api.queue_items.getUniversityAdvisors, {});
+
   // Mutations
   const markAsRead = useMutation(api.inbox_threads_mutations.markAsRead);
   const updateStatus = useMutation(api.inbox_threads_mutations.updateStatus);
   const addMessage = useMutation(api.inbox_messages.addMessage);
   const addInternalNote = useMutation(api.inbox_messages.addInternalNote);
   const createQueueItem = useMutation(api.inbox_queue_integration.createQueueItemFromThread);
+  const createThread = useMutation(api.inbox_threads_mutations.createThread);
+  const createInternalThread = useMutation(api.inbox_threads_mutations.createInternalThread);
 
   const handleSelectThread = async (threadId: Id<'inbox_threads'>) => {
     setSelectedThreadId(threadId);
@@ -128,6 +175,97 @@ export default function InboxPage() {
       // Silently fail for read state
     }
   };
+
+  const handleOpenNewThreadDialog = () => {
+    setRecipientType('student');
+    setNewMessageStudentId('');
+    setNewMessageSubject('');
+    setNewMessageBody('');
+    setInternalReferencedStudentId('');
+    setSelectedAdvisorIds([]);
+    setShowNewThreadDialog(true);
+  };
+
+  const handleCreateUnifiedThread = async () => {
+    if (recipientType === 'student') {
+      if (!newMessageStudentId || !newMessageSubject.trim() || !newMessageBody.trim()) {
+        toast({
+          title: 'Missing information',
+          description: 'Please select a student and enter a subject and message.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setIsCreatingThread(true);
+      try {
+        const result = await createThread({
+          studentId: newMessageStudentId as Id<'users'>,
+          subject: newMessageSubject.trim(),
+          body: newMessageBody.trim(),
+        });
+        toast({
+          title: 'Message sent',
+          description: 'Your message has been sent to the student.',
+        });
+        setShowNewThreadDialog(false);
+        if (result) {
+          setSelectedThreadId(result);
+        }
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to send message.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsCreatingThread(false);
+      }
+    } else {
+      if (!newMessageSubject.trim() || !newMessageBody.trim()) {
+        toast({
+          title: 'Missing information',
+          description: 'Please enter a subject and message.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setIsCreatingThread(true);
+      try {
+        const result = await createInternalThread({
+          subject: newMessageSubject.trim(),
+          body: newMessageBody.trim(),
+          referencedStudentId: internalReferencedStudentId
+            ? (internalReferencedStudentId as Id<'users'>)
+            : undefined,
+          mentionedUserIds: selectedAdvisorIds.length > 0 ? selectedAdvisorIds : undefined,
+        });
+        toast({
+          title: 'Internal thread created',
+          description: 'Your internal discussion has been started.',
+        });
+        setShowNewThreadDialog(false);
+        setThreadTypeFilter('internal');
+        if (result) {
+          setSelectedThreadId(result);
+        }
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to create internal thread.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsCreatingThread(false);
+      }
+    }
+  };
+
+  const canSubmitThread =
+    recipientType === 'student'
+      ? newMessageStudentId && newMessageSubject.trim() && newMessageBody.trim()
+      : newMessageSubject.trim() && newMessageBody.trim();
 
   const isLoading = threads === undefined;
 
@@ -145,10 +283,61 @@ export default function InboxPage() {
               </Badge>
             )}
           </div>
-          <Button disabled title="Coming soon">
+          <Button onClick={handleOpenNewThreadDialog}>
             <Plus className="mr-2 h-4 w-4" />
             New Message
           </Button>
+        </div>
+
+        {/* Thread Type Filter Pills */}
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-sm text-neutral-500 mr-1">Show:</span>
+          {(['student', 'all', 'internal'] as const).map((type) => (
+            <Button
+              key={type}
+              variant={threadTypeFilter === type ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setThreadTypeFilter(type)}
+              className={cn(
+                'h-8 px-3',
+                threadTypeFilter === type &&
+                  type === 'internal' &&
+                  'bg-amber-600 hover:bg-amber-700',
+                threadTypeFilter !== type &&
+                  type === 'internal' &&
+                  'border-amber-300 text-amber-700 hover:bg-amber-50',
+              )}
+            >
+              {type === 'internal' && <Lock className="mr-1.5 h-3.5 w-3.5" />}
+              {type === 'student' ? 'Students' : type === 'internal' ? 'Internal' : 'All'}
+              {type === 'student' && unreadCounts && unreadCounts.totalUnread > 0 && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    'ml-1.5 h-5 px-1.5 text-xs',
+                    threadTypeFilter === type
+                      ? 'bg-white/20 text-white'
+                      : 'bg-blue-100 text-blue-700',
+                  )}
+                >
+                  {unreadCounts.totalUnread}
+                </Badge>
+              )}
+              {type === 'internal' && unreadCounts && (unreadCounts.internalUnread ?? 0) > 0 && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    'ml-1.5 h-5 px-1.5 text-xs',
+                    threadTypeFilter === type
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-100 text-amber-700',
+                  )}
+                >
+                  {unreadCounts.internalUnread}
+                </Badge>
+              )}
+            </Button>
+          ))}
         </div>
 
         {/* Stats */}
@@ -173,6 +362,12 @@ export default function InboxPage() {
               <UserX className="h-4 w-4" />
               <span>{unreadCounts.unassigned} unassigned</span>
             </div>
+            {unreadCounts.unreadMentions > 0 && (
+              <div className="flex items-center gap-2 text-sm text-amber-600">
+                <Users className="h-4 w-4" />
+                <span>{unreadCounts.unreadMentions} mentions</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -253,6 +448,7 @@ export default function InboxPage() {
                     selectedThreadId === thread._id &&
                       'bg-primary-50 border-l-2 border-l-primary-500',
                     thread.hasUnread && 'bg-blue-50/50',
+                    thread.thread_type === 'internal' && 'bg-amber-50/30',
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -269,7 +465,20 @@ export default function InboxPage() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {thread.student ? (
+                        {thread.thread_type === 'internal' ? (
+                          <>
+                            <Lock className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                            <span className="font-medium text-amber-700 truncate">
+                              Staff Discussion
+                            </span>
+                            {thread.referencedStudent && (
+                              <span className="text-xs text-neutral-500 truncate">
+                                re:{' '}
+                                {thread.referencedStudent.name || thread.referencedStudent.email}
+                              </span>
+                            )}
+                          </>
+                        ) : thread.student ? (
                           <span className="font-medium truncate">
                             {thread.student.name || thread.student.email}
                           </span>
@@ -290,6 +499,14 @@ export default function InboxPage() {
                       )}
 
                       <div className="flex items-center gap-2 mt-1.5">
+                        {thread.thread_type === 'internal' && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-amber-100 text-amber-700 border-amber-200"
+                          >
+                            Staff Only
+                          </Badge>
+                        )}
                         <Badge
                           variant="outline"
                           className={cn('text-xs', statusConfig[thread.status].className)}
@@ -401,6 +618,197 @@ export default function InboxPage() {
           )}
         </div>
       </div>
+
+      {/* Unified New Thread Dialog */}
+      <Dialog open={showNewThreadDialog} onOpenChange={setShowNewThreadDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Message</DialogTitle>
+            <DialogDescription>Start a new conversation</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Recipient Type Selector */}
+            <div className="space-y-2">
+              <Label>Message Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={recipientType === 'student' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setRecipientType('student')}
+                  className="flex-1"
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  To Student
+                </Button>
+                <Button
+                  type="button"
+                  variant={recipientType === 'internal' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setRecipientType('internal')}
+                  className={cn(
+                    'flex-1',
+                    recipientType === 'internal' && 'bg-amber-600 hover:bg-amber-700',
+                  )}
+                >
+                  <Lock className="mr-2 h-4 w-4" />
+                  Internal (Staff)
+                </Button>
+              </div>
+            </div>
+
+            {/* Internal warning banner */}
+            {recipientType === 'internal' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-700">
+                  Internal threads are for staff-to-staff communication only. Students cannot see
+                  these messages.
+                </p>
+              </div>
+            )}
+
+            {/* Dynamic Recipient Picker */}
+            {recipientType === 'student' ? (
+              <div className="space-y-2">
+                <Label>Student</Label>
+                <Select
+                  value={newMessageStudentId as string}
+                  onValueChange={(v) => setNewMessageStudentId(v as Id<'users'>)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a student..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {myStudents?.map((student) => (
+                      <SelectItem key={student._id} value={student._id}>
+                        {student.name || student.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                {/* Advisor multi-select */}
+                <div className="space-y-2">
+                  <Label>Notify Advisors (Optional)</Label>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    Selected advisors will be notified and can participate.
+                  </p>
+                  {universityAdvisors && universityAdvisors.length > 0 ? (
+                    <div className="border rounded-lg max-h-32 overflow-y-auto p-2">
+                      {universityAdvisors.map((advisor) => (
+                        <label
+                          key={advisor._id}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-neutral-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAdvisorIds.includes(advisor._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAdvisorIds([...selectedAdvisorIds, advisor._id]);
+                              } else {
+                                setSelectedAdvisorIds(
+                                  selectedAdvisorIds.filter((id) => id !== advisor._id),
+                                );
+                              }
+                            }}
+                            className="rounded border-neutral-300"
+                          />
+                          <span className="text-sm">{advisor.name || advisor.email}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-400 italic">No other advisors available</p>
+                  )}
+                  {selectedAdvisorIds.length > 0 && (
+                    <p className="text-xs text-amber-600">
+                      {selectedAdvisorIds.length} advisor{selectedAdvisorIds.length > 1 ? 's' : ''}{' '}
+                      will be notified
+                    </p>
+                  )}
+                </div>
+                {/* Reference student */}
+                <div className="space-y-2">
+                  <Label>Reference Student (Optional)</Label>
+                  <Select
+                    value={internalReferencedStudentId as string}
+                    onValueChange={(v) => setInternalReferencedStudentId(v as Id<'users'>)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select for context..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {myStudents?.map((student) => (
+                        <SelectItem key={student._id} value={student._id}>
+                          {student.name || student.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-neutral-500">
+                    The student won&apos;t see or participate in this thread.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* Subject */}
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Input
+                value={newMessageSubject}
+                onChange={(e) => setNewMessageSubject(e.target.value)}
+                placeholder={
+                  recipientType === 'student' ? 'Enter subject...' : 'e.g., Discussion about...'
+                }
+              />
+            </div>
+
+            {/* Message Body */}
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                value={newMessageBody}
+                onChange={(e) => setNewMessageBody(e.target.value)}
+                rows={4}
+                placeholder={
+                  recipientType === 'student'
+                    ? 'Write your message...'
+                    : 'Describe what you want to discuss...'
+                }
+                className={recipientType === 'internal' ? 'border-amber-300 bg-amber-50/50' : ''}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewThreadDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateUnifiedThread}
+              disabled={isCreatingThread || !canSubmitThread}
+              className={recipientType === 'internal' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+            >
+              {isCreatingThread ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {recipientType === 'student' ? 'Sending...' : 'Creating...'}
+                </>
+              ) : recipientType === 'student' ? (
+                'Send Message'
+              ) : (
+                'Create Internal Thread'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -615,11 +1023,13 @@ function ThreadDetailView({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="NEW">New</SelectItem>
                 <SelectItem value="OPEN">Open</SelectItem>
                 <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                 <SelectItem value="WAITING_ON_STUDENT">Waiting on Student</SelectItem>
                 <SelectItem value="WAITING_ON_STAFF">Waiting on Staff</SelectItem>
                 <SelectItem value="RESOLVED">Resolved</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>

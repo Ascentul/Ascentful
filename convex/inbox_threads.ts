@@ -201,11 +201,24 @@ export const listThreads = query({
     // Limit
     threads = threads.slice(0, limit);
 
-    // Enrich with student and assignee info
+    // Enrich with student, assignee, and referenced student info
     const enrichedThreads = await Promise.all(
       threads.map(async (thread) => {
         const student = thread.student_id ? await ctx.db.get(thread.student_id) : null;
         const assignee = thread.assigned_to ? await ctx.db.get(thread.assigned_to) : null;
+
+        // For internal threads, get referenced student info
+        let referencedStudent: { _id: Id<'users'>; name: string; email: string } | null = null;
+        if (thread.thread_type === 'internal' && thread.referenced_student_id) {
+          const refStudent = await ctx.db.get(thread.referenced_student_id);
+          if (refStudent) {
+            referencedStudent = {
+              _id: refStudent._id,
+              name: refStudent.name,
+              email: refStudent.email,
+            };
+          }
+        }
 
         // Check if current user has unread messages
         const readState = await ctx.db
@@ -234,6 +247,7 @@ export const listThreads = query({
                 email: assignee.email,
               }
             : null,
+          referencedStudent,
           hasUnread,
         };
       }),

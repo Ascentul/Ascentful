@@ -181,6 +181,12 @@ export const linkToQueueItem = mutation({
       throw new Error('Thread and queue item must be for the same student');
     }
 
+    // Verify advisor has access to the student
+    const studentId = thread.student_id ?? queueItem.student_id;
+    if (studentId) {
+      await assertCanAccessStudent(ctx, sessionCtx, studentId);
+    }
+
     // Guard against overwriting existing links (one-to-one integrity)
     if (thread.linked_queue_item_id && thread.linked_queue_item_id !== args.queueItemId) {
       throw new Error('Thread is already linked to a different queue item');
@@ -265,6 +271,11 @@ export const unlinkFromQueueItem = mutation({
 
     if (!thread.linked_queue_item_id) {
       throw new Error('Thread is not linked to a queue item');
+    }
+
+    // Verify advisor has access to the student
+    if (thread.student_id) {
+      await assertCanAccessStudent(ctx, sessionCtx, thread.student_id);
     }
 
     const queueItemId = thread.linked_queue_item_id;

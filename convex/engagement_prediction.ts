@@ -480,7 +480,7 @@ function prepareScoringData(
   // Determine if student is a senior (graduating this year or next)
   const currentYear = new Date().getFullYear();
   const gradYear = student.graduation_year ? parseInt(student.graduation_year, 10) : null;
-  const isSenior = gradYear !== null && gradYear <= currentYear;
+  const isSenior = gradYear !== null && gradYear <= currentYear + 1;
 
   return {
     weeklyActivityCounts,
