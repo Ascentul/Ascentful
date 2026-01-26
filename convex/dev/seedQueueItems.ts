@@ -487,13 +487,14 @@ export const seedForUniversity = internalMutation({
       }
 
       if (isSnoozed) {
+        const snoozeActionAt = Math.max(createdAt, now - 60 * 60 * 1000);
         await ctx.db.insert('queue_item_actions', {
           queue_item_id: queueItemId,
           actor_id: advisor?._id || student._id,
           action_type: 'snoozed',
           notes: 'Waiting for student response.',
           new_value: { snoozedUntil: snoozeUntil },
-          created_at: now - 60 * 60 * 1000,
+          created_at: snoozeActionAt,
         });
       }
 

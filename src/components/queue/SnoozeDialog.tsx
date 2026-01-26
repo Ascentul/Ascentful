@@ -43,9 +43,13 @@ export function SnoozeDialog({ open, onOpenChange, onConfirm, isLoading }: Snooz
   const handleConfirm = async () => {
     const days = parseInt(snoozeDays, 10);
     const snoozeUntil = Date.now() + days * 24 * 60 * 60 * 1000;
-    await onConfirm(snoozeUntil, notes || undefined);
-    setSnoozeDays('3');
-    setNotes('');
+    try {
+      await onConfirm(snoozeUntil, notes || undefined);
+      setSnoozeDays('3');
+      setNotes('');
+    } catch {
+      // Preserve state on failure
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {

@@ -38,9 +38,7 @@ function calculateSLADueAt(priority: 'P1' | 'P2' | 'P3'): number {
  */
 export const createThread = mutation({
   args: {
-    studentId: v.optional(v.id('users')),
-    externalEmail: v.optional(v.string()),
-    externalName: v.optional(v.string()),
+    studentId: v.id('users'), // Required - must be an Ascentul user
     subject: v.string(),
     body: v.string(),
     priority: v.optional(v.union(v.literal('P1'), v.literal('P2'), v.literal('P3'))),
@@ -63,29 +61,10 @@ export const createThread = mutation({
     const priority = args.priority ?? 'P3';
     const channel = args.channel ?? 'in_app';
 
-    // Determine identity status
-    let identityStatus: 'matched' | 'unmatched' | 'external' = 'unmatched';
-    let studentId = args.studentId;
-
-    if (args.studentId) {
-      // Verify access to student
-      await assertCanAccessStudent(ctx, sessionCtx, args.studentId);
-      identityStatus = 'matched';
-    } else if (args.externalEmail) {
-      // Try to auto-match by email
-      const matchedStudent = await ctx.db
-        .query('users')
-        .withIndex('by_email', (q) => q.eq('email', args.externalEmail!))
-        .filter((q) => q.eq(q.field('university_id'), universityId))
-        .unique();
-
-      if (matchedStudent) {
-        studentId = matchedStudent._id;
-        identityStatus = 'matched';
-      } else {
-        identityStatus = 'external';
-      }
-    }
+    // Verify access to student (required - advisor inbox only works with Ascentul users)
+    await assertCanAccessStudent(ctx, sessionCtx, args.studentId);
+    const identityStatus = 'matched';
+    const studentId = args.studentId;
 
     // Create snippet from body
     const snippet = args.body.length > 150 ? args.body.slice(0, 147) + '...' : args.body;
@@ -95,8 +74,6 @@ export const createThread = mutation({
       university_id: universityId,
       student_id: studentId,
       identity_status: identityStatus,
-      external_sender_email: args.externalEmail,
-      external_sender_name: args.externalName,
       subject: args.subject,
       snippet,
       channel,
@@ -413,6 +390,7 @@ export const resolveThread = mutation({
           closed_by: sessionCtx.userId,
           closed_at: now,
           updated_at: now,
+          version: (queueItem.version ?? 0) + 1,
         });
 
         // Log queue item action

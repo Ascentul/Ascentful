@@ -127,6 +127,7 @@ export default function InboxPage() {
   const updateStatus = useMutation(api.inbox_threads_mutations.updateStatus);
   const addMessage = useMutation(api.inbox_messages.addMessage);
   const addInternalNote = useMutation(api.inbox_messages.addInternalNote);
+  const createQueueItem = useMutation(api.inbox_queue_integration.createQueueItemFromThread);
 
   const handleSelectThread = async (threadId: Id<'inbox_threads'>) => {
     setSelectedThreadId(threadId);
@@ -153,7 +154,7 @@ export default function InboxPage() {
               </Badge>
             )}
           </div>
-          <Button>
+          <Button disabled title="Coming soon">
             <Plus className="mr-2 h-4 w-4" />
             New Message
           </Button>
@@ -328,17 +329,26 @@ export default function InboxPage() {
               messages={selectedThread.messages}
               actions={selectedThread.actions}
               onAddMessage={async (body, isInternal) => {
-                if (isInternal) {
-                  await addInternalNote({ threadId: selectedThread.thread._id, body });
-                } else {
-                  await addMessage({ threadId: selectedThread.thread._id, body });
+                try {
+                  if (isInternal) {
+                    await addInternalNote({ threadId: selectedThread.thread._id, body });
+                  } else {
+                    await addMessage({ threadId: selectedThread.thread._id, body });
+                  }
+                  toast({
+                    title: isInternal ? 'Note added' : 'Message sent',
+                    description: isInternal
+                      ? 'Internal note has been added.'
+                      : 'Your message has been sent.',
+                  });
+                } catch (error) {
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to send message. Please try again.',
+                    variant: 'destructive',
+                  });
+                  throw error;
                 }
-                toast({
-                  title: isInternal ? 'Note added' : 'Message sent',
-                  description: isInternal
-                    ? 'Internal note has been added.'
-                    : 'Your message has been sent.',
-                });
               }}
               onUpdateStatus={async (status) => {
                 await updateStatus({
@@ -355,6 +365,15 @@ export default function InboxPage() {
                 toast({
                   title: 'Status updated',
                   description: `Thread status changed to ${status.replace(/_/g, ' ').toLowerCase()}.`,
+                });
+              }}
+              onCreateQueueItem={async () => {
+                await createQueueItem({
+                  threadId: selectedThread.thread._id,
+                });
+                toast({
+                  title: 'Queue item created',
+                  description: 'A new queue item has been linked to this thread.',
                 });
               }}
             />
@@ -439,6 +458,7 @@ interface ThreadDetailViewProps {
       | 'RESOLVED'
       | 'ARCHIVED',
   ) => Promise<void>;
+  onCreateQueueItem: () => Promise<void>;
 }
 
 function ThreadDetailView({
@@ -447,10 +467,21 @@ function ThreadDetailView({
   actions,
   onAddMessage,
   onUpdateStatus,
+  onCreateQueueItem,
 }: ThreadDetailViewProps) {
   const [newMessage, setNewMessage] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isCreatingQueueItem, setIsCreatingQueueItem] = useState(false);
+
+  const handleCreateQueueItem = async () => {
+    setIsCreatingQueueItem(true);
+    try {
+      await onCreateQueueItem();
+    } finally {
+      setIsCreatingQueueItem(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!newMessage.trim()) return;
@@ -458,8 +489,8 @@ function ThreadDetailView({
     try {
       await onAddMessage(newMessage, isInternal);
       setNewMessage('');
-    } catch (error) {
-      // Error handled by parent
+    } catch {
+      // Error toast shown by parent, message field preserved for retry
     } finally {
       setIsSending(false);
     }
@@ -540,8 +571,13 @@ function ThreadDetailView({
                 </Button>
               </Link>
             ) : (
-              <Button variant="outline" size="sm">
-                Create Queue Item
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCreateQueueItem}
+                disabled={isCreatingQueueItem || !thread.student}
+              >
+                {isCreatingQueueItem ? 'Creating...' : 'Create Queue Item'}
               </Button>
             )}
 

@@ -129,24 +129,37 @@ export function QueueItemCard({
         </Badge>
 
         {/* Student Avatar */}
-        <Link
-          href={`/u/students/${item.student?._id}`}
-          className="flex items-center gap-3 hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={item.student?.imageUrl} />
-            <AvatarFallback>{studentInitials || <User className="h-4 w-4" />}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-[120px]">
-            <p className="font-medium text-sm">{studentName}</p>
-            {item.student?.email && (
-              <p className="text-xs text-neutral-500 truncate max-w-[150px]">
-                {item.student.email}
-              </p>
-            )}
+        {item.student ? (
+          <Link
+            href={`/u/students/${item.student._id}`}
+            className="flex items-center gap-3 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={item.student.imageUrl} />
+              <AvatarFallback>{studentInitials}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-[120px]">
+              <p className="font-medium text-sm">{studentName}</p>
+              {item.student.email && (
+                <p className="text-xs text-neutral-500 truncate max-w-[150px]">
+                  {item.student.email}
+                </p>
+              )}
+            </div>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback>
+                <User className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-[120px]">
+              <p className="font-medium text-sm">{studentName}</p>
+            </div>
           </div>
-        </Link>
+        )}
 
         {/* Item Info */}
         <div className="flex-1 min-w-0">

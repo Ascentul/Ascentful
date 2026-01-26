@@ -7,6 +7,7 @@
 
 import { v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { getCurrentUser, requireAdvisorRole, requireTenant } from './advisor_auth';
@@ -341,11 +342,14 @@ export const addStudentMessage = mutation({
       created_at: now,
     });
 
-    // TODO: Create notification for assigned advisor
-    // await ctx.scheduler.runAfter(0, internal.inbox_notifications.notifyNewMessage, {
-    //   threadId: args.threadId,
-    //   messageId,
-    // });
+    // Notify advisor(s) of new student message
+    await ctx.scheduler.runAfter(0, internal.inbox_notifications.notifyNewStudentMessage, {
+      threadId: args.threadId,
+      messageId,
+      studentId: user._id,
+      universityId: thread.university_id,
+      isNewThread: false,
+    });
 
     // Audit log
     await logUserAction(ctx, {

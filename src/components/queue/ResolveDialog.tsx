@@ -32,9 +32,13 @@ export function ResolveDialog({ open, onOpenChange, onConfirm, isLoading }: Reso
       return;
     }
     setError('');
-    await onConfirm(closedReason, notes || undefined);
-    setClosedReason('');
-    setNotes('');
+    try {
+      await onConfirm(closedReason, notes || undefined);
+      setClosedReason('');
+      setNotes('');
+    } catch {
+      // Preserve form state on failure
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {

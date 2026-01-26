@@ -117,6 +117,19 @@ export const createQueueItem = mutation({
       throw new Error('Title is required');
     }
 
+    // Validate ownerId to prevent cross-tenant assignment
+    if (args.ownerId) {
+      const owner = await ctx.db.get(args.ownerId);
+      if (!owner) throw new Error('Owner not found');
+      if (owner.university_id !== universityId) {
+        throw new Error('Owner must be in the same university');
+      }
+      const allowedRoles = ['advisor', 'university_admin', 'super_admin'];
+      if (!allowedRoles.includes(owner.role)) {
+        throw new Error('Owner must be an advisor or admin');
+      }
+    }
+
     const now = Date.now();
     const queueItemId = await ctx.db.insert('queue_items', {
       university_id: universityId,
@@ -181,6 +194,11 @@ export const updateQueueItemStatus = mutation({
       throw new Error('Unauthorized: Queue item not in your university');
     }
     await assertCanAccessStudent(ctx, sessionCtx, queueItem.student_id);
+
+    // Block reopening resolved/closed items via status update
+    if (queueItem.status === 'RESOLVED' || queueItem.status === 'CLOSED') {
+      throw new Error('Use reopenQueueItem to reopen resolved/closed items');
+    }
 
     validateStringLength(args.notes, MAX_NOTES_LENGTH, 'Notes');
 
@@ -475,6 +493,17 @@ export const unsnoozeQueueItem = mutation({
       action_type: 'unsnoozed',
       previous_value: { snoozedUntil: queueItem.snoozed_until },
       created_at: now,
+    });
+
+    // Audit log
+    await logUserAction(ctx, {
+      action: 'queue_item.unsnoozed',
+      actorUserId: sessionCtx.userId,
+      actorRole: sessionCtx.role,
+      actorUniversityId: universityId,
+      studentId: queueItem.student_id,
+      targetType: 'queue_item',
+      targetId: args.queueItemId,
     });
 
     return { success: true };

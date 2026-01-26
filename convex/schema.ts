@@ -2703,6 +2703,7 @@ export default defineSchema({
       v.literal('system'), // System announcements
       v.literal('signal'), // New signal created for advisor
       v.literal('signal_urgent'), // Urgent signal requiring immediate attention
+      v.literal('inbox_message'), // New inbox message from student
     ),
     title: v.string(), // Notification title
     message: v.string(), // Notification message
@@ -3616,6 +3617,18 @@ export default defineSchema({
       v.literal('email_other'),
     ),
 
+    // === Category (for student-initiated threads) ===
+    category: v.optional(
+      v.union(
+        v.literal('resume_review'),
+        v.literal('interview_help'),
+        v.literal('job_search'),
+        v.literal('appointment'),
+        v.literal('general'),
+        v.literal('other'),
+      ),
+    ),
+
     // === Status workflow ===
     status: v.union(
       v.literal('NEW'), // Just arrived, never opened
@@ -3662,7 +3675,8 @@ export default defineSchema({
     .index('by_identity_status', ['university_id', 'identity_status'])
     .index('by_sla_due', ['university_id', 'sla_due_at'])
     .index('by_updated', ['university_id', 'updated_at'])
-    .index('by_queue_item', ['linked_queue_item_id']),
+    .index('by_queue_item', ['linked_queue_item_id'])
+    .index('by_university_category', ['university_id', 'category']),
 
   // ============================================================================
   // INBOX MESSAGES - Individual messages within threads

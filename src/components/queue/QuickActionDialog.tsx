@@ -52,8 +52,12 @@ export function QuickActionDialog({
   const config = actionConfig[actionType];
 
   const handleConfirm = async () => {
-    await onConfirm(notes || undefined);
-    setNotes('');
+    try {
+      await onConfirm(notes || undefined);
+      setNotes('');
+    } catch {
+      // Preserve notes on failure so user doesn't lose input
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
