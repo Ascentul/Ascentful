@@ -3492,4 +3492,322 @@ export default defineSchema({
     created_at: v.number(),
     updated_at: v.number(),
   }).index('by_user_id', ['user_id']),
+
+  // ============================================================================
+  // QUEUE ITEMS - Advisor action queue with owned workflow lifecycle
+  // Separate from signals which are derived facts. Queue items are commitments.
+  // ============================================================================
+  queue_items: defineTable({
+    // === Identity ===
+    university_id: v.id('universities'),
+    student_id: v.id('users'),
+    signal_id: v.optional(v.id('signals')), // Nullable - not all items from signals
+    linked_thread_id: v.optional(v.id('inbox_threads')), // Link to inbox thread
+
+    // === Ownership ===
+    owner_id: v.optional(v.id('users')), // Assigned advisor (null = unassigned)
+
+    // === Status & Priority ===
+    status: v.union(
+      v.literal('OPEN'),
+      v.literal('IN_PROGRESS'),
+      v.literal('RESOLVED'),
+      v.literal('CLOSED'),
+    ),
+    priority: v.union(v.literal('P1'), v.literal('P2'), v.literal('P3')),
+
+    // === Scheduling ===
+    due_at: v.optional(v.number()),
+    snoozed_until: v.optional(v.number()),
+
+    // === Closure (required when RESOLVED/CLOSED) ===
+    closed_reason: v.optional(v.string()), // Max 500 chars - validated in mutation
+    closed_at: v.optional(v.number()),
+    closed_by: v.optional(v.id('users')),
+
+    // === Source tracking ===
+    created_from: v.union(v.literal('signal'), v.literal('inbox'), v.literal('manual')),
+
+    // === Display ===
+    title: v.string(), // Max 255 chars
+    description: v.optional(v.string()), // Max 2000 chars
+
+    // === Concurrency control ===
+    version: v.number(),
+
+    // === Timestamps ===
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_university_status', ['university_id', 'status'])
+    .index('by_owner_status', ['owner_id', 'status'])
+    .index('by_student', ['student_id'])
+    .index('by_signal', ['signal_id'])
+    .index('by_university_priority', ['university_id', 'status', 'priority'])
+    .index('by_owner_priority', ['owner_id', 'status', 'priority'])
+    .index('by_snoozed_until', ['snoozed_until'])
+    .index('by_thread', ['linked_thread_id']),
+
+  // ============================================================================
+  // QUEUE ITEM ACTIONS - ActionLog for audit trail and workflow tracking
+  // Records all actions taken on queue items for compliance and UI display
+  // ============================================================================
+  queue_item_actions: defineTable({
+    queue_item_id: v.id('queue_items'),
+    actor_id: v.id('users'),
+
+    // === Action Type ===
+    action_type: v.union(
+      v.literal('created'),
+      v.literal('assigned'),
+      v.literal('reassigned'),
+      v.literal('status_changed'),
+      v.literal('contacted'),
+      v.literal('scheduled_appointment'),
+      v.literal('snoozed'),
+      v.literal('unsnoozed'),
+      v.literal('resolved'),
+      v.literal('closed'),
+      v.literal('reopened'),
+      v.literal('note_added'),
+      v.literal('playbook_applied'),
+    ),
+
+    // === Notes ===
+    notes: v.optional(v.string()), // Max 2000 chars
+
+    // === Change tracking ===
+    previous_value: v.optional(v.any()),
+    new_value: v.optional(v.any()),
+
+    // === Timestamps ===
+    created_at: v.number(),
+  })
+    .index('by_queue_item', ['queue_item_id', 'created_at'])
+    .index('by_actor', ['actor_id', 'created_at']),
+
+  // ============================================================================
+  // INBOX THREADS - Threaded messaging for advisor inbox
+  // Supports in-app messaging with architecture for future email integration
+  // ============================================================================
+  inbox_threads: defineTable({
+    // === Identity ===
+    university_id: v.id('universities'),
+
+    // === Student linkage (nullable for unmatched senders) ===
+    student_id: v.optional(v.id('users')),
+    identity_status: v.union(
+      v.literal('matched'), // Linked to known student
+      v.literal('unmatched'), // Needs manual matching
+      v.literal('external'), // External contact, not a student
+    ),
+    external_sender_email: v.optional(v.string()),
+    external_sender_name: v.optional(v.string()),
+
+    // === Thread metadata ===
+    subject: v.string(),
+    snippet: v.optional(v.string()), // First 150 chars preview
+
+    channel: v.union(
+      v.literal('in_app'),
+      v.literal('email_gmail'),
+      v.literal('email_outlook'),
+      v.literal('email_other'),
+    ),
+
+    // === Status workflow ===
+    status: v.union(
+      v.literal('NEW'), // Just arrived, never opened
+      v.literal('OPEN'), // Opened, not yet actioned
+      v.literal('IN_PROGRESS'), // Advisor is working on it
+      v.literal('WAITING_ON_STUDENT'),
+      v.literal('WAITING_ON_STAFF'),
+      v.literal('RESOLVED'),
+      v.literal('ARCHIVED'),
+    ),
+
+    // === Assignment ===
+    assigned_to: v.optional(v.id('users')), // Advisor
+    assigned_at: v.optional(v.number()),
+    assigned_by: v.optional(v.id('users')),
+
+    // === SLA tracking ===
+    sla_due_at: v.optional(v.number()), // When response is due
+    sla_breached: v.optional(v.boolean()), // True if sla_due_at passed
+    priority: v.union(v.literal('P1'), v.literal('P2'), v.literal('P3')),
+
+    // === Aggregates for efficient queries ===
+    message_count: v.number(),
+    last_message_at: v.number(),
+    last_message_sender_type: v.union(
+      v.literal('student'),
+      v.literal('advisor'),
+      v.literal('external'),
+      v.literal('system'),
+    ),
+    has_unread: v.boolean(), // Are there unread messages for assigned advisor?
+
+    // === Queue integration ===
+    linked_queue_item_id: v.optional(v.id('queue_items')),
+
+    // === Timestamps ===
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_university_status', ['university_id', 'status'])
+    .index('by_assigned_status', ['assigned_to', 'status'])
+    .index('by_student', ['student_id'])
+    .index('by_identity_status', ['university_id', 'identity_status'])
+    .index('by_sla_due', ['university_id', 'sla_due_at'])
+    .index('by_updated', ['university_id', 'updated_at'])
+    .index('by_queue_item', ['linked_queue_item_id']),
+
+  // ============================================================================
+  // INBOX MESSAGES - Individual messages within threads
+  // ============================================================================
+  inbox_messages: defineTable({
+    // === Thread reference ===
+    thread_id: v.id('inbox_threads'),
+    university_id: v.id('universities'), // Denormalized for tenant queries
+
+    // === Sender ===
+    sender_type: v.union(
+      v.literal('student'),
+      v.literal('advisor'),
+      v.literal('external'), // Unmatched sender
+      v.literal('system'), // Auto-generated messages
+    ),
+    sender_user_id: v.optional(v.id('users')), // null for external/system
+    sender_email: v.optional(v.string()), // For external senders
+    sender_name: v.optional(v.string()), // Display name
+
+    // === Content ===
+    body: v.string(),
+    body_html: v.optional(v.string()), // Rich HTML version if from email
+
+    // === Channel metadata ===
+    channel: v.union(
+      v.literal('in_app'),
+      v.literal('email_gmail'),
+      v.literal('email_outlook'),
+      v.literal('email_other'),
+    ),
+    external_message_id: v.optional(v.string()), // Gmail/Outlook message ID for dedup
+
+    // === Attachments ===
+    attachments: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          size: v.number(),
+          mime_type: v.string(),
+          storage_id: v.optional(v.id('_storage')),
+          url: v.optional(v.string()), // External URL for email attachments
+        }),
+      ),
+    ),
+
+    // === Visibility ===
+    is_internal: v.boolean(), // true = advisor-only internal note
+
+    // === Timestamps ===
+    created_at: v.number(),
+  })
+    .index('by_thread', ['thread_id', 'created_at'])
+    .index('by_university', ['university_id', 'created_at'])
+    .index('by_external_message_id', ['external_message_id']),
+
+  // ============================================================================
+  // INBOX THREAD ACTIONS - Audit log for thread lifecycle
+  // ============================================================================
+  inbox_thread_actions: defineTable({
+    thread_id: v.id('inbox_threads'),
+    actor_id: v.id('users'),
+
+    action_type: v.union(
+      v.literal('created'),
+      v.literal('message_added'),
+      v.literal('note_added'), // Internal note
+      v.literal('assigned'),
+      v.literal('reassigned'),
+      v.literal('status_changed'),
+      v.literal('student_matched'), // Identity resolution
+      v.literal('queue_item_linked'),
+      v.literal('queue_item_created'),
+      v.literal('sla_breached'),
+      v.literal('archived'),
+      v.literal('reopened'),
+    ),
+
+    // === Change tracking ===
+    previous_value: v.optional(v.any()),
+    new_value: v.optional(v.any()),
+    notes: v.optional(v.string()),
+
+    // === Timestamps ===
+    created_at: v.number(),
+  })
+    .index('by_thread', ['thread_id', 'created_at'])
+    .index('by_actor', ['actor_id', 'created_at']),
+
+  // ============================================================================
+  // INBOX READ STATE - Last-read pointer pattern for efficient unread tracking
+  // ============================================================================
+  inbox_read_state: defineTable({
+    thread_id: v.id('inbox_threads'),
+    user_id: v.id('users'),
+    last_read_at: v.number(), // Messages after this timestamp are unread
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_user_thread', ['user_id', 'thread_id'])
+    .index('by_thread', ['thread_id']),
+
+  // ============================================================================
+  // INBOX IDENTITY MATCHES - Audit trail for identity resolution
+  // Tracks how unmatched senders were linked to students
+  // ============================================================================
+  inbox_identity_matches: defineTable({
+    thread_id: v.id('inbox_threads'),
+    university_id: v.id('universities'),
+
+    // === Resolution data ===
+    external_email: v.string(),
+    external_name: v.optional(v.string()),
+    matched_student_id: v.optional(v.id('users')),
+
+    // === Match metadata ===
+    match_method: v.optional(
+      v.union(
+        v.literal('auto_email'),
+        v.literal('auto_external_id'),
+        v.literal('manual'),
+        v.literal('fuzzy_name'),
+      ),
+    ),
+    confidence: v.optional(
+      v.union(v.literal('exact'), v.literal('high'), v.literal('low'), v.literal('none')),
+    ),
+
+    // === Audit ===
+    matched_by: v.optional(v.id('users')), // null for auto-match
+    matched_at: v.optional(v.number()),
+
+    // === Status ===
+    status: v.union(
+      v.literal('pending'), // Awaiting manual review
+      v.literal('matched'), // Successfully matched
+      v.literal('rejected'), // Explicitly marked as not a student
+      v.literal('external'), // Confirmed external contact
+    ),
+
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university_status', ['university_id', 'status'])
+    .index('by_thread', ['thread_id'])
+    .index('by_email', ['university_id', 'external_email']),
 });

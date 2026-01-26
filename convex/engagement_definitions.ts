@@ -180,7 +180,13 @@ export const createDefinition = mutation({
       throw new Error('Default definition must be active');
     }
 
-    // Validate thresholds
+    // Validate thresholds are within bounds [0, 100] (SIG-H2)
+    if (args.engagedThreshold < 0 || args.engagedThreshold > 100) {
+      throw new Error('engaged_threshold must be between 0 and 100');
+    }
+    if (args.atRiskThreshold < 0 || args.atRiskThreshold > 100) {
+      throw new Error('at_risk_threshold must be between 0 and 100');
+    }
     if (args.atRiskThreshold >= args.engagedThreshold) {
       throw new Error('at_risk_threshold must be less than engaged_threshold');
     }
@@ -252,6 +258,13 @@ export const updateDefinition = mutation({
     // Validate thresholds if both are being updated or one changes
     const newEngagedThreshold = args.engagedThreshold ?? definition.engaged_threshold;
     const newAtRiskThreshold = args.atRiskThreshold ?? definition.at_risk_threshold;
+    // Validate thresholds are within bounds [0, 100] (SIG-H2)
+    if (newEngagedThreshold < 0 || newEngagedThreshold > 100) {
+      throw new Error('engaged_threshold must be between 0 and 100');
+    }
+    if (newAtRiskThreshold < 0 || newAtRiskThreshold > 100) {
+      throw new Error('at_risk_threshold must be between 0 and 100');
+    }
     if (newAtRiskThreshold >= newEngagedThreshold) {
       throw new Error('at_risk_threshold must be less than engaged_threshold');
     }

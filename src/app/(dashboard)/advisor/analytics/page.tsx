@@ -21,10 +21,14 @@ import { ReviewQueueSnapshot } from '@/components/advisor/analytics/ReviewQueueS
 import { UpcomingItem, UpcomingItems } from '@/components/advisor/analytics/UpcomingItems';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { hasAdvisorAccess } from '@/lib/constants/roles';
 
 export default function AdvisorAnalyticsPage() {
   const { user: clerkUser } = useUser();
   const clerkId = clerkUser?.id;
+  const userRole = clerkUser?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
+  const canQuery = clerkId && isAdvisor;
 
   // Calculate date ranges
   const now = new Date();
@@ -38,35 +42,35 @@ export default function AdvisorAnalyticsPage() {
   const fourWeeksAgo = subWeeks(now, 4);
   const activityStart = startOfWeek(fourWeeksAgo, { weekStartsOn: 1 }).getTime();
 
-  // Queries
+  // Queries - only run if user has advisor access
   const weekStats = useQuery(
     api.advisor_calendar.getCalendarStats,
-    clerkId ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
+    canQuery ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
   );
 
   const monthStats = useQuery(
     api.advisor_calendar.getCalendarStats,
-    clerkId ? { clerkId, startDate: monthStart, endDate: monthEnd } : 'skip',
+    canQuery ? { clerkId, startDate: monthStart, endDate: monthEnd } : 'skip',
   );
 
-  const caseload = useQuery(api.advisor_students.getMyCaseload, clerkId ? { clerkId } : 'skip');
+  const caseload = useQuery(api.advisor_students.getMyCaseload, canQuery ? { clerkId } : 'skip');
 
   const weekSessions = useQuery(
     api.advisor_calendar.getSessionsInRange,
-    clerkId ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
+    canQuery ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
   );
 
   const weekFollowUps = useQuery(
     api.advisor_calendar.getFollowUpsInRange,
-    clerkId ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
+    canQuery ? { clerkId, startDate: weekStart, endDate: weekEnd } : 'skip',
   );
 
   const activitySessions = useQuery(
     api.advisor_calendar.getSessionsInRange,
-    clerkId ? { clerkId, startDate: activityStart, endDate: weekEnd } : 'skip',
+    canQuery ? { clerkId, startDate: activityStart, endDate: weekEnd } : 'skip',
   );
 
-  const reviews = useQuery(api.advisor_reviews_queries.getReviews, clerkId ? { clerkId } : 'skip');
+  const reviews = useQuery(api.advisor_reviews_queries.getReviews, canQuery ? { clerkId } : 'skip');
 
   // Build activity chart data (sessions per week for last 4 weeks)
   const activityData = useMemo(() => {

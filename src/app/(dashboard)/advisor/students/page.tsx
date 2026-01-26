@@ -13,13 +13,19 @@ import { StudentsTable } from '@/components/advisor/StudentsTable';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { hasAdvisorAccess } from '@/lib/constants/roles';
 
 function AdvisorStudentsPageContent() {
   const { user } = useUser();
   const clerkId = user?.id;
+  const userRole = user?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
 
-  // Fetch caseload data (errors are caught by ErrorBoundary wrapper)
-  const caseloadData = useQuery(api.advisor_students.getMyCaseload, clerkId ? { clerkId } : 'skip');
+  // Only fetch caseload if user has advisor access (prevents query error for unauthorized users)
+  const caseloadData = useQuery(
+    api.advisor_students.getMyCaseload,
+    clerkId && isAdvisor ? { clerkId } : 'skip',
+  );
 
   // Filter state
   const [selectedMajor, setSelectedMajor] = useState('all');

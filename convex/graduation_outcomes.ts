@@ -608,6 +608,28 @@ export const createOutcome = mutation({
 
     assertUniversityAccess(user, cohort.institution_id);
 
+    // Validation: Salary must be non-negative (OUT-H1)
+    if (args.salary !== undefined && args.salary < 0) {
+      throw new Error('Salary must be a non-negative number');
+    }
+
+    // Validation: PII string length limits (OUT-H2)
+    if (args.studentName && args.studentName.length > 255) {
+      throw new Error('Student name must be 255 characters or less');
+    }
+    if (args.studentEmail && args.studentEmail.length > 254) {
+      throw new Error('Student email must be 254 characters or less');
+    }
+    if (args.employerName && args.employerName.length > 255) {
+      throw new Error('Employer name must be 255 characters or less');
+    }
+    if (args.jobTitle && args.jobTitle.length > 255) {
+      throw new Error('Job title must be 255 characters or less');
+    }
+    if (args.notes && args.notes.length > 2000) {
+      throw new Error('Notes must be 2000 characters or less');
+    }
+
     const now = Date.now();
 
     const outcomeId = await ctx.db.insert('graduate_outcomes', {
@@ -704,6 +726,22 @@ export const updateOutcome = mutation({
     }
 
     assertUniversityAccess(user, outcome.institution_id);
+
+    // Validation: Salary must be non-negative (OUT-H1)
+    if (args.salary !== undefined && args.salary < 0) {
+      throw new Error('Salary must be a non-negative number');
+    }
+
+    // Validation: PII string length limits (OUT-H2)
+    if (args.employerName !== undefined && args.employerName.length > 255) {
+      throw new Error('Employer name must be 255 characters or less');
+    }
+    if (args.jobTitle !== undefined && args.jobTitle.length > 255) {
+      throw new Error('Job title must be 255 characters or less');
+    }
+    if (args.notes !== undefined && args.notes.length > 2000) {
+      throw new Error('Notes must be 2000 characters or less');
+    }
 
     const updates: Record<string, unknown> = { updated_at: Date.now() };
 

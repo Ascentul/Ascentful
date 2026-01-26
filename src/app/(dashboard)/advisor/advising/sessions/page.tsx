@@ -62,6 +62,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { hasAdvisorAccess } from '@/lib/constants/roles';
 import { isValidHttpUrl } from '@/lib/utils';
 
 // Session type labels
@@ -105,6 +106,11 @@ export default function AdvisorSessionsPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Check advisor access to prevent query errors before AdvisorGate renders
+  const userRole = clerkUser?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
+  const canQuery = clerkUser?.id && isAdvisor;
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -129,12 +135,12 @@ export default function AdvisorSessionsPage() {
     visibility: 'advisor_only',
   });
 
-  // Queries
-  const sessions = useQuery(api.advisor_sessions.getSessions, clerkUser?.id ? {} : 'skip');
+  // Queries - only run if user has advisor access
+  const sessions = useQuery(api.advisor_sessions.getSessions, canQuery ? {} : 'skip');
 
   const caseload = useQuery(
     api.advisor_students.getMyCaseload,
-    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+    canQuery ? { clerkId: clerkUser.id } : 'skip',
   );
 
   // Open create dialog if ?action=new is in URL, and pre-fill studentId if provided

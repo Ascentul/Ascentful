@@ -36,6 +36,18 @@ export const UNIVERSITY_WORKSPACE_NAV: UniversityNavItem[] = [
     icon: 'Users',
   },
   {
+    id: 'queue',
+    label: 'Action Queue',
+    href: '/u/queue',
+    icon: 'ListTodo',
+  },
+  {
+    id: 'inbox',
+    label: 'Inbox',
+    href: '/u/inbox',
+    icon: 'MessageSquare',
+  },
+  {
     id: 'advising',
     label: 'Advising',
     href: '/u/advising',

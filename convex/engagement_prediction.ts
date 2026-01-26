@@ -48,6 +48,7 @@ interface EngagementPrediction {
 }
 
 const DEFAULT_LOOKBACK_WEEKS = 8;
+const MAX_LOOKBACK_WEEKS = 52; // Maximum 1 year to prevent unbounded queries (SIG-H1)
 const DEFAULT_FORECAST_WEEKS = 4;
 const MAX_FORECAST_WEEKS = 12;
 const PREDICTION_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -676,6 +677,10 @@ export const predictStudentEngagement = query({
     const { studentId, lookbackWeeks = DEFAULT_LOOKBACK_WEEKS } = args;
     if (lookbackWeeks <= 0) {
       throw new Error('lookbackWeeks must be >= 1');
+    }
+    // Prevent unbounded lookback queries (SIG-H1)
+    if (lookbackWeeks > MAX_LOOKBACK_WEEKS) {
+      throw new Error(`lookbackWeeks must be <= ${MAX_LOOKBACK_WEEKS}`);
     }
 
     const student = await ctx.db.get(studentId);

@@ -1,8 +1,9 @@
 import { auth } from '@clerk/nextjs/server';
 import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { isPushConfigured, PushSubscription, webpush } from '@/lib/push-config';
+import { isPushConfigured, webpush } from '@/lib/push-config';
 
 /**
  * Web Push Notification API
@@ -16,6 +17,107 @@ import { isPushConfigured, PushSubscription, webpush } from '@/lib/push-config';
  */
 
 const INTERNAL_SERVICE_TOKEN = process.env.CONVEX_INTERNAL_SERVICE_TOKEN;
+
+// Maximum limits for payload fields to prevent abuse
+const MAX_TITLE_LENGTH = 100;
+const MAX_BODY_LENGTH = 500;
+const MAX_URL_LENGTH = 2048;
+const MAX_TAG_LENGTH = 100;
+const MAX_ACTIONS = 5;
+const MAX_SUBSCRIPTIONS_PER_REQUEST = 1000;
+
+// Allowed push service domains (SSRF protection - PUSH-H1)
+const ALLOWED_PUSH_SERVICE_HOSTS = [
+  'fcm.googleapis.com', // Firebase Cloud Messaging (Chrome, Android)
+  'updates.push.services.mozilla.com', // Mozilla Push Service (Firefox)
+  'wns.windows.com', // Windows Push Notification Service (Edge, Windows)
+  'push.apple.com', // Apple Push Notification Service
+  'web.push.apple.com', // Apple Web Push
+];
+
+/**
+ * Validate push service endpoint URL (SSRF protection)
+ * Only allows known push service providers to prevent server-side request forgery
+ */
+function isAllowedPushEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    // Must be HTTPS
+    if (url.protocol !== 'https:') return false;
+    // Must be a known push service host
+    return ALLOWED_PUSH_SERVICE_HOSTS.some(
+      (host) => url.host === host || url.host.endsWith(`.${host}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Base64 URL-safe pattern for subscription keys
+const base64UrlPattern = /^[A-Za-z0-9_-]+={0,2}$/;
+
+// Zod schema for push subscription validation (PUSH-C2)
+const PushSubscriptionSchema = z.object({
+  endpoint: z
+    .string()
+    .url('Invalid endpoint URL')
+    .max(2048, 'Endpoint URL too long')
+    .refine(isAllowedPushEndpoint, {
+      message: 'Endpoint must be from a known push service provider',
+    }),
+  expirationTime: z.union([z.number(), z.null()]).optional(),
+  keys: z.object({
+    p256dh: z
+      .string()
+      .min(1, 'p256dh key is required')
+      .max(256, 'p256dh key too long')
+      .regex(base64UrlPattern, 'Invalid p256dh key format'),
+    auth: z
+      .string()
+      .min(1, 'auth key is required')
+      .max(64, 'auth key too long')
+      .regex(base64UrlPattern, 'Invalid auth key format'),
+  }),
+});
+
+// Zod schema for push notification payload validation (PUSH-C1)
+const PushPayloadSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Title is required')
+    .max(MAX_TITLE_LENGTH, `Title must be ${MAX_TITLE_LENGTH} characters or less`),
+  body: z
+    .string()
+    .min(1, 'Body is required')
+    .max(MAX_BODY_LENGTH, `Body must be ${MAX_BODY_LENGTH} characters or less`),
+  icon: z.string().max(MAX_URL_LENGTH).optional(),
+  badge: z.string().max(MAX_URL_LENGTH).optional(),
+  url: z.string().max(MAX_URL_LENGTH).optional().default('/'),
+  tag: z.string().max(MAX_TAG_LENGTH).optional(),
+  data: z.record(z.unknown()).optional(),
+  actions: z
+    .array(
+      z.object({
+        action: z.string().min(1).max(50),
+        title: z.string().min(1).max(50),
+        icon: z.string().max(MAX_URL_LENGTH).optional(),
+      }),
+    )
+    .max(MAX_ACTIONS, `Maximum ${MAX_ACTIONS} actions allowed`)
+    .optional(),
+});
+
+// Combined request body schema
+const RequestBodySchema = z.object({
+  subscriptions: z
+    .array(PushSubscriptionSchema)
+    .min(1, 'At least one subscription is required')
+    .max(
+      MAX_SUBSCRIPTIONS_PER_REQUEST,
+      `Maximum ${MAX_SUBSCRIPTIONS_PER_REQUEST} subscriptions per request`,
+    ),
+  payload: PushPayloadSchema,
+});
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -32,21 +134,6 @@ function safeTokenCompare(a: string, b: string): boolean {
   // Perform timing-safe comparison first, then check lengths
   const isEqual = timingSafeEqual(paddedA, paddedB);
   return isEqual && bufA.length === bufB.length;
-}
-
-interface PushPayload {
-  title: string;
-  body: string;
-  icon?: string;
-  badge?: string;
-  url?: string;
-  tag?: string;
-  data?: Record<string, unknown>;
-  actions?: Array<{
-    action: string;
-    title: string;
-    icon?: string;
-  }>;
 }
 
 export async function POST(request: Request) {
@@ -85,36 +172,29 @@ export async function POST(request: Request) {
       );
     }
 
-    let body;
+    // Parse JSON body
+    let rawBody: unknown;
     try {
-      body = await request.json();
+      rawBody = await request.json();
     } catch {
       return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
     }
-    const { subscriptions, payload }: { subscriptions: PushSubscription[]; payload: PushPayload } =
-      body;
 
-    if (!subscriptions || !Array.isArray(subscriptions) || subscriptions.length === 0) {
+    // Validate request body with Zod schema (PUSH-C1, PUSH-C2, PUSH-H1)
+    const parseResult = RequestBodySchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const errors = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
       return NextResponse.json(
-        { success: false, error: 'No subscriptions provided' },
+        {
+          success: false,
+          error: 'Validation failed',
+          details: errors,
+        },
         { status: 400 },
       );
     }
 
-    // Limit subscriptions per request to prevent resource exhaustion
-    if (subscriptions.length > 1000) {
-      return NextResponse.json(
-        { success: false, error: 'Too many subscriptions. Maximum 1000 per request.' },
-        { status: 400 },
-      );
-    }
-
-    if (!payload || !payload.title || !payload.body) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid payload. Title and body required.' },
-        { status: 400 },
-      );
-    }
+    const { subscriptions, payload } = parseResult.data;
 
     // Prepare notification payload
     const notificationPayload = JSON.stringify({

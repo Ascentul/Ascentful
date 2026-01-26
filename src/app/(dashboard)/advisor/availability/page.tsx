@@ -7,6 +7,7 @@
  * Students can then book sessions from these available time slots.
  */
 
+import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -45,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { hasAdvisorAccess } from '@/lib/constants/roles';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday' },
@@ -115,11 +117,20 @@ function getTimezoneLabel(tz: string | undefined): string {
 }
 
 export default function AvailabilityPage() {
+  const { user } = useUser();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  // Queries
-  const availability = useQuery(api.advisor_availability.getMyAvailability, {});
-  const pendingBookings = useQuery(api.advisor_availability.getPendingBookings, {});
+  // Check advisor access to prevent query errors before AdvisorGate renders
+  const userRole = user?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
+  const canQuery = user?.id && isAdvisor;
+
+  // Queries - only run if user has advisor access
+  const availability = useQuery(api.advisor_availability.getMyAvailability, canQuery ? {} : 'skip');
+  const pendingBookings = useQuery(
+    api.advisor_availability.getPendingBookings,
+    canQuery ? {} : 'skip',
+  );
 
   const isLoading = availability === undefined;
 
@@ -541,7 +552,12 @@ function getSessionTypeLabel(type: string): string {
 }
 
 function BookingRequestsSection() {
-  const bookings = useQuery(api.advisor_availability.getPendingBookings, {});
+  const { user } = useUser();
+  const userRole = user?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
+  const canQuery = user?.id && isAdvisor;
+
+  const bookings = useQuery(api.advisor_availability.getPendingBookings, canQuery ? {} : 'skip');
 
   if (!bookings || bookings.length === 0) {
     return (

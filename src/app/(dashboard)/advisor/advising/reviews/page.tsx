@@ -10,16 +10,20 @@ import { ReviewQueue } from '@/components/advisor/reviews/ReviewQueue';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
+import { hasAdvisorAccess } from '@/lib/constants/roles';
 
 export default function AdvisorReviewsPage() {
   const { user, isLoaded } = useUser();
   const clerkId = user?.id;
+  const userRole = user?.publicMetadata?.role as string | undefined;
+  const isAdvisor = hasAdvisorAccess(userRole);
+  const canQuery = clerkId && isAdvisor;
 
-  const reviews = useQuery(api.advisor_reviews_queries.getReviews, clerkId ? { clerkId } : 'skip');
+  const reviews = useQuery(api.advisor_reviews_queries.getReviews, canQuery ? { clerkId } : 'skip');
 
   const stats = useQuery(
     api.advisor_reviews_queries.getReviewQueueStats,
-    clerkId ? { clerkId } : 'skip',
+    canQuery ? { clerkId } : 'skip',
   );
 
   if (!isLoaded) {

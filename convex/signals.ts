@@ -741,6 +741,11 @@ export const createSignal = mutation({
       signalDescription: args.description,
     });
 
+    // Create/update queue item for this signal
+    await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+      signalId,
+    });
+
     return signalId;
   },
 });
@@ -814,6 +819,11 @@ export const createSignalFromRule = internalMutation({
         dueInDays: 7,
       });
     }
+
+    // Create/update queue item for this signal
+    await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+      signalId,
+    });
 
     return signalId;
   },
