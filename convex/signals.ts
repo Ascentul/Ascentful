@@ -460,6 +460,9 @@ export const getStudentSignalsWithFactors = query({
       )
       .collect();
 
+    // Filter to current university to ensure tenant isolation
+    const scopedSignals = signals.filter((s) => s.university_id === args.universityId);
+
     // Get the cached prediction for this student (if available)
     const prediction = await ctx.db
       .query('engagement_prediction_cache')
@@ -477,7 +480,7 @@ export const getStudentSignalsWithFactors = query({
 
     // Return signals with prediction factors
     return {
-      signals: signals.map((signal) => ({
+      signals: scopedSignals.map((signal) => ({
         ...signal,
         student: student
           ? {

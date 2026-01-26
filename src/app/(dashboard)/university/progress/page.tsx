@@ -3,7 +3,18 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
-import { BarChart, Calendar, LineChart, Target, TrendingUp, Users } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  BarChart,
+  Briefcase,
+  Calendar,
+  FileText,
+  LineChart,
+  MessageSquare,
+  Target,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +35,12 @@ export default function UniversityStudentProgressPage() {
     api.university_admin.listStudents,
     clerkUser?.id ? { clerkId: clerkUser.id, limit: 1000 } : 'skip',
   ) as any[] | undefined;
+
+  // Fetch recent activity for the university
+  const recentActivity = useQuery(
+    api.activity_events.getUniversityRecentActivity,
+    clerkUser?.id ? { clerkId: clerkUser.id, limit: 10 } : 'skip',
+  );
 
   if (!canAccess) {
     return (
@@ -177,13 +194,53 @@ export default function UniversityStudentProgressPage() {
           <CardDescription>Latest goal completions and achievements</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Activity tracking coming soon</p>
-            <p className="text-sm text-muted-foreground">
-              Real-time student activity will be displayed here
-            </p>
-          </div>
+          {!recentActivity ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+            </div>
+          ) : recentActivity.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No recent activity</p>
+              <p className="text-sm text-muted-foreground">
+                Student activity from the last 24 hours will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentActivity.map((activity: any) => {
+                // Icon based on category
+                const IconComponent =
+                  activity.category === 'goal'
+                    ? Target
+                    : activity.category === 'application'
+                      ? Briefcase
+                      : activity.category === 'document'
+                        ? FileText
+                        : activity.category === 'ai_coach'
+                          ? MessageSquare
+                          : Calendar;
+
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+                  >
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <IconComponent className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{activity.userName}</p>
+                      <p className="text-sm text-muted-foreground">{activity.description}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatDistanceToNow(activity.occurredAt, { addSuffix: true })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

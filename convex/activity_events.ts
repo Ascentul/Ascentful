@@ -372,6 +372,111 @@ export const getUniversityActivityTrends = query({
   },
 });
 
+/**
+ * Get recent activity events for a university with user details.
+ * Shows the most recent student actions for the progress dashboard.
+ */
+export const getUniversityRecentActivity = query({
+  args: {
+    clerkId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx, args.clerkId);
+
+    // Role gate - only admins and advisors can access
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Only administrators can access university activity');
+    }
+
+    // Get university ID (super_admin may not have one, so we need to handle that)
+    let universityId: Id<'universities'> | undefined;
+    if (sessionCtx.role === 'super_admin') {
+      // Super admin can pass universityId or we return empty
+      return [];
+    } else {
+      universityId = requireTenant(sessionCtx);
+    }
+
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    // Get recent events for the university
+    const events = await ctx.db
+      .query('activity_events')
+      .withIndex('by_university_occurred_at', (q) =>
+        q.eq('university_id', universityId).gte('occurred_at', oneDayAgo),
+      )
+      .order('desc')
+      .take(limit * 2); // Fetch extra to account for filtering
+
+    // Get user details for each event
+    const userIds = [...new Set(events.map((e) => e.user_id))];
+    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+    const userMap = new Map(users.filter(Boolean).map((u) => [u!._id, u!]));
+
+    // Format events with user details
+    const formattedEvents = events
+      .map((event) => {
+        const user = userMap.get(event.user_id);
+        if (!user) return null;
+
+        // Format the event description based on category and type
+        let description = '';
+        switch (event.event_category) {
+          case 'goal':
+            description =
+              event.event_type === 'goal.completed'
+                ? 'Completed a goal'
+                : event.event_type === 'goal.created'
+                  ? 'Created a new goal'
+                  : 'Updated a goal';
+            break;
+          case 'application':
+            description =
+              event.event_type === 'application.created'
+                ? 'Submitted a job application'
+                : event.event_type === 'application.updated'
+                  ? 'Updated an application'
+                  : 'Application activity';
+            break;
+          case 'document':
+            description =
+              event.event_type === 'resume.created'
+                ? 'Created a resume'
+                : event.event_type === 'cover_letter.created'
+                  ? 'Created a cover letter'
+                  : 'Document activity';
+            break;
+          case 'ai_coach':
+            description = 'Started an AI coaching session';
+            break;
+          case 'auth':
+            description = 'Logged in';
+            break;
+          default:
+            description = event.event_type.replace(/[._]/g, ' ');
+        }
+
+        return {
+          id: event._id,
+          userId: event.user_id,
+          userName: user.name || user.email || 'Unknown Student',
+          category: event.event_category,
+          eventType: event.event_type,
+          description,
+          occurredAt: event.occurred_at,
+          metadata: event.metadata,
+        };
+      })
+      .filter(Boolean)
+      .slice(0, limit);
+
+    return formattedEvents;
+  },
+});
+
 // ============================================================================
 // MAINTENANCE
 // ============================================================================

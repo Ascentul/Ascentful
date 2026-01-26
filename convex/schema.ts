@@ -2101,6 +2101,21 @@ export default defineSchema({
     .index('by_target', ['target_type', 'target_id', 'timestamp']) // Legacy: Find logs by target (user-specific queries)
     .index('by_target_email', ['target_email', 'timestamp']), // Legacy: Find logs by target email
 
+  // Archived audit logs for long-term retention
+  // Logs older than 7 years are archived here before deletion from audit_logs
+  // Each batch contains compressed JSON of up to 1000 logs
+  audit_logs_archive: defineTable({
+    batch_id: v.string(), // Unique identifier: YYYY-MM-DD-{timestamp}
+    start_date: v.number(), // Earliest log timestamp in batch
+    end_date: v.number(), // Latest log timestamp in batch
+    log_count: v.number(), // Number of logs in this batch
+    logs_json: v.string(), // Stringified JSON array of logs (compressed by removing nulls)
+    created_at: v.number(), // When this archive batch was created
+  })
+    .index('by_batch_id', ['batch_id'])
+    .index('by_date_range', ['start_date', 'end_date'])
+    .index('by_created_at', ['created_at']),
+
   // Migration tracking table for idempotency and state management
   migration_state: defineTable({
     migration_name: v.string(), // Unique identifier for the migration (e.g., "migrate_follow_ups_v1")

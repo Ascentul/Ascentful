@@ -2304,6 +2304,111 @@ export const getUniversityFeatureUsage = query({
 });
 
 /**
+ * Get monthly activity trends for applications, goals, and documents.
+ * Shows feature usage over the past 6 months.
+ */
+export const getUniversityMonthlyTrends = query({
+  args: {
+    universityId: v.id('universities'),
+    monthsBack: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+    const monthsBack = Math.min(Math.max(args.monthsBack ?? 6, 1), 12);
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students in the university
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+    const studentIds = new Set(students.map((s) => s._id));
+
+    // Build month boundaries
+    const monthBoundaries: Array<{ start: number; end: number; label: string }> = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+      const monthEnd = new Date(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ).getTime();
+      const label = date.toLocaleDateString('en-US', { month: 'short' });
+      monthBoundaries.push({ start: monthStart, end: monthEnd, label });
+    }
+
+    // Get all applications for these students
+    const allApplications = await Promise.all(
+      Array.from(studentIds).map((id) =>
+        ctx.db
+          .query('applications')
+          .withIndex('by_user', (q) => q.eq('user_id', id))
+          .collect(),
+      ),
+    );
+    const applications = allApplications.flat();
+
+    // Get all goals for these students
+    const allGoals = await Promise.all(
+      Array.from(studentIds).map((id) =>
+        ctx.db
+          .query('goals')
+          .withIndex('by_user', (q) => q.eq('user_id', id))
+          .collect(),
+      ),
+    );
+    const goals = allGoals.flat();
+
+    // Get all resumes for these students
+    const allResumes = await Promise.all(
+      Array.from(studentIds).map((id) =>
+        ctx.db
+          .query('resumes')
+          .withIndex('by_user', (q) => q.eq('user_id', id))
+          .collect(),
+      ),
+    );
+    const resumes = allResumes.flat();
+
+    // Aggregate by month
+    const trends = monthBoundaries.map((month) => {
+      const monthApplications = applications.filter((a) => {
+        const created = a.applied_at || a._creationTime;
+        return created >= month.start && created <= month.end;
+      }).length;
+
+      const monthGoals = goals.filter((g) => {
+        const created = g.created_at || g._creationTime;
+        return created >= month.start && created <= month.end;
+      }).length;
+
+      const monthResumes = resumes.filter((r) => {
+        const created = r.created_at || r._creationTime;
+        return created >= month.start && created <= month.end;
+      }).length;
+
+      return {
+        month: month.label,
+        applications: monthApplications,
+        goals: monthGoals,
+        resumes: monthResumes,
+      };
+    });
+
+    return trends;
+  },
+});
+
+/**
  * Get department-level analytics (real goals and applications by department)
  */
 export const getUniversityDepartmentAnalytics = query({

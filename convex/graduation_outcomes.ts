@@ -565,14 +565,12 @@ export const finalizeCohort = mutation({
 
 /**
  * Generate a unique survey token for a graduate outcome
+ * Uses crypto.getRandomValues for secure token generation
  */
 function generateSurveyToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  const array = new Uint8Array(24);
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /**

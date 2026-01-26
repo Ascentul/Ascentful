@@ -268,6 +268,7 @@ export default function InboxPage() {
       : newMessageSubject.trim() && newMessageBody.trim();
 
   const isLoading = threads === undefined;
+  const isThreadLoading = selectedThreadId !== null && selectedThread === undefined;
 
   return (
     <div className="flex h-[calc(100vh-64px)] flex-col">
@@ -539,7 +540,12 @@ export default function InboxPage() {
 
         {/* Thread Detail */}
         <div className="flex-1 bg-neutral-50">
-          {selectedThread ? (
+          {isThreadLoading ? (
+            <div className="flex h-full flex-col items-center justify-center text-neutral-500">
+              <Loader2 className="mb-3 h-6 w-6 animate-spin" />
+              <p className="text-sm">Loading thread…</p>
+            </div>
+          ) : selectedThread ? (
             <ThreadDetailView
               thread={selectedThread.thread}
               messages={selectedThread.messages}

@@ -176,16 +176,18 @@ export const linkToQueueItem = mutation({
       throw new Error('Unauthorized: Queue item not in your university');
     }
 
-    // Verify they're for the same student (if thread has a student)
-    if (thread.student_id && queueItem.student_id !== thread.student_id) {
+    // Require a matched student before linking
+    if (!thread.student_id) {
+      throw new Error('Thread must be matched to a student before linking');
+    }
+
+    // Verify they're for the same student
+    if (queueItem.student_id !== thread.student_id) {
       throw new Error('Thread and queue item must be for the same student');
     }
 
     // Verify advisor has access to the student
-    const studentId = thread.student_id ?? queueItem.student_id;
-    if (studentId) {
-      await assertCanAccessStudent(ctx, sessionCtx, studentId);
-    }
+    await assertCanAccessStudent(ctx, sessionCtx, thread.student_id);
 
     // Guard against overwriting existing links (one-to-one integrity)
     if (thread.linked_queue_item_id && thread.linked_queue_item_id !== args.queueItemId) {

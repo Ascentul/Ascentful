@@ -63,7 +63,8 @@ export const searchStudentMatches = query({
         .query('users')
         .withIndex('by_email', (q) => q.eq('email', args.email!))
         .filter((q) => q.eq(q.field('university_id'), universityId))
-        .unique();
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+        .first();
 
       if (exactMatch) {
         return [
@@ -213,6 +214,10 @@ export const matchToStudent = mutation({
 
     if (student.university_id !== universityId) {
       throw new Error('Student must be in the same university');
+    }
+
+    if (student.role !== 'student' && student.role !== 'user') {
+      throw new Error('Matched user must be a student');
     }
 
     const now = Date.now();

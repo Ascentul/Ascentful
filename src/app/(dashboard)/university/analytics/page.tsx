@@ -99,6 +99,12 @@ export default function UniversityAnalyticsPage() {
     canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
+  // Monthly activity trends
+  const monthlyTrends = useQuery(
+    api.analytics.getUniversityMonthlyTrends,
+    canQueryUniversity ? { universityId: universityId!, monthsBack: 6 } : 'skip',
+  );
+
   // Real department analytics
   const departmentAnalytics = useQuery(
     api.analytics.getUniversityDepartmentAnalytics,
@@ -776,19 +782,50 @@ export default function UniversityAnalyticsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Career Tool Usage Over Time</CardTitle>
-                <CardDescription>Monthly new users per feature</CardDescription>
+                <CardDescription>Monthly applications, goals, and resumes</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                {/* Monthly trends tracking coming soon */}
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    Monthly activity trends coming soon
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Track applications, goals, and documents over time
-                  </p>
-                </div>
+                {!monthlyTrends ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  </div>
+                ) : monthlyTrends.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No activity data yet</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlyTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="applications"
+                        stroke="#4F46E5"
+                        name="Applications"
+                        strokeWidth={2}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="goals"
+                        stroke="#10B981"
+                        name="Goals"
+                        strokeWidth={2}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="resumes"
+                        stroke="#F59E0B"
+                        name="Resumes"
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </div>

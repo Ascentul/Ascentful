@@ -474,12 +474,21 @@ export const clearInboxData = internalMutation({
       .withIndex('by_university', (q) => q.eq('university_id', universityId!))
       .collect();
 
+    const now = Date.now();
     let deletedMessages = 0;
     let deletedActions = 0;
     let deletedReadStates = 0;
     let deletedMatches = 0;
 
     for (const thread of threads) {
+      // Clear linked queue item reference to avoid dangling pointers
+      if (thread.linked_queue_item_id) {
+        await ctx.db.patch(thread.linked_queue_item_id, {
+          linked_thread_id: undefined,
+          updated_at: now,
+        });
+      }
+
       // Delete messages
       const messages = await ctx.db
         .query('inbox_messages')
