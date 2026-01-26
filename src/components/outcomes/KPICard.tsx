@@ -2,6 +2,11 @@
 
 import { cn } from '@/lib/utils';
 
+interface BenchmarkInfo {
+  nationalAverage: number;
+  label?: string;
+}
+
 interface KPICardProps {
   title: string;
   value: number;
@@ -11,6 +16,7 @@ interface KPICardProps {
     value: number;
     direction: 'up' | 'down' | 'neutral';
   };
+  benchmark?: BenchmarkInfo;
   className?: string;
   colorScheme?: 'primary' | 'success' | 'warning' | 'danger' | 'neutral';
 }
@@ -49,6 +55,7 @@ export function KPICard({
   subtitle,
   format = 'percentage',
   trend,
+  benchmark,
   className,
   colorScheme = 'neutral',
 }: KPICardProps) {
@@ -61,6 +68,15 @@ export function KPICard({
         ? value.toLocaleString()
         : '0';
 
+  // Calculate benchmark comparison
+  const benchmarkComparison = benchmark
+    ? {
+        difference: value - benchmark.nationalAverage,
+        isAbove: value > benchmark.nationalAverage + 2,
+        isBelow: value < benchmark.nationalAverage - 2,
+      }
+    : null;
+
   return (
     <div
       className={cn(
@@ -70,10 +86,35 @@ export function KPICard({
       )}
     >
       <div className="flex items-start justify-between">
-        <div>
+        <div className="flex-1">
           <p className={cn('text-sm font-medium', colors.text)}>{title}</p>
           <p className={cn('mt-2 text-3xl font-semibold', colors.valueText)}>{formattedValue}</p>
           {subtitle && <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>}
+          {benchmark && (
+            <div className="mt-2 pt-2 border-t border-neutral-200/50">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-500">{benchmark.label || 'NACE Avg'}:</span>
+                <span className="text-xs font-medium text-neutral-600">
+                  {benchmark.nationalAverage.toFixed(1)}%
+                </span>
+                {benchmarkComparison && (
+                  <span
+                    className={cn(
+                      'text-xs font-medium px-1.5 py-0.5 rounded',
+                      benchmarkComparison.isAbove && 'bg-green-100 text-green-700',
+                      benchmarkComparison.isBelow && 'bg-red-100 text-red-700',
+                      !benchmarkComparison.isAbove &&
+                        !benchmarkComparison.isBelow &&
+                        'bg-blue-100 text-blue-700',
+                    )}
+                  >
+                    {benchmarkComparison.difference > 0 ? '+' : ''}
+                    {benchmarkComparison.difference.toFixed(1)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         {trend && (
           <div

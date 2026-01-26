@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -684,19 +685,29 @@ function ThreadDetailView({
           </label>
         </div>
         <div className="flex gap-2">
-          <Input
+          <Textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={isInternal ? 'Add an internal note...' : 'Type your reply...'}
+            placeholder={
+              isInternal
+                ? 'Add an internal note...'
+                : 'Type your reply... (Shift+Enter for new line)'
+            }
             onKeyDown={(e) => {
+              if (isSending) return;
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            className={isInternal ? 'border-yellow-300 bg-yellow-50' : ''}
+            rows={2}
+            className={cn('resize-none', isInternal && 'border-yellow-300 bg-yellow-50')}
           />
-          <Button onClick={handleSend} disabled={isSending || !newMessage.trim()}>
+          <Button
+            onClick={handleSend}
+            disabled={isSending || !newMessage.trim()}
+            className="self-end"
+          >
             {isSending ? 'Sending...' : isInternal ? 'Add Note' : 'Send'}
           </Button>
         </div>

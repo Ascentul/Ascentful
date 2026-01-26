@@ -362,12 +362,12 @@ export default function AdvisorSessionsPage() {
           <div className="w-full gradient-border-bottom p-5 space-y-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-                <p className="text-muted-foreground mt-1">Track and manage advising sessions</p>
+                <h1 className="text-3xl font-bold tracking-tight">Appointments</h1>
+                <p className="text-muted-foreground mt-1">Track and manage advising appointments</p>
               </div>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                New Session
+                New Appointment
               </Button>
             </div>
 
@@ -376,7 +376,7 @@ export default function AdvisorSessionsPage() {
               <Card className="py-5 px-5">
                 <div className="flex items-center gap-3">
                   <p className="text-xl font-semibold leading-none">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Sessions</p>
+                  <p className="text-xs text-muted-foreground">Total Appointments</p>
                 </div>
               </Card>
               <Card className="py-5 px-5">
@@ -413,7 +413,7 @@ export default function AdvisorSessionsPage() {
                   <div className="flex-1 min-w-[200px]">
                     <div className="relative">
                       <label htmlFor="session-search" className="sr-only">
-                        Search sessions
+                        Search appointments
                       </label>
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -474,7 +474,7 @@ export default function AdvisorSessionsPage() {
               </CardContent>
             </Card>
 
-            {/* Sessions Table */}
+            {/* Appointments Table */}
             <Card>
               <CardContent className="pt-6">
                 {isLoading ? (
@@ -484,15 +484,15 @@ export default function AdvisorSessionsPage() {
                 ) : filteredSessions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 text-center">
                     <Calendar className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-lg font-medium">No sessions found</p>
+                    <p className="text-lg font-medium">No appointments found</p>
                     <p className="text-sm text-muted-foreground mb-4">
                       {sessions?.length === 0
-                        ? "You haven't scheduled any advising sessions yet"
-                        : 'No sessions match your current filters'}
+                        ? "You haven't scheduled any advising appointments yet"
+                        : 'No appointments match your current filters'}
                     </p>
                     <Button onClick={() => setCreateDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Schedule Session
+                      Schedule Appointment
                     </Button>
                   </div>
                 ) : (

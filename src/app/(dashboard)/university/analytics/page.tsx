@@ -6,18 +6,17 @@ import { Id } from 'convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import {
   AlertTriangle,
+  Briefcase,
   Calendar,
   ClipboardList,
   Clock,
   FileText,
   GraduationCap,
-  LogIn,
   Mail,
-  MousePointer,
-  RefreshCw,
   Target,
   TrendingUp,
   UserCheck,
+  UserCog,
   Users,
   UserX,
 } from 'lucide-react';
@@ -47,7 +46,7 @@ export default function UniversityAnalyticsPage() {
   const { user: clerkUser } = useUser();
   const { user, isAdmin, isLoading, subscription } = useAuth();
   const [analyticsView, setAnalyticsView] = useState<
-    'engagement' | 'features' | 'risk' | 'predictions'
+    'engagement' | 'features' | 'risk' | 'predictions' | 'advisors'
   >('engagement');
   const [activeUsersTimeRange, setActiveUsersTimeRange] = useState<'daily' | 'weekly' | 'monthly'>(
     'weekly',
@@ -103,6 +102,18 @@ export default function UniversityAnalyticsPage() {
   // Real department analytics
   const departmentAnalytics = useQuery(
     api.analytics.getUniversityDepartmentAnalytics,
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
+  );
+
+  // Advisor caseload metrics (Phase 2 - Career Services ICP)
+  const advisorCaseloadMetrics = useQuery(
+    api.analytics.getAdvisorCaseloadMetrics,
+    canQueryUniversity ? { universityId: universityId! } : 'skip',
+  );
+
+  // Intervention correlation data (Phase 2 - Career Services ICP)
+  const interventionCorrelation = useQuery(
+    api.analytics.getInterventionCorrelation,
     canQueryUniversity ? { universityId: universityId! } : 'skip',
   );
 
@@ -170,7 +181,7 @@ export default function UniversityAnalyticsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">Usage Analytics</h1>
           <p className="text-muted-foreground">
-            Detailed insights into student engagement and platform usage.
+            Detailed insights into student engagement and career platform activity.
           </p>
         </div>
       </div>
@@ -191,7 +202,7 @@ export default function UniversityAnalyticsPage() {
           onClick={() => setAnalyticsView('features')}
           className={analyticsView === 'features' ? 'bg-[#0C29AB]' : ''}
         >
-          Feature Adoption
+          Career Tool Usage
         </Button>
         <Button
           size="sm"
@@ -208,6 +219,14 @@ export default function UniversityAnalyticsPage() {
           className={analyticsView === 'predictions' ? 'bg-[#0C29AB]' : ''}
         >
           AI Predictions
+        </Button>
+        <Button
+          size="sm"
+          variant={analyticsView === 'advisors' ? 'default' : 'outline'}
+          onClick={() => setAnalyticsView('advisors')}
+          className={analyticsView === 'advisors' ? 'bg-[#0C29AB]' : ''}
+        >
+          Advisor Insights
         </Button>
       </div>
 
@@ -624,7 +643,7 @@ export default function UniversityAnalyticsPage() {
         </>
       )}
 
-      {/* Feature Adoption View */}
+      {/* Career Tool Usage View */}
       {analyticsView === 'features' && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -695,7 +714,7 @@ export default function UniversityAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Feature Adoption Charts */}
+          {/* Career Tool Usage Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -756,7 +775,7 @@ export default function UniversityAnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Feature Adoption Over Time</CardTitle>
+                <CardTitle>Career Tool Usage Over Time</CardTitle>
                 <CardDescription>Monthly new users per feature</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
@@ -1111,6 +1130,272 @@ export default function UniversityAnalyticsPage() {
             </CardContent>
           </Card>
         ))}
+
+      {/* Advisor Insights View (Phase 2 - Career Services ICP) */}
+      {analyticsView === 'advisors' && (
+        <>
+          {/* Caseload KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card
+              className={`border-l-4 ${
+                advisorCaseloadMetrics?.benchmark.status === 'optimal'
+                  ? 'border-l-green-500'
+                  : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
+                    ? 'border-l-amber-500'
+                    : 'border-l-red-500'
+              }`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-600" />
+                  Students per Advisor
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {advisorCaseloadMetrics?.summary.studentsPerAdvisor ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">NACADA benchmark: 250-300</p>
+                <div
+                  className={`text-xs mt-2 px-2 py-1 rounded-full inline-block ${
+                    advisorCaseloadMetrics?.benchmark.status === 'optimal'
+                      ? 'bg-green-100 text-green-700'
+                      : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {advisorCaseloadMetrics?.benchmark.status === 'optimal'
+                    ? 'Optimal'
+                    : advisorCaseloadMetrics?.benchmark.status === 'acceptable'
+                      ? 'Acceptable'
+                      : 'Overloaded'}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-blue-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-blue-600" />
+                  Avg Sessions / Month
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">
+                  {advisorCaseloadMetrics?.summary.avgAppointmentsPerMonth ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">Per advisor (last 30 days)</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-purple-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <UserCog className="h-4 w-4 text-purple-600" />
+                  Total Advisors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-600">
+                  {advisorCaseloadMetrics?.summary.totalAdvisors ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Managing {advisorCaseloadMetrics?.summary.totalStudents ?? 0} students
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-green-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-green-600" />
+                  Total Sessions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">
+                  {advisorCaseloadMetrics?.summary.totalSessionsLast30Days ?? 0}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">Last 30 days</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Intervention Correlation - The Key Career Services Metric */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                Intervention Impact on Employment
+              </CardTitle>
+              <CardDescription>
+                Do advisor sessions actually improve student outcomes? This data answers that
+                question.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {interventionCorrelation ? (
+                <div className="space-y-6">
+                  {/* Headline Stat */}
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6">
+                    <div className="text-lg font-medium text-gray-700 mb-2">Key Finding</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {interventionCorrelation.insight}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="text-sm text-muted-foreground">
+                          {interventionCorrelation.headline.withInterventions.label}
+                        </div>
+                        <div className="text-3xl font-bold text-green-600">
+                          {interventionCorrelation.headline.withInterventions.employmentRate}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Employment Rate</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="text-sm text-muted-foreground">
+                          {interventionCorrelation.headline.withoutInterventions.label}
+                        </div>
+                        <div className="text-3xl font-bold text-amber-600">
+                          {interventionCorrelation.headline.withoutInterventions.employmentRate}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Employment Rate</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Correlation by Session Bracket */}
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-3">
+                      Employment Rate by Session Count
+                    </div>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={interventionCorrelation.correlationByBracket}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="bracket" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                        <Tooltip
+                          formatter={(value: number, _name: string, props: any) => [
+                            `${value}% (${props.payload.employedCount}/${props.payload.studentsWithOutcome})`,
+                            'Employment Rate',
+                          ]}
+                        />
+                        <Bar dataKey="employmentRate" fill="#10B981" name="Employment Rate" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Students</div>
+                      <div className="text-xl font-bold">
+                        {interventionCorrelation.summary.totalStudents}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">With Sessions</div>
+                      <div className="text-xl font-bold">
+                        {interventionCorrelation.summary.studentsWithSessions}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Without Sessions</div>
+                      <div className="text-xl font-bold">
+                        {interventionCorrelation.summary.studentsWithoutSessions}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Avg Sessions/Student</div>
+                      <div className="text-xl font-bold">
+                        {interventionCorrelation.summary.avgSessionsPerStudent}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Loading intervention correlation data...
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Advisor Caseload Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Advisor Caseload Distribution</CardTitle>
+              <CardDescription>Current student assignments by advisor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {advisorCaseloadMetrics?.advisorBreakdown &&
+              advisorCaseloadMetrics.advisorBreakdown.length > 0 ? (
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={advisorCaseloadMetrics.advisorBreakdown}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis
+                        dataKey="advisorName"
+                        type="category"
+                        width={90}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          value,
+                          name === 'caseload' ? 'Students' : 'Sessions (30d)',
+                        ]}
+                      />
+                      <Legend />
+                      <Bar dataKey="caseload" fill="#3B82F6" name="Students" />
+                      <Bar dataKey="sessionsLast30Days" fill="#10B981" name="Sessions (30d)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  {/* Caseload Distribution Stats */}
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Min Caseload</div>
+                      <div className="text-xl font-bold">
+                        {advisorCaseloadMetrics.caseloadDistribution.min}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Avg Caseload</div>
+                      <div className="text-xl font-bold">
+                        {advisorCaseloadMetrics.caseloadDistribution.avg}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Max Caseload</div>
+                      <div className="text-xl font-bold">
+                        {advisorCaseloadMetrics.caseloadDistribution.max}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">No advisor assignments yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Assign students to advisors to see caseload data
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Department Performance - Shared Across All Views */}
       <Card>

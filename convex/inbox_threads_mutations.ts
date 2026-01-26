@@ -7,6 +7,7 @@
 
 import { v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { mutation } from './_generated/server';
 import {
@@ -281,7 +282,7 @@ export const createInternalThread = mutation({
 
     // Schedule notifications for mentioned users
     if (mentionedUserIds.length > 0) {
-      ctx.scheduler.runAfter(0, 'inbox_notifications:notifyMentionedUsers' as any, {
+      await ctx.scheduler.runAfter(0, internal.inbox_notifications.notifyMentionedUsers, {
         threadId,
         messageId,
         mentionedUserIds,

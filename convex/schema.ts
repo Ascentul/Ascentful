@@ -2477,6 +2477,7 @@ export default defineSchema({
     is_full_time: v.optional(v.boolean()),
     salary: v.optional(v.number()), // Annual salary
     start_date: v.optional(v.number()), // Employment start date
+    days_to_employment: v.optional(v.number()), // Days from graduation to employment start (NACE metric)
 
     // === Location ===
     city: v.optional(v.string()),
@@ -2510,6 +2511,21 @@ export default defineSchema({
 
     notes: v.optional(v.string()),
     is_active: v.optional(v.boolean()), // For soft delete
+
+    // === First Destination Survey Tracking ===
+    survey_sent_at: v.optional(v.number()), // When initial survey was sent
+    survey_last_reminder_at: v.optional(v.number()), // When last reminder was sent
+    survey_reminder_count: v.optional(v.number()), // Number of reminders sent
+    survey_response_status: v.optional(
+      v.union(
+        v.literal('pending'), // Survey sent, no response
+        v.literal('started'), // Partially completed
+        v.literal('completed'), // Fully completed
+        v.literal('opted_out'), // Student declined
+      ),
+    ),
+    survey_responded_at: v.optional(v.number()), // When response was received
+    survey_token: v.optional(v.string()), // Unique token for survey link (security)
 
     // === Idempotent Import Support ===
     external_outcome_id: v.optional(v.string()), // External ID for import deduplication
@@ -3367,6 +3383,7 @@ export default defineSchema({
       // Computed rates
       employment_rate: v.number(), // (employed / known) * 100
       continuing_ed_rate: v.number(),
+      career_outcomes_rate: v.optional(v.number()), // NACE primary: (employed + ed + military + volunteer) / (known - not_seeking) * 100
     }),
 
     // === Breakdown Data (for charts) ===

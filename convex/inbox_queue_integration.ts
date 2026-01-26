@@ -62,6 +62,10 @@ export const createQueueItemFromThread = mutation({
       ) {
         throw new Error('Thread already has an active linked queue item');
       }
+      // Require explicit unlinking before creating a new queue item
+      throw new Error(
+        'Thread is already linked to a queue item. Unlink it before creating a new one.',
+      );
     }
 
     const now = Date.now();
@@ -175,6 +179,14 @@ export const linkToQueueItem = mutation({
     // Verify they're for the same student (if thread has a student)
     if (thread.student_id && queueItem.student_id !== thread.student_id) {
       throw new Error('Thread and queue item must be for the same student');
+    }
+
+    // Guard against overwriting existing links (one-to-one integrity)
+    if (thread.linked_queue_item_id && thread.linked_queue_item_id !== args.queueItemId) {
+      throw new Error('Thread is already linked to a different queue item');
+    }
+    if (queueItem.linked_thread_id && queueItem.linked_thread_id !== args.threadId) {
+      throw new Error('Queue item is already linked to a different thread');
     }
 
     const now = Date.now();

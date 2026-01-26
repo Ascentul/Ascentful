@@ -74,7 +74,7 @@ export function SnoozeDialog({ open, onOpenChange, onConfirm, isLoading }: Snooz
           <div className="space-y-2">
             <Label htmlFor="snoozeDays">Snooze Duration</Label>
             <Select value={snoozeDays} onValueChange={setSnoozeDays}>
-              <SelectTrigger>
+              <SelectTrigger id="snoozeDays">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

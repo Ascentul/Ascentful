@@ -5,7 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasUniversityAdminAccess } from '@/lib/constants/roles';
 import { requireConvexToken } from '@/lib/convex-auth';
 import { convexServer } from '@/lib/convex-server';
-import { csvFilename, OUTCOME_CSV_FIELDS, toCSV } from '@/lib/csv-utils';
+import {
+  csvFilename,
+  NACE_FDS_FIELDS,
+  type NACEExportRow,
+  OUTCOME_CSV_FIELDS,
+  toCSV,
+} from '@/lib/csv-utils';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
     const { userId, token } = await requireConvexToken();
     log.debug('User authenticated', { event: 'auth.success', clerkId: userId });
 
-    let body: { filters?: ExportFilters; snapshotId?: string };
+    let body: { filters?: ExportFilters; snapshotId?: string; format?: 'standard' | 'nace' };
     try {
       body = await request.json();
     } catch {
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
         },
       );
     }
-    const { filters, snapshotId } = body;
+    const { filters, snapshotId, format = 'standard' } = body;
 
     // Get the current user to verify admin access using server-side authenticated userId
     let user;
@@ -264,14 +270,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate CSV content using shared field definitions
-    const csvHeaders = OUTCOME_CSV_FIELDS.map((f) => f.header);
-    const csvRows = outcomeData.outcomes.map((outcome) =>
-      OUTCOME_CSV_FIELDS.map((f) => f.getValue(outcome)),
-    );
+    // Generate CSV content based on format
+    let csvHeaders: string[];
+    let csvRows: string[][];
+    let filename: string;
+
+    if (format === 'nace') {
+      // NACE First Destination Survey format
+      csvHeaders = NACE_FDS_FIELDS.map((f) => f.header);
+      csvRows = outcomeData.outcomes.map((outcome) =>
+        NACE_FDS_FIELDS.map((f) => f.getValue(outcome as NACEExportRow)),
+      );
+      filename = csvFilename('nace-fds-export');
+    } else {
+      // Standard format
+      csvHeaders = OUTCOME_CSV_FIELDS.map((f) => f.header);
+      csvRows = outcomeData.outcomes.map((outcome) =>
+        OUTCOME_CSV_FIELDS.map((f) => f.getValue(outcome)),
+      );
+      filename = csvFilename('outcomes-export');
+    }
 
     const csvContent = toCSV(csvHeaders, csvRows);
-    const filename = csvFilename('outcomes-export');
 
     const durationMs = Date.now() - startTime;
     log.info('Export outcomes completed', {

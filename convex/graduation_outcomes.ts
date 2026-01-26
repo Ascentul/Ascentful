@@ -67,6 +67,47 @@ function validateOutcomeData(
   }
 }
 
+/**
+ * Calculate days from graduation to employment start.
+ * Used for the NACE "Time to Employment" metric.
+ *
+ * @param cohort - The graduation cohort (contains graduation term/year)
+ * @param startDate - The employment start date (timestamp)
+ * @returns Number of days from graduation to employment, or undefined if not calculable
+ */
+function calculateDaysToEmployment(
+  cohort: { graduation_term: string; graduation_year: number },
+  startDate: number | undefined,
+): number | undefined {
+  if (!startDate) return undefined;
+
+  // Approximate graduation date based on term
+  // Spring: May 15, Summer: August 15, Fall: December 15, Winter: January 15
+  const termDates: Record<string, { month: number; day: number }> = {
+    spring: { month: 4, day: 15 }, // May 15 (0-indexed months)
+    summer: { month: 7, day: 15 }, // August 15
+    fall: { month: 11, day: 15 }, // December 15
+    winter: { month: 0, day: 15 }, // January 15 (of the next year)
+  };
+
+  const termDate = termDates[cohort.graduation_term];
+  if (!termDate) return undefined;
+
+  // For winter term, the graduation year is actually the next calendar year
+  const gradYear =
+    cohort.graduation_term === 'winter' ? cohort.graduation_year + 1 : cohort.graduation_year;
+
+  const gradDate = new Date(gradYear, termDate.month, termDate.day);
+  const employmentDate = new Date(startDate);
+
+  // Calculate difference in days
+  const diffMs = employmentDate.getTime() - gradDate.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  // Return signed value: negative means employment started before graduation
+  return diffDays;
+}
+
 // ============================================================================
 // COHORT QUERIES
 // ============================================================================
@@ -476,6 +517,452 @@ export const finalizeCohort = mutation({
 });
 
 // ============================================================================
+// FIRST DESTINATION SURVEY (FDS) DISTRIBUTION
+// ============================================================================
+
+/**
+ * Generate a unique survey token for a graduate outcome
+ */
+function generateSurveyToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+/**
+ * Launch First Destination Survey for a cohort
+ * Prepares all outcome records with survey tokens for distribution
+ * Requires university_admin role
+ */
+export const launchFirstDestinationSurvey = mutation({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    assertUniversityAccess(user, cohort.institution_id);
+
+    // Validate cohort status
+    if (cohort.survey_launched_at) {
+      throw new Error('Survey has already been launched for this cohort');
+    }
+
+    if (cohort.status === 'finalized' || cohort.status === 'submitted') {
+      throw new Error('Cannot launch survey for finalized or submitted cohort');
+    }
+
+    const now = Date.now();
+
+    // Get all outcome records for this cohort
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_cohort', (q) => q.eq('cohort_id', args.cohortId))
+      .collect();
+
+    // Prepare each outcome record with a survey token
+    let preparedCount = 0;
+    let skippedCount = 0;
+
+    for (const outcome of outcomes) {
+      // Skip if outcome already has known status (data from other sources)
+      if (outcome.outcome_status === 'known') {
+        skippedCount++;
+        continue;
+      }
+
+      // Skip if no email to send survey to
+      if (!outcome.student_email && !outcome.student_id) {
+        skippedCount++;
+        continue;
+      }
+
+      // Generate unique survey token
+      const surveyToken = generateSurveyToken();
+
+      await ctx.db.patch(outcome._id, {
+        survey_token: surveyToken,
+        survey_response_status: 'pending',
+        survey_sent_at: now,
+        survey_reminder_count: 0,
+        updated_at: now,
+      });
+
+      preparedCount++;
+    }
+
+    // Update cohort status
+    await ctx.db.patch(args.cohortId, {
+      status: 'collecting',
+      survey_launched_at: now,
+      reminder_count: 0,
+      updated_at: now,
+    });
+
+    return {
+      cohortId: args.cohortId,
+      totalOutcomes: outcomes.length,
+      preparedForSurvey: preparedCount,
+      skipped: skippedCount,
+      launchedAt: now,
+    };
+  },
+});
+
+/**
+ * Get survey distribution status for a cohort
+ * Returns counts of survey responses by status
+ */
+export const getSurveyDistributionStatus = query({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    // Super admins can access any cohort
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (cohort.institution_id !== universityId) {
+        throw new Error('Unauthorized: Cohort is not in your university');
+      }
+    }
+
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_cohort', (q) => q.eq('cohort_id', args.cohortId))
+      .collect();
+
+    // Count by survey response status
+    const surveyStats = {
+      pending: 0,
+      started: 0,
+      completed: 0,
+      optedOut: 0,
+      notSent: 0, // No survey_sent_at
+      alreadyKnown: 0, // Known from other sources before survey
+    };
+
+    for (const outcome of outcomes) {
+      if (!outcome.survey_sent_at) {
+        if (outcome.outcome_status === 'known') {
+          surveyStats.alreadyKnown++;
+        } else {
+          surveyStats.notSent++;
+        }
+      } else {
+        switch (outcome.survey_response_status) {
+          case 'pending':
+            surveyStats.pending++;
+            break;
+          case 'started':
+            surveyStats.started++;
+            break;
+          case 'completed':
+            surveyStats.completed++;
+            break;
+          case 'opted_out':
+            surveyStats.optedOut++;
+            break;
+          default:
+            surveyStats.pending++;
+        }
+      }
+    }
+
+    const totalSurveySent = outcomes.filter((o) => o.survey_sent_at).length;
+    const responseRate =
+      totalSurveySent > 0
+        ? Math.round(((surveyStats.completed + surveyStats.started) / totalSurveySent) * 100)
+        : 0;
+
+    return {
+      cohort: {
+        id: cohort._id,
+        term: cohort.graduation_term,
+        year: cohort.graduation_year,
+        status: cohort.status,
+        surveyLaunchedAt: cohort.survey_launched_at,
+        surveyClosedAt: cohort.survey_closed_at,
+        lastReminderAt: cohort.last_reminder_at,
+        reminderCount: cohort.reminder_count ?? 0,
+      },
+      totalOutcomes: outcomes.length,
+      surveyStats,
+      responseRate,
+      knowledgeRate: cohort.knowledge_rate ?? 0,
+    };
+  },
+});
+
+/**
+ * Send survey reminders for a cohort
+ * Updates all pending outcomes with reminder tracking
+ * Requires university_admin role
+ */
+export const sendSurveyReminders = mutation({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUniversityAdmin(ctx);
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    assertUniversityAccess(user, cohort.institution_id);
+
+    if (!cohort.survey_launched_at) {
+      throw new Error('Survey has not been launched for this cohort');
+    }
+
+    if (cohort.status === 'finalized' || cohort.status === 'submitted') {
+      throw new Error('Cannot send reminders for finalized or submitted cohort');
+    }
+
+    const now = Date.now();
+
+    // Get pending outcomes
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_cohort', (q) => q.eq('cohort_id', args.cohortId))
+      .collect();
+
+    const pendingOutcomes = outcomes.filter(
+      (o) => o.survey_sent_at && o.survey_response_status === 'pending',
+    );
+
+    // Update reminder tracking for each pending outcome
+    for (const outcome of pendingOutcomes) {
+      await ctx.db.patch(outcome._id, {
+        survey_last_reminder_at: now,
+        survey_reminder_count: (outcome.survey_reminder_count ?? 0) + 1,
+        updated_at: now,
+      });
+    }
+
+    // Update cohort reminder tracking
+    await ctx.db.patch(args.cohortId, {
+      last_reminder_at: now,
+      reminder_count: (cohort.reminder_count ?? 0) + 1,
+      updated_at: now,
+    });
+
+    return {
+      cohortId: args.cohortId,
+      remindersSent: pendingOutcomes.length,
+      reminderNumber: (cohort.reminder_count ?? 0) + 1,
+      sentAt: now,
+    };
+  },
+});
+
+/**
+ * Record a survey response for an outcome
+ * Called when a graduate submits their FDS survey
+ */
+export const recordSurveyResponse = mutation({
+  args: {
+    surveyToken: v.string(),
+    responseStatus: v.union(v.literal('started'), v.literal('completed'), v.literal('opted_out')),
+    // NACE FDS fields (all optional, filled as student progresses)
+    outcomeType: v.optional(
+      v.union(
+        v.literal('employed_fulltime'),
+        v.literal('employed_parttime'),
+        v.literal('continuing_education'),
+        v.literal('military'),
+        v.literal('volunteer'),
+        v.literal('seeking'),
+        v.literal('not_seeking'),
+      ),
+    ),
+    employerName: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    jobFunction: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    salary: v.optional(v.number()),
+    startDate: v.optional(v.number()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    country: v.optional(v.string()),
+    isRemote: v.optional(v.boolean()),
+    isMajorRelated: v.optional(v.boolean()),
+    gradSchoolName: v.optional(v.string()),
+    gradSchoolProgram: v.optional(v.string()),
+    gradSchoolDegree: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Find outcome by survey token (no auth required - token is the auth)
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .filter((q) => q.eq(q.field('survey_token'), args.surveyToken))
+      .collect();
+
+    if (outcomes.length === 0) {
+      throw new Error('Invalid survey token');
+    }
+
+    const outcome = outcomes[0];
+    const now = Date.now();
+
+    // Build update object
+    const updates: Record<string, unknown> = {
+      survey_response_status: args.responseStatus,
+      updated_at: now,
+    };
+
+    if (args.responseStatus === 'completed' || args.responseStatus === 'started') {
+      updates.survey_responded_at = now;
+    }
+
+    // Update outcome status based on response
+    if (args.responseStatus === 'completed') {
+      updates.outcome_status = 'known';
+      updates.data_source = 'survey';
+    } else if (args.responseStatus === 'started') {
+      updates.outcome_status = 'partial';
+      updates.data_source = 'survey';
+    }
+
+    // Update NACE fields if provided
+    if (args.outcomeType !== undefined) updates.outcome_type = args.outcomeType;
+    if (args.employerName !== undefined) updates.employer_name = args.employerName;
+    if (args.jobTitle !== undefined) updates.job_title = args.jobTitle;
+    if (args.jobFunction !== undefined) updates.job_function = args.jobFunction;
+    if (args.industry !== undefined) updates.industry = args.industry;
+    if (args.salary !== undefined) updates.salary = args.salary;
+    if (args.startDate !== undefined) updates.start_date = args.startDate;
+    if (args.city !== undefined) updates.city = args.city;
+    if (args.state !== undefined) updates.state = args.state;
+    if (args.country !== undefined) updates.country = args.country;
+    if (args.isRemote !== undefined) updates.is_remote = args.isRemote;
+    if (args.isMajorRelated !== undefined) updates.is_major_related = args.isMajorRelated;
+    if (args.gradSchoolName !== undefined) updates.grad_school_name = args.gradSchoolName;
+    if (args.gradSchoolProgram !== undefined) updates.grad_school_program = args.gradSchoolProgram;
+    if (args.gradSchoolDegree !== undefined) updates.grad_school_degree = args.gradSchoolDegree;
+
+    // Calculate days to employment if we have start date and cohort graduation date
+    if (args.startDate) {
+      const cohort = await ctx.db.get(outcome.cohort_id);
+      if (cohort) {
+        // Estimate graduation date from cohort (assume May 15 for spring, Dec 15 for fall/winter)
+        const gradMonth = cohort.graduation_term === 'spring' ? 4 : 11;
+        const gradDay = 15;
+        const gradDate = new Date(cohort.graduation_year, gradMonth, gradDay);
+        const startDateObj = new Date(args.startDate);
+        const daysToEmployment = Math.max(
+          0,
+          Math.floor((startDateObj.getTime() - gradDate.getTime()) / (1000 * 60 * 60 * 24)),
+        );
+        updates.days_to_employment = daysToEmployment;
+      }
+    }
+
+    await ctx.db.patch(outcome._id, updates);
+
+    return {
+      outcomeId: outcome._id,
+      responseStatus: args.responseStatus,
+      recordedAt: now,
+    };
+  },
+});
+
+/**
+ * Get outcomes pending survey response (for reminder emails)
+ * Returns outcomes that have been sent surveys but haven't responded
+ */
+export const getPendingSurveyOutcomes = query({
+  args: {
+    cohortId: v.id('graduation_cohorts'),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+    const limit = args.limit ?? 100;
+
+    const cohort = await ctx.db.get(args.cohortId);
+    if (!cohort) {
+      throw new Error('Cohort not found');
+    }
+
+    // Super admins can access any cohort
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (cohort.institution_id !== universityId) {
+        throw new Error('Unauthorized: Cohort is not in your university');
+      }
+    }
+
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_cohort', (q) => q.eq('cohort_id', args.cohortId))
+      .collect();
+
+    // Filter to pending outcomes with email
+    const pendingOutcomes = outcomes
+      .filter(
+        (o) =>
+          o.survey_sent_at &&
+          o.survey_response_status === 'pending' &&
+          (o.student_email || o.student_id),
+      )
+      .slice(0, limit);
+
+    // Enrich with student info if student_id is available
+    const enrichedOutcomes = await Promise.all(
+      pendingOutcomes.map(async (o) => {
+        let email = o.student_email;
+        let name = o.student_name;
+
+        if (o.student_id) {
+          const student = await ctx.db.get(o.student_id);
+          if (student) {
+            email = email || student.email;
+            name = name || student.name;
+          }
+        }
+
+        return {
+          id: o._id,
+          email,
+          name,
+          surveyToken: o.survey_token,
+          surveyReminderCount: o.survey_reminder_count ?? 0,
+          lastReminderAt: o.survey_last_reminder_at,
+        };
+      }),
+    );
+
+    return {
+      outcomes: enrichedOutcomes.filter((o) => o.email), // Only return those with valid email
+      cohort: {
+        id: cohort._id,
+        term: cohort.graduation_term,
+        year: cohort.graduation_year,
+        reminderCount: cohort.reminder_count ?? 0,
+      },
+    };
+  },
+});
+
+// ============================================================================
 // OUTCOME QUERIES
 // ============================================================================
 
@@ -669,6 +1156,9 @@ export const createOutcome = mutation({
 
     const now = Date.now();
 
+    // Calculate days to employment if start date is provided
+    const daysToEmployment = calculateDaysToEmployment(cohort, args.startDate);
+
     const outcomeId = await ctx.db.insert('graduate_outcomes', {
       cohort_id: args.cohortId,
       institution_id: cohort.institution_id,
@@ -687,6 +1177,7 @@ export const createOutcome = mutation({
       is_full_time: args.isFullTime,
       salary: args.salary,
       start_date: args.startDate,
+      days_to_employment: daysToEmployment,
       city: args.city,
       state: args.state,
       country: args.country,
@@ -783,7 +1274,14 @@ export const updateOutcome = mutation({
     if (args.naicsCode !== undefined) updates.naics_code = args.naicsCode;
     if (args.isFullTime !== undefined) updates.is_full_time = args.isFullTime;
     if (args.salary !== undefined) updates.salary = args.salary;
-    if (args.startDate !== undefined) updates.start_date = args.startDate;
+    if (args.startDate !== undefined) {
+      updates.start_date = args.startDate;
+      // Recalculate days to employment when start date changes
+      const cohort = await ctx.db.get(outcome.cohort_id);
+      if (cohort) {
+        updates.days_to_employment = calculateDaysToEmployment(cohort, args.startDate);
+      }
+    }
     if (args.city !== undefined) updates.city = args.city;
     if (args.state !== undefined) updates.state = args.state;
     if (args.country !== undefined) updates.country = args.country;
@@ -1743,6 +2241,7 @@ export const getOutcomesAnalytics = query({
           not_seeking: 0,
           employment_rate: 0,
           continuing_ed_rate: 0,
+          career_outcomes_rate: 0,
         },
         breakdown: {},
         outcomes: [],
@@ -1804,6 +2303,7 @@ export const getOutcomesAnalytics = query({
       not_seeking: number;
       employment_rate: number;
       continuing_ed_rate: number;
+      career_outcomes_rate: number;
     } => {
       const total = outcomesList.length;
       // Filter to known outcomes for type counts - unknown/partial may have stale outcome_type
@@ -1833,6 +2333,16 @@ export const getOutcomesAnalytics = query({
         known > 0 ? Math.round(((employed_fulltime + employed_parttime) / known) * 100) : 0;
       const continuing_ed_rate = known > 0 ? Math.round((continuing_education / known) * 100) : 0;
 
+      // NACE Career Outcomes Rate = (employed + education + military + volunteer) / (known - not_seeking)
+      // This is the primary metric Career Services Directors report
+      const careerOutcomesDenominator = known - not_seeking;
+      const careerOutcomesNumerator =
+        employed_fulltime + employed_parttime + continuing_education + military + volunteer;
+      const career_outcomes_rate =
+        careerOutcomesDenominator > 0
+          ? Math.round((careerOutcomesNumerator / careerOutcomesDenominator) * 100)
+          : 0;
+
       return {
         total_students: total,
         known_outcomes: known,
@@ -1848,6 +2358,7 @@ export const getOutcomesAnalytics = query({
         not_seeking,
         employment_rate,
         continuing_ed_rate,
+        career_outcomes_rate,
       };
     };
 
@@ -1973,6 +2484,7 @@ export const createSnapshot = mutation({
       not_seeking: v.number(),
       employment_rate: v.number(),
       continuing_ed_rate: v.number(),
+      career_outcomes_rate: v.optional(v.number()),
     }),
     breakdownByProgram: v.optional(
       v.record(

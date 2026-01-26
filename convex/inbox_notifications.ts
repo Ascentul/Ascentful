@@ -169,6 +169,7 @@ export const notifyMentionedUsers = internalMutation({
       }
     }
 
+    let notifiedCount = 0;
     // Create notifications for each mentioned user
     for (const userId of args.mentionedUserIds) {
       // Don't notify the person who made the mention
@@ -184,8 +185,9 @@ export const notifyMentionedUsers = internalMutation({
         read: false,
         created_at: now,
       });
+      notifiedCount++;
     }
 
-    return { notified: args.mentionedUserIds.length };
+    return { notified: notifiedCount };
   },
 });

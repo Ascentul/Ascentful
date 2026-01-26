@@ -35,6 +35,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/date-utils';
+import { sanitizeUserHtml } from '@/lib/sanitize-html';
 import { cn } from '@/lib/utils';
 
 export default function StudentThreadDetailPage() {
@@ -168,6 +169,7 @@ function ThreadDetailContent() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isSending) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -355,7 +357,7 @@ function MessageBubble({ message, isStudent }: MessageBubbleProps) {
           )}
         >
           {message.body_html ? (
-            <div dangerouslySetInnerHTML={{ __html: message.body_html }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeUserHtml(message.body_html) }} />
           ) : (
             <p className="whitespace-pre-wrap">{message.body}</p>
           )}

@@ -520,6 +520,17 @@ export const clearQueueItems = internalMutation({
     universityId: v.id('universities'),
   },
   handler: async (ctx, args) => {
+    // Safety guard: only allow hard-delete for test universities
+    const university = await ctx.db.get(args.universityId);
+    if (!university) {
+      throw new Error('University not found');
+    }
+    if (!university.is_test) {
+      throw new Error(
+        'Refusing to hard-delete queue items for non-test universities. Use archive instead.',
+      );
+    }
+
     // Get all queue items
     const items = await ctx.db
       .query('queue_items')

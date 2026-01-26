@@ -410,32 +410,42 @@ export const getStudentThreadMessages = query({
       .order('asc')
       .collect();
 
-    // Enrich with sender info
-    const enrichedMessages = await Promise.all(
-      messages.map(async (message) => {
-        let senderUser = null;
-        if (message.sender_user_id) {
-          const sender = await ctx.db.get(message.sender_user_id);
-          if (sender) {
-            senderUser = {
-              _id: sender._id,
-              name: sender.name,
-              imageUrl: sender.profile_image,
-            };
-          }
-        }
-
-        return {
-          _id: message._id,
-          body: message.body,
-          body_html: message.body_html,
-          sender_type: message.sender_type,
-          senderUser,
-          attachments: message.attachments,
-          created_at: message.created_at,
-        };
-      }),
+    // Batch-fetch sender data to avoid N+1 queries
+    const senderIds = [
+      ...new Set(
+        messages.map((m) => m.sender_user_id).filter((id): id is Id<'users'> => id !== undefined),
+      ),
+    ];
+    const senders = await Promise.all(senderIds.map((id) => ctx.db.get(id)));
+    const senderMap = new Map(
+      senders
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .map((s) => [
+          s._id,
+          {
+            _id: s._id,
+            name: s.name,
+            imageUrl: s.profile_image,
+          },
+        ]),
     );
+
+    // Enrich messages using the pre-fetched sender map
+    const enrichedMessages = messages.map((message) => {
+      const senderUser = message.sender_user_id
+        ? (senderMap.get(message.sender_user_id) ?? null)
+        : null;
+
+      return {
+        _id: message._id,
+        body: message.body,
+        body_html: message.body_html,
+        sender_type: message.sender_type,
+        senderUser,
+        attachments: message.attachments,
+        created_at: message.created_at,
+      };
+    });
 
     return {
       thread: {
@@ -479,34 +489,42 @@ export const getStudentThreads = query({
       .order('desc')
       .collect();
 
-    // Enrich with assignee info
-    const enrichedThreads = await Promise.all(
-      threads.map(async (thread) => {
-        let assignee = null;
-        if (thread.assigned_to) {
-          const advisor = await ctx.db.get(thread.assigned_to);
-          if (advisor) {
-            assignee = {
-              _id: advisor._id,
-              name: advisor.name,
-              imageUrl: advisor.profile_image,
-            };
-          }
-        }
-
-        return {
-          _id: thread._id,
-          subject: thread.subject,
-          snippet: thread.snippet,
-          status: thread.status,
-          assignee,
-          message_count: thread.message_count,
-          last_message_at: thread.last_message_at,
-          last_message_sender_type: thread.last_message_sender_type,
-          created_at: thread.created_at,
-        };
-      }),
+    // Batch-fetch assignee data to avoid N+1 queries
+    const assigneeIds = [
+      ...new Set(
+        threads.map((t) => t.assigned_to).filter((id): id is Id<'users'> => id !== undefined),
+      ),
+    ];
+    const assignees = await Promise.all(assigneeIds.map((id) => ctx.db.get(id)));
+    const assigneeMap = new Map(
+      assignees
+        .filter((a): a is NonNullable<typeof a> => a !== null)
+        .map((a) => [
+          a._id,
+          {
+            _id: a._id,
+            name: a.name,
+            imageUrl: a.profile_image,
+          },
+        ]),
     );
+
+    // Enrich threads using the pre-fetched assignee map
+    const enrichedThreads = threads.map((thread) => {
+      const assignee = thread.assigned_to ? (assigneeMap.get(thread.assigned_to) ?? null) : null;
+
+      return {
+        _id: thread._id,
+        subject: thread.subject,
+        snippet: thread.snippet,
+        status: thread.status,
+        assignee,
+        message_count: thread.message_count,
+        last_message_at: thread.last_message_at,
+        last_message_sender_type: thread.last_message_sender_type,
+        created_at: thread.created_at,
+      };
+    });
 
     return enrichedThreads;
   },

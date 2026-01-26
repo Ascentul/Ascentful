@@ -22,6 +22,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -104,13 +105,13 @@ import { UniversitySearchCommand } from '@/components/university/UniversitySearc
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { useToast } from '@/hooks/use-toast';
-import { hasUniversityAdminAccess } from '@/lib/constants/roles';
+import { hasAdvisorAccess, hasUniversityAdminAccess } from '@/lib/constants/roles';
 
 export function UniversityDashboard() {
   const router = useRouter();
   const { user: clerkUser } = useUser();
   const { getToken } = useClerkAuth();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { impersonation, getEffectiveRole } = useImpersonation();
   const [activeTab, setActiveTab] = useState('overview');
   const [analyticsView, setAnalyticsView] = useState<'engagement' | 'features' | 'risk'>(
@@ -179,7 +180,7 @@ export function UniversityDashboard() {
 
   // Get effective role (respects impersonation)
   const effectiveRole = getEffectiveRole();
-  const isUniversityRole = hasUniversityAdminAccess(user?.role);
+  const isUniversityAdmin = hasUniversityAdminAccess(effectiveRole);
 
   // Redirect based on effective role when impersonating
   useEffect(() => {
@@ -196,22 +197,6 @@ export function UniversityDashboard() {
       }
     }
   }, [impersonation.isImpersonating, effectiveRole, router]);
-
-  // Redirect non-university roles (including advisors) to their dashboards
-  useEffect(() => {
-    if (impersonation.isImpersonating) return; // handled above
-    if (!user) return;
-
-    if (user.role === 'advisor') {
-      // Advisor redirects to advisor dashboard (explicit check for redirect)
-      router.replace('/advisor');
-      return;
-    }
-
-    if (!isUniversityRole) {
-      router.replace('/dashboard');
-    }
-  }, [user, isUniversityRole, impersonation.isImpersonating, router]);
 
   // Data fetching - must be before conditional returns (Rules of Hooks)
   const overview = useQuery(
@@ -558,14 +543,8 @@ export function UniversityDashboard() {
     return { success: successCount > 0, successCount };
   };
 
-  // Access is role-based only - university_admin or super_admin can access this dashboard
-  // subscription.isUniversity is NOT used for access control here; it determines what
-  // features are available within the dashboard, not whether the user can access it
-  const hasAccess = !!user && hasUniversityAdminAccess(effectiveRole);
-
-  // If we know we'll redirect (advisor or non-university role), avoid flashing unauthorized UI
-  const shouldRedirect =
-    !impersonation.isImpersonating && !!user && (user.role === 'advisor' || !isUniversityRole); // Explicit advisor check for redirect logic
+  // Access is role-based only - advisors, university_admin, and super_admin can access
+  const hasAccess = !!user && hasAdvisorAccess(effectiveRole);
 
   // Show error state if profile failed to load after timeout
   if (profileLoadTimedOut && !user) {
@@ -596,7 +575,7 @@ export function UniversityDashboard() {
 
   // Show loading spinner while auth is loading or redirecting
   // This prevents flashing the Unauthorized card for roles that will be redirected
-  if (authLoading || !clerkUser || !user || shouldRedirect) {
+  if (authLoading || !clerkUser || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -970,11 +949,9 @@ export function UniversityDashboard() {
     <div className="max-w-screen-2xl mx-auto p-4 md:p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">
-            University Administration
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[#0C29AB]">University Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage student licenses and performance analytics.
+            Shared view of engagement, outcomes, and operations.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -988,17 +965,19 @@ export function UniversityDashboard() {
           >
             Export Reports
           </button>
-          <button
-            className="inline-flex items-center rounded-md bg-primary text-white px-3 py-2 text-sm"
-            onClick={() => setAssignOpen(true)}
-          >
-            Add Student Licenses
-            {overview && overview.licenseCapacity && (
-              <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
-                {overview.licenseCapacity - (overview.activeLicenses ?? 0)} seats left
-              </span>
-            )}
-          </button>
+          {isUniversityAdmin && (
+            <button
+              className="inline-flex items-center rounded-md bg-primary text-white px-3 py-2 text-sm"
+              onClick={() => setAssignOpen(true)}
+            >
+              Add Student Licenses
+              {overview && overview.licenseCapacity && (
+                <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
+                  {overview.licenseCapacity - (overview.activeLicenses ?? 0)} seats left
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1044,6 +1023,29 @@ export function UniversityDashboard() {
       {/* Overview Tab Content */}
       {activeTab === 'overview' && (
         <>
+          {isUniversityAdmin && (
+            <Card className="border-dashed bg-white/70">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Admin Shortcuts</CardTitle>
+                <CardDescription>Quick access to configuration screens.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/u/admin/departments">Departments</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/u/admin/courses">Courses</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/u/admin/invite">Invitations</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/u/admin/settings">Settings</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Stat Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card>
@@ -1558,7 +1560,7 @@ export function UniversityDashboard() {
               onClick={() => setAnalyticsView('features')}
               className={analyticsView === 'features' ? 'bg-[#0C29AB]' : ''}
             >
-              Feature Adoption
+              Career Tool Usage
             </Button>
             <Button
               size="sm"
@@ -1694,7 +1696,7 @@ export function UniversityDashboard() {
             </div>
           )}
 
-          {/* Analytics: Feature Adoption */}
+          {/* Analytics: Career Tool Usage */}
           {analyticsView === 'features' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3106,16 +3108,19 @@ export function UniversityDashboard() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Feature Adoption Report</TableCell>
+                    <TableCell className="font-medium">Career Tool Usage Report</TableCell>
                     <TableCell>2024-01-05</TableCell>
-                    <TableCell>Platform Analytics</TableCell>
+                    <TableCell>Career Platform Analytics</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleViewReport('Feature Adoption Report', 'Platform Analytics')
+                            handleViewReport(
+                              'Career Tool Usage Report',
+                              'Career Platform Analytics',
+                            )
                           }
                         >
                           View
@@ -3124,7 +3129,10 @@ export function UniversityDashboard() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleDownloadReport('Feature Adoption Report', 'Platform Analytics')
+                            handleDownloadReport(
+                              'Career Tool Usage Report',
+                              'Career Platform Analytics',
+                            )
                           }
                         >
                           Download

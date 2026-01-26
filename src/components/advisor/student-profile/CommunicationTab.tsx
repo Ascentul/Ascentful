@@ -5,6 +5,7 @@ import { api } from 'convex/_generated/api';
 import type { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { ChevronRight, Lock, MessageSquare, Plus, Send, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -33,6 +34,7 @@ type ThreadSubTab = 'student' | 'internal';
 
 export function CommunicationTab({ studentId, studentName }: CommunicationTabProps) {
   const { user } = useUser();
+  const router = useRouter();
   const clerkId = user?.id;
 
   const [subTab, setSubTab] = useState<ThreadSubTab>('student');
@@ -172,6 +174,13 @@ export function CommunicationTab({ studentId, studentName }: CommunicationTabPro
             className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
             role="button"
             tabIndex={0}
+            onClick={() => router.push(`/u/inbox?thread=${thread._id}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                router.push(`/u/inbox?thread=${thread._id}`);
+              }
+            }}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">

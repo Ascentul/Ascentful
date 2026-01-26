@@ -101,9 +101,11 @@ export const listMyThreads = query({
           }
         }
 
-        // Calculate unread status
+        // Calculate unread status (ignore student's own messages)
         const lastReadAt = readStateMap.get(thread._id);
-        const hasUnread = !lastReadAt || thread.last_message_at > lastReadAt;
+        const hasUnread =
+          thread.last_message_sender_type !== 'student' &&
+          (!lastReadAt || thread.last_message_at > lastReadAt);
 
         // Map status to student-friendly label
         let statusLabel = 'Waiting on Career Services';
@@ -281,11 +283,14 @@ export const getUnreadCount = query({
 
     const readStateMap = new Map(readStates.map((rs) => [rs.thread_id, rs.last_read_at]));
 
-    // Count threads with unread messages
+    // Count threads with unread messages (ignore student's own messages)
     let unreadCount = 0;
     for (const thread of threads) {
       const lastReadAt = readStateMap.get(thread._id);
-      if (!lastReadAt || thread.last_message_at > lastReadAt) {
+      if (
+        thread.last_message_sender_type !== 'student' &&
+        (!lastReadAt || thread.last_message_at > lastReadAt)
+      ) {
         unreadCount++;
       }
     }

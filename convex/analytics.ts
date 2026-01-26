@@ -2514,3 +2514,308 @@ export const getUniversityStudentFunnel = query({
     };
   },
 });
+
+// ============================================================================
+// ADVISOR CASELOAD METRICS (Phase 2 - Career Services ICP)
+// ============================================================================
+
+/**
+ * Get advisor caseload metrics for a university.
+ * Provides key metrics for Career Services leadership:
+ * - Students per Advisor ratio (NACADA benchmark: 250-300)
+ * - Average appointments per month per advisor
+ * - Advisor response time (avg time to resolve signals)
+ */
+export const getAdvisorCaseloadMetrics = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all users for this university
+    const allUsers = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Separate students and advisors
+    const students = allUsers.filter((u) => u.role === 'student' || u.role === 'user');
+    const advisors = allUsers.filter((u) => u.role === 'advisor');
+
+    const totalStudents = students.length;
+    const totalAdvisors = advisors.length;
+
+    // Calculate Students per Advisor ratio
+    const studentsPerAdvisor =
+      totalAdvisors > 0 ? Math.round((totalStudents / totalAdvisors) * 10) / 10 : 0;
+
+    // Get advisor assignments to calculate caseload distribution
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Count students per advisor (initialize all advisors with 0)
+    const studentCountByAdvisor = new Map<string, number>();
+    for (const advisor of advisors) {
+      studentCountByAdvisor.set(advisor._id.toString(), 0);
+    }
+    for (const assignment of advisorAssignments) {
+      const advisorId = assignment.advisor_id.toString();
+      studentCountByAdvisor.set(advisorId, (studentCountByAdvisor.get(advisorId) || 0) + 1);
+    }
+
+    // Calculate caseload distribution (includes zero-caseload advisors)
+    const caseloadValues = advisors.map(
+      (advisor) => studentCountByAdvisor.get(advisor._id.toString()) || 0,
+    );
+    const minCaseload = caseloadValues.length > 0 ? Math.min(...caseloadValues) : 0;
+    const maxCaseload = caseloadValues.length > 0 ? Math.max(...caseloadValues) : 0;
+    const avgCaseload =
+      caseloadValues.length > 0
+        ? Math.round((caseloadValues.reduce((a, b) => a + b, 0) / caseloadValues.length) * 10) / 10
+        : 0;
+
+    // Get sessions from the last 30 days for appointment metrics
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentSessions = await ctx.db
+      .query('advisor_sessions')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo))
+      .collect();
+
+    // Calculate sessions per advisor
+    const sessionCountByAdvisor = new Map<string, number>();
+    for (const session of recentSessions) {
+      const advisorId = session.advisor_id.toString();
+      sessionCountByAdvisor.set(advisorId, (sessionCountByAdvisor.get(advisorId) || 0) + 1);
+    }
+
+    // Calculate average appointments per month per advisor
+    const sessionValues = Array.from(sessionCountByAdvisor.values());
+    const avgAppointmentsPerMonth =
+      sessionValues.length > 0
+        ? Math.round((sessionValues.reduce((a, b) => a + b, 0) / sessionValues.length) * 10) / 10
+        : 0;
+
+    // Build per-advisor breakdown (top 10 by caseload)
+    const advisorBreakdown = advisors
+      .map((advisor) => {
+        const advisorIdStr = advisor._id.toString();
+        const caseload = studentCountByAdvisor.get(advisorIdStr) || 0;
+        const sessions = sessionCountByAdvisor.get(advisorIdStr) || 0;
+        return {
+          advisorId: advisor._id,
+          advisorName: advisor.name || advisor.email,
+          caseload,
+          sessionsLast30Days: sessions,
+        };
+      })
+      .sort((a, b) => b.caseload - a.caseload)
+      .slice(0, 10);
+
+    return {
+      summary: {
+        totalStudents,
+        totalAdvisors,
+        studentsPerAdvisor,
+        avgAppointmentsPerMonth,
+        totalSessionsLast30Days: recentSessions.length,
+      },
+      caseloadDistribution: {
+        min: minCaseload,
+        max: maxCaseload,
+        avg: avgCaseload,
+      },
+      // NACADA benchmark reference
+      benchmark: {
+        recommended: 250,
+        max: 300,
+        status:
+          studentsPerAdvisor <= 250
+            ? 'optimal'
+            : studentsPerAdvisor <= 300
+              ? 'acceptable'
+              : 'overloaded',
+      },
+      advisorBreakdown,
+    };
+  },
+});
+
+// ============================================================================
+// INTERVENTION CORRELATION (Phase 2 - Career Services ICP)
+// ============================================================================
+
+/**
+ * Get correlation between advisor interventions and student outcomes.
+ * Answers the key Career Services question:
+ * "Do our interventions actually improve outcomes?"
+ *
+ * Groups students by session count and compares employment rates.
+ * Example output: "Students with 3+ sessions: 78% employed vs 52% for 0 sessions"
+ */
+export const getInterventionCorrelation = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students for this university
+    const allUsers = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
+
+    const studentIds = allUsers.map((u) => u._id);
+    const studentIdSet = new Set(studentIds.map((id) => id.toString()));
+
+    // Get all sessions for students in this university
+    const allSessions = await ctx.db
+      .query('advisor_sessions')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Count sessions per student
+    const sessionCountByStudent = new Map<string, number>();
+    for (const session of allSessions) {
+      const studentIdStr = session.student_id.toString();
+      if (studentIdSet.has(studentIdStr)) {
+        sessionCountByStudent.set(studentIdStr, (sessionCountByStudent.get(studentIdStr) || 0) + 1);
+      }
+    }
+
+    // Get graduate outcomes for this university
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_institution', (q) => q.eq('institution_id', universityId))
+      .collect();
+
+    // Build outcome map by student (using student_id field if available, or external_student_id)
+    const outcomeByStudent = new Map<string, (typeof outcomes)[0]>();
+    for (const outcome of outcomes) {
+      if (outcome.student_id) {
+        outcomeByStudent.set(outcome.student_id.toString(), outcome);
+      }
+    }
+
+    // Define session brackets
+    const brackets = [
+      { label: '0 sessions', min: 0, max: 0 },
+      { label: '1-2 sessions', min: 1, max: 2 },
+      { label: '3-5 sessions', min: 3, max: 5 },
+      { label: '6+ sessions', min: 6, max: Infinity },
+    ];
+
+    // Calculate employment rate by session bracket
+    const correlationData = brackets.map((bracket) => {
+      let totalInBracket = 0;
+      let employedInBracket = 0;
+      let knownOutcomeInBracket = 0;
+
+      for (const student of allUsers) {
+        const studentIdStr = student._id.toString();
+        const sessionCount = sessionCountByStudent.get(studentIdStr) || 0;
+
+        // Check if student falls in this bracket
+        if (sessionCount >= bracket.min && sessionCount <= bracket.max) {
+          totalInBracket++;
+
+          // Check outcome for this student
+          const outcome = outcomeByStudent.get(studentIdStr);
+          if (outcome) {
+            knownOutcomeInBracket++;
+            // Check if employed (includes full-time, part-time employment)
+            if (
+              outcome.outcome_type === 'employed_fulltime' ||
+              outcome.outcome_type === 'employed_parttime' ||
+              outcome.outcome_status === 'known'
+            ) {
+              employedInBracket++;
+            }
+          }
+        }
+      }
+
+      const employmentRate =
+        knownOutcomeInBracket > 0
+          ? Math.round((employedInBracket / knownOutcomeInBracket) * 100)
+          : 0;
+
+      return {
+        bracket: bracket.label,
+        totalStudents: totalInBracket,
+        studentsWithOutcome: knownOutcomeInBracket,
+        employedCount: employedInBracket,
+        employmentRate,
+      };
+    });
+
+    // Calculate overall stats
+    const totalWithSessions = Array.from(sessionCountByStudent.values()).filter(
+      (count) => count > 0,
+    ).length;
+    const totalWithoutSessions = allUsers.length - totalWithSessions;
+
+    // Calculate the "headline" comparison
+    const zeroSessionsData = correlationData.find((d) => d.bracket === '0 sessions');
+    const threeOrMoreData = correlationData.find(
+      (d) => d.bracket === '3-5 sessions' || d.bracket === '6+ sessions',
+    );
+
+    // Combine 3+ sessions for headline stat
+    const threeOrMoreTotal = correlationData
+      .filter((d) => d.bracket === '3-5 sessions' || d.bracket === '6+ sessions')
+      .reduce(
+        (acc, d) => ({
+          employed: acc.employed + d.employedCount,
+          total: acc.total + d.studentsWithOutcome,
+        }),
+        { employed: 0, total: 0 },
+      );
+
+    const threeOrMoreRate =
+      threeOrMoreTotal.total > 0
+        ? Math.round((threeOrMoreTotal.employed / threeOrMoreTotal.total) * 100)
+        : 0;
+
+    return {
+      summary: {
+        totalStudents: allUsers.length,
+        studentsWithSessions: totalWithSessions,
+        studentsWithoutSessions: totalWithoutSessions,
+        totalSessions: allSessions.length,
+        avgSessionsPerStudent:
+          allUsers.length > 0 ? Math.round((allSessions.length / allUsers.length) * 10) / 10 : 0,
+      },
+      headline: {
+        // "Students with 3+ sessions: 78% employed vs 52% for 0 sessions"
+        withInterventions: {
+          label: '3+ sessions',
+          employmentRate: threeOrMoreRate,
+        },
+        withoutInterventions: {
+          label: '0 sessions',
+          employmentRate: zeroSessionsData?.employmentRate || 0,
+        },
+        difference: threeOrMoreRate - (zeroSessionsData?.employmentRate || 0),
+      },
+      correlationByBracket: correlationData,
+      insight:
+        threeOrMoreRate > (zeroSessionsData?.employmentRate || 0)
+          ? `Students with 3+ advising sessions have ${threeOrMoreRate - (zeroSessionsData?.employmentRate || 0)}% higher employment rate`
+          : 'Insufficient data to determine correlation',
+    };
+  },
+});
