@@ -36,7 +36,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -97,21 +96,24 @@ export default function QueueItemDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const itemId = params.itemId as Id<'queue_items'>;
+  const itemId = params.itemId as Id<'queue_items'> | undefined;
 
-  // Dialog state
+  // Dialog state - hooks must be called unconditionally
   const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
   const [isSnoozeDialogOpen, setIsSnoozeDialogOpen] = useState(false);
   const [isQuickActionDialogOpen, setIsQuickActionDialogOpen] = useState(false);
   const [quickActionType, setQuickActionType] = useState<QuickActionType>('contacted');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Queries
-  const itemDetail = useQuery(api.queue_items.getQueueItemDetail, { queueItemId: itemId });
-  const actionHistory = useQuery(api.queue_items.getQueueItemActions, {
-    queueItemId: itemId,
-    limit: 20,
-  });
+  // Queries - skip if itemId is invalid
+  const itemDetail = useQuery(
+    api.queue_items.getQueueItemDetail,
+    itemId ? { queueItemId: itemId } : 'skip',
+  );
+  const actionHistory = useQuery(
+    api.queue_items.getQueueItemActions,
+    itemId ? { queueItemId: itemId, limit: 20 } : 'skip',
+  );
 
   // Mutations
   const resolveItem = useMutation(api.queue_items.resolveQueueItem);
@@ -120,6 +122,18 @@ export default function QueueItemDetailPage() {
   const reopenItem = useMutation(api.queue_items.reopenQueueItem);
   const updateStatus = useMutation(api.queue_items.updateQueueItemStatus);
   const logQuickAction = useMutation(api.queue_items.logQuickAction);
+
+  // Early return if itemId is invalid (after hooks)
+  if (!itemId) {
+    return (
+      <div className="container mx-auto py-6">
+        <p className="text-red-500">Invalid queue item ID</p>
+        <Button variant="ghost" onClick={() => router.push('/u/queue')}>
+          Back to Queue
+        </Button>
+      </div>
+    );
+  }
 
   // Handlers
   const handleConfirmResolve = async (closedReason: string, notes?: string) => {

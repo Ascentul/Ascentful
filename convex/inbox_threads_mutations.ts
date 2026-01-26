@@ -72,6 +72,7 @@ export const createThread = mutation({
     // Create thread
     const threadId = await ctx.db.insert('inbox_threads', {
       university_id: universityId,
+      thread_type: 'student', // Advisor ↔ student communication (student-visible)
       student_id: studentId,
       identity_status: identityStatus,
       subject: args.subject,
@@ -138,6 +139,155 @@ export const createThread = mutation({
         identityStatus,
       },
     });
+
+    return threadId;
+  },
+});
+
+/**
+ * Create an internal thread (advisor-to-advisor)
+ * These threads are NEVER visible to students.
+ * Used for handoffs, case conferences, and supervisor escalations.
+ */
+export const createInternalThread = mutation({
+  args: {
+    subject: v.string(),
+    body: v.string(),
+    referencedStudentId: v.optional(v.id('users')), // Student being discussed (not a participant)
+    mentionedUserIds: v.optional(v.array(v.id('users'))), // Advisors to notify
+    priority: v.optional(v.union(v.literal('P1'), v.literal('P2'), v.literal('P3'))),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - must be advisor/admin
+    const sessionCtx = await getCurrentUser(ctx);
+    requireAdvisorRole(sessionCtx);
+    const universityId = requireTenant(sessionCtx);
+
+    const now = Date.now();
+    const priority = args.priority ?? 'P3';
+
+    // If referencing a student, verify access
+    if (args.referencedStudentId) {
+      await assertCanAccessStudent(ctx, sessionCtx, args.referencedStudentId);
+    }
+
+    // Validate mentioned users are in the same university and have advisor role
+    const mentionedUserIds = args.mentionedUserIds ?? [];
+    for (const userId of mentionedUserIds) {
+      const user = await ctx.db.get(userId);
+      if (!user) {
+        throw new Error(`Mentioned user not found: ${userId}`);
+      }
+      if (user.university_id !== universityId) {
+        throw new Error('Can only mention users in the same university');
+      }
+      const allowedRoles = ['advisor', 'university_admin', 'super_admin'];
+      if (!allowedRoles.includes(user.role)) {
+        throw new Error('Can only mention advisors or admins in internal threads');
+      }
+    }
+
+    // Create snippet from body
+    const snippet = args.body.length > 150 ? args.body.slice(0, 147) + '...' : args.body;
+
+    // Create internal thread - note thread_type='internal'
+    const threadId = await ctx.db.insert('inbox_threads', {
+      university_id: universityId,
+      thread_type: 'internal', // CRITICAL: marks as internal, never visible to students
+      referenced_student_id: args.referencedStudentId,
+      identity_status: 'matched', // Internal threads don't need identity resolution
+      subject: args.subject,
+      snippet,
+      channel: 'in_app', // Internal threads are always in-app
+      status: 'NEW',
+      assigned_to: sessionCtx.userId, // Creator is auto-assigned
+      assigned_at: now,
+      assigned_by: sessionCtx.userId,
+      sla_due_at: calculateSLADueAt(priority),
+      sla_breached: false,
+      priority,
+      message_count: 1,
+      last_message_at: now,
+      last_message_sender_type: 'advisor',
+      has_unread: mentionedUserIds.length > 0, // Unread for mentioned users
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Create first message
+    const messageId = await ctx.db.insert('inbox_messages', {
+      thread_id: threadId,
+      university_id: universityId,
+      sender_type: 'advisor',
+      sender_user_id: sessionCtx.userId,
+      body: args.body,
+      channel: 'in_app',
+      is_internal: true, // All messages in internal threads are internal
+      created_at: now,
+    });
+
+    // Create mention records for each mentioned user
+    for (const mentionedUserId of mentionedUserIds) {
+      await ctx.db.insert('inbox_mentions', {
+        thread_id: threadId,
+        message_id: messageId,
+        university_id: universityId,
+        mentioned_user_id: mentionedUserId,
+        mentioned_by_id: sessionCtx.userId,
+        created_at: now,
+      });
+    }
+
+    // Create action log
+    await ctx.db.insert('inbox_thread_actions', {
+      thread_id: threadId,
+      actor_id: sessionCtx.userId,
+      action_type: 'created',
+      new_value: {
+        subject: args.subject,
+        priority,
+        thread_type: 'internal',
+        referenced_student_id: args.referencedStudentId,
+        mentioned_user_ids: mentionedUserIds,
+      },
+      created_at: now,
+    });
+
+    // Mark as read for creator
+    await ctx.db.insert('inbox_read_state', {
+      thread_id: threadId,
+      user_id: sessionCtx.userId,
+      last_read_at: now,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Audit log
+    await logUserAction(ctx, {
+      action: 'inbox.internal_thread_created',
+      actorUserId: sessionCtx.userId,
+      actorRole: sessionCtx.role,
+      targetId: threadId,
+      targetType: 'inbox_thread',
+      studentId: args.referencedStudentId,
+      actorUniversityId: universityId,
+      metadata: {
+        subject: args.subject,
+        priority,
+        thread_type: 'internal',
+        mentioned_count: mentionedUserIds.length,
+      },
+    });
+
+    // Schedule notifications for mentioned users
+    if (mentionedUserIds.length > 0) {
+      ctx.scheduler.runAfter(0, 'inbox_notifications:notifyMentionedUsers' as any, {
+        threadId,
+        messageId,
+        mentionedUserIds,
+        mentionedById: sessionCtx.userId,
+      });
+    }
 
     return threadId;
   },
@@ -539,7 +689,7 @@ export const updatePriority = mutation({
       await ctx.db.insert('inbox_thread_actions', {
         thread_id: args.threadId,
         actor_id: sessionCtx.userId,
-        action_type: 'status_changed',
+        action_type: 'priority_changed',
         previous_value: { priority: previousPriority },
         new_value: { priority: args.priority },
         created_at: now,

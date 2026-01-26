@@ -278,7 +278,7 @@ export const unlinkFromQueueItem = mutation({
     await ctx.db.insert('inbox_thread_actions', {
       thread_id: args.threadId,
       actor_id: sessionCtx.userId,
-      action_type: 'status_changed',
+      action_type: 'queue_item_unlinked',
       previous_value: { linked_queue_item_id: queueItemId },
       new_value: { linked_queue_item_id: null },
       notes: 'Unlinked from queue item',

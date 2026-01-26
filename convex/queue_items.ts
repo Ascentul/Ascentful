@@ -672,6 +672,7 @@ export const upsertQueueItemFromSignal = internalMutation({
       if (existing.priority !== newPriority) {
         await ctx.db.patch(existing._id, {
           priority: newPriority,
+          version: (existing.version ?? 0) + 1,
           updated_at: Date.now(),
         });
       }

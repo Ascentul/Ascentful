@@ -13,7 +13,6 @@
 import { v, ConvexError } from 'convex/values';
 
 import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { logUserAction } from './lib/auditLogger';
 import { getStudentAdvisor, requireUniversityStudent } from './student_advisor_auth';
@@ -499,6 +498,14 @@ export const sendMessage = mutation({
       });
     }
 
+    // Check if thread is resolved - require explicit reopen
+    if (thread.status === 'RESOLVED') {
+      throw new ConvexError({
+        code: 'VALIDATION_ERROR',
+        message: 'Thread is resolved. Please reopen it before sending a new message.',
+      });
+    }
+
     // Rate limiting
     const recentMessages = await ctx.db
       .query('inbox_messages')
@@ -633,7 +640,7 @@ export const markAsRead = mutation({
       .withIndex('by_user_thread', (q) =>
         q.eq('user_id', student.userId).eq('thread_id', args.threadId),
       )
-      .unique();
+      .first();
 
     if (existingReadState) {
       await ctx.db.patch(existingReadState._id, {

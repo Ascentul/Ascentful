@@ -321,17 +321,15 @@ export const addStudentMessage = mutation({
         status: 'IN_PROGRESS',
       });
 
-      if (thread.assigned_to) {
-        await ctx.db.insert('inbox_thread_actions', {
-          thread_id: args.threadId,
-          actor_id: user._id,
-          action_type: 'status_changed',
-          previous_value: { status: 'WAITING_ON_STUDENT' },
-          new_value: { status: 'IN_PROGRESS' },
-          notes: 'Student replied',
-          created_at: now,
-        });
-      }
+      await ctx.db.insert('inbox_thread_actions', {
+        thread_id: args.threadId,
+        actor_id: user._id,
+        action_type: 'status_changed',
+        previous_value: { status: 'WAITING_ON_STUDENT' },
+        new_value: { status: 'IN_PROGRESS' },
+        notes: 'Student replied',
+        created_at: now,
+      });
     }
 
     // Create action log

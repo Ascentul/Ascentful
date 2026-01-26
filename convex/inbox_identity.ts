@@ -81,12 +81,14 @@ export const searchStudentMatches = query({
       }
     }
 
-    // Get all students in university for fuzzy matching
+    // Get students in university for fuzzy matching
+    // NOTE: For large universities (>1000 students), consider implementing
+    // a more efficient search strategy (e.g., trigram index, search service)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .filter((q) => q.eq(q.field('role'), 'student'))
-      .collect();
+      .take(1000);
 
     const matches: Array<{
       student: {

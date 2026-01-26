@@ -10,23 +10,13 @@
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import {
-  AlertCircle,
-  Clock,
-  Filter,
-  Inbox,
-  MessageSquare,
-  Plus,
-  Search,
-  UserX,
-} from 'lucide-react';
+import { AlertCircle, Clock, Inbox, MessageSquare, Plus, Search, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -133,7 +123,7 @@ export default function InboxPage() {
     setSelectedThreadId(threadId);
     try {
       await markAsRead({ threadId });
-    } catch (error) {
+    } catch {
       // Silently fail for read state
     }
   };
@@ -248,7 +238,15 @@ export default function InboxPage() {
               threads?.map((thread) => (
                 <div
                   key={thread._id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelectThread(thread._id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectThread(thread._id);
+                    }
+                  }}
                   className={cn(
                     'cursor-pointer border-b px-4 py-3 transition-colors hover:bg-neutral-50',
                     selectedThreadId === thread._id &&
@@ -351,30 +349,46 @@ export default function InboxPage() {
                 }
               }}
               onUpdateStatus={async (status) => {
-                await updateStatus({
-                  threadId: selectedThread.thread._id,
-                  status: status as
-                    | 'NEW'
-                    | 'OPEN'
-                    | 'IN_PROGRESS'
-                    | 'WAITING_ON_STUDENT'
-                    | 'WAITING_ON_STAFF'
-                    | 'RESOLVED'
-                    | 'ARCHIVED',
-                });
-                toast({
-                  title: 'Status updated',
-                  description: `Thread status changed to ${status.replace(/_/g, ' ').toLowerCase()}.`,
-                });
+                try {
+                  await updateStatus({
+                    threadId: selectedThread.thread._id,
+                    status: status as
+                      | 'NEW'
+                      | 'OPEN'
+                      | 'IN_PROGRESS'
+                      | 'WAITING_ON_STUDENT'
+                      | 'WAITING_ON_STAFF'
+                      | 'RESOLVED'
+                      | 'ARCHIVED',
+                  });
+                  toast({
+                    title: 'Status updated',
+                    description: `Thread status changed to ${status.replace(/_/g, ' ').toLowerCase()}.`,
+                  });
+                } catch {
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to update status. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
               }}
               onCreateQueueItem={async () => {
-                await createQueueItem({
-                  threadId: selectedThread.thread._id,
-                });
-                toast({
-                  title: 'Queue item created',
-                  description: 'A new queue item has been linked to this thread.',
-                });
+                try {
+                  await createQueueItem({
+                    threadId: selectedThread.thread._id,
+                  });
+                  toast({
+                    title: 'Queue item created',
+                    description: 'A new queue item has been linked to this thread.',
+                  });
+                } catch {
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to create queue item. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
               }}
             />
           ) : (
@@ -464,7 +478,7 @@ interface ThreadDetailViewProps {
 function ThreadDetailView({
   thread,
   messages,
-  actions,
+  actions: _actions,
   onAddMessage,
   onUpdateStatus,
   onCreateQueueItem,

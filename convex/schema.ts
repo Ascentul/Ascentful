@@ -2704,6 +2704,7 @@ export default defineSchema({
       v.literal('signal'), // New signal created for advisor
       v.literal('signal_urgent'), // Urgent signal requiring immediate attention
       v.literal('inbox_message'), // New inbox message from student
+      v.literal('inbox_mention'), // @mentioned in internal thread
     ),
     title: v.string(), // Notification title
     message: v.string(), // Notification message
@@ -3596,8 +3597,18 @@ export default defineSchema({
     // === Identity ===
     university_id: v.id('universities'),
 
+    // === Thread type ===
+    thread_type: v.optional(
+      v.union(
+        v.literal('student'), // Advisor ↔ student communication (student-visible)
+        v.literal('internal'), // Advisor ↔ advisor/admin (never student-visible)
+      ),
+    ), // Optional for backward compat, defaults to 'student'
+
     // === Student linkage (nullable for unmatched senders) ===
     student_id: v.optional(v.id('users')),
+    // For internal threads: the student being discussed (not a participant)
+    referenced_student_id: v.optional(v.id('users')),
     identity_status: v.union(
       v.literal('matched'), // Linked to known student
       v.literal('unmatched'), // Needs manual matching
@@ -3676,7 +3687,9 @@ export default defineSchema({
     .index('by_sla_due', ['university_id', 'sla_due_at'])
     .index('by_updated', ['university_id', 'updated_at'])
     .index('by_queue_item', ['linked_queue_item_id'])
-    .index('by_university_category', ['university_id', 'category']),
+    .index('by_university_category', ['university_id', 'category'])
+    .index('by_university_type', ['university_id', 'thread_type', 'updated_at'])
+    .index('by_referenced_student', ['referenced_student_id']),
 
   // ============================================================================
   // INBOX MESSAGES - Individual messages within threads
@@ -3748,8 +3761,10 @@ export default defineSchema({
       v.literal('assigned'),
       v.literal('reassigned'),
       v.literal('status_changed'),
+      v.literal('priority_changed'),
       v.literal('student_matched'), // Identity resolution
       v.literal('queue_item_linked'),
+      v.literal('queue_item_unlinked'),
       v.literal('queue_item_created'),
       v.literal('sla_breached'),
       v.literal('archived'),
@@ -3824,4 +3839,27 @@ export default defineSchema({
     .index('by_university_status', ['university_id', 'status'])
     .index('by_thread', ['thread_id'])
     .index('by_email', ['university_id', 'external_email']),
+
+  // ============================================================================
+  // INBOX MENTIONS - @mentions in internal threads for notifications
+  // ============================================================================
+  inbox_mentions: defineTable({
+    thread_id: v.id('inbox_threads'),
+    message_id: v.id('inbox_messages'),
+    university_id: v.id('universities'), // Denormalized for tenant queries
+
+    // === Mention participants ===
+    mentioned_user_id: v.id('users'), // The advisor/admin being mentioned
+    mentioned_by_id: v.id('users'), // The advisor who mentioned them
+
+    // === Read state ===
+    read_at: v.optional(v.number()), // null = unread
+
+    // === Timestamps ===
+    created_at: v.number(),
+  })
+    .index('by_mentioned_user', ['mentioned_user_id', 'read_at'])
+    .index('by_mentioned_user_unread', ['mentioned_user_id'])
+    .index('by_thread', ['thread_id'])
+    .index('by_university', ['university_id']),
 });

@@ -1486,6 +1486,11 @@ export const evaluateSignalRules = internalMutation({
               updated_at: now,
             });
 
+            // Create/update queue item for this signal
+            await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+              signalId,
+            });
+
             // Auto-create follow-up if configured on the rule
             if (rule.auto_create_followup) {
               await ctx.scheduler.runAfter(0, internal.followups.createFollowupFromSignal, {

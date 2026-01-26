@@ -7,7 +7,7 @@
 
 import { v } from 'convex/values';
 
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { getCurrentUser, requireAdvisorRole, requireTenant } from './advisor_auth';
 
@@ -29,7 +29,10 @@ export type IdentityStatus = 'matched' | 'unmatched' | 'external';
 
 /**
  * List threads for inbox view
- * Supports filtering by status, assignment, student, and search
+ * Supports filtering by status, assignment, student, thread type, and search
+ *
+ * IMPORTANT: Defaults to showing only 'student' threads.
+ * Internal threads are excluded by default and have their own query.
  */
 export const listThreads = query({
   args: {
@@ -50,6 +53,7 @@ export const listThreads = query({
     identityStatus: v.optional(
       v.union(v.literal('matched'), v.literal('unmatched'), v.literal('external')),
     ),
+    threadType: v.optional(v.union(v.literal('student'), v.literal('internal'), v.literal('all'))),
     search: v.optional(v.string()),
     sortBy: v.optional(
       v.union(
@@ -98,6 +102,10 @@ export const listThreads = query({
 
     let threads = await threadsQuery.collect();
 
+    // NOTE: In-memory filtering used here due to complex filter combinations.
+    // For high-volume universities, consider optimizing with more targeted indices
+    // or implementing server-side pagination with cursor-based navigation.
+
     // Filter by university (if using non-university index)
     threads = threads.filter((t) => t.university_id === universityId);
 
@@ -123,6 +131,17 @@ export const listThreads = query({
     // Filter by identity status
     if (args.identityStatus) {
       threads = threads.filter((t) => t.identity_status === args.identityStatus);
+    }
+
+    // Filter by thread type (defaults to 'student' - internal threads excluded from main inbox)
+    // Treat null/undefined thread_type as 'student' for backward compatibility
+    if (args.threadType === 'internal') {
+      threads = threads.filter((t) => t.thread_type === 'internal');
+    } else if (args.threadType === 'all') {
+      // No filter - show all types
+    } else {
+      // Default: only show student threads (thread_type is 'student' or null/undefined)
+      threads = threads.filter((t) => !t.thread_type || t.thread_type === 'student');
     }
 
     // Search filter (subject + snippet)
@@ -250,19 +269,77 @@ export const getThreadDetail = query({
       }
     }
 
-    // RBAC: Advisors can only see threads for their assigned students
-    if (sessionCtx.role === 'advisor' && thread.student_id) {
-      const ownership = await ctx.db
-        .query('student_advisors')
-        .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
-        .filter((q) =>
-          q.and(q.eq(q.field('student_id'), thread.student_id), q.eq(q.field('is_owner'), true)),
-        )
-        .unique();
+    // RBAC: Advisors can only access threads they have permission for
+    if (sessionCtx.role === 'advisor') {
+      let hasAccess = false;
 
-      // Allow if advisor owns student OR thread is assigned to them
-      if (!ownership && thread.assigned_to !== sessionCtx.userId) {
-        throw new Error('Unauthorized: You do not have access to this student');
+      // Check if assigned to this thread
+      if (thread.assigned_to === sessionCtx.userId) {
+        hasAccess = true;
+      }
+
+      // For student threads: check if owns the student
+      if (!hasAccess && thread.student_id && thread.thread_type !== 'internal') {
+        const ownership = await ctx.db
+          .query('student_advisors')
+          .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+          .filter((q) =>
+            q.and(q.eq(q.field('student_id'), thread.student_id), q.eq(q.field('is_owner'), true)),
+          )
+          .unique();
+
+        if (ownership) {
+          hasAccess = true;
+        }
+      }
+
+      // For internal threads: check if mentioned or if owns the referenced student
+      if (!hasAccess && thread.thread_type === 'internal') {
+        // Check if mentioned in this thread
+        const mention = await ctx.db
+          .query('inbox_mentions')
+          .withIndex('by_thread', (q) => q.eq('thread_id', args.threadId))
+          .filter((q) => q.eq(q.field('mentioned_user_id'), sessionCtx.userId))
+          .first();
+
+        if (mention) {
+          hasAccess = true;
+        }
+
+        // Check if owns the referenced student
+        if (!hasAccess && thread.referenced_student_id) {
+          const ownership = await ctx.db
+            .query('student_advisors')
+            .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+            .filter((q) =>
+              q.and(
+                q.eq(q.field('student_id'), thread.referenced_student_id),
+                q.eq(q.field('is_owner'), true),
+              ),
+            )
+            .unique();
+
+          if (ownership) {
+            hasAccess = true;
+          }
+        }
+
+        // Check if they sent a message in this thread (they are a participant)
+        if (!hasAccess) {
+          const participantMessage = await ctx.db
+            .query('inbox_messages')
+            .withIndex('by_thread', (q) => q.eq('thread_id', args.threadId))
+            .filter((q) => q.eq(q.field('sender_user_id'), sessionCtx.userId))
+            .first();
+
+          if (participantMessage) {
+            hasAccess = true;
+          }
+        }
+      }
+
+      if (!hasAccess) {
+        throw new Error('Unauthorized: You do not have access to this thread');
       }
     }
 
@@ -385,10 +462,13 @@ export const getThreadDetail = query({
 
 /**
  * Get unread counts for nav badge
+ * Includes separate counts for student threads, internal threads, and mentions
  */
 export const getUnreadCounts = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    threadType: v.optional(v.union(v.literal('student'), v.literal('internal'), v.literal('all'))),
+  },
+  handler: async (ctx, args) => {
     // Auth check
     const sessionCtx = await getCurrentUser(ctx);
     requireAdvisorRole(sessionCtx);
@@ -402,6 +482,16 @@ export const getUnreadCounts = query({
         q.and(q.neq(q.field('status'), 'RESOLVED'), q.neq(q.field('status'), 'ARCHIVED')),
       )
       .collect();
+
+    // Filter by thread type (defaults to 'student')
+    if (args.threadType === 'internal') {
+      threads = threads.filter((t) => t.thread_type === 'internal');
+    } else if (args.threadType === 'all') {
+      // No filter
+    } else {
+      // Default: only student threads
+      threads = threads.filter((t) => !t.thread_type || t.thread_type === 'student');
+    }
 
     // RBAC: Advisors can only see threads for their assigned students
     if (sessionCtx.role === 'advisor') {
@@ -429,12 +519,20 @@ export const getUnreadCounts = query({
 
     const readStateMap = new Map(readStates.map((rs) => [rs.thread_id, rs.last_read_at]));
 
+    // Get unread mentions for current user
+    const unreadMentions = await ctx.db
+      .query('inbox_mentions')
+      .withIndex('by_mentioned_user', (q) => q.eq('mentioned_user_id', sessionCtx.userId))
+      .filter((q) => q.eq(q.field('read_at'), undefined))
+      .collect();
+
     // Count unread threads
     let totalUnread = 0;
     let newThreads = 0;
     let slaBreach = 0;
     let assignedToMe = 0;
     let unassigned = 0;
+    let internalUnread = 0;
 
     const now = Date.now();
 
@@ -444,6 +542,9 @@ export const getUnreadCounts = query({
 
       if (hasUnread) {
         totalUnread++;
+        if (thread.thread_type === 'internal') {
+          internalUnread++;
+        }
       }
 
       if (thread.status === 'NEW') {
@@ -470,6 +571,9 @@ export const getUnreadCounts = query({
       assignedToMe,
       unassigned,
       totalActive: threads.length,
+      // New fields for internal threads and mentions
+      internalUnread,
+      unreadMentions: unreadMentions.length,
     };
   },
 });
@@ -477,6 +581,9 @@ export const getUnreadCounts = query({
 /**
  * Get threads for a specific student
  * Used in student detail view
+ *
+ * NOTE: Only returns 'student' type threads. Use listStudentProfileThreads
+ * for the full Communication tab with both student and internal threads.
  */
 export const getThreadsForStudent = query({
   args: {
@@ -516,12 +623,15 @@ export const getThreadsForStudent = query({
       }
     }
 
-    // Get threads for student
-    const threads = await ctx.db
+    // Get threads for student (only student-type, not internal)
+    const allThreads = await ctx.db
       .query('inbox_threads')
       .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
       .order('desc')
       .collect();
+
+    // Filter to only student-type threads (null/undefined = student for backward compat)
+    const threads = allThreads.filter((t) => !t.thread_type || t.thread_type === 'student');
 
     // Enrich with assignee info
     const enrichedThreads = await Promise.all(
@@ -537,6 +647,153 @@ export const getThreadsForStudent = query({
                 email: assignee.email,
               }
             : null,
+        };
+      }),
+    );
+
+    return enrichedThreads;
+  },
+});
+
+/**
+ * List threads for student profile Communication tab
+ * Supports filtering by thread type (student vs internal)
+ *
+ * For 'student' threads: Returns threads where student_id matches
+ * For 'internal' threads: Returns threads where referenced_student_id matches
+ *
+ * SECURITY: Internal threads are NEVER visible to students (advisor-only query)
+ */
+export const listStudentProfileThreads = query({
+  args: {
+    studentId: v.id('users'),
+    threadType: v.optional(v.union(v.literal('student'), v.literal('internal'))),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - advisor/admin only (students cannot call this)
+    const sessionCtx = await getCurrentUser(ctx);
+    requireAdvisorRole(sessionCtx);
+
+    const limit = args.limit ?? 50;
+
+    // Verify access to student
+    if (sessionCtx.role === 'advisor') {
+      const ownership = await ctx.db
+        .query('student_advisors')
+        .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+        .filter((q) =>
+          q.and(q.eq(q.field('student_id'), args.studentId), q.eq(q.field('is_owner'), true)),
+        )
+        .unique();
+
+      if (!ownership) {
+        throw new Error('Unauthorized: You do not have access to this student');
+      }
+    }
+
+    // Get student and verify tenant
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Tenant check
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (student.university_id !== universityId) {
+        throw new Error('Unauthorized: Student not in your university');
+      }
+    }
+
+    let threads: Doc<'inbox_threads'>[] = [];
+
+    // Get threads based on type filter
+    if (!args.threadType || args.threadType === 'student') {
+      // Get student threads (thread_type is 'student' or null/undefined for backward compat)
+      const allStudentThreads = await ctx.db
+        .query('inbox_threads')
+        .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
+        .order('desc')
+        .collect();
+
+      // Filter to only include student-type threads (null/undefined = student for backward compat)
+      const studentThreads = allStudentThreads.filter(
+        (t) => !t.thread_type || t.thread_type === 'student',
+      );
+
+      if (!args.threadType) {
+        // No filter - include student threads
+        threads = [...studentThreads];
+      } else {
+        threads = studentThreads;
+      }
+    }
+
+    if (!args.threadType || args.threadType === 'internal') {
+      // Get internal threads that reference this student
+      const allInternalThreads = await ctx.db
+        .query('inbox_threads')
+        .withIndex('by_referenced_student', (q) => q.eq('referenced_student_id', args.studentId))
+        .order('desc')
+        .collect();
+
+      // Filter to only include internal-type threads
+      const internalThreads = allInternalThreads.filter((t) => t.thread_type === 'internal');
+
+      if (!args.threadType) {
+        // No filter - add internal threads to result
+        threads = [...threads, ...internalThreads];
+      } else {
+        threads = internalThreads;
+      }
+    }
+
+    // Sort by last_message_at descending (most recent first)
+    threads.sort((a, b) => b.last_message_at - a.last_message_at);
+
+    // Apply limit
+    threads = threads.slice(0, limit);
+
+    // Enrich with assignee and message count info
+    const enrichedThreads = await Promise.all(
+      threads.map(async (thread) => {
+        let assigneeInfo: { _id: Id<'users'>; name: string; email: string } | null = null;
+        if (thread.assigned_to) {
+          const assignee = await ctx.db.get(thread.assigned_to);
+          if (assignee) {
+            assigneeInfo = {
+              _id: assignee._id,
+              name: assignee.name,
+              email: assignee.email,
+            };
+          }
+        }
+
+        // Get message count for this thread
+        const messages = await ctx.db
+          .query('inbox_messages')
+          .withIndex('by_thread', (q) => q.eq('thread_id', thread._id))
+          .collect();
+
+        // For internal threads, get referenced student info
+        let referencedStudent: { _id: Id<'users'>; name: string; email: string } | null = null;
+        if (thread.thread_type === 'internal' && thread.referenced_student_id) {
+          const refStudent = await ctx.db.get(thread.referenced_student_id);
+          if (refStudent) {
+            referencedStudent = {
+              _id: refStudent._id,
+              name: refStudent.name,
+              email: refStudent.email,
+            };
+          }
+        }
+
+        return {
+          ...thread,
+          assignee: assigneeInfo,
+          messageCount: messages.length,
+          referencedStudent,
         };
       }),
     );

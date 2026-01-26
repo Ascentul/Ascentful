@@ -19,6 +19,55 @@ import { getCurrentUser, requireTenant } from './advisor_auth';
 import { assertUniversityAccess, requireUniversityAdmin } from './lib/roles';
 
 // ============================================================================
+// SHARED VALIDATION
+// ============================================================================
+
+/**
+ * Centralized validation for outcome data fields.
+ * Enforces salary constraints and PII string length limits.
+ * Used by createOutcome, updateOutcome, bulkImportOutcomes, upsertOutcome, bulkUpsertOutcomes.
+ *
+ * @param data - The outcome data to validate
+ * @param rowIndex - Optional row index for bulk operations (for error messages)
+ * @throws Error if validation fails
+ */
+function validateOutcomeData(
+  data: {
+    salary?: number;
+    studentName?: string;
+    studentEmail?: string;
+    employerName?: string;
+    jobTitle?: string;
+    notes?: string;
+  },
+  rowIndex?: number,
+): void {
+  const rowPrefix = rowIndex !== undefined ? `Row ${rowIndex + 1}: ` : '';
+
+  // Validation: Salary must be non-negative (OUT-H1)
+  if (data.salary !== undefined && data.salary < 0) {
+    throw new Error(`${rowPrefix}Salary must be a non-negative number`);
+  }
+
+  // Validation: PII string length limits (OUT-H2)
+  if (data.studentName !== undefined && data.studentName.length > 255) {
+    throw new Error(`${rowPrefix}Student name must be 255 characters or less`);
+  }
+  if (data.studentEmail !== undefined && data.studentEmail.length > 254) {
+    throw new Error(`${rowPrefix}Student email must be 254 characters or less`);
+  }
+  if (data.employerName !== undefined && data.employerName.length > 255) {
+    throw new Error(`${rowPrefix}Employer name must be 255 characters or less`);
+  }
+  if (data.jobTitle !== undefined && data.jobTitle.length > 255) {
+    throw new Error(`${rowPrefix}Job title must be 255 characters or less`);
+  }
+  if (data.notes !== undefined && data.notes.length > 2000) {
+    throw new Error(`${rowPrefix}Notes must be 2000 characters or less`);
+  }
+}
+
+// ============================================================================
 // COHORT QUERIES
 // ============================================================================
 
@@ -608,27 +657,15 @@ export const createOutcome = mutation({
 
     assertUniversityAccess(user, cohort.institution_id);
 
-    // Validation: Salary must be non-negative (OUT-H1)
-    if (args.salary !== undefined && args.salary < 0) {
-      throw new Error('Salary must be a non-negative number');
-    }
-
-    // Validation: PII string length limits (OUT-H2)
-    if (args.studentName && args.studentName.length > 255) {
-      throw new Error('Student name must be 255 characters or less');
-    }
-    if (args.studentEmail && args.studentEmail.length > 254) {
-      throw new Error('Student email must be 254 characters or less');
-    }
-    if (args.employerName && args.employerName.length > 255) {
-      throw new Error('Employer name must be 255 characters or less');
-    }
-    if (args.jobTitle && args.jobTitle.length > 255) {
-      throw new Error('Job title must be 255 characters or less');
-    }
-    if (args.notes && args.notes.length > 2000) {
-      throw new Error('Notes must be 2000 characters or less');
-    }
+    // Centralized validation for salary and PII fields
+    validateOutcomeData({
+      salary: args.salary,
+      studentName: args.studentName,
+      studentEmail: args.studentEmail,
+      employerName: args.employerName,
+      jobTitle: args.jobTitle,
+      notes: args.notes,
+    });
 
     const now = Date.now();
 
@@ -727,21 +764,13 @@ export const updateOutcome = mutation({
 
     assertUniversityAccess(user, outcome.institution_id);
 
-    // Validation: Salary must be non-negative (OUT-H1)
-    if (args.salary !== undefined && args.salary < 0) {
-      throw new Error('Salary must be a non-negative number');
-    }
-
-    // Validation: PII string length limits (OUT-H2)
-    if (args.employerName !== undefined && args.employerName.length > 255) {
-      throw new Error('Employer name must be 255 characters or less');
-    }
-    if (args.jobTitle !== undefined && args.jobTitle.length > 255) {
-      throw new Error('Job title must be 255 characters or less');
-    }
-    if (args.notes !== undefined && args.notes.length > 2000) {
-      throw new Error('Notes must be 2000 characters or less');
-    }
+    // Centralized validation for salary and PII fields
+    validateOutcomeData({
+      salary: args.salary,
+      employerName: args.employerName,
+      jobTitle: args.jobTitle,
+      notes: args.notes,
+    });
 
     const updates: Record<string, unknown> = { updated_at: Date.now() };
 
@@ -860,6 +889,21 @@ export const bulkImportOutcomes = mutation({
     }
 
     assertUniversityAccess(user, cohort.institution_id);
+
+    // Validate all outcomes before inserting any
+    for (let i = 0; i < args.outcomes.length; i++) {
+      const outcomeData = args.outcomes[i];
+      validateOutcomeData(
+        {
+          salary: outcomeData.salary,
+          studentName: outcomeData.studentName,
+          studentEmail: outcomeData.studentEmail,
+          employerName: outcomeData.employerName,
+          jobTitle: outcomeData.jobTitle,
+        },
+        i,
+      );
+    }
 
     const now = Date.now();
     const createdIds: Id<'graduate_outcomes'>[] = [];
@@ -1025,6 +1069,16 @@ export const upsertOutcome = mutation({
     }
 
     assertUniversityAccess(user, cohort.institution_id);
+
+    // Centralized validation for salary and PII fields
+    validateOutcomeData({
+      salary: args.salary,
+      studentName: args.studentName,
+      studentEmail: args.studentEmail,
+      employerName: args.employerName,
+      jobTitle: args.jobTitle,
+      notes: args.notes,
+    });
 
     // Validate studentId belongs to the same institution and is actually a student
     if (args.studentId) {
@@ -1237,6 +1291,21 @@ export const bulkUpsertOutcomes = mutation({
     }
 
     assertUniversityAccess(user, cohort.institution_id);
+
+    // Validate all outcomes before processing any
+    for (let i = 0; i < args.outcomes.length; i++) {
+      const outcomeData = args.outcomes[i];
+      validateOutcomeData(
+        {
+          salary: outcomeData.salary,
+          studentName: outcomeData.studentName,
+          studentEmail: outcomeData.studentEmail,
+          employerName: outcomeData.employerName,
+          jobTitle: outcomeData.jobTitle,
+        },
+        i,
+      );
+    }
 
     const now = Date.now();
     const results = {
