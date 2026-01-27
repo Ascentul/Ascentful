@@ -832,6 +832,14 @@ export const markAsRead = mutation({
       });
     }
 
+    // Clear unread flag for the assigned advisor
+    if (thread.assigned_to === sessionCtx.userId && thread.has_unread) {
+      await ctx.db.patch(args.threadId, {
+        has_unread: false,
+        updated_at: now,
+      });
+    }
+
     // If NEW, transition to OPEN
     if (thread.status === 'NEW') {
       await ctx.db.patch(args.threadId, {

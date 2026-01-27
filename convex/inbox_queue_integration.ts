@@ -69,7 +69,7 @@ export const createQueueItemFromThread = mutation({
     }
 
     const now = Date.now();
-    const priority = args.priority ?? thread.priority;
+    const priority = args.priority ?? thread.priority ?? 'P2';
     const title = args.title ?? `Follow up: ${thread.subject}`;
     const description = args.description ?? thread.snippet ?? undefined;
 
@@ -309,6 +309,17 @@ export const unlinkFromQueueItem = mutation({
       notes: 'Unlinked from queue item',
       created_at: now,
     });
+
+    // Create queue item action log for audit parity
+    if (queueItem) {
+      await ctx.db.insert('queue_item_actions', {
+        queue_item_id: queueItemId,
+        actor_id: sessionCtx.userId,
+        action_type: 'thread_unlinked',
+        notes: 'Unlinked from inbox thread',
+        created_at: now,
+      });
+    }
 
     // Audit log
     await logUserAction(ctx, {

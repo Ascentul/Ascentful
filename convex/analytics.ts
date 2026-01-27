@@ -1267,7 +1267,10 @@ export const getUserDashboardAnalytics = query({
     // Dashboard header metrics (wiring up the 7 zeros)
     const dashboardMetrics = {
       // Target companies: applications in Prospect stage (researching/considering)
-      targetCompanies: applications.filter((app) => app.stage === 'Prospect').length,
+      targetCompanies: applications.filter((app) => {
+        const effectiveStage = app.stage ?? stageFromStatus(app.status as any);
+        return effectiveStage === 'Prospect';
+      }).length,
       // Follow-ups completed: all done follow-ups
       followUpsCompleted: followupActions.filter((f) => f.status === 'done').length,
       // Questions answered: interview practice turns where user provided a transcript response
@@ -2982,6 +2985,12 @@ export const getInterventionCorrelation = query({
 /**
  * Get platform-wide feature usage analytics.
  * Shows how many users have used each feature across the entire platform.
+ *
+ * SCALABILITY NOTE: This query does full-table scans on 8+ tables.
+ * At scale (50k+ records per table), consider:
+ * - Pre-aggregating via scheduled job into a platform_metrics table
+ * - Using rolling counters updated on record creation/deletion
+ * Current approach is acceptable for admin-only analytics at early stage.
  */
 export const getPlatformFeatureUsage = query({
   args: {

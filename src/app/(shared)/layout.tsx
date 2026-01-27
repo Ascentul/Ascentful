@@ -2,8 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { ChevronRight, Loader2, Menu } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 
 import AppTopBar from '@/components/layout/AppTopBar';
 import Sidebar from '@/components/Sidebar';
@@ -12,12 +11,12 @@ import { Button } from '@/components/ui/button';
 import { SidebarProvider, useSidebarOptional } from '@/contexts/SidebarContext';
 import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
 
-interface LayoutProps {
+interface SharedLayoutProps {
   children: ReactNode;
 }
 
 // Inner component that can access the SidebarContext
-function LayoutContent({ children }: { children: ReactNode }) {
+function SharedLayoutContent({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const sidebarContext = useSidebarOptional();
   const isExpanded = sidebarContext?.isExpanded ?? true;
@@ -79,7 +78,6 @@ function LayoutContent({ children }: { children: ReactNode }) {
       </div>
 
       {/* Expand sidebar button - only visible when sidebar is collapsed on desktop */}
-      {/* Positioned to align with logo center: top-[22px] centers a 24px button on the 28px logo (py-5 + half logo) */}
       {!isExpanded && (
         <button
           type="button"
@@ -95,27 +93,15 @@ function LayoutContent({ children }: { children: ReactNode }) {
   );
 }
 
-export function Layout({ children }: LayoutProps) {
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
-  const [shouldRedirect, setShouldRedirect] = useState<boolean | null>(null);
+/**
+ * Shared Layout - For pages accessible to ALL authenticated users regardless of role.
+ * No role-based redirects. Used for /account, /profile, and other cross-role pages.
+ */
+export default function SharedLayout({ children }: SharedLayoutProps) {
+  const { isLoaded } = useUser();
 
-  // Redirect university users (advisor, university_admin) to unified workspace
-  // Note: Shared pages like /account and /profile are in the (shared) route group
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    const role = user?.publicMetadata?.role as string | undefined;
-    if (role === 'advisor' || role === 'university_admin') {
-      router.replace('/u/home');
-      setShouldRedirect(true);
-    } else {
-      setShouldRedirect(false);
-    }
-  }, [isLoaded, user, router]);
-
-  // Show loading spinner during initial load, redirect determination, or active redirect
-  if (!isLoaded || shouldRedirect === null || shouldRedirect) {
+  // Show loading spinner during initial auth load
+  if (!isLoaded) {
     return (
       <>
         <AuroraBackground />
@@ -128,7 +114,7 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <SidebarProvider>
-      <LayoutContent>{children}</LayoutContent>
+      <SharedLayoutContent>{children}</SharedLayoutContent>
     </SidebarProvider>
   );
 }

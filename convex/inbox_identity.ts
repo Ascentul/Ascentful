@@ -57,11 +57,12 @@ export const searchStudentMatches = query({
 
     const limit = args.limit ?? 10;
 
-    // Search by exact email first
+    // Search by exact email first (normalize for case-insensitive matching)
     if (args.email) {
+      const normalizedEmail = args.email.trim().toLowerCase();
       const exactMatch = await ctx.db
         .query('users')
-        .withIndex('by_email', (q) => q.eq('email', args.email!))
+        .withIndex('by_email', (q) => q.eq('email', normalizedEmail))
         .filter((q) => q.eq(q.field('university_id'), universityId))
         .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
         .first();
@@ -332,9 +333,10 @@ export const markAsExternal = mutation({
 
     const now = Date.now();
 
-    // Update thread
+    // Update thread - clear student_id since external contacts are not students
     await ctx.db.patch(args.threadId, {
       identity_status: 'external',
+      student_id: undefined,
       updated_at: now,
     });
 

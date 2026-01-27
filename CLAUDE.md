@@ -528,3 +528,24 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## No Workarounds Policy
+NEVER implement workarounds, hacks, or band-aid fixes. Always implement clean, architecturally sound solutions.
+
+When you encounter a problem:
+1. **Understand the root cause** - Don't patch symptoms, fix the underlying issue
+2. **Consider the architecture** - If the current structure doesn't support the needed behavior cleanly, restructure it
+3. **Rewrite when necessary** - If a clean solution requires rewriting code, do it. A proper rewrite is better than a workaround that creates tech debt
+4. **Ask if unsure** - If multiple approaches exist and you're unsure which is cleanest, ask before implementing
+
+Examples of workarounds to AVOID:
+- Adding exception lists or special cases to bypass existing logic
+- Using flags or conditionals to handle edge cases that indicate structural problems
+- Patching behavior in one place to fix issues caused by another place
+- Any solution that requires comments like "workaround for...", "hack to fix...", "temporary fix..."
+
+Examples of clean solutions to PREFER:
+- Creating proper route groups or layouts for different access patterns
+- Restructuring data flow to eliminate the need for special handling
+- Refactoring components to have single responsibilities
+- Moving code to the appropriate architectural layer

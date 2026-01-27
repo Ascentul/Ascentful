@@ -3607,6 +3607,7 @@ export default defineSchema({
       v.literal('note_added'),
       v.literal('playbook_applied'),
       v.literal('thread_linked'),
+      v.literal('thread_unlinked'),
     ),
 
     // === Notes ===

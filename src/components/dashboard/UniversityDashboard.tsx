@@ -1260,8 +1260,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -1686,8 +1686,8 @@ export function UniversityDashboard() {
                       <Bar dataKey="logins" fill="#4F46E5" name="Logins">
                         <LabelList dataKey="logins" position="top" />
                       </Bar>
-                      <Bar dataKey="assignments" fill="#10B981" name="Assignments">
-                        <LabelList dataKey="assignments" position="top" />
+                      <Bar dataKey="registrations" fill="#10B981" name="Registrations">
+                        <LabelList dataKey="registrations" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

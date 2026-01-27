@@ -588,11 +588,11 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
                   </SelectTrigger>
                   <SelectContent>
                     {!universitiesData ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="__loading__" disabled>
                         Loading universities...
                       </SelectItem>
                     ) : universitiesData.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="__empty__" disabled>
                         No universities available
                       </SelectItem>
                     ) : (

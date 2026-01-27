@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   '/u/(.*)', // Unified university workspace child routes
   '/student/advisor(.*)', // Student Advisor Hub routes
   '/account(.*)',
+  '/profile(.*)', // User profile (shared across all roles)
   '/goals(.*)',
   '/api/goals(.*)',
   '/applications(.*)',
@@ -47,6 +48,7 @@ export const config = {
     '/u/:path*', // Unified university workspace child routes
     '/student/advisor/:path*', // Student Advisor Hub routes
     '/account/:path*',
+    '/profile/:path*',
     '/goals/:path*',
     '/api/goals/:path*',
     '/applications/:path*',

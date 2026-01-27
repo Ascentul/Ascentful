@@ -118,6 +118,9 @@ export const detectInconsistencies = query({
 - [x] University admin module updated to use `student_advisors`
   - `university_admin.assignAdvisorToStudent` now uses `student_advisors`
   - `universities_admin.hardDeleteUniversity` deletes from both tables (cleanup)
+- [x] All active queries now use `student_advisors` (verified 2025-01-26)
+  - `inbox_threads.ts` - uses variable named `advisorStudents` but queries correct table
+  - No active code reads from legacy `advisorStudents` table
 - [ ] `advisorStudents` table deprecated and removed
   - Table is now deprecated (see schema.ts comments)
   - Will be removed after migration is verified in production

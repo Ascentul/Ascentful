@@ -78,10 +78,18 @@ export const createStage = mutation({
       updated_at: Date.now(),
     });
 
-    // Set application status to 'interview' when adding the FIRST stage
+    // Set application status/stage to 'interview' when adding the FIRST stage
     // existingStages.length === 0 means this is the first stage being added
+    // NOTE: Both status and stage are updated for backward compatibility during migration
+    // See docs/TECH_DEBT_APPLICATION_STATUS_STAGE.md
     if (existingStages.length === 0) {
-      await ctx.db.patch(args.applicationId, { status: 'interview', updated_at: Date.now() });
+      const now = Date.now();
+      await ctx.db.patch(args.applicationId, {
+        status: 'interview',
+        stage: 'Interview',
+        stage_set_at: now,
+        updated_at: now,
+      });
     }
 
     return id;

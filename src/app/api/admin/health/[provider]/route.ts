@@ -5,10 +5,11 @@
  * Returns status, latency, and error details
  */
 
-import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+
+import { ClerkPublicMetadata } from '@/types/clerk';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -131,8 +132,12 @@ async function checkClerk(): Promise<HealthCheckResult> {
   const start = Date.now();
   try {
     const client = await clerkClient();
-    // Make a minimal API call to test connectivity
-    const users = await client.users.getUserList({ limit: 1 });
+    // Make a minimal API call to test connectivity with timeout
+    const usersPromise = client.users.getUserList({ limit: 1 });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Clerk API timeout')), 5000),
+    );
+    const users = await Promise.race([usersPromise, timeoutPromise]);
     const latency = Date.now() - start;
 
     return {
@@ -200,6 +205,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Verify caller is super_admin
+  const client = await clerkClient();
+  const caller = await client.users.getUser(userId);
+  const callerRole = (caller.publicMetadata as ClerkPublicMetadata)?.role;
+
+  if (callerRole !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Validate provider

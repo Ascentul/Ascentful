@@ -741,14 +741,16 @@ export default function InboxPage() {
                 <div className="space-y-2">
                   <Label>Reference Student (Optional)</Label>
                   <Select
-                    value={internalReferencedStudentId as string}
-                    onValueChange={(v) => setInternalReferencedStudentId(v as Id<'users'>)}
+                    value={internalReferencedStudentId || '__none__'}
+                    onValueChange={(v) =>
+                      setInternalReferencedStudentId(v === '__none__' ? '' : (v as Id<'users'>))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select for context..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {myStudents?.map((student) => (
                         <SelectItem key={student._id} value={student._id}>
                           {student.name || student.email}

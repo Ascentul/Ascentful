@@ -1308,6 +1308,14 @@ export const updateOutcome = mutation({
       employerName: args.employerName,
       jobTitle: args.jobTitle,
       notes: args.notes,
+      gradSchoolName: args.gradSchoolName,
+      gradSchoolProgram: args.gradSchoolProgram,
+      gradSchoolDegree: args.gradSchoolDegree,
+      city: args.city,
+      state: args.state,
+      country: args.country,
+      industry: args.industry,
+      jobFunction: args.jobFunction,
     });
 
     const updates: Record<string, unknown> = { updated_at: Date.now() };
@@ -1445,6 +1453,11 @@ export const bulkImportOutcomes = mutation({
           studentEmail: outcomeData.studentEmail,
           employerName: outcomeData.employerName,
           jobTitle: outcomeData.jobTitle,
+          gradSchoolName: outcomeData.gradSchoolName,
+          gradSchoolProgram: outcomeData.gradSchoolProgram,
+          city: outcomeData.city,
+          state: outcomeData.state,
+          country: outcomeData.country,
         },
         i,
       );
@@ -1623,6 +1636,14 @@ export const upsertOutcome = mutation({
       employerName: args.employerName,
       jobTitle: args.jobTitle,
       notes: args.notes,
+      gradSchoolName: args.gradSchoolName,
+      gradSchoolProgram: args.gradSchoolProgram,
+      gradSchoolDegree: args.gradSchoolDegree,
+      city: args.city,
+      state: args.state,
+      country: args.country,
+      industry: args.industry,
+      jobFunction: args.jobFunction,
     });
 
     // Validate studentId belongs to the same institution and is actually a student
@@ -1847,6 +1868,11 @@ export const bulkUpsertOutcomes = mutation({
           studentEmail: outcomeData.studentEmail,
           employerName: outcomeData.employerName,
           jobTitle: outcomeData.jobTitle,
+          gradSchoolName: outcomeData.gradSchoolName,
+          gradSchoolProgram: outcomeData.gradSchoolProgram,
+          city: outcomeData.city,
+          state: outcomeData.state,
+          country: outcomeData.country,
         },
         i,
       );

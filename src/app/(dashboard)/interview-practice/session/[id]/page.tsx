@@ -91,7 +91,8 @@ export default function InterviewSessionPage() {
   const animationFrameRef = useRef<number | null>(null);
   const isPreWarmingRef = useRef<boolean>(false);
   // Prefetched next question data for reducing delay between questions
-  const prefetchedNextQuestionRef = useRef<Promise<Response> | null>(null);
+  // Promise resolves to Response on success, null on prefetch failure (to avoid unhandled rejection)
+  const prefetchedNextQuestionRef = useRef<Promise<Response | null> | null>(null);
 
   // Session autosave key
   const sessionStorageKey = `interview-session-${sessionId}`;
@@ -223,7 +224,11 @@ export default function InterviewSessionPage() {
         try {
           const response = await prefetchedNextQuestionRef.current;
           prefetchedNextQuestionRef.current = null; // Clear after use
-          return response.json();
+          if (response) {
+            return response.json();
+          }
+          // Prefetch returned null (failed), fall through to fresh request
+          console.log('[InterviewSession] Prefetch returned null, making fresh request');
         } catch {
           // Prefetch failed, fall through to make a fresh request
           console.log('[InterviewSession] Prefetch failed, making fresh request');
@@ -595,7 +600,7 @@ export default function InterviewSessionPage() {
         ).catch((error) => {
           console.warn('[InterviewSession] Prefetch failed, will retry on demand:', error);
           prefetchedNextQuestionRef.current = null;
-          throw error;
+          return null; // Return null to avoid unhandled rejection
         });
       }
     } catch (error) {

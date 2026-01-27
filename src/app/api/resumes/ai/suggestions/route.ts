@@ -162,7 +162,17 @@ export async function POST(req: NextRequest) {
   log.info('AI suggestions request started', { event: 'request.start' });
 
   try {
-    const { resumeData } = (await req.json()) as { resumeData: ResumeData };
+    let resumeData: ResumeData;
+    try {
+      const body = await req.json();
+      resumeData = body.resumeData;
+    } catch {
+      log.warn('Invalid JSON body', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
+      return NextResponse.json(
+        { error: 'Invalid JSON body', suggestions: [] },
+        { status: 400, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
 
     if (!resumeData) {
       log.warn('Missing resumeData', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
@@ -218,7 +228,7 @@ export async function POST(req: NextRequest) {
         extra: { suggestionCount: suggestions.length },
       });
 
-      // Evaluate AI-generated suggestions (non-blocking)
+      // Evaluate AI-generated suggestions (non-critical - result doesn't affect response)
       try {
         const evalResult = await evaluate({
           tool_id: 'resume-suggestions',
