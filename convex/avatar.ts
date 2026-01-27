@@ -105,6 +105,64 @@ export const getUserProfileImageUrl = query({
 });
 
 /**
+ * Update user's cover image after successful upload
+ * Stores the permanent storageId instead of temporary URL
+ */
+export const updateUserCoverImage = mutation({
+  args: {
+    clerkId: v.string(),
+    storageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const actor = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!actor) {
+      throw new Error('Unauthorized');
+    }
+
+    if (actor.clerkId !== args.clerkId && actor.role !== 'super_admin') {
+      throw new Error('Unauthorized');
+    }
+
+    // Find user by Clerk ID
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .unique();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify the storage ID is valid
+    const imageUrl = await ctx.storage.getUrl(args.storageId);
+    if (!imageUrl) {
+      throw new Error('Invalid storage ID');
+    }
+
+    // Store the permanent storageId
+    await ctx.db.patch(user._id, {
+      cover_image: args.storageId,
+      updated_at: Date.now(),
+    });
+
+    return {
+      success: true,
+      storageId: args.storageId,
+      imageUrl,
+    };
+  },
+});
+
+/**
  * Delete user's avatar and revert to default
  */
 export const deleteUserAvatar = mutation({

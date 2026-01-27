@@ -201,6 +201,16 @@ export default function DashboardPage() {
                 }
                 firstResumeId={dashboardData?.usageData?.usage?.resumes?.firstResumeId || null}
                 hasAnyCoverLetter={dashboardData?.usageData?.usage?.cover_letters?.hasAny || false}
+                // Dashboard stage metrics from analytics
+                targetCompanies={dashboardData?.dashboardMetrics?.targetCompanies || 0}
+                followUpsCompleted={dashboardData?.dashboardMetrics?.followUpsCompleted || 0}
+                questionsAnswered={dashboardData?.dashboardMetrics?.questionsAnswered || 0}
+                storiesPrepared={dashboardData?.dashboardMetrics?.storiesPrepared || 0}
+                mockInterviewsCompleted={
+                  dashboardData?.dashboardMetrics?.mockInterviewsCompleted || 0
+                }
+                modulesCompleted={dashboardData?.dashboardMetrics?.modulesCompleted || 0}
+                reflectionsLogged={dashboardData?.dashboardMetrics?.reflectionsLogged || 0}
               />
             </motion.div>
           )}

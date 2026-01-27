@@ -125,6 +125,14 @@ interface DashboardHeaderProps {
   hasAiTailoredResume?: boolean;
   firstResumeId?: string | null;
   hasAnyCoverLetter?: boolean;
+  // Dashboard stage metrics (wired from analytics)
+  targetCompanies?: number;
+  followUpsCompleted?: number;
+  questionsAnswered?: number;
+  storiesPrepared?: number;
+  mockInterviewsCompleted?: number;
+  modulesCompleted?: number;
+  reflectionsLogged?: number;
 }
 
 // =============================================================================
@@ -568,6 +576,14 @@ export function DashboardHeader({
   hasAiTailoredResume = false,
   firstResumeId = null,
   hasAnyCoverLetter = false,
+  // Dashboard stage metrics
+  targetCompanies = 0,
+  followUpsCompleted = 0,
+  questionsAnswered = 0,
+  storiesPrepared = 0,
+  mockInterviewsCompleted = 0,
+  modulesCompleted = 0,
+  reflectionsLogged = 0,
 }: DashboardHeaderProps) {
   const initialIndex = getInitialStageIndex(journeyProgress, resumesCount > 0);
   const [activeStage, setActiveStage] = useState(initialIndex);
@@ -587,7 +603,7 @@ export function DashboardHeader({
     // Career exploration
     careerPathsExplored: careerPathsCount,
     directionsChosen: careerPathsCount > 0 ? 1 : 0,
-    targetCompanies: 0, // TODO: wire up
+    targetCompanies,
     goalsCreated: goalsCount,
     pathClarity: Math.min(careerPathsCount * 20 + goalsCount * 10, 100),
     // Resume building
@@ -603,17 +619,17 @@ export function DashboardHeader({
     rolesSaved: activeApplications,
     applicationsSubmitted: activeApplications,
     interviewsLogged: upcomingInterviews,
-    followUpsCompleted: 0, // TODO: wire up
+    followUpsCompleted,
     activeApplications,
     // Interview prep
-    questionsAnswered: 0, // TODO: wire up
-    storiesPrepared: 0, // TODO: wire up
-    mockInterviewsScheduled: 0, // TODO: wire up
+    questionsAnswered,
+    storiesPrepared,
+    mockInterviewsScheduled: mockInterviewsCompleted,
     nextInterviewDays,
     // Learning
     skillsAdded: skillsCount,
-    modulesCompleted: 0, // TODO: wire up
-    reflectionsLogged: 0, // TODO: wire up
+    modulesCompleted,
+    reflectionsLogged,
     skillsInProgress: skillsCount,
   };
 

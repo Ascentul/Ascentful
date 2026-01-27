@@ -62,10 +62,10 @@ export function sanitizeUserHtml(
     ? {
         ...defaultOptions,
         ...options,
-        // Always enforce safe link behavior
         transformTags: {
-          ...defaultOptions.transformTags,
           ...options.transformTags,
+          // Enforce safe link behavior by applying default 'a' transform last
+          a: defaultOptions.transformTags!.a,
         },
       }
     : defaultOptions;

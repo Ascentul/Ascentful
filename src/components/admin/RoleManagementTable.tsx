@@ -156,11 +156,13 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
         // First page - replace all users
         setAllUsers(usersData.page as MinimalUser[]);
       } else {
-        // Subsequent pages - append new users
+        // Subsequent pages - merge with existing users (updating any changed data)
         setAllUsers((prev) => {
-          const existingIds = new Set(prev.map((u) => u._id));
-          const newUsers = (usersData.page as MinimalUser[]).filter((u) => !existingIds.has(u._id));
-          return [...prev, ...newUsers];
+          const existingMap = new Map(prev.map((u) => [u._id, u]));
+          const pageUsers = usersData.page as MinimalUser[];
+          // Update existing users and collect new ones
+          pageUsers.forEach((u) => existingMap.set(u._id, u));
+          return Array.from(existingMap.values());
         });
       }
       setIsLoadingMore(false);
