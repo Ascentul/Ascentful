@@ -224,7 +224,7 @@ export const linkToQueueItem = mutation({
     await ctx.db.insert('queue_item_actions', {
       queue_item_id: args.queueItemId,
       actor_id: sessionCtx.userId,
-      action_type: 'note_added',
+      action_type: 'thread_linked',
       notes: `Linked to inbox thread: ${thread.subject}`,
       created_at: now,
     });

@@ -427,25 +427,25 @@ export const getUniversityRecentActivity = query({
         switch (event.event_category) {
           case 'goal':
             description =
-              event.event_type === 'goal.completed'
+              event.event_type === 'goal_completed'
                 ? 'Completed a goal'
-                : event.event_type === 'goal.created'
+                : event.event_type === 'goal_created'
                   ? 'Created a new goal'
                   : 'Updated a goal';
             break;
           case 'application':
             description =
-              event.event_type === 'application.created'
+              event.event_type === 'application_created'
                 ? 'Submitted a job application'
-                : event.event_type === 'application.updated'
+                : event.event_type === 'application_updated'
                   ? 'Updated an application'
                   : 'Application activity';
             break;
           case 'document':
             description =
-              event.event_type === 'resume.created'
+              event.event_type === 'resume_created'
                 ? 'Created a resume'
-                : event.event_type === 'cover_letter.created'
+                : event.event_type === 'cover_letter_created'
                   ? 'Created a cover letter'
                   : 'Document activity';
             break;

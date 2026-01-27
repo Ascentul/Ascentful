@@ -274,8 +274,8 @@ async function exportAuditLogsForArchive(
 
   // Find date range of logs
   const timestamps = logs.map((log) => log.created_at ?? log.timestamp ?? 0).filter((t) => t > 0);
-  const startDate = Math.min(...timestamps);
-  const endDate = Math.max(...timestamps);
+  const startDate = timestamps.length > 0 ? Math.min(...timestamps) : now;
+  const endDate = timestamps.length > 0 ? Math.max(...timestamps) : now;
 
   // Compress logs by removing null/undefined values
   const compressedLogs = logs.map((log) => {

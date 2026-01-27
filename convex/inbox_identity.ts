@@ -88,7 +88,7 @@ export const searchStudentMatches = query({
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .take(1000);
 
     const matches: Array<{
@@ -477,6 +477,8 @@ function calculateNameSimilarity(name1: string, name2: string): number {
 
   // Compare sorted parts
   const maxParts = Math.max(parts1.length, parts2.length);
+  if (maxParts === 0) return 1.0; // Both names empty - consider identical
+
   let totalSimilarity = 0;
 
   for (let i = 0; i < maxParts; i++) {

@@ -675,16 +675,17 @@ export const updatePriority = mutation({
     }
 
     const now = Date.now();
-    const previousPriority = thread.priority;
+    const previousPriority = thread.priority ?? 'P3';
 
-    // Recalculate SLA if priority increased
+    // Recalculate SLA if priority increased or SLA was never set
     const priorityOrder = { P1: 0, P2: 1, P3: 2 };
     const isEscalation = priorityOrder[args.priority] < priorityOrder[previousPriority];
+    const shouldRecalcSla = isEscalation || !thread.sla_due_at;
 
     // Update thread
     await ctx.db.patch(args.threadId, {
       priority: args.priority,
-      sla_due_at: isEscalation ? calculateSLADueAt(args.priority) : thread.sla_due_at,
+      sla_due_at: shouldRecalcSla ? calculateSLADueAt(args.priority) : thread.sla_due_at,
       updated_at: now,
     });
 

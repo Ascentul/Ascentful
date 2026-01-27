@@ -2320,10 +2320,11 @@ export const getUniversityMonthlyTrends = query({
     const actingUser = await getAuthenticatedUser(ctx);
     assertUniversityAccess(actingUser, universityId);
 
-    // Get all students in the university
+    // Get all students in the university (role-filtered)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
     const studentIds = new Set(students.map((s) => s._id));
 
@@ -2346,38 +2347,22 @@ export const getUniversityMonthlyTrends = query({
       monthBoundaries.push({ start: monthStart, end: monthEnd, label });
     }
 
-    // Get all applications for these students
-    const allApplications = await Promise.all(
-      Array.from(studentIds).map((id) =>
-        ctx.db
-          .query('applications')
-          .withIndex('by_user', (q) => q.eq('user_id', id))
-          .collect(),
-      ),
-    );
-    const applications = allApplications.flat();
+    // Use university-scoped queries instead of per-student N+1 queries
+    // This keeps query counts bounded regardless of student count
+    const applications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
-    // Get all goals for these students
-    const allGoals = await Promise.all(
-      Array.from(studentIds).map((id) =>
-        ctx.db
-          .query('goals')
-          .withIndex('by_user', (q) => q.eq('user_id', id))
-          .collect(),
-      ),
-    );
-    const goals = allGoals.flat();
+    const goals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
-    // Get all resumes for these students
-    const allResumes = await Promise.all(
-      Array.from(studentIds).map((id) =>
-        ctx.db
-          .query('resumes')
-          .withIndex('by_user', (q) => q.eq('user_id', id))
-          .collect(),
-      ),
-    );
-    const resumes = allResumes.flat();
+    const resumes = await ctx.db
+      .query('resumes')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
     // Aggregate by month
     const trends = monthBoundaries.map((month) => {
@@ -2839,7 +2824,7 @@ export const getInterventionCorrelation = query({
 
           // Check outcome for this student
           const outcome = outcomeByStudent.get(studentIdStr);
-          if (outcome) {
+          if (outcome && outcome.outcome_status === 'known') {
             knownOutcomeInBracket++;
             // Check if employed (includes full-time, part-time employment)
             if (

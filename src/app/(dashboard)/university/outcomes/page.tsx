@@ -203,7 +203,7 @@ export default function OutcomesDashboardPage() {
     );
   }, [displayData.breakdown]);
 
-  // Salary by Program/Major chart data
+  // Salary by Cohort chart data (program proxy until major grouping is available)
   const salaryByProgramData = useMemo(() => {
     if (!displayData.outcomes || displayData.outcomes.length === 0) return [];
 
@@ -593,7 +593,7 @@ export default function OutcomesDashboardPage() {
           {salaryByProgramData.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-medium">Median Salary by Program</CardTitle>
+                <CardTitle className="text-base font-medium">Median Salary by Cohort</CardTitle>
                 <CardDescription>
                   Salary comparison across cohorts vs. national median ($
                   {NACE_OVERALL_MEDIAN_SALARY.toLocaleString()})
