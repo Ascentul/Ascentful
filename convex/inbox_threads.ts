@@ -9,7 +9,12 @@ import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { query } from './_generated/server';
-import { getCurrentUser, requireAdvisorRole, requireTenant } from './advisor_auth';
+import {
+  canAccessStudent,
+  getCurrentUser,
+  requireAdvisorRole,
+  requireTenant,
+} from './advisor_auth';
 
 // Re-export types for consumers
 export type ThreadStatus =
@@ -840,6 +845,14 @@ export const getThreadsForQueueItem = query({
       const universityId = requireTenant(sessionCtx);
       if (queueItem.university_id !== universityId) {
         throw new Error('Unauthorized: Queue item not in your university');
+      }
+    }
+
+    // Advisor-level access check: must own queue item or have access to student
+    if (sessionCtx.role === 'advisor') {
+      const canAccess = await canAccessStudent(ctx, sessionCtx, queueItem.student_id);
+      if (!canAccess && queueItem.owner_id !== sessionCtx.userId) {
+        throw new Error('Unauthorized: You do not have access to this queue item');
       }
     }
 

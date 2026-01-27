@@ -1199,6 +1199,14 @@ export const createOutcome = mutation({
       employerName: args.employerName,
       jobTitle: args.jobTitle,
       notes: args.notes,
+      gradSchoolName: args.gradSchoolName,
+      gradSchoolProgram: args.gradSchoolProgram,
+      gradSchoolDegree: args.gradSchoolDegree,
+      city: args.city,
+      state: args.state,
+      country: args.country,
+      industry: args.industry,
+      jobFunction: args.jobFunction,
     });
 
     const now = Date.now();

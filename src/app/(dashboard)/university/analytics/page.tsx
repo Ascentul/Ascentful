@@ -785,7 +785,14 @@ export default function UniversityAnalyticsPage() {
                 <CardDescription>Monthly applications, goals, and resumes</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
-                {!monthlyTrends ? (
+                {!canQueryUniversity ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <TrendingUp className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      Select a university to view trends
+                    </p>
+                  </div>
+                ) : !monthlyTrends ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   </div>

@@ -2411,21 +2411,21 @@ export const getUniversityMonthlyTrends = query({
       .withIndex('by_university', (q) => q.eq('university_id', universityId))
       .collect();
 
-    // Aggregate by month
+    // Aggregate by month (filtered to students only)
     const trends = monthBoundaries.map((month) => {
       const monthApplications = applications.filter((a) => {
         const created = a.applied_at || a._creationTime;
-        return created >= month.start && created <= month.end;
+        return studentIds.has(a.user_id) && created >= month.start && created <= month.end;
       }).length;
 
       const monthGoals = goals.filter((g) => {
         const created = g.created_at || g._creationTime;
-        return created >= month.start && created <= month.end;
+        return studentIds.has(g.user_id) && created >= month.start && created <= month.end;
       }).length;
 
       const monthResumes = resumes.filter((r) => {
         const created = r.created_at || r._creationTime;
-        return created >= month.start && created <= month.end;
+        return studentIds.has(r.user_id) && created >= month.start && created <= month.end;
       }).length;
 
       return {

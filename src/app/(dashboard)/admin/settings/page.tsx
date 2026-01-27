@@ -275,6 +275,10 @@ export default function AdminSettingsPage() {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/health/${type.toLowerCase()}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
       const data = await response.json();
 
       if (data.success) {

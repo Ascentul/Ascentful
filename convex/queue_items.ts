@@ -53,7 +53,9 @@ export type QueueItemActionType =
   | 'closed'
   | 'reopened'
   | 'note_added'
-  | 'playbook_applied';
+  | 'playbook_applied'
+  | 'thread_linked'
+  | 'thread_unlinked';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -667,8 +669,9 @@ export const upsertQueueItemFromSignal = internalMutation({
       .withIndex('by_signal', (q) => q.eq('signal_id', args.signalId))
       .first();
 
-    // If exists and not closed, just update priority if needed
-    if (existing && existing.status !== 'CLOSED') {
+    // If exists and still active (OPEN or IN_PROGRESS), just update priority if needed
+    // RESOLVED/CLOSED items should result in a new queue item being created
+    if (existing && (existing.status === 'OPEN' || existing.status === 'IN_PROGRESS')) {
       const newPriority = signalPriorityToQueuePriority(signal.priority);
       if (existing.priority !== newPriority) {
         await ctx.db.patch(existing._id, {
@@ -766,6 +769,8 @@ export const getMyQueue = query({
           .withIndex('by_owner_status', (q) => q.eq('owner_id', sessionCtx.userId))
           .collect();
       }
+      // Enforce tenant scope for defense in depth
+      queueItems = queueItems.filter((item) => item.university_id === universityId);
     } else {
       // university_admin and super_admin see all in university
       if (args.status && args.status !== 'ALL') {
@@ -1131,16 +1136,17 @@ export const getQueueStats = query({
     const todayStart = new Date().setHours(0, 0, 0, 0);
 
     if (sessionCtx.role === 'advisor') {
-      // Advisor: only their items
+      // Advisor: only their items within their university
       const items = await ctx.db
         .query('queue_items')
         .withIndex('by_owner_status', (q) => q.eq('owner_id', sessionCtx.userId))
         .collect();
+      const scopedItems = items.filter((i) => i.university_id === universityId);
 
-      openCount = items.filter((i) => i.status === 'OPEN' && !i.snoozed_until).length;
-      inProgressCount = items.filter((i) => i.status === 'IN_PROGRESS').length;
-      snoozedCount = items.filter((i) => i.snoozed_until && i.snoozed_until > now).length;
-      resolvedTodayCount = items.filter(
+      openCount = scopedItems.filter((i) => i.status === 'OPEN' && !i.snoozed_until).length;
+      inProgressCount = scopedItems.filter((i) => i.status === 'IN_PROGRESS').length;
+      snoozedCount = scopedItems.filter((i) => i.snoozed_until && i.snoozed_until > now).length;
+      resolvedTodayCount = scopedItems.filter(
         (i) => i.status === 'RESOLVED' && i.closed_at && i.closed_at >= todayStart,
       ).length;
     } else {

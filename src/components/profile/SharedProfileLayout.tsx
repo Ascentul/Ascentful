@@ -207,7 +207,7 @@ export function SharedProfileLayout({
       if (parsed.experience?.length) {
         updates.work_history = parsed.experience.map(
           (exp: Record<string, unknown>, index: number) => ({
-            id: `imported-${Date.now()}-${index}`,
+            id: `imported-work-${Date.now()}-${index}`,
             role: (exp.title as string) || '',
             company: (exp.company as string) || '',
             location: (exp.location as string) || '',
@@ -223,7 +223,7 @@ export function SharedProfileLayout({
       if (parsed.education?.length) {
         updates.education_history = parsed.education.map(
           (edu: Record<string, unknown>, index: number) => ({
-            id: `imported-${Date.now()}-${index}`,
+            id: `imported-edu-${Date.now()}-${index}`,
             degree: (edu.degree as string) || '',
             field_of_study: (edu.field as string) || '',
             school: (edu.school as string) || '',

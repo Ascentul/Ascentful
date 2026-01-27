@@ -74,8 +74,13 @@ export const addMessage = mutation({
       created_at: now,
     });
 
-    // Create snippet from body (for non-internal messages)
-    const snippet = !isInternal
+    // For internal threads, internal messages should still update recency
+    // For student threads, internal notes shouldn't affect what students see
+    const isInternalThread = thread.thread_type === 'internal';
+    const shouldUpdateRecency = !isInternal || isInternalThread;
+
+    // Create snippet from body (when updating recency)
+    const snippet = shouldUpdateRecency
       ? args.body.length > 150
         ? args.body.slice(0, 147) + '...'
         : args.body
@@ -84,9 +89,9 @@ export const addMessage = mutation({
     // Update thread aggregates
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
-      last_message_at: isInternal ? thread.last_message_at : now,
-      last_message_sender_type: isInternal ? thread.last_message_sender_type : 'advisor',
-      snippet: isInternal ? thread.snippet : snippet,
+      last_message_at: shouldUpdateRecency ? now : thread.last_message_at,
+      last_message_sender_type: shouldUpdateRecency ? 'advisor' : thread.last_message_sender_type,
+      snippet,
       has_unread: !isInternal, // Internal notes don't trigger unread for students
       updated_at: now,
     });
@@ -202,9 +207,16 @@ export const addInternalNote = mutation({
       created_at: now,
     });
 
-    // Update thread aggregates (internal notes don't change snippet or last_message_sender_type)
+    // Update thread aggregates
+    // For internal threads, notes should update recency so staff can see activity
+    const isInternalThread = thread.thread_type === 'internal';
+    const snippet = args.body.length > 150 ? args.body.slice(0, 147) + '...' : args.body;
+
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
+      last_message_at: isInternalThread ? now : thread.last_message_at,
+      last_message_sender_type: isInternalThread ? 'advisor' : thread.last_message_sender_type,
+      snippet: isInternalThread ? snippet : thread.snippet,
       updated_at: now,
     });
 

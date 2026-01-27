@@ -973,7 +973,8 @@ export function UniversityDashboard() {
               Add Student Licenses
               {overview && overview.licenseCapacity && (
                 <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
-                  {overview.licenseCapacity - (overview.activeLicenses ?? 0)} seats left
+                  {Math.max(0, overview.licenseCapacity - (overview.activeLicenses ?? 0))} seats
+                  left
                 </span>
               )}
             </button>

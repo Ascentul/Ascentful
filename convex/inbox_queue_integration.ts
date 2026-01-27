@@ -62,10 +62,11 @@ export const createQueueItemFromThread = mutation({
       ) {
         throw new Error('Thread already has an active linked queue item');
       }
-      // Require explicit unlinking before creating a new queue item
-      throw new Error(
-        'Thread is already linked to a queue item. Unlink it before creating a new one.',
-      );
+      // Existing item is resolved/closed/deleted - clear the stale link
+      await ctx.db.patch(args.threadId, {
+        linked_queue_item_id: undefined,
+        updated_at: Date.now(),
+      });
     }
 
     const now = Date.now();

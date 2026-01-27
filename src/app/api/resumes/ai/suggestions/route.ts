@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -160,6 +161,15 @@ export async function POST(req: NextRequest) {
 
   const startTime = Date.now();
   log.info('AI suggestions request started', { event: 'request.start' });
+
+  const { userId } = await auth();
+  if (!userId) {
+    log.warn('Unauthorized request', { event: 'auth.failed' });
+    return NextResponse.json(
+      { error: 'Unauthorized', suggestions: [] },
+      { status: 401, headers: { 'x-correlation-id': correlationId } },
+    );
+  }
 
   try {
     let resumeData: ResumeData;
