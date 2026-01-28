@@ -121,16 +121,22 @@ export const detectInconsistencies = query({
 - [x] All active queries now use `student_advisors` (verified 2025-01-26)
   - `inbox_threads.ts` - uses variable named `advisorStudents` but queries correct table
   - No active code reads from legacy `advisorStudents` table
-- [ ] `advisorStudents` table deprecated and removed
-  - Table is now deprecated (see schema.ts comments)
-  - Will be removed after migration is verified in production
-- [ ] Run migration in production
-  - Run: `npx convex run migrations/consolidate_advisor_students:migrate`
-  - With deletion: `npx convex run migrations/consolidate_advisor_students:migrate '{"deleteAfterMigration": true}'`
-- [ ] Verify no data inconsistencies
-  - Run: `npx convex run migrations/consolidate_advisor_students:auditInconsistencies`
-  - Ensure `inAdvisorStudentsOnly` and `inStudentAdvisorsOnly` are empty
-- [ ] Remove `advisorStudents` table from schema after production verification
+- [x] `advisorStudents` table deprecated and removed (2025-01-28)
+  - Table removed from schema.ts
+  - Legacy cleanup code removed from universities_admin.ts
+- [x] Run migration in production (2025-01-28)
+  - Dry run showed 0 records in both dev and production
+  - No data migration needed - legacy table was already empty
+- [x] Verify no data inconsistencies (2025-01-28)
+  - Confirmed: `advisorStudents` table had 0 records
+- [x] Remove `advisorStudents` table from schema (2025-01-28)
+  - Table definition removed from convex/schema.ts
+  - Comments updated to reflect single canonical table
+
+## COMPLETED
+
+This tech debt item is fully resolved. The `student_advisors` table is now the
+single source of truth for all advisor-student relationships.
 
 ## References
 

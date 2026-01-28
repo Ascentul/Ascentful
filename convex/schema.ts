@@ -279,6 +279,7 @@ export default defineSchema({
     .index('by_is_test_user', ['is_test_user'])
     // SECURITY: Index for efficient activation token lookup (avoids full table scan)
     .index('by_activation_token', ['activation_token'])
+    .index('by_password_reset_token', ['password_reset_token'])
     .index('by_university_engagement', ['university_id', 'engagement_status']),
 
   // Universities table for institutional licensing
@@ -1773,26 +1774,9 @@ export default defineSchema({
   // ========================================
   // ADVISOR FEATURE TABLES
   // ========================================
-  //
-  // NOTE: There are TWO advisor-student relationship tables:
-  //
-  // 1. student_advisors (below) - Used by ADVISOR MODULE (convex/advisor_*.ts)
-  //    - References users table directly (student_id, advisor_id)
-  //    - Supports ownership semantics (is_owner, shared_type)
-  //    - Primary advisor can be designated per student
-  //    - Used for: caseload queries, session scheduling, document reviews
-  //
-  // 2. advisorStudents (line ~1219) - Used by UNIVERSITY ADMIN MODULE
-  //    - References studentProfiles table (student_profile_id)
-  //    - Simpler roster management without ownership semantics
-  //    - Used for: bulk assignment via university admin UI
-  //
-  // TODO: Consider consolidating these tables. Current duplication exists
-  // because they were developed in parallel for different features.
-  // Migration path: Align advisorStudents to use student_advisors with is_owner=true
-  // ========================================
 
   // Student-Advisor relationship table (many-to-many with ownership)
+  // This is the canonical table for all advisor-student relationships.
   // UNIQUENESS CONSTRAINT: is_owner=true must be unique per student_id
   // - Enforced in mutations (no database constraint available)
   // - Diagnostic: Run 'npx convex run advisor_students:findDuplicateOwners' to detect violations
@@ -2135,39 +2119,6 @@ export default defineSchema({
     .index('by_name', ['migration_name'])
     .index('by_status', ['status'])
     .index('by_started_at', ['started_at']),
-
-  // Advisor-student roster mapping for UNIVERSITY ADMIN module
-  // Used by: convex/university_admin.ts, convex/universities_admin.ts
-  //
-  // ========================================
-  // DEPRECATED: This table is being phased out
-  // ========================================
-  // Use `student_advisors` (line ~938) instead for all new code.
-  //
-  // Migration status:
-  // - [x] university_admin.assignAdvisorToStudent now uses student_advisors
-  // - [x] universities_admin.hardDeleteUniversity deletes from both tables
-  // - [ ] Run migration: npx convex run migrations/consolidate_advisor_students:migrate
-  // - [ ] Remove this table after migration is verified
-  //
-  // Key differences from student_advisors:
-  // - References studentProfiles instead of users (student_profile_id vs student_id)
-  // - No ownership semantics (no is_owner, shared_type fields)
-  //
-  // See docs/TECH_DEBT_ADVISOR_STUDENT_TABLES.md for full migration plan.
-  // ========================================
-  advisorStudents: defineTable({
-    university_id: v.id('universities'),
-    advisor_id: v.id('users'),
-    student_profile_id: v.id('studentProfiles'),
-    assigned_by_id: v.id('users'),
-    created_at: v.number(),
-    updated_at: v.number(),
-  })
-    .index('by_advisor_student', ['advisor_id', 'student_profile_id'])
-    .index('by_advisor', ['advisor_id'])
-    .index('by_student_profile', ['student_profile_id'])
-    .index('by_university', ['university_id']),
 
   // Memberships link users to universities with a role
   memberships: defineTable({

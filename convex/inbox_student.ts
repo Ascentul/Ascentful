@@ -70,9 +70,8 @@ export const listMyThreads = query({
       threads = threads.filter((t) => t.status !== 'ARCHIVED' && t.status !== 'RESOLVED');
     } else if (statusFilter === 'resolved') {
       threads = threads.filter((t) => t.status === 'RESOLVED');
-    } else if (statusFilter !== 'all') {
-      threads = threads.filter((t) => t.status !== 'ARCHIVED');
     }
+    // 'all' shows everything including archived - no filtering needed
 
     // Apply limit
     threads = threads.slice(0, limit);

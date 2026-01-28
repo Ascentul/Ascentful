@@ -96,6 +96,7 @@ import type * as lib_piiSafe from "../lib/piiSafe.js";
 import type * as lib_roleValidation from "../lib/roleValidation.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_sanitizeHtml from "../lib/sanitizeHtml.js";
+import type * as lib_secureTokens from "../lib/secureTokens.js";
 import type * as lib_signalConditions from "../lib/signalConditions.js";
 import type * as majors from "../majors.js";
 import type * as metrics from "../metrics.js";
@@ -106,7 +107,6 @@ import type * as migrate_session_scheduled_at from "../migrate_session_scheduled
 import type * as migrations from "../migrations.js";
 import type * as migrations_backfill_ai_coach_university_id from "../migrations/backfill_ai_coach_university_id.js";
 import type * as migrations_backfill_engagement_cache from "../migrations/backfill_engagement_cache.js";
-import type * as migrations_consolidate_advisor_students from "../migrations/consolidate_advisor_students.js";
 import type * as migrations_migrate_user_to_individual from "../migrations/migrate_user_to_individual.js";
 import type * as notifications from "../notifications.js";
 import type * as password_reset from "../password_reset.js";
@@ -243,6 +243,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roleValidation": typeof lib_roleValidation;
   "lib/roles": typeof lib_roles;
   "lib/sanitizeHtml": typeof lib_sanitizeHtml;
+  "lib/secureTokens": typeof lib_secureTokens;
   "lib/signalConditions": typeof lib_signalConditions;
   majors: typeof majors;
   metrics: typeof metrics;
@@ -253,7 +254,6 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   "migrations/backfill_ai_coach_university_id": typeof migrations_backfill_ai_coach_university_id;
   "migrations/backfill_engagement_cache": typeof migrations_backfill_engagement_cache;
-  "migrations/consolidate_advisor_students": typeof migrations_consolidate_advisor_students;
   "migrations/migrate_user_to_individual": typeof migrations_migrate_user_to_individual;
   notifications: typeof notifications;
   password_reset: typeof password_reset;

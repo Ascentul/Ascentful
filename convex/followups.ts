@@ -94,7 +94,7 @@ export const createFollowup = mutation({
       created_by_type: createdByType,
 
       // Multi-tenancy (optional for non-university users)
-      university_id: user.university_id,
+      university_id: user.university_id ?? undefined,
 
       // Relationships (dual-field pattern: populate both generic and typed fields)
       // Using helper to ensure consistency between generic and typed fields

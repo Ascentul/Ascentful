@@ -360,43 +360,57 @@ interface DateRangePickerProps {
 
 function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingRange, setPendingRange] = useState<DateRange | undefined>();
 
-  // Convert timestamps to Date objects for the calendar
-  const selectedRange: DateRange | undefined = dateRange
+  // Convert prop timestamps to Date objects
+  const committedRange: DateRange | undefined = dateRange
     ? {
         from: new Date(dateRange.from),
         to: new Date(dateRange.to),
       }
     : undefined;
 
+  // Reset pending range when popover opens/closes
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setPendingRange(committedRange);
+    }
+  };
+
   const handleSelect = (range: DateRange | undefined) => {
-    onDateRangeChange(range);
-    // Close popover when both dates are selected
+    setPendingRange(range);
+    // Only propagate complete ranges to parent
     if (range?.from && range?.to) {
+      onDateRangeChange(range);
       setIsOpen(false);
     }
   };
 
+  // Use pending range in Calendar when open, committed range for display
+  const displayRange = committedRange;
+  const calendarRange = isOpen ? pendingRange : committedRange;
+
   return (
     <div className="flex flex-col gap-2">
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             className={cn(
               'justify-start text-left font-normal',
-              !selectedRange && 'text-muted-foreground',
+              !displayRange && 'text-muted-foreground',
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {selectedRange?.from ? (
-              selectedRange.to ? (
+            {displayRange?.from ? (
+              displayRange.to ? (
                 <>
-                  {format(selectedRange.from, 'MMM d, yyyy')} -{' '}
-                  {format(selectedRange.to, 'MMM d, yyyy')}
+                  {format(displayRange.from, 'MMM d, yyyy')} -{' '}
+                  {format(displayRange.to, 'MMM d, yyyy')}
                 </>
               ) : (
-                format(selectedRange.from, 'MMM d, yyyy')
+                format(displayRange.from, 'MMM d, yyyy')
               )
             ) : (
               <span>Pick a date range</span>
@@ -407,14 +421,14 @@ function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps)
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={selectedRange?.from}
-            selected={selectedRange}
+            defaultMonth={calendarRange?.from}
+            selected={calendarRange}
             onSelect={handleSelect}
             numberOfMonths={2}
           />
         </PopoverContent>
       </Popover>
-      {selectedRange && (
+      {displayRange && (
         <Button
           variant="ghost"
           size="sm"

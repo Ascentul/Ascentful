@@ -21,7 +21,9 @@
     "seed:university": "node scripts/seed-university-and-assign.js",
     "set:subscription": "node scripts/set-convex-subscription.js",
     "type-check": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deploy:dev": "CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_DEV npx convex deploy",
+    "deploy:prod": "CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

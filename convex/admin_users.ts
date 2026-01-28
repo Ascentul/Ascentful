@@ -9,12 +9,13 @@ import { api, internal } from './_generated/api';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { assertUniversityAccess, getAuthenticatedUser, requireSuperAdmin } from './lib/roles';
 import { normalizeLegacyUserRole } from './lib/roleValidation';
+import { generateSecureToken } from './lib/secureTokens';
 
 /**
  * Generate a random activation token
  */
 function generateActivationToken(): string {
-  return `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return generateSecureToken('act');
 }
 
 /**
@@ -214,8 +215,10 @@ export const activateUserAccount = mutation({
   },
   handler: async (ctx, args) => {
     // Find user by activation token
-    const users = await ctx.db.query('users').collect();
-    const user = users.find((u) => u.activation_token === args.activationToken);
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_activation_token', (q) => q.eq('activation_token', args.activationToken))
+      .unique();
 
     if (!user) {
       throw new Error('Invalid activation token');

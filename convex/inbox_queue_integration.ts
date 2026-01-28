@@ -67,6 +67,13 @@ export const createQueueItemFromThread = mutation({
         linked_queue_item_id: undefined,
         updated_at: Date.now(),
       });
+      // Also clear reverse link to maintain bidirectional integrity
+      if (existingItem?.linked_thread_id === args.threadId) {
+        await ctx.db.patch(existingItem._id, {
+          linked_thread_id: undefined,
+          updated_at: Date.now(),
+        });
+      }
     }
 
     const now = Date.now();

@@ -54,7 +54,6 @@ export function LivePreview({ data, templateId, theme, className = '' }: LivePre
         <div className="flex items-start justify-center min-h-full">
           {/* Scaled resume preview */}
           <div
-            ref={contentRef}
             className="bg-white shadow-2xl origin-top"
             style={{
               transform: 'scale(0.7)',
@@ -63,15 +62,17 @@ export function LivePreview({ data, templateId, theme, className = '' }: LivePre
               minHeight: '11in',
             }}
           >
-            <TemplateComponent
-              data={data}
-              styleConfig={{
-                font_pairing: theme.font_pairing,
-                accent_color: theme.accent_color,
-                density: theme.density,
-                heading_style: theme.heading_style,
-              }}
-            />
+            <div ref={contentRef}>
+              <TemplateComponent
+                data={data}
+                styleConfig={{
+                  font_pairing: theme.font_pairing,
+                  accent_color: theme.accent_color,
+                  density: theme.density,
+                  heading_style: theme.heading_style,
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
