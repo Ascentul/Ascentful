@@ -426,9 +426,12 @@ After Phase 3 (status field removal):
 
 ### High Priority (Create/Update Data)
 - [x] `convex/applications.ts:72` - Application creation (critical!)
-- [ ] `convex/advisor_applications.ts` - Already uses stage
-- [ ] `convex/advisor_students.ts` - Mix of both
-- [ ] `convex/advisor_dashboard.ts` - Mix of both
+- [x] `convex/interviews.ts:84` - Interview stage creation now syncs both fields (fixed 2025-01-26)
+- [x] `convex/email_auto_updates.ts` - All inserts/patches sync both fields
+- [x] `convex/seed_test_student.ts` - Test data sets both fields
+- [x] `convex/advisor_applications.ts` - Already uses stage
+- [x] `convex/advisor_students.ts` - Has fallback pattern for transition
+- [x] `convex/advisor_dashboard.ts` - Has fallback pattern for transition
 
 ### Medium Priority (Query Data)
 - [ ] `convex/analytics.ts:1025-1098` - Status breakdown
@@ -454,8 +457,8 @@ After Phase 3 (status field removal):
 
 ## Notes
 
-- Current implementation silently produces incorrect results
-- No database constraints enforce field synchronization
-- Dual indexes waste storage and query performance
-- High risk of continued divergence without migration
-- **Action Required**: This should be prioritized over new feature development
+- **2025-01-26 Status**: All write operations now sync both `status` and `stage` fields
+- Query code uses fallback patterns (`app.stage === 'X' || (!app.stage && app.status === 'x')`)
+- **Next Step**: Run migration to backfill legacy records, then remove fallback patterns
+- Dual indexes waste storage and query performance (can be removed after migration)
+- **Action Required**: Run migration script, then complete Phase 2 cleanup

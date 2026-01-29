@@ -1,26 +1,52 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-import { type ResumeData, ResumeDocument } from '@/components/resume/ResumeDocument';
+import type { ResumeData } from '@/components/resume/ResumeDocument';
 
 import { PageCounter } from '../PageCounter';
-import type { TemplateTheme } from '../templates/types';
+import { getTemplateComponent } from '../templates/registry';
+import type { TemplateId, TemplateTheme } from '../templates/types';
 
 interface LivePreviewProps {
   data: ResumeData;
-  templateId: string;
+  templateId: TemplateId;
   theme: TemplateTheme;
   className?: string;
 }
 
-export function LivePreview({
-  data,
-  templateId: _templateId,
-  theme: _theme,
-  className = '',
-}: LivePreviewProps) {
-  // TODO: Switch based on _templateId to use different templates
+// Standard US Letter page height in pixels at 96 DPI
+const PAGE_HEIGHT_PX = 11 * 96; // 11 inches * 96 DPI = 1056px
+
+export function LivePreview({ data, templateId, theme, className = '' }: LivePreviewProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [pageCount, setPageCount] = useState(1);
+
+  // Calculate page count based on rendered content height
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const calculatePages = () => {
+      const contentHeight = contentRef.current?.scrollHeight || 0;
+      // Account for margins and padding (approx 0.5in top/bottom = 96px total)
+      const usableHeight = PAGE_HEIGHT_PX - 96;
+      const pages = Math.max(1, Math.ceil(contentHeight / usableHeight));
+      setPageCount(pages);
+    };
+
+    // Calculate initially
+    calculatePages();
+
+    // Recalculate on resize
+    const resizeObserver = new ResizeObserver(calculatePages);
+    resizeObserver.observe(contentRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, [data]);
+
+  // Get the template component based on templateId
+  const TemplateComponent = getTemplateComponent(templateId);
+
   return (
     <div className={`relative h-full flex flex-col ${className}`}>
       {/* Preview container with dark background */}
@@ -36,15 +62,24 @@ export function LivePreview({
               minHeight: '11in',
             }}
           >
-            <ResumeDocument data={data} />
+            <div ref={contentRef}>
+              <TemplateComponent
+                data={data}
+                styleConfig={{
+                  font_pairing: theme.font_pairing,
+                  accent_color: theme.accent_color,
+                  density: theme.density,
+                  heading_style: theme.heading_style,
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Page counter - fixed at bottom right */}
-      {/* TODO: Calculate actual page count based on rendered content height */}
       <div className="absolute bottom-6 right-6">
-        <PageCounter currentPage={1} totalPages={1} />
+        <PageCounter currentPage={1} totalPages={pageCount} />
       </div>
     </div>
   );

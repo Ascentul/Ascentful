@@ -408,20 +408,30 @@ const Sidebar = React.memo(function Sidebar({ isOpen, onToggle }: SidebarProps =
       return adminSections;
     } else {
       // Regular user or student - show standard sections
-      // For university students, add the "My Advisor" section after Goals
+      // For university students, add the "My Advisor" and "Messages" sections after Goals
       if (effectiveIsUniversityStudent) {
-        // Insert "My Advisor" section after Goals
+        // Insert "My Advisor" and "Messages" sections after Goals
         const goalsIndex = sidebarSections.findIndex((s) => s.id === 'goals');
-        const sectionsWithAdvisor = [...sidebarSections];
+        const sectionsWithStudentNav = [...sidebarSections];
         // Defensive: if goals section not found, append at end instead of inserting at index 0
-        const insertIndex = goalsIndex === -1 ? sectionsWithAdvisor.length : goalsIndex + 1;
-        sectionsWithAdvisor.splice(insertIndex, 0, {
-          id: 'student-advisor',
-          title: 'My Advisor',
-          icon: <GraduationCap className="h-5 w-5" />,
-          href: '/student/advisor',
-        });
-        return sectionsWithAdvisor;
+        const insertIndex = goalsIndex === -1 ? sectionsWithStudentNav.length : goalsIndex + 1;
+        sectionsWithStudentNav.splice(
+          insertIndex,
+          0,
+          {
+            id: 'student-advisor',
+            title: 'My Advisor',
+            icon: <GraduationCap className="h-5 w-5" />,
+            href: '/student/advisor',
+          },
+          {
+            id: 'student-messages',
+            title: 'Messages',
+            icon: <Mail className="h-5 w-5" />,
+            href: '/student/messages',
+          },
+        );
+        return sectionsWithStudentNav;
       }
       return sidebarSections;
     }

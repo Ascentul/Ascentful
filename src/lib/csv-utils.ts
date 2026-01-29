@@ -58,6 +58,159 @@ export const OUTCOME_CSV_FIELDS: Array<{
 export const OUTCOME_CSV_HEADERS = OUTCOME_CSV_FIELDS.map((f) => f.header);
 
 // ============================================================================
+// NACE FIRST DESTINATION SURVEY (FDS) FORMAT
+// ============================================================================
+
+/**
+ * NACE FDS format row type.
+ * Maps internal outcome data to NACE-compliant column names.
+ */
+export interface NACEExportRow {
+  // Student identity
+  external_student_id?: string;
+  student_name?: string;
+  student_email?: string;
+
+  // Classification
+  cohort_name?: string; // Maps to Graduation Term
+  major_name?: string; // Maps to Major/Program
+  degree_level?: string; // Maps to Degree Type
+
+  // Outcome
+  outcome_status: string;
+  outcome_type?: string;
+
+  // Employment details
+  employer_name?: string;
+  job_title?: string;
+  job_function?: string;
+  industry?: string;
+  naics_code?: string;
+  is_full_time?: boolean;
+  salary?: number;
+  start_date?: number;
+  days_to_employment?: number;
+
+  // Location
+  city?: string;
+  state?: string;
+  country?: string;
+  is_remote?: boolean;
+
+  // Continuing education
+  grad_school_name?: string;
+  grad_school_program?: string;
+  grad_school_degree?: string;
+
+  // Metadata
+  is_major_related?: boolean;
+  data_source?: string;
+  is_verified?: boolean;
+  updated_at: number;
+}
+
+/**
+ * Map internal outcome_type to NACE Graduate Status categories.
+ * NACE categories: Employed, Continuing Education, Military, Volunteer/Service, Still Seeking, Not Seeking
+ */
+function mapToNACEStatus(outcomeType?: string): string {
+  const mapping: Record<string, string> = {
+    employed_fulltime: 'Employed Full-Time',
+    employed_parttime: 'Employed Part-Time',
+    continuing_education: 'Continuing Education',
+    military: 'Military Service',
+    volunteer: 'Volunteer/Service',
+    seeking: 'Still Seeking',
+    not_seeking: 'Not Seeking Employment',
+  };
+  return mapping[outcomeType || ''] || outcomeType || '';
+}
+
+/**
+ * NACE First Destination Survey (FDS) field definitions.
+ * Column names match NACE's standard template for accreditation reporting.
+ *
+ * Reference: https://www.naceweb.org/job-market/graduate-outcomes/first-destination/
+ */
+export const NACE_FDS_FIELDS: Array<{
+  header: string;
+  getValue: (o: NACEExportRow) => string;
+}> = [
+  // Student Identification
+  { header: 'Student_ID', getValue: (o) => o.external_student_id || '' },
+  { header: 'Student_Name', getValue: (o) => o.student_name || '' },
+  { header: 'Student_Email', getValue: (o) => o.student_email || '' },
+
+  // Academic Classification
+  { header: 'Graduation_Term', getValue: (o) => o.cohort_name || '' },
+  { header: 'Major_Program', getValue: (o) => o.major_name || '' },
+  { header: 'Degree_Type', getValue: (o) => o.degree_level || '' },
+
+  // Graduate Status (NACE Primary Classification)
+  { header: 'Graduate_Status', getValue: (o) => mapToNACEStatus(o.outcome_type) },
+  { header: 'Knowledge_Status', getValue: (o) => o.outcome_status || '' },
+
+  // Employment Information
+  { header: 'Employer_Name', getValue: (o) => o.employer_name || '' },
+  { header: 'Job_Title', getValue: (o) => o.job_title || '' },
+  { header: 'Job_Function', getValue: (o) => o.job_function || '' },
+  { header: 'Industry', getValue: (o) => o.industry || '' },
+  { header: 'NAICS_Code', getValue: (o) => o.naics_code || '' },
+  {
+    header: 'Employment_Type',
+    getValue: (o) => {
+      if (o.outcome_type === 'employed_fulltime') return 'Full-Time';
+      if (o.outcome_type === 'employed_parttime') return 'Part-Time';
+      if (o.is_full_time === true) return 'Full-Time';
+      if (o.is_full_time === false) return 'Part-Time';
+      return '';
+    },
+  },
+  { header: 'Annual_Salary', getValue: (o) => (o.salary ? o.salary.toString() : '') },
+  {
+    header: 'Job_Start_Date',
+    getValue: (o) => (o.start_date ? new Date(o.start_date).toISOString().split('T')[0] : ''),
+  },
+  {
+    header: 'Days_to_Employment',
+    getValue: (o) => (o.days_to_employment !== undefined ? o.days_to_employment.toString() : ''),
+  },
+
+  // Location
+  { header: 'City', getValue: (o) => o.city || '' },
+  { header: 'State', getValue: (o) => o.state || '' },
+  { header: 'Country', getValue: (o) => o.country || '' },
+  {
+    header: 'Remote_Work',
+    getValue: (o) => (o.is_remote === true ? 'Yes' : o.is_remote === false ? 'No' : ''),
+  },
+
+  // Continuing Education
+  { header: 'School_Name', getValue: (o) => o.grad_school_name || '' },
+  { header: 'Program_Name', getValue: (o) => o.grad_school_program || '' },
+  { header: 'Degree_Sought', getValue: (o) => o.grad_school_degree || '' },
+
+  // Additional Context
+  {
+    header: 'Related_to_Major',
+    getValue: (o) =>
+      o.is_major_related === true ? 'Yes' : o.is_major_related === false ? 'No' : '',
+  },
+  { header: 'Data_Source', getValue: (o) => o.data_source || '' },
+  {
+    header: 'Verified',
+    getValue: (o) => (o.is_verified === true ? 'Yes' : o.is_verified === false ? 'No' : ''),
+  },
+  {
+    header: 'Last_Updated',
+    getValue: (o) => (o.updated_at ? new Date(o.updated_at).toISOString().split('T')[0] : ''),
+  },
+];
+
+/** Derived NACE headers array for convenience */
+export const NACE_FDS_HEADERS = NACE_FDS_FIELDS.map((f) => f.header);
+
+// ============================================================================
 // CSV SECURITY UTILITIES
 // ============================================================================
 

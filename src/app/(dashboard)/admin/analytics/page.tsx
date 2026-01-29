@@ -66,6 +66,11 @@ function AdminAnalyticsPage() {
     shouldQuery ? { clerkId: clerkUser!.id } : 'skip',
   );
 
+  const featureUsageData = useQuery(
+    api.analytics.getPlatformFeatureUsage,
+    shouldQuery ? { clerkId: clerkUser!.id } : 'skip',
+  );
+
   // Memoize derived calculations BEFORE any early returns (Rules of Hooks)
   const totalUsers = useMemo(() => systemStats?.totalUsers ?? 0, [systemStats]);
   const activeUsers = useMemo(() => systemStats?.activeUsers ?? 0, [systemStats]);
@@ -250,18 +255,48 @@ function AdminAnalyticsPage() {
           </Card>
         </div>
 
-        {/* FEATURE INCOMPLETE: Feature Usage Analytics Section
-         * Implementation plan:
-         * 1. Create convex/admin_analytics.ts with getFeatureUsage query
-         * 2. Query should aggregate counts from:
-         *    - applications table (count by user)
-         *    - resumes table (count by user)
-         *    - goals table (count by user)
-         *    - ai_coach_conversations table (count by user)
-         * 3. Return top features by usage with percentage of users
-         * 4. Add caching/pagination for performance at scale
-         * 5. Display as bar chart or table here
-         */}
+        {/* Feature Usage Analytics */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Feature Usage
+            </CardTitle>
+            <CardDescription>Percentage of users who have used each feature</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!featureUsageData ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {featureUsageData.features.map((feature) => (
+                  <div key={feature.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{feature.name}</span>
+                      <span className="text-muted-foreground">
+                        {feature.users.toLocaleString()} users ({feature.percentage}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-500"
+                        style={{ width: `${feature.percentage}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {feature.total.toLocaleString()} total items created
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2 border-t text-sm text-muted-foreground">
+                  Total platform users: {featureUsageData.totalUsers.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent Activity */}
         <Card>

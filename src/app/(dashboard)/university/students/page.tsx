@@ -97,6 +97,17 @@ export default function UniversityStudentsPage() {
     clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
   ) as any[] | undefined;
 
+  // Asset completion and activity analytics
+  const assetStats = useQuery(
+    api.university_analytics.getAssetCompletionStats,
+    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+  );
+
+  const activityTrends = useQuery(
+    api.university_analytics.getActivityTrends,
+    clerkUser?.id ? { clerkId: clerkUser.id } : 'skip',
+  );
+
   const updateUserByIdMutation = useMutation(api.users.updateUserById);
   const assignStudentMutation = useMutation(api.university_admin.assignStudentByEmail);
   const createUserMutation = useMutation(api.admin_users.createUserByAdmin);
@@ -882,27 +893,35 @@ export default function UniversityStudentsPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Average Asset Completion</CardTitle>
+                <CardTitle className="text-base font-medium">Average Applications</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <Target className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold text-muted-foreground">--</div>
+                  <Target className="h-5 w-5 text-green-600 mr-2" aria-hidden="true" />
+                  <div className="text-2xl font-bold">{assetStats?.avgApplications ?? '--'}</div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Coming soon</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {assetStats
+                    ? `${assetStats.studentsWithApplications} students active`
+                    : 'Per student average'}
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Total Advisor Sessions</CardTitle>
+                <CardTitle className="text-base font-medium">Average Goals Set</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
-                  <div className="text-2xl font-bold text-muted-foreground">--</div>
+                  <Calendar className="h-5 w-5 text-blue-600 mr-2" aria-hidden="true" />
+                  <div className="text-2xl font-bold">{assetStats?.avgGoals ?? '--'}</div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Coming soon</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {assetStats
+                    ? `${assetStats.studentsWithGoals} students with goals`
+                    : 'Per student average'}
+                </div>
               </CardContent>
             </Card>
 
@@ -952,25 +971,114 @@ export default function UniversityStudentsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Target className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p className="font-medium">Coming Soon</p>
-                  <p className="text-sm mt-1">Asset completion tracking will be available soon</p>
-                </div>
+                {!assetStats || assetStats.totalStudents === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="h-12 w-12 mx-auto mb-2 opacity-30" aria-hidden="true" />
+                    <p className="font-medium">No data available</p>
+                    <p className="text-sm mt-1">Asset data appears as students create content</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Resumes</span>
+                        <span className="font-medium">
+                          {assetStats.studentsWithResume} / {assetStats.totalStudents} students
+                        </span>
+                      </div>
+                      <Progress
+                        value={(assetStats.studentsWithResume / assetStats.totalStudents) * 100}
+                        className="h-2"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Cover Letters</span>
+                        <span className="font-medium">
+                          {assetStats.studentsWithCoverLetter} / {assetStats.totalStudents} students
+                        </span>
+                      </div>
+                      <Progress
+                        value={
+                          (assetStats.studentsWithCoverLetter / assetStats.totalStudents) * 100
+                        }
+                        className="h-2"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Goals</span>
+                        <span className="font-medium">
+                          {assetStats.studentsWithGoals} / {assetStats.totalStudents} students
+                        </span>
+                      </div>
+                      <Progress
+                        value={(assetStats.studentsWithGoals / assetStats.totalStudents) * 100}
+                        className="h-2"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Applications</span>
+                        <span className="font-medium">
+                          {assetStats.studentsWithApplications} / {assetStats.totalStudents}{' '}
+                          students
+                        </span>
+                      </div>
+                      <Progress
+                        value={
+                          (assetStats.studentsWithApplications / assetStats.totalStudents) * 100
+                        }
+                        className="h-2"
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Engagement Trends</CardTitle>
-                <CardDescription>Student activity over the past 30 days</CardDescription>
+                <CardDescription>Weekly activity over the past 4 weeks</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p className="font-medium">Coming Soon</p>
-                  <p className="text-sm mt-1">Engagement analytics will be available soon</p>
-                </div>
+                {!activityTrends?.weeklyTrends || activityTrends.weeklyTrends.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-30" aria-hidden="true" />
+                    <p className="font-medium">No activity data</p>
+                    <p className="text-sm mt-1">Activity trends will appear as students engage</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activityTrends.weeklyTrends.map((week, idx) => (
+                      <div key={week.week}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Week of {week.week}</span>
+                          <span className="font-medium">{week.uniqueUsers} active students</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={
+                              activityTrends.weeklyTrends.length > 0
+                                ? (week.uniqueUsers /
+                                    Math.max(
+                                      ...activityTrends.weeklyTrends.map((w) => w.uniqueUsers),
+                                      1,
+                                    )) *
+                                  100
+                                : 0
+                            }
+                            className="h-2 flex-1"
+                          />
+                          <span className="text-xs text-muted-foreground w-16">
+                            {week.events} events
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

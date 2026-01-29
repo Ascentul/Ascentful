@@ -4,7 +4,21 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
-import { BarChart3, Download, Eye, Loader2, Search } from 'lucide-react';
+import jsPDF from 'jspdf';
+import {
+  ArrowDown,
+  ArrowUp,
+  BarChart3,
+  ChevronDown,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  Printer,
+  Search,
+  TrendingUp,
+} from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Bar,
@@ -12,6 +26,7 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,6 +41,12 @@ import { Snapshot, SnapshotBanner, SnapshotSelector } from '@/components/outcome
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -44,6 +65,8 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { hasUniversityAdminAccess } from '@/lib/constants/roles';
+import { NACE_OUTCOME_BENCHMARKS, NACE_OVERALL_MEDIAN_SALARY } from '@/lib/nace-benchmarks';
 
 const OUTCOME_STATUS_CONFIG: Record<
   OutcomeRecord['outcome_status'],
@@ -66,7 +89,7 @@ const OUTCOME_TYPE_LABELS: Record<NonNullable<OutcomeRecord['outcome_type']>, st
 
 export default function OutcomesDashboardPage() {
   const { user: clerkUser } = useUser();
-  const { user, isAdmin } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
 
   // State
@@ -79,24 +102,21 @@ export default function OutcomesDashboardPage() {
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
 
   // Access control
-  const canAccess =
-    !!user && (isAdmin || user.role === 'university_admin' || user.role === 'advisor');
+  const canAccess = !!user && hasUniversityAdminAccess(user.role);
   const universityId = user?.university_id as Id<'universities'> | undefined;
+  const canQuery = !isLoading && canAccess && !!universityId;
 
   // Queries
   const cohorts = useQuery(
     api.graduation_outcomes.getCohortsByInstitution,
-    universityId ? { institutionId: universityId } : 'skip',
+    canQuery ? { institutionId: universityId } : 'skip',
   );
 
-  const majors = useQuery(
-    api.majors.getMajorsByUniversity,
-    universityId ? { universityId } : 'skip',
-  );
+  const majors = useQuery(api.majors.getMajorsByUniversity, canQuery ? { universityId } : 'skip');
 
   const analytics = useQuery(
     api.graduation_outcomes.getOutcomesAnalytics,
-    universityId && !selectedSnapshotId
+    canQuery && !selectedSnapshotId
       ? {
           institutionId: universityId,
           cohortIds: filters.cohortIds as Id<'graduation_cohorts'>[] | undefined,
@@ -110,12 +130,14 @@ export default function OutcomesDashboardPage() {
 
   const snapshots = useQuery(
     api.graduation_outcomes.listSnapshots,
-    universityId ? { institutionId: universityId } : 'skip',
+    canQuery ? { institutionId: universityId } : 'skip',
   );
 
   const selectedSnapshot = useQuery(
     api.graduation_outcomes.getSnapshot,
-    selectedSnapshotId ? { snapshotId: selectedSnapshotId as Id<'outcome_snapshots'> } : 'skip',
+    canQuery && selectedSnapshotId
+      ? { snapshotId: selectedSnapshotId as Id<'outcome_snapshots'> }
+      : 'skip',
   );
 
   // Mutations
@@ -187,6 +209,51 @@ export default function OutcomesDashboardPage() {
     );
   }, [displayData.breakdown]);
 
+  // Salary by Cohort chart data (program proxy until major grouping is available)
+  const salaryByProgramData = useMemo(() => {
+    if (!displayData.outcomes || displayData.outcomes.length === 0) return [];
+
+    // Group salaries by cohort (as a proxy for program)
+    // In the future, this could use a dedicated major_name field
+    const programSalaries: Record<string, number[]> = {};
+
+    for (const outcome of displayData.outcomes as OutcomeRecord[]) {
+      const salary = (outcome as unknown as { salary?: number }).salary;
+      if (!salary || salary <= 0) continue;
+
+      // Use cohort_name as the grouping key
+      const programKey = outcome.cohort_name || 'Unknown';
+
+      if (!programSalaries[programKey]) {
+        programSalaries[programKey] = [];
+      }
+      programSalaries[programKey].push(salary);
+    }
+
+    // Calculate median salary for each program
+    const chartData = Object.entries(programSalaries)
+      .map(([program, salaries]) => {
+        if (salaries.length === 0) return null;
+
+        // Sort and find median
+        const sorted = [...salaries].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median =
+          sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+
+        return {
+          name: program,
+          medianSalary: median,
+          count: salaries.length,
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null)
+      .sort((a, b) => b.medianSalary - a.medianSalary) // Sort by salary descending
+      .slice(0, 10); // Limit to top 10 programs
+
+    return chartData;
+  }, [displayData.outcomes]);
+
   // Handlers
   const handleCreateSnapshot = useCallback(
     async (name: string, description?: string) => {
@@ -255,55 +322,231 @@ export default function OutcomesDashboardPage() {
     [deleteSnapshotMutation, selectedSnapshotId, toast],
   );
 
-  const handleExport = useCallback(async () => {
-    if (!clerkUser?.id) return;
+  const handleExport = useCallback(
+    async (format: 'standard' | 'nace' = 'standard') => {
+      if (!clerkUser?.id) return;
 
-    setIsExporting(true);
-    try {
-      // Server authenticates via session - no need to send clerkId
-      const response = await fetch('/api/university/export-outcomes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filters,
-          snapshotId: selectedSnapshotId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      setIsExporting(true);
       try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `outcomes-export-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } finally {
-        window.URL.revokeObjectURL(url);
-      }
+        // Server authenticates via session - no need to send clerkId
+        const response = await fetch('/api/university/export-outcomes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filters,
+            snapshotId: selectedSnapshotId,
+            format,
+          }),
+        });
 
+        if (!response.ok) {
+          throw new Error('Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        try {
+          const a = document.createElement('a');
+          a.href = url;
+          const prefix = format === 'nace' ? 'nace-fds-export' : 'outcomes-export';
+          a.download = `${prefix}-${new Date().toISOString().split('T')[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } finally {
+          window.URL.revokeObjectURL(url);
+        }
+
+        toast({
+          title: 'Export complete',
+          description:
+            format === 'nace'
+              ? 'NACE First Destination Survey format downloaded.'
+              : 'The CSV file has been downloaded.',
+        });
+      } catch (error) {
+        console.error('Export failed:', error);
+        toast({
+          title: 'Export failed',
+          description: 'Unable to export data. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [clerkUser?.id, filters, selectedSnapshotId, toast],
+  );
+
+  const handleExportPDF = useCallback(() => {
+    if (!displayData.summary) {
       toast({
-        title: 'Export complete',
-        description: 'The CSV file has been downloaded.',
-      });
-    } catch (error) {
-      console.error('Export failed:', error);
-      toast({
-        title: 'Export failed',
-        description: 'Unable to export data. Please try again.',
+        title: 'No data to export',
+        description: 'Please wait for the data to load.',
         variant: 'destructive',
       });
-    } finally {
-      setIsExporting(false);
+      return;
     }
-  }, [clerkUser?.id, filters, selectedSnapshotId, toast]);
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentWidth = pageWidth - 2 * margin;
+    let yPos = margin;
+
+    // Helper to add wrapped text
+    const addWrappedText = (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      lineHeight: number = 7,
+    ) => {
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, x, y);
+      return y + lines.length * lineHeight;
+    };
+
+    // Helper for page break
+    const checkPageBreak = (neededSpace: number) => {
+      if (yPos + neededSpace > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        yPos = margin;
+      }
+    };
+
+    // Title
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Career Outcomes Report', margin, yPos);
+    yPos += 10;
+
+    // Date
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      margin,
+      yPos,
+    );
+    yPos += 15;
+
+    // Summary section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Executive Summary', margin, yPos);
+    yPos += 10;
+
+    const summary = displayData.summary;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+
+    // Key metrics
+    const metrics = [
+      { label: 'Career Outcomes Rate', value: `${summary.career_outcomes_rate?.toFixed(1) || 0}%` },
+      { label: 'Knowledge Rate', value: `${summary.knowledge_rate?.toFixed(1) || 0}%` },
+      { label: 'Employment Rate', value: `${summary.employment_rate?.toFixed(1) || 0}%` },
+      {
+        label: 'Continuing Education Rate',
+        value: `${summary.continuing_ed_rate?.toFixed(1) || 0}%`,
+      },
+      { label: 'Total Students', value: String(summary.total_students || 0) },
+      { label: 'Known Outcomes', value: String(summary.known_outcomes || 0) },
+    ];
+
+    metrics.forEach((metric) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${metric.label}:`, margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(metric.value, margin + 70, yPos);
+      yPos += 7;
+    });
+    yPos += 10;
+
+    // Breakdown by outcome type
+    checkPageBreak(40);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Outcome Distribution', margin, yPos);
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    const outcomeTypes = [
+      { label: 'Employed Full-time', value: summary.employed_fulltime || 0 },
+      { label: 'Employed Part-time', value: summary.employed_parttime || 0 },
+      { label: 'Continuing Education', value: summary.continuing_education || 0 },
+      { label: 'Military Service', value: summary.military || 0 },
+      { label: 'Volunteer Service', value: summary.volunteer || 0 },
+      { label: 'Unknown Outcomes', value: summary.unknown_outcomes || 0 },
+    ];
+
+    outcomeTypes.forEach((type) => {
+      if (type.value > 0) {
+        doc.text(`• ${type.label}: ${type.value}`, margin + 5, yPos);
+        yPos += 6;
+      }
+    });
+    yPos += 10;
+
+    // Program breakdown if available
+    if (displayData.breakdown && Object.keys(displayData.breakdown).length > 0) {
+      checkPageBreak(30);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Breakdown by Program', margin, yPos);
+      yPos += 10;
+
+      doc.setFontSize(9);
+      Object.entries(displayData.breakdown).forEach(
+        ([program, data]: [
+          string,
+          { knowledge_rate?: number; employment_rate?: number; total_students?: number },
+        ]) => {
+          checkPageBreak(15);
+          doc.setFont('helvetica', 'bold');
+          yPos = addWrappedText(program, margin, yPos, contentWidth);
+          doc.setFont('helvetica', 'normal');
+          doc.text(
+            `  Knowledge Rate: ${data.knowledge_rate?.toFixed(1) || 0}% | Employment Rate: ${data.employment_rate?.toFixed(1) || 0}% | Total: ${data.total_students || 0}`,
+            margin + 5,
+            yPos,
+          );
+          yPos += 8;
+        },
+      );
+    }
+
+    // Footer with benchmark comparison
+    checkPageBreak(30);
+    yPos += 5;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Benchmarks: NACE First Destination Survey National Averages', margin, yPos);
+
+    // Save
+    const filename = `career-outcomes-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+
+    toast({
+      title: 'PDF exported',
+      description: 'Career outcomes report has been downloaded.',
+    });
+  }, [displayData, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (!canAccess) {
@@ -340,7 +583,8 @@ export default function OutcomesDashboardPage() {
     );
   }
 
-  const isLoading = !cohorts || !majors || (selectedSnapshotId ? !selectedSnapshot : !analytics);
+  const isDataLoading =
+    !cohorts || !majors || (selectedSnapshotId ? !selectedSnapshot : !analytics);
 
   return (
     <div className="max-w-screen-2xl mx-auto p-4 md:p-6 space-y-6">
@@ -363,14 +607,37 @@ export default function OutcomesDashboardPage() {
             onDeleteSnapshot={handleDeleteSnapshot}
             isCreating={isCreatingSnapshot}
           />
-          <Button onClick={handleExport} disabled={isExporting || isLoading}>
-            {isExporting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
-            Export CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isExporting || isDataLoading}>
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Export
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('standard')}>
+                <Download className="mr-2 h-4 w-4" />
+                Standard CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('nace')}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                NACE FDS Format
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Report
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -393,37 +660,115 @@ export default function OutcomesDashboardPage() {
         />
       )}
 
-      {isLoading ? (
+      {isDataLoading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
         </div>
       ) : (
         <>
-          {/* KPI Cards */}
+          {/* Hero KPI - Placement Readiness Delta */}
+          <Card className="bg-gradient-to-r from-primary-50 to-emerald-50 border-primary-200 print:bg-white print:border-gray-200">
+            <CardContent className="py-6">
+              <div className="flex items-center justify-between">
+                {(() => {
+                  const delta =
+                    Math.round(
+                      ((displayData.summary?.career_outcomes_rate || 0) -
+                        NACE_OUTCOME_BENCHMARKS.career_outcomes_rate.nationalAverage) *
+                        100,
+                    ) / 100;
+                  const isPositive = delta >= 0;
+                  return (
+                    <div className="flex items-center gap-6">
+                      <div className="p-4 bg-white rounded-2xl shadow-sm">
+                        <TrendingUp className="h-8 w-8 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-primary-700 uppercase tracking-wide">
+                          Placement Readiness Delta
+                        </p>
+                        <div className="flex items-baseline gap-3 mt-1">
+                          <span
+                            className={`text-5xl font-bold ${isPositive ? 'text-primary-900' : 'text-amber-700'}`}
+                          >
+                            {isPositive ? '+' : ''}
+                            {delta}%
+                          </span>
+                          <span
+                            className={`flex items-center font-medium ${isPositive ? 'text-emerald-600' : 'text-amber-600'}`}
+                          >
+                            {isPositive ? (
+                              <ArrowUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4 mr-1" />
+                            )}
+                            vs national average
+                          </span>
+                        </div>
+                        <p className="text-sm text-primary-600 mt-2">
+                          {isPositive
+                            ? 'Your graduates are outperforming the national career outcomes benchmark'
+                            : 'Your graduates are below the national career outcomes benchmark'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="hidden md:block text-right">
+                  <p className="text-sm text-neutral-500">National Average</p>
+                  <p className="text-2xl font-semibold text-neutral-700">
+                    {NACE_OUTCOME_BENCHMARKS.career_outcomes_rate.nationalAverage}%
+                  </p>
+                  <p className="text-sm text-neutral-500 mt-1">Your Rate</p>
+                  <p className="text-2xl font-semibold text-primary-700">
+                    {displayData.summary?.career_outcomes_rate || 0}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* KPI Cards with NACE Benchmarks */}
           <KPICardGroup>
+            <KPICard
+              title="Career Outcomes Rate"
+              value={displayData.summary?.career_outcomes_rate || 0}
+              subtitle="NACE primary metric"
+              colorScheme="success"
+              benchmark={{
+                nationalAverage: NACE_OUTCOME_BENCHMARKS.career_outcomes_rate.nationalAverage,
+                label: 'National',
+              }}
+            />
             <KPICard
               title="Knowledge Rate"
               value={displayData.summary?.knowledge_rate || 0}
               subtitle={`${displayData.summary?.known_outcomes || 0} of ${displayData.summary?.total_students || 0} known`}
               colorScheme="primary"
+              benchmark={{
+                nationalAverage: NACE_OUTCOME_BENCHMARKS.knowledge_rate.nationalAverage,
+                label: 'National',
+              }}
             />
             <KPICard
               title="Employment Rate"
               value={displayData.summary?.employment_rate || 0}
               subtitle={`${(displayData.summary?.employed_fulltime || 0) + (displayData.summary?.employed_parttime || 0)} employed`}
-              colorScheme="success"
+              colorScheme="neutral"
+              benchmark={{
+                nationalAverage: NACE_OUTCOME_BENCHMARKS.employment_rate.nationalAverage,
+                label: 'National',
+              }}
             />
             <KPICard
               title="Continuing Education"
               value={displayData.summary?.continuing_ed_rate || 0}
               subtitle={`${displayData.summary?.continuing_education || 0} pursuing further education`}
               colorScheme="neutral"
-            />
-            <KPICard
-              title="Total Students"
-              value={displayData.summary?.total_students || 0}
-              format="number"
-              colorScheme="neutral"
+              benchmark={{
+                nationalAverage: NACE_OUTCOME_BENCHMARKS.continuing_ed_rate.nationalAverage,
+                label: 'National',
+              }}
             />
           </KPICardGroup>
 
@@ -477,6 +822,77 @@ export default function OutcomesDashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Salary by Program Chart (NACE Metric) */}
+          {salaryByProgramData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-medium">Median Salary by Cohort</CardTitle>
+                <CardDescription>
+                  Salary comparison across cohorts vs. national median ($
+                  {NACE_OVERALL_MEDIAN_SALARY.toLocaleString()})
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={salaryByProgramData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        tickFormatter={(v) => (v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`)}
+                      />
+                      <YAxis type="category" dataKey="name" width={120} />
+                      <Tooltip
+                        formatter={(value: number) => [
+                          `$${value.toLocaleString()}`,
+                          'Median Salary',
+                        ]}
+                        labelFormatter={(name) => `${name}`}
+                      />
+                      <ReferenceLine
+                        x={NACE_OVERALL_MEDIAN_SALARY}
+                        stroke="#EF4444"
+                        strokeDasharray="5 5"
+                        label={{
+                          value: 'National Median',
+                          position: 'top',
+                          fill: '#EF4444',
+                          fontSize: 11,
+                        }}
+                      />
+                      <Bar dataKey="medianSalary" name="Median Salary" fill="#8B5CF6">
+                        {salaryByProgramData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.medianSalary >= NACE_OVERALL_MEDIAN_SALARY
+                                ? '#10B981'
+                                : '#8B5CF6'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-green-500" />
+                    <span className="text-xs text-muted-foreground">Above national median</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-purple-500" />
+                    <span className="text-xs text-muted-foreground">Below national median</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Based on {salaryByProgramData.reduce((sum, d) => sum + d.count, 0)} graduates with
+                  reported salary data
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Outcomes Table */}
           {!selectedSnapshotId && (

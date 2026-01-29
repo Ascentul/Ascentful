@@ -90,6 +90,9 @@ export default function InterviewSessionPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isPreWarmingRef = useRef<boolean>(false);
+  // Prefetched next question data for reducing delay between questions
+  // Promise resolves to Response on success, null on prefetch failure (to avoid unhandled rejection)
+  const prefetchedNextQuestionRef = useRef<Promise<Response | null> | null>(null);
 
   // Session autosave key
   const sessionStorageKey = `interview-session-${sessionId}`;
@@ -212,9 +215,26 @@ export default function InterviewSessionPage() {
     },
   });
 
-  // Get next question mutation
+  // Get next question mutation (uses prefetched data if available)
   const nextQuestionMutation = useMutation({
     mutationFn: async () => {
+      // Check if we have a prefetched response
+      if (prefetchedNextQuestionRef.current) {
+        console.log('[InterviewSession] Using prefetched next question');
+        try {
+          const response = await prefetchedNextQuestionRef.current;
+          prefetchedNextQuestionRef.current = null; // Clear after use
+          if (response) {
+            return response.json();
+          }
+          // Prefetch returned null (failed), fall through to fresh request
+          console.log('[InterviewSession] Prefetch returned null, making fresh request');
+        } catch {
+          // Prefetch failed, fall through to make a fresh request
+          console.log('[InterviewSession] Prefetch failed, making fresh request');
+        }
+      }
+      // No prefetch available, make a fresh request
       const response = await apiRequest(
         'POST',
         `/api/interview-practice/session/${sessionId}/next`,
@@ -570,12 +590,18 @@ export default function InterviewSessionPage() {
       // Pre-fetch next question in background (only if not the last question)
       const isLastQuestion =
         (session?.current_question_index || 0) >= (session?.question_count_target || 0) - 1;
-      if (!isLastQuestion) {
-        console.log('[InterviewSession] Pre-fetching next question...');
-        // TODO: Implement real prefetching by invoking the next question endpoint.
-        // The current session flow posts via a mutation (no GET cache), so
-        // warming the cache will require securing an actual query endpoint or
-        // rearchitecting how the next prompt is fetched.
+      if (!isLastQuestion && !prefetchedNextQuestionRef.current) {
+        console.log('[InterviewSession] Pre-fetching next question in background...');
+        // Start prefetching the next question while user is recording
+        // This reduces the delay between questions since AI generation takes time
+        prefetchedNextQuestionRef.current = apiRequest(
+          'POST',
+          `/api/interview-practice/session/${sessionId}/next`,
+        ).catch((error) => {
+          console.warn('[InterviewSession] Prefetch failed, will retry on demand:', error);
+          prefetchedNextQuestionRef.current = null;
+          return null; // Return null to avoid unhandled rejection
+        });
       }
     } catch (error) {
       console.error('[InterviewSession] Start recording error:', error);

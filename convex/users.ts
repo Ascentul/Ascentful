@@ -289,6 +289,49 @@ export const getUserByClerkId = query({
   },
 });
 
+// Get user by ID (for internal lookups like dialogs)
+export const getUserById = query({
+  args: { userId: v.id('users') },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+
+    // Check authorization
+    const requester = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!requester) {
+      throw new Error('Unauthorized');
+    }
+
+    const isSelf = requester._id === user._id;
+    const isSuperAdmin = requester.role === 'super_admin';
+    const isUniversityStaff =
+      ['university_admin', 'advisor'].includes(requester.role) &&
+      requester.university_id &&
+      requester.university_id === user.university_id;
+
+    if (!isSelf && !isSuperAdmin && !isUniversityStaff) {
+      throw new Error('Unauthorized: Cannot access this user');
+    }
+
+    // Return minimal info for display purposes
+    return {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+  },
+});
+
 // Get user by email (useful for webhook sync verification)
 export const getUserByEmail = query({
   args: { email: v.string() },
@@ -656,6 +699,8 @@ export const initializeUserProfile = mutation({
         v.literal('super_admin'),
       ),
     ),
+    // Allow setting university_id from Clerk public metadata for university roles
+    university_id: v.optional(v.id('universities')),
   },
   handler: async (ctx, args) => {
     // Verify the caller is the authenticated user
@@ -722,9 +767,25 @@ export const initializeUserProfile = mutation({
 
     // Validate role for new user creation
     const requestedRole = args.role ?? 'individual';
-    const finalRole = normalizeLegacyUserRole(requestedRole, undefined) ?? 'individual';
-    if (isUniversityRole(finalRole)) {
+    const finalRole = normalizeLegacyUserRole(requestedRole, args.university_id) ?? 'individual';
+
+    // Validate role-university invariant
+    if (isUniversityRole(finalRole) && !args.university_id) {
       throw new Error(`Cannot create user with role '${finalRole}' without university assignment.`);
+    }
+    if (isIndividualRole(finalRole) && args.university_id) {
+      throw new Error(
+        `Cannot create user with role '${finalRole}' and university assignment. ` +
+          `Individual roles must not have university_id.`,
+      );
+    }
+
+    // Verify university exists if provided
+    if (args.university_id) {
+      const university = await ctx.db.get(args.university_id);
+      if (!university) {
+        throw new Error(`University not found: ${args.university_id}`);
+      }
     }
 
     // Create new user
@@ -735,7 +796,8 @@ export const initializeUserProfile = mutation({
       username: args.username || `user_${Date.now()}`,
       profile_image: args.profile_image,
       role: finalRole,
-      subscription_plan: 'free',
+      university_id: args.university_id,
+      subscription_plan: args.university_id ? 'university' : 'free',
       subscription_status: 'active',
       onboarding_completed: false,
       created_at: Date.now(),

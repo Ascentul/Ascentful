@@ -31,7 +31,10 @@ import { AdvisorGate } from '@/components/advisor/AdvisorGate';
 import {
   AddActionModal,
   AssetSlideOver,
+  CommunicationTab,
   EngagementPanel,
+  InsightCard,
+  MomentumPanel,
   NextActionsPanel,
   type SelectedAsset,
   StudentTagsPopover,
@@ -63,7 +66,15 @@ function StudentProfileContent() {
     const tabParam = searchParams.get('tab');
     if (
       tabParam &&
-      ['timeline', 'notes', 'applications', 'goals', 'documents', 'sessions'].includes(tabParam)
+      [
+        'timeline',
+        'notes',
+        'applications',
+        'goals',
+        'documents',
+        'sessions',
+        'communication',
+      ].includes(tabParam)
     ) {
       setActiveTab(tabParam);
     }
@@ -118,6 +129,7 @@ function StudentProfileContent() {
     projects,
     sessions,
     engagement,
+    momentum,
     upcomingSession,
     assignedAdvisor,
     lastNoteAt,
@@ -330,13 +342,29 @@ function StudentProfileContent() {
               outreachSnoozedUntil={engagement.outreachSnoozedUntil}
               inactivityDays={engagement.inactivityDays}
             />
+            {momentum?.signal && (
+              <MomentumPanel
+                momentumScore={momentum.score}
+                momentumSignal={momentum.signal}
+                momentumReason={momentum.reason}
+                jobBoardActivity={momentum.jobBoardActivity}
+                resumeAgeDays={momentum.resumeAgeDays}
+              />
+            )}
+            {momentum?.signal && momentum.signal !== 'green' && (
+              <InsightCard
+                momentumSignal={momentum.signal}
+                momentumReason={momentum.reason}
+                resumeAgeDays={momentum.resumeAgeDays}
+              />
+            )}
             <NextActionsPanel studentId={studentId} />
           </div>
 
           {/* Right column: Tabs */}
           <div className="lg:col-span-2 order-1 lg:order-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="w-full grid grid-cols-6">
+              <TabsList className="w-full grid grid-cols-7">
                 <TabsTrigger value="timeline" className="text-xs sm:text-sm">
                   Timeline
                 </TabsTrigger>
@@ -366,6 +394,9 @@ function StudentProfileContent() {
                   <span className="ml-1 text-[10px] bg-muted px-1.5 rounded-full">
                     {sessions.length}
                   </span>
+                </TabsTrigger>
+                <TabsTrigger value="communication" className="text-xs sm:text-sm">
+                  Comms
                 </TabsTrigger>
               </TabsList>
 
@@ -756,6 +787,11 @@ function StudentProfileContent() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Communication Tab */}
+              <TabsContent value="communication">
+                <CommunicationTab studentId={studentId} studentName={student.name} />
               </TabsContent>
             </Tabs>
           </div>

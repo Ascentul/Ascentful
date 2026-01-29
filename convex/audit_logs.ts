@@ -2,7 +2,7 @@ import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 
 import { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, mutation, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, MutationCtx, query } from './_generated/server';
 import { getCurrentUser } from './advisor_auth';
 
 // ============================================================================
@@ -249,24 +249,59 @@ export const redactStudentPII = internalMutation({
 // ============================================================================
 
 /**
- * FEATURE INCOMPLETE: Audit log export to cold storage
+ * Archive audit logs to the audit_logs_archive table.
  *
- * Implementation plan when ready to enable retention:
- * 1. Create S3/R2 bucket for audit log archive
- * 2. Add AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY to env
- * 3. Implement this function to:
- *    - Convert logs to JSONL format
- *    - Upload to S3 with key: audit-logs/YYYY/MM/batch-{timestamp}.jsonl.gz
- *    - Return success only after confirmed upload
- * 4. Create scheduled function in convex/crons.ts:
- *    crons.weekly("audit_log_retention", { hourUTC: 3, minuteUTC: 0 }, internal.audit_logs.deleteExpiredAuditLogs)
- * 5. Remove the throw statement below to enable deletion
+ * Logs are stored as compressed JSON batches for long-term retention.
+ * This allows the original audit_logs to be cleaned up while preserving
+ * data for compliance requirements.
+ *
+ * @param ctx - Mutation context for database access
+ * @param logs - Logs to archive
+ * @returns The archive batch ID
  */
-async function exportAuditLogsForArchive(_logs: Doc<'audit_logs'>[]) {
-  // TODO: Implement export to long-term storage (S3/R2) before deletion
-  throw new Error(
-    `exportAuditLogsForArchive not implemented - refusing to proceed with deletion of ${_logs.length} log(s)`,
-  );
+async function exportAuditLogsForArchive(
+  ctx: MutationCtx,
+  logs: Doc<'audit_logs'>[],
+): Promise<string> {
+  if (logs.length === 0) {
+    throw new Error('No logs to archive');
+  }
+
+  // Generate batch ID: YYYY-MM-DD-{timestamp}
+  const now = Date.now();
+  const date = new Date(now);
+  const batchId = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${now}`;
+
+  // Find date range of logs
+  const timestamps = logs.map((log) => log.created_at ?? log.timestamp ?? 0).filter((t) => t > 0);
+  const startDate = timestamps.length > 0 ? timestamps.reduce((a, b) => Math.min(a, b)) : now;
+  const endDate = timestamps.length > 0 ? timestamps.reduce((a, b) => Math.max(a, b)) : now;
+
+  // Compress logs by removing null/undefined values
+  const compressedLogs = logs.map((log) => {
+    const compressed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(log)) {
+      if (value !== null && value !== undefined) {
+        compressed[key] = value;
+      }
+    }
+    return compressed;
+  });
+
+  // Store as JSON string
+  const logsJson = JSON.stringify(compressedLogs);
+
+  // Insert archive batch
+  await ctx.db.insert('audit_logs_archive', {
+    batch_id: batchId,
+    start_date: startDate,
+    end_date: endDate,
+    log_count: logs.length,
+    logs_json: logsJson,
+    created_at: now,
+  });
+
+  return batchId;
 }
 
 export const deleteExpiredAuditLogs = internalMutation({
@@ -278,7 +313,9 @@ export const deleteExpiredAuditLogs = internalMutation({
 
     let cursor: string | null = null;
     let isDone = false;
-    const deletedCount = 0;
+    let deletedCount = 0;
+    let archivedCount = 0;
+    const archiveBatches: string[] = [];
 
     while (!isDone) {
       const page = await ctx.db
@@ -293,23 +330,49 @@ export const deleteExpiredAuditLogs = internalMutation({
       });
 
       if (expired.length > 0) {
-        // TODO: Implement export before enabling deletion
-        console.warn(
-          `Skipping deletion of ${expired.length} expired logs - export not implemented`,
+        const expiredStart = Math.min(
+          ...expired.map((log) => log.created_at ?? log.timestamp ?? 0),
         );
-        // Once export is implemented, remove the continue and perform deletions:
-        // await exportAuditLogsForArchive(expired);
-        // for (const log of expired) {
-        //   await ctx.db.delete(log._id);
-        //   deletedCount += 1;
-        // }
+        const expiredEnd = Math.max(...expired.map((log) => log.created_at ?? log.timestamp ?? 0));
+
+        // Filter out logs that may have already been archived in a previous failed run
+        // by checking for a recent archive batch with the same date range and count.
+        const recentBatches = await ctx.db
+          .query('audit_logs_archive')
+          .withIndex('by_created_at', (q) => q.gte('created_at', now - 60 * 60 * 1000))
+          .collect();
+        const matchingBatch = recentBatches.find(
+          (batch) =>
+            batch.start_date === expiredStart &&
+            batch.end_date === expiredEnd &&
+            batch.log_count === expired.length,
+        );
+
+        // Archive logs before deletion
+        const batchId = matchingBatch
+          ? matchingBatch.batch_id
+          : await exportAuditLogsForArchive(ctx, expired);
+        archiveBatches.push(batchId);
+        archivedCount += expired.length;
+
+        // Delete archived logs
+        for (const log of expired) {
+          await ctx.db.delete(log._id);
+          deletedCount += 1;
+        }
       }
 
       cursor = page.continueCursor;
       isDone = page.isDone;
     }
 
-    return { deletedCount, cutoff };
+    return {
+      deletedCount,
+      archivedCount,
+      archiveBatches,
+      cutoff,
+      cutoffDate: new Date(cutoff).toISOString(),
+    };
   },
 });
 

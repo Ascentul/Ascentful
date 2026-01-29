@@ -7,12 +7,13 @@ import { v } from 'convex/values';
 
 import { api } from './_generated/api';
 import { mutation } from './_generated/server';
+import { generateSecureToken } from './lib/secureTokens';
 
 /**
  * Generate a random password reset token
  */
 function generateResetToken(): string {
-  return `reset_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
+  return generateSecureToken('reset');
 }
 
 /**
@@ -74,8 +75,10 @@ export const verifyResetToken = mutation({
   },
   handler: async (ctx, args) => {
     // Find user with this reset token
-    const users = await ctx.db.query('users').collect();
-    const user = users.find((u) => u.password_reset_token === args.token);
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_password_reset_token', (q) => q.eq('password_reset_token', args.token))
+      .unique();
 
     if (!user) {
       throw new Error('Invalid or expired reset token');
@@ -106,8 +109,10 @@ export const completePasswordReset = mutation({
   },
   handler: async (ctx, args) => {
     // Find user with this reset token
-    const users = await ctx.db.query('users').collect();
-    const user = users.find((u) => u.password_reset_token === args.token);
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_password_reset_token', (q) => q.eq('password_reset_token', args.token))
+      .unique();
 
     if (!user) {
       throw new Error('Invalid reset token');

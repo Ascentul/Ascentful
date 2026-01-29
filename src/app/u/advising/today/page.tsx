@@ -1,7 +1,11 @@
 /**
  * University Workspace - Today
  *
- * Wrapper for advisor today's schedule view.
- * Re-exports the existing advisor advising/today page.
+ * Redirect to Home to avoid duplicate "Today" vs "Home" destinations.
  */
-export { default } from '@/app/(dashboard)/advisor/advising/today/page';
+
+import { redirect } from 'next/navigation';
+
+export default function TodayRedirectPage() {
+  redirect('/u/home');
+}

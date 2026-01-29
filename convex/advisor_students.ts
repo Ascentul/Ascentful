@@ -1481,6 +1481,17 @@ export const getStudentProfileEnhanced = query({
       }
     }
 
+    // Calculate resume age
+    let resumeAgeDays: number | undefined;
+    if (resumes.length > 0) {
+      const latestResume = resumes.reduce((latest, r) =>
+        (r.updated_at ?? r.created_at) > (latest.updated_at ?? latest.created_at) ? r : latest,
+      );
+      resumeAgeDays = Math.floor(
+        (now - (latestResume.updated_at ?? latestResume.created_at)) / (24 * 60 * 60 * 1000),
+      );
+    }
+
     return {
       student,
       goals,
@@ -1498,6 +1509,14 @@ export const getStudentProfileEnhanced = query({
         needsOutreach,
         outreachSnoozedUntil: student.outreach_snoozed_until,
         inactivityDays: Math.floor((now - lastActiveAt) / (24 * 60 * 60 * 1000)),
+      },
+      // Momentum data (from student record)
+      momentum: {
+        score: student.momentum_score,
+        signal: student.momentum_signal,
+        reason: student.momentum_reason,
+        jobBoardActivity: student.job_board_activity,
+        resumeAgeDays,
       },
       // Upcoming session (first future session)
       upcomingSession: upcomingSession

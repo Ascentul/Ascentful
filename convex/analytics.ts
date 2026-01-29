@@ -1164,6 +1164,9 @@ export const getUserDashboardAnalytics = query({
       contacts,
       careerPaths,
       advisorSessions,
+      interviewPracticeSessions,
+      interviewPracticeTurns,
+      aiCoachConversations,
     ] = await Promise.all([
       ctx.db
         .query('applications')
@@ -1205,6 +1208,21 @@ export const getUserDashboardAnalytics = query({
         .query('advisor_sessions')
         .filter((q) => q.eq(q.field('student_id'), user._id))
         .take(50),
+      // Interview practice sessions for mock interview metrics
+      ctx.db
+        .query('interview_practice_sessions')
+        .withIndex('by_user', (q) => q.eq('user_id', user._id))
+        .take(100),
+      // Interview practice turns for questions answered
+      ctx.db
+        .query('interview_practice_turns')
+        .withIndex('by_user', (q) => q.eq('user_id', user._id))
+        .take(500),
+      // AI coach conversations for reflections
+      ctx.db
+        .query('ai_coach_conversations')
+        .withIndex('by_user', (q) => q.eq('user_id', user._id))
+        .take(100),
     ]);
 
     // Calculate "this week" metrics
@@ -1245,6 +1263,33 @@ export const getUserDashboardAnalytics = query({
 
     // Count all incomplete follow-up actions (not just overdue ones)
     const pendingTasks = followupActions.filter((followup) => followup.status === 'open').length;
+
+    // Dashboard header metrics (wiring up the 7 zeros)
+    const dashboardMetrics = {
+      // Target companies: applications in Prospect stage (researching/considering)
+      targetCompanies: applications.filter((app) => {
+        const effectiveStage = app.stage ?? stageFromStatus(app.status as any);
+        return effectiveStage === 'Prospect';
+      }).length,
+      // Follow-ups completed: all done follow-ups
+      followUpsCompleted: followupActions.filter((f) => f.status === 'done').length,
+      // Questions answered: interview practice turns where user provided a transcript response
+      questionsAnswered: interviewPracticeTurns.filter((turn) => turn.transcript_text).length,
+      // Stories prepared: turns with good STAR structure score (3+ out of 5)
+      storiesPrepared: interviewPracticeTurns.filter(
+        (turn) =>
+          turn.content_signals?.star_structure_score &&
+          turn.content_signals.star_structure_score >= 3,
+      ).length,
+      // Mock interviews completed
+      mockInterviewsCompleted: interviewPracticeSessions.filter(
+        (session) => session.status === 'completed',
+      ).length,
+      // Modules completed: goals marked as completed (no dedicated learning modules)
+      modulesCompleted: goals.filter((goal) => goal.status === 'completed').length,
+      // Reflections logged: AI coach conversation count
+      reflectionsLogged: aiCoachConversations.length,
+    };
 
     // Find next upcoming interview
     const upcomingInterviews = interviewStages
@@ -1554,6 +1599,8 @@ export const getUserDashboardAnalytics = query({
         goalsCreated: goalsThisWeek,
         followupsCompleted: followupsCompletedThisWeek,
       },
+      // Dashboard header stage metrics
+      dashboardMetrics,
       // Enhanced metrics for V2 dashboard
       overdueFollowups,
       nextInterviewDetails,
@@ -2304,6 +2351,96 @@ export const getUniversityFeatureUsage = query({
 });
 
 /**
+ * Get monthly activity trends for applications, goals, and documents.
+ * Shows feature usage over the past 6 months.
+ */
+export const getUniversityMonthlyTrends = query({
+  args: {
+    universityId: v.id('universities'),
+    monthsBack: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+    const monthsBack = Math.min(Math.max(args.monthsBack ?? 6, 1), 12);
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students in the university (role-filtered)
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
+    const studentIds = new Set(students.map((s) => s._id));
+
+    // Build month boundaries
+    const monthBoundaries: Array<{ start: number; end: number; label: string }> = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+      const monthEnd = new Date(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ).getTime();
+      const label = date.toLocaleDateString('en-US', { month: 'short' });
+      monthBoundaries.push({ start: monthStart, end: monthEnd, label });
+    }
+
+    // Use university-scoped queries instead of per-student N+1 queries
+    // This keeps query counts bounded regardless of student count
+    const applications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    const goals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    const resumes = await ctx.db
+      .query('resumes')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Aggregate by month (filtered to students only)
+    const trends = monthBoundaries.map((month) => {
+      const monthApplications = applications.filter((a) => {
+        const created = a.applied_at || a._creationTime;
+        return studentIds.has(a.user_id) && created >= month.start && created <= month.end;
+      }).length;
+
+      const monthGoals = goals.filter((g) => {
+        const created = g.created_at || g._creationTime;
+        return studentIds.has(g.user_id) && created >= month.start && created <= month.end;
+      }).length;
+
+      const monthResumes = resumes.filter((r) => {
+        const created = r.created_at || r._creationTime;
+        return studentIds.has(r.user_id) && created >= month.start && created <= month.end;
+      }).length;
+
+      return {
+        month: month.label,
+        applications: monthApplications,
+        goals: monthGoals,
+        resumes: monthResumes,
+      };
+    });
+
+    return trends;
+  },
+});
+
+/**
  * Get department-level analytics (real goals and applications by department)
  */
 export const getUniversityDepartmentAnalytics = query({
@@ -2511,6 +2648,505 @@ export const getUniversityStudentFunnel = query({
           percent: totalStudents > 0 ? Math.round((withAccepted / totalStudents) * 100) : 0,
         },
       ],
+    };
+  },
+});
+
+// ============================================================================
+// ADVISOR CASELOAD METRICS (Phase 2 - Career Services ICP)
+// ============================================================================
+
+/**
+ * Get advisor caseload metrics for a university.
+ * Provides key metrics for Career Services leadership:
+ * - Students per Advisor ratio (NACADA benchmark: 250-300)
+ * - Average appointments per month per advisor
+ * - Advisor response time (avg time to resolve signals)
+ */
+export const getAdvisorCaseloadMetrics = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all users for this university
+    const allUsers = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Separate students and advisors
+    const students = allUsers.filter((u) => u.role === 'student' || u.role === 'user');
+    const advisors = allUsers.filter((u) => u.role === 'advisor');
+
+    const totalStudents = students.length;
+    const totalAdvisors = advisors.length;
+
+    // Calculate Students per Advisor ratio
+    const studentsPerAdvisor =
+      totalAdvisors > 0 ? Math.round((totalStudents / totalAdvisors) * 10) / 10 : 0;
+
+    // Get advisor assignments to calculate caseload distribution
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Count students per advisor (initialize all advisors with 0)
+    const studentCountByAdvisor = new Map<string, number>();
+    for (const advisor of advisors) {
+      studentCountByAdvisor.set(advisor._id.toString(), 0);
+    }
+    for (const assignment of advisorAssignments) {
+      const advisorId = assignment.advisor_id.toString();
+      studentCountByAdvisor.set(advisorId, (studentCountByAdvisor.get(advisorId) || 0) + 1);
+    }
+
+    // Calculate caseload distribution (includes zero-caseload advisors)
+    const caseloadValues = advisors.map(
+      (advisor) => studentCountByAdvisor.get(advisor._id.toString()) || 0,
+    );
+    const minCaseload = caseloadValues.length > 0 ? Math.min(...caseloadValues) : 0;
+    const maxCaseload = caseloadValues.length > 0 ? Math.max(...caseloadValues) : 0;
+    const avgCaseload =
+      caseloadValues.length > 0
+        ? Math.round((caseloadValues.reduce((a, b) => a + b, 0) / caseloadValues.length) * 10) / 10
+        : 0;
+
+    // Get sessions from the last 30 days for appointment metrics
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentSessions = await ctx.db
+      .query('advisor_sessions')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo))
+      .collect();
+
+    // Calculate sessions per advisor (include zero-session advisors)
+    const sessionCountByAdvisor = new Map<string, number>();
+    for (const advisor of advisors) {
+      sessionCountByAdvisor.set(advisor._id.toString(), 0);
+    }
+    for (const session of recentSessions) {
+      const advisorId = session.advisor_id.toString();
+      sessionCountByAdvisor.set(advisorId, (sessionCountByAdvisor.get(advisorId) || 0) + 1);
+    }
+
+    // Calculate average appointments per month per advisor
+    const sessionValues = advisors.map(
+      (advisor) => sessionCountByAdvisor.get(advisor._id.toString()) || 0,
+    );
+    const avgAppointmentsPerMonth =
+      sessionValues.length > 0
+        ? Math.round((sessionValues.reduce((a, b) => a + b, 0) / sessionValues.length) * 10) / 10
+        : 0;
+
+    // Build per-advisor breakdown (top 10 by caseload)
+    const advisorBreakdown = advisors
+      .map((advisor) => {
+        const advisorIdStr = advisor._id.toString();
+        const caseload = studentCountByAdvisor.get(advisorIdStr) || 0;
+        const sessions = sessionCountByAdvisor.get(advisorIdStr) || 0;
+        return {
+          advisorId: advisor._id,
+          advisorName: advisor.name || advisor.email,
+          caseload,
+          sessionsLast30Days: sessions,
+        };
+      })
+      .sort((a, b) => b.caseload - a.caseload)
+      .slice(0, 10);
+
+    return {
+      summary: {
+        totalStudents,
+        totalAdvisors,
+        studentsPerAdvisor,
+        avgAppointmentsPerMonth,
+        totalSessionsLast30Days: recentSessions.length,
+      },
+      caseloadDistribution: {
+        min: minCaseload,
+        max: maxCaseload,
+        avg: avgCaseload,
+      },
+      // NACADA benchmark reference
+      benchmark: {
+        recommended: 250,
+        max: 300,
+        status:
+          studentsPerAdvisor <= 250
+            ? 'optimal'
+            : studentsPerAdvisor <= 300
+              ? 'acceptable'
+              : 'overloaded',
+      },
+      advisorBreakdown,
+    };
+  },
+});
+
+// ============================================================================
+// INTERVENTION CORRELATION (Phase 2 - Career Services ICP)
+// ============================================================================
+
+/**
+ * Get correlation between advisor interventions and student outcomes.
+ * Answers the key Career Services question:
+ * "Do our interventions actually improve outcomes?"
+ *
+ * Groups students by session count and compares employment rates.
+ * Example output: "Students with 3+ sessions: 78% employed vs 52% for 0 sessions"
+ */
+export const getInterventionCorrelation = query({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const { universityId } = args;
+
+    // Authorization: Verify user can access this university's data
+    const actingUser = await getAuthenticatedUser(ctx);
+    assertUniversityAccess(actingUser, universityId);
+
+    // Get all students for this university
+    const allUsers = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
+
+    const studentIds = allUsers.map((u) => u._id);
+    const studentIdSet = new Set(studentIds.map((id) => id.toString()));
+
+    // Get all sessions for students in this university
+    const allSessions = await ctx.db
+      .query('advisor_sessions')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    // Count sessions per student
+    const sessionCountByStudent = new Map<string, number>();
+    for (const session of allSessions) {
+      const studentIdStr = session.student_id.toString();
+      if (studentIdSet.has(studentIdStr)) {
+        sessionCountByStudent.set(studentIdStr, (sessionCountByStudent.get(studentIdStr) || 0) + 1);
+      }
+    }
+
+    // Get graduate outcomes for this university
+    const outcomes = await ctx.db
+      .query('graduate_outcomes')
+      .withIndex('by_institution', (q) => q.eq('institution_id', universityId))
+      .collect();
+
+    // Build reverse lookup: external_student_id → user_id via studentProfiles
+    // This allows matching outcomes imported with only external_student_id
+    const studentProfiles = await ctx.db
+      .query('studentProfiles')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
+
+    const externalIdToUserId = new Map<string, string>();
+    for (const profile of studentProfiles) {
+      if (profile.student_id) {
+        externalIdToUserId.set(profile.student_id, profile.user_id.toString());
+      }
+    }
+
+    // Build outcome map by student (using student_id field if available, or external_student_id)
+    const outcomeByStudent = new Map<string, (typeof outcomes)[0]>();
+    for (const outcome of outcomes) {
+      if (outcome.student_id) {
+        // Direct match via platform user ID
+        outcomeByStudent.set(outcome.student_id.toString(), outcome);
+      } else if (outcome.external_student_id) {
+        // Fallback: resolve external_student_id via studentProfiles
+        const userId = externalIdToUserId.get(outcome.external_student_id);
+        if (userId) {
+          outcomeByStudent.set(userId, outcome);
+        }
+      }
+    }
+
+    // Define session brackets
+    const brackets = [
+      { label: '0 sessions', min: 0, max: 0 },
+      { label: '1-2 sessions', min: 1, max: 2 },
+      { label: '3-5 sessions', min: 3, max: 5 },
+      { label: '6+ sessions', min: 6, max: Infinity },
+    ];
+
+    // Calculate employment rate by session bracket
+    const correlationData = brackets.map((bracket) => {
+      let totalInBracket = 0;
+      let employedInBracket = 0;
+      let knownOutcomeInBracket = 0;
+
+      for (const student of allUsers) {
+        const studentIdStr = student._id.toString();
+        const sessionCount = sessionCountByStudent.get(studentIdStr) || 0;
+
+        // Check if student falls in this bracket
+        if (sessionCount >= bracket.min && sessionCount <= bracket.max) {
+          totalInBracket++;
+
+          // Check outcome for this student
+          const outcome = outcomeByStudent.get(studentIdStr);
+          if (outcome && outcome.outcome_status === 'known') {
+            knownOutcomeInBracket++;
+            // Check if employed (includes full-time, part-time employment)
+            if (
+              outcome.outcome_type === 'employed_fulltime' ||
+              outcome.outcome_type === 'employed_parttime'
+            ) {
+              employedInBracket++;
+            }
+          }
+        }
+      }
+
+      const employmentRate =
+        knownOutcomeInBracket > 0
+          ? Math.round((employedInBracket / knownOutcomeInBracket) * 100)
+          : 0;
+
+      return {
+        bracket: bracket.label,
+        totalStudents: totalInBracket,
+        studentsWithOutcome: knownOutcomeInBracket,
+        employedCount: employedInBracket,
+        employmentRate,
+      };
+    });
+
+    // Calculate overall stats
+    const totalWithSessions = Array.from(sessionCountByStudent.values()).filter(
+      (count) => count > 0,
+    ).length;
+    const totalWithoutSessions = allUsers.length - totalWithSessions;
+
+    // Calculate the "headline" comparison
+    const zeroSessionsData = correlationData.find((d) => d.bracket === '0 sessions');
+    const threeOrMoreData = correlationData.find(
+      (d) => d.bracket === '3-5 sessions' || d.bracket === '6+ sessions',
+    );
+
+    // Combine 3+ sessions for headline stat
+    const threeOrMoreTotal = correlationData
+      .filter((d) => d.bracket === '3-5 sessions' || d.bracket === '6+ sessions')
+      .reduce(
+        (acc, d) => ({
+          employed: acc.employed + d.employedCount,
+          total: acc.total + d.studentsWithOutcome,
+        }),
+        { employed: 0, total: 0 },
+      );
+
+    const threeOrMoreRate =
+      threeOrMoreTotal.total > 0
+        ? Math.round((threeOrMoreTotal.employed / threeOrMoreTotal.total) * 100)
+        : 0;
+
+    return {
+      summary: {
+        totalStudents: allUsers.length,
+        studentsWithSessions: totalWithSessions,
+        studentsWithoutSessions: totalWithoutSessions,
+        totalSessions: allSessions.length,
+        avgSessionsPerStudent:
+          allUsers.length > 0 ? Math.round((allSessions.length / allUsers.length) * 10) / 10 : 0,
+      },
+      headline: {
+        // "Students with 3+ sessions: 78% employed vs 52% for 0 sessions"
+        withInterventions: {
+          label: '3+ sessions',
+          employmentRate: threeOrMoreRate,
+        },
+        withoutInterventions: {
+          label: '0 sessions',
+          employmentRate: zeroSessionsData?.employmentRate || 0,
+        },
+        difference: threeOrMoreRate - (zeroSessionsData?.employmentRate || 0),
+      },
+      correlationByBracket: correlationData,
+      insight:
+        threeOrMoreRate > (zeroSessionsData?.employmentRate || 0)
+          ? `Students with 3+ advising sessions have ${threeOrMoreRate - (zeroSessionsData?.employmentRate || 0)}% higher employment rate`
+          : 'Insufficient data to determine correlation',
+    };
+  },
+});
+
+/**
+ * Get platform-wide feature usage analytics.
+ * Shows how many users have used each feature across the entire platform.
+ *
+ * SCALABILITY NOTE: This query does full-table scans on 8+ tables.
+ * At scale (50k+ records per table), consider:
+ * - Pre-aggregating via scheduled job into a platform_metrics table
+ * - Using rolling counters updated on record creation/deletion
+ * Current approach is acceptable for admin-only analytics at early stage.
+ */
+export const getPlatformFeatureUsage = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Authorization: Require super admin
+    await requireSuperAdminUser(ctx, args.clerkId);
+
+    // Get counts of unique users for each feature using parallel queries
+    const [
+      applicationsCount,
+      resumesCount,
+      goalsCount,
+      coverLettersCount,
+      aiCoachCount,
+      interviewPracticeCount,
+      careerPathsCount,
+      networkingContactsCount,
+    ] = await Promise.all([
+      // Applications: count unique users
+      ctx.db
+        .query('applications')
+        .collect()
+        .then((apps) => {
+          const uniqueUsers = new Set(apps.map((a) => a.user_id.toString()));
+          return { users: uniqueUsers.size, total: apps.length };
+        }),
+      // Resumes: count unique users
+      ctx.db
+        .query('resumes')
+        .collect()
+        .then((resumes) => {
+          const uniqueUsers = new Set(resumes.map((r) => r.user_id.toString()));
+          return { users: uniqueUsers.size, total: resumes.length };
+        }),
+      // Goals: count unique users
+      ctx.db
+        .query('goals')
+        .collect()
+        .then((goals) => {
+          const uniqueUsers = new Set(goals.map((g) => g.user_id.toString()));
+          return { users: uniqueUsers.size, total: goals.length };
+        }),
+      // Cover Letters: count unique users
+      ctx.db
+        .query('cover_letters')
+        .collect()
+        .then((letters) => {
+          const uniqueUsers = new Set(letters.map((l) => l.user_id.toString()));
+          return { users: uniqueUsers.size, total: letters.length };
+        }),
+      // AI Coach: count unique users
+      ctx.db
+        .query('ai_coach_conversations')
+        .collect()
+        .then((convos) => {
+          const uniqueUsers = new Set(convos.map((c) => c.user_id.toString()));
+          return { users: uniqueUsers.size, total: convos.length };
+        }),
+      // Interview Practice: count unique users
+      ctx.db
+        .query('interview_practice_sessions')
+        .collect()
+        .then((sessions) => {
+          const uniqueUsers = new Set(sessions.map((s) => s.user_id.toString()));
+          return { users: uniqueUsers.size, total: sessions.length };
+        }),
+      // Career Paths: count unique users
+      ctx.db
+        .query('career_paths')
+        .collect()
+        .then((paths) => {
+          const uniqueUsers = new Set(paths.map((p) => p.user_id.toString()));
+          return { users: uniqueUsers.size, total: paths.length };
+        }),
+      // Networking Contacts: count unique users
+      ctx.db
+        .query('networking_contacts')
+        .collect()
+        .then((contacts) => {
+          const uniqueUsers = new Set(contacts.map((c) => c.user_id.toString()));
+          return { users: uniqueUsers.size, total: contacts.length };
+        }),
+    ]);
+
+    // Get total user count for percentage calculations
+    const totalUsers = await ctx.db.query('users').collect();
+    const totalUserCount = totalUsers.length;
+
+    // Build feature usage array sorted by user adoption
+    const features = [
+      {
+        name: 'Applications',
+        users: applicationsCount.users,
+        total: applicationsCount.total,
+        percentage:
+          totalUserCount > 0 ? Math.round((applicationsCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'Resumes',
+        users: resumesCount.users,
+        total: resumesCount.total,
+        percentage:
+          totalUserCount > 0 ? Math.round((resumesCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'Goals',
+        users: goalsCount.users,
+        total: goalsCount.total,
+        percentage: totalUserCount > 0 ? Math.round((goalsCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'Cover Letters',
+        users: coverLettersCount.users,
+        total: coverLettersCount.total,
+        percentage:
+          totalUserCount > 0 ? Math.round((coverLettersCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'AI Coach',
+        users: aiCoachCount.users,
+        total: aiCoachCount.total,
+        percentage:
+          totalUserCount > 0 ? Math.round((aiCoachCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'Interview Practice',
+        users: interviewPracticeCount.users,
+        total: interviewPracticeCount.total,
+        percentage:
+          totalUserCount > 0
+            ? Math.round((interviewPracticeCount.users / totalUserCount) * 100)
+            : 0,
+      },
+      {
+        name: 'Career Paths',
+        users: careerPathsCount.users,
+        total: careerPathsCount.total,
+        percentage:
+          totalUserCount > 0 ? Math.round((careerPathsCount.users / totalUserCount) * 100) : 0,
+      },
+      {
+        name: 'Networking',
+        users: networkingContactsCount.users,
+        total: networkingContactsCount.total,
+        percentage:
+          totalUserCount > 0
+            ? Math.round((networkingContactsCount.users / totalUserCount) * 100)
+            : 0,
+      },
+    ].sort((a, b) => b.percentage - a.percentage);
+
+    return {
+      totalUsers: totalUserCount,
+      features,
     };
   },
 });

@@ -13,7 +13,6 @@ import { internalMutation, MutationCtx, QueryCtx } from './_generated/server';
 import { normalizeLegacyUserRole, type UserRole } from './lib/roleValidation';
 
 const STUDENT_PAGE_SIZE = 1000;
-const COURSE_PAGE_SIZE = 1000;
 
 function isUniversityStudent(user: Doc<'users'>) {
   const normalizedRole = normalizeLegacyUserRole(
@@ -83,12 +82,13 @@ export async function computeUniversityOverviewMetrics(
         studentsLastMonth++;
       }
 
-      if (student.department_id) {
+      if (student.department_id && departmentCounts.has(student.department_id)) {
         departmentCounts.set(
           student.department_id,
           (departmentCounts.get(student.department_id) || 0) + 1,
         );
       } else {
+        // Count as unassigned if no department or department no longer exists
         unassignedStudents++;
       }
     }
@@ -97,19 +97,13 @@ export async function computeUniversityOverviewMetrics(
     isDone = page.isDone;
   }
 
-  let totalCourses = 0;
-  let courseCursor: string | null = null;
-  let coursesDone = false;
-  while (!coursesDone) {
-    const page = await ctx.db
-      .query('courses')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .paginate({ cursor: courseCursor, numItems: COURSE_PAGE_SIZE });
-
-    totalCourses += page.page.length;
-    courseCursor = page.isDone ? null : page.continueCursor;
-    coursesDone = page.isDone;
-  }
+  // Courses are typically far fewer than students; collect in one query
+  // to avoid multiple paginated queries in a single function.
+  const courses = await ctx.db
+    .query('courses')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .collect();
+  const totalCourses = courses.length;
 
   const studentGrowthPercent =
     studentsLastMonth > 0

@@ -19,7 +19,7 @@ import {
   UserCog,
 } from 'lucide-react';
 import Image from 'next/image';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -138,25 +138,44 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
     [clerkLoaded, canAccess, clerkId],
   );
 
-  /**
-   * Fetch all users (minimal data)
-   * FEATURE INCOMPLETE: Pagination UI not implemented
-   *
-   * Current behavior: Hard-coded limit of 1000 users with warning alert
-   *
-   * Implementation plan for pagination:
-   * 1. Add state: const [cursor, setCursor] = useState<string | undefined>()
-   * 2. Pass cursor to query: { clerkId, limit: 50, continueCursor: cursor }
-   * 3. Add pagination controls at bottom of table:
-   *    - "Load More" button that calls setCursor(usersData?.continueCursor)
-   *    - Or use shadcn Pagination component with page numbers
-   * 4. The query already returns continueCursor - just wire up the UI
-   * 5. Consider virtual scrolling (react-virtual) for very large lists
-   */
+  // Pagination state
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [allUsers, setAllUsers] = useState<MinimalUser[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Fetch users with pagination (50 per page)
   const usersData = useQuery(
     api.users.getAllUsersMinimal,
-    shouldQuery ? { clerkId, limit: 1000 } : 'skip',
+    shouldQuery ? { clerkId, limit: 50, cursor } : 'skip',
   );
+
+  // Accumulate users when data loads
+  useEffect(() => {
+    if (usersData?.page) {
+      if (!cursor) {
+        // First page - replace all users
+        setAllUsers(usersData.page as MinimalUser[]);
+      } else {
+        // Subsequent pages - merge with existing users (updating any changed data)
+        setAllUsers((prev) => {
+          const existingMap = new Map(prev.map((u) => [u._id, u]));
+          const pageUsers = usersData.page as MinimalUser[];
+          // Update existing users and collect new ones
+          pageUsers.forEach((u) => existingMap.set(u._id, u));
+          return Array.from(existingMap.values());
+        });
+      }
+      setIsLoadingMore(false);
+    }
+  }, [usersData?.page, cursor]);
+
+  // Load more handler
+  const handleLoadMore = useCallback(() => {
+    if (usersData?.continueCursor) {
+      setIsLoadingMore(true);
+      setCursor(usersData.continueCursor);
+    }
+  }, [usersData?.continueCursor]);
 
   // Fetch universities for role change dialog
   const universitiesData = useQuery(
@@ -166,9 +185,9 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
 
   // Filter and search users
   const filteredUsers = useMemo(() => {
-    if (!usersData?.page) return [];
+    if (!allUsers.length) return [];
 
-    return usersData.page.filter((user) => {
+    return allUsers.filter((user) => {
       // Role filter
       if (roleFilter !== 'all' && user.role !== roleFilter) return false;
 
@@ -182,17 +201,17 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
 
       return true;
     });
-  }, [usersData, roleFilter, searchQuery]);
+  }, [allUsers, roleFilter, searchQuery]);
 
   // Role statistics
   const roleStats = useMemo(() => {
-    if (!usersData?.page) return {};
+    if (!allUsers.length) return {};
 
-    return usersData.page.reduce((acc: Record<string, number>, user) => {
+    return allUsers.reduce((acc: Record<string, number>, user) => {
       acc[user.role] = (acc[user.role] || 0) + 1;
       return acc;
     }, {});
-  }, [usersData]);
+  }, [allUsers]);
 
   const handleRoleChangeClick = (user: MinimalUser) => {
     setDialogState({
@@ -312,7 +331,8 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
             <div>
               <CardTitle>User Role Management</CardTitle>
               <CardDescription>
-                Manage user roles and permissions ({usersData.page.length} total users)
+                Manage user roles and permissions ({allUsers.length} users loaded
+                {!usersData?.isDone && ', more available'})
               </CardDescription>
             </div>
           </div>
@@ -443,17 +463,29 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
             </Table>
           </div>
 
-          {/* Pagination warning */}
-          {usersData?.page && usersData.page.length >= 1000 && (
-            <Alert className="mt-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Large User Base Detected</AlertTitle>
-              <AlertDescription>
-                Showing the first 1000 users. If you have more users, some may not be visible in
-                this view. Use the search and filter options to find specific users, or contact
-                support for bulk operations.
-              </AlertDescription>
-            </Alert>
+          {/* Pagination Controls */}
+          {!usersData?.isDone && (
+            <div className="flex justify-center mt-4">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore || !usersData?.continueCursor}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  'Load More Users'
+                )}
+              </Button>
+            </div>
+          )}
+          {usersData?.isDone && allUsers.length > 50 && (
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              All {allUsers.length} users loaded
+            </p>
           )}
         </CardContent>
       </Card>
@@ -556,11 +588,11 @@ export function RoleManagementTable({ clerkId }: { clerkId: string }) {
                   </SelectTrigger>
                   <SelectContent>
                     {!universitiesData ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="__loading__" disabled>
                         Loading universities...
                       </SelectItem>
                     ) : universitiesData.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="__empty__" disabled>
                         No universities available
                       </SelectItem>
                     ) : (

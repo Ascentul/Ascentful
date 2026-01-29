@@ -1171,7 +1171,10 @@ export default function AdminUsersPage() {
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleDelete}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await handleDelete();
+                }}
                 disabled={deleting}
                 className="bg-red-600 hover:bg-red-700"
               >

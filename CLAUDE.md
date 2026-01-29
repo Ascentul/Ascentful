@@ -528,3 +528,358 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## No Workarounds Policy
+NEVER implement workarounds, hacks, or band-aid fixes. Always implement clean, architecturally sound solutions.
+
+When you encounter a problem:
+1. **Understand the root cause** - Don't patch symptoms, fix the underlying issue
+2. **Consider the architecture** - If the current structure doesn't support the needed behavior cleanly, restructure it
+3. **Rewrite when necessary** - If a clean solution requires rewriting code, do it. A proper rewrite is better than a workaround that creates tech debt
+4. **Ask if unsure** - If multiple approaches exist and you're unsure which is cleanest, ask before implementing
+
+Examples of workarounds to AVOID:
+- Adding exception lists or special cases to bypass existing logic
+- Using flags or conditionals to handle edge cases that indicate structural problems
+- Patching behavior in one place to fix issues caused by another place
+- Any solution that requires comments like "workaround for...", "hack to fix...", "temporary fix..."
+
+Examples of clean solutions to PREFER:
+- Creating proper route groups or layouts for different access patterns
+- Restructuring data flow to eliminate the need for special handling
+- Refactoring components to have single responsibilities
+- Moving code to the appropriate architectural layer
+
+## Code Quality Guidelines
+
+These guidelines prevent common mistakes and ensure clean, maintainable code.
+
+### 1. Understand the Full Data Flow Before Writing Code
+
+**Before inserting data:**
+- Trace where the data will be read from
+- Find the query that consumes the data FIRST
+- Verify you're writing to the correct table (e.g., `follow_ups` vs `advisor_follow_ups`)
+
+**Before changing routes:**
+- Audit ALL links and redirects that reference those routes
+- Check authorization/gate components that may redirect users
+- Verify the full navigation path works end-to-end
+
+**Example of what goes wrong:**
+```
+❌ Writing to table A when the query reads from table B
+❌ Linking to /advisor/students when Layout.tsx redirects advisors away from /advisor/*
+```
+
+### 2. Schema is the Contract
+
+**Always read the schema before inserting records:**
+```typescript
+// ALWAYS check convex/schema.ts for required fields
+// before writing insert code
+const schema = defineSchema({
+  queue_items: defineTable({
+    title: v.string(),           // Required!
+    version: v.number(),         // Required!
+    created_from: v.string(),    // Required!
+    // ...
+  })
+});
+```
+
+Missing required fields cause runtime errors that are easily preventable.
+
+### 3. One Feature, One Location
+
+Before adding a feature, check if a similar feature exists elsewhere:
+- Search the codebase for related components
+- Consolidate rather than duplicate
+- If duplicates exist, refactor to a single source
+
+**Example:**
+```
+❌ Search bar in top bar AND search bar in content area
+✅ Single search bar in top bar, remove duplicate from content
+```
+
+### 4. Authorization Flows Through Multiple Systems
+
+This codebase has TWO sources of user data:
+- **Clerk `publicMetadata`** - Source of truth for authorization
+- **Convex `users` table** - Cached for display and queries
+
+**Before implementing auth-related features:**
+1. Identify which system the check reads from
+2. Ensure both systems are in sync
+3. Update Clerk first, let webhook sync to Convex
+
+**Common mistake:**
+```
+❌ Setting role in Convex but not Clerk → Auth checks fail
+✅ Set in Clerk → Webhook syncs to Convex → Both in sync
+```
+
+### 5. Complete Migrations Fully
+
+When migrating from one pattern to another (e.g., `/university/` → `/u/`):
+
+**DO:**
+- Update ALL references to use the new pattern
+- Add explicit redirects from old routes to new
+- Remove or deprecate old code paths
+
+**DON'T:**
+- Leave both patterns half-working
+- Assume old links will "just work"
+- Mix old and new patterns in the same component
+
+### 6. Test the Full User Journey
+
+Before declaring work complete:
+1. Login as the actual user role (not just any user)
+2. Navigate the way they would (click links, don't type URLs)
+3. Test the complete flow end-to-end
+4. Verify on both desktop and mobile viewports
+
+### 7. Edits Have Blast Radius
+
+Before editing a shared component, consider:
+- What else uses this component?
+- How will other consumers be affected?
+- Should this be a new component instead of modifying existing?
+
+**Example:**
+```
+❌ Adding redirect to Layout.tsx without checking all routes that use it
+✅ Check all usages, create separate layout if behavior should differ
+```
+
+### 8. Route Group Conventions
+
+This codebase uses Next.js route groups:
+
+| Route Group | Purpose | Layout |
+|-------------|---------|--------|
+| `(auth)` | Sign-in/sign-up | Minimal, no sidebar |
+| `(dashboard)` | Regular user pages | `Layout.tsx` - redirects advisors to /u/ |
+| `/u/*` | University workspace | `UniversityWorkspaceLayout` - for advisors/admins |
+| `(shared)` | Cross-cutting pages | Shared between contexts |
+
+**When adding routes:**
+- University/advisor features → `/u/*`
+- Regular user features → `(dashboard)/*`
+- Don't mix contexts within a route group
+
+## AI Code Quality Standards
+
+These guidelines address common failure modes in AI-generated code. Follow them rigorously.
+
+### Correctness Over Plausibility
+
+**The "looks right but is wrong" problem:** AI code often passes happy-path tests but fails edge cases.
+
+**Requirements:**
+- Handle null/undefined explicitly - don't assume data exists
+- Consider off-by-one errors in loops and array operations
+- Validate assumptions about inputs - add guards where needed
+- Check for race conditions in async code (especially with React state)
+- Verify logic matches the actual spec, not just a plausible interpretation
+
+**Before submitting code, verify:**
+```
+✓ What happens when the array is empty?
+✓ What happens when the user is not found?
+✓ What happens when the API returns an error?
+✓ What happens on the boundary values?
+✓ Does this match what the existing code expects?
+```
+
+### Security by Default
+
+**Never assume security can be "added later."**
+
+**Always include:**
+- Input validation at system boundaries (API routes, form handlers)
+- Proper authentication checks before data access
+- Authorization checks (is this user allowed to access THIS resource?)
+- Parameterized queries (Convex handles this, but be aware)
+- Secure headers in API responses where needed
+
+**This codebase patterns:**
+```typescript
+// API routes - ALWAYS check auth first
+const { userId } = await auth();
+if (!userId) return new Response("Unauthorized", { status: 401 });
+
+// Convex - ALWAYS verify user can access the resource
+const user = await getCurrentUser(ctx, args.clerkId);
+if (resource.user_id !== user._id && user.role !== 'super_admin') {
+  throw new Error('Unauthorized');
+}
+```
+
+**Watch for:**
+- Exposing user IDs or internal IDs in client-facing code unnecessarily
+- Missing role checks on admin-only operations
+- Leaking data through error messages
+
+### Codebase Conformance
+
+**The "context failure" problem:** Code that works but doesn't fit the existing architecture.
+
+**Before writing new code:**
+1. Search for existing utilities that do what you need
+2. Check how similar features are implemented elsewhere
+3. Follow established patterns for the feature type
+4. Use existing abstractions rather than creating new ones
+
+**This codebase specifics:**
+- State management: Convex queries/mutations, not local state for server data
+- Auth: Clerk `publicMetadata.role` for authorization, not Convex role
+- UI: Radix primitives in `src/components/ui/`, not raw HTML
+- Styling: Tailwind with design system tokens (`rounded-card`, `primary-500`)
+- Forms: Follow existing patterns in similar forms
+
+**Anti-patterns to avoid:**
+```
+❌ Creating a new date formatting utility when one exists
+❌ Using raw fetch() when Convex mutations exist
+❌ Inline styles when Tailwind classes exist
+❌ New state management patterns (Redux, Zustand) - use Convex
+❌ Different component structure than existing similar components
+```
+
+### Minimal Footprint
+
+**The "maintainability debt" problem:** Bloated, over-abstracted, or inconsistent code.
+
+**Principles:**
+- Write the minimum code needed to solve the problem
+- Don't add "nice to have" features that weren't requested
+- Don't create abstractions for single-use code
+- Don't add configuration options unless needed
+- Match the verbosity level of surrounding code
+
+**Avoid:**
+- Generic utilities for one-time operations
+- Wrapper components that just pass props through
+- Configuration objects when a simple parameter works
+- Comments that restate what the code does
+- Types/interfaces for objects used in only one place
+
+**Example:**
+```typescript
+// ❌ Over-engineered
+interface UserDisplayOptions {
+  showAvatar?: boolean;
+  showEmail?: boolean;
+  avatarSize?: 'sm' | 'md' | 'lg';
+}
+function UserDisplay({ user, options = {} }: { user: User; options?: UserDisplayOptions }) { ... }
+
+// ✅ Simple and direct (if only used one way)
+function UserDisplay({ user }: { user: User }) { ... }
+```
+
+### Testing and Observability
+
+**The "missing safety net" problem:** Code without verification or debugging support.
+
+**Requirements:**
+- Error handling should be explicit, not silent failures
+- Async operations need proper error states in UI
+- Console.error for unexpected errors (not console.log)
+- Toast notifications for user-facing errors
+- Loading states for async operations
+
+**Patterns in this codebase:**
+```typescript
+// Mutations with proper error handling
+try {
+  await mutation({ ... });
+  toast({ title: 'Success', description: '...' });
+} catch (error) {
+  console.error('Operation failed:', error);
+  toast({
+    title: 'Error',
+    description: error instanceof Error ? error.message : 'Operation failed',
+    variant: 'destructive'
+  });
+}
+
+// Queries with loading/error states
+const data = useQuery(api.module.query, args);
+if (data === undefined) return <Loading />;
+if (data === null) return <NotFound />;
+```
+
+### React-Specific Patterns
+
+**Common React mistakes to avoid:**
+
+```typescript
+// ❌ Setting state during render
+if (condition) {
+  setState(value);
+}
+
+// ✅ Use useEffect
+useEffect(() => {
+  if (condition) {
+    setState(value);
+  }
+}, [condition]);
+
+// ❌ Missing dependencies in useEffect
+useEffect(() => {
+  doSomething(prop);
+}, []); // prop is missing
+
+// ✅ Include all dependencies
+useEffect(() => {
+  doSomething(prop);
+}, [prop]);
+
+// ❌ Mutating state directly
+items.push(newItem);
+setItems(items);
+
+// ✅ Create new references
+setItems([...items, newItem]);
+
+// ❌ useEffect for derived state
+useEffect(() => {
+  setFullName(`${firstName} ${lastName}`);
+}, [firstName, lastName]);
+
+// ✅ Compute during render or useMemo
+const fullName = `${firstName} ${lastName}`;
+```
+
+### Verification Checklist
+
+Before considering code complete, verify:
+
+**Functional correctness:**
+- [ ] Handles empty/null/undefined cases
+- [ ] Handles error cases explicitly
+- [ ] Logic matches the actual requirement (re-read the request)
+- [ ] Edge cases considered
+
+**Security:**
+- [ ] Auth check present for protected operations
+- [ ] Authorization verified (user can access THIS resource)
+- [ ] No sensitive data exposed
+
+**Codebase fit:**
+- [ ] Uses existing utilities and patterns
+- [ ] Follows established conventions
+- [ ] No unnecessary new abstractions
+- [ ] Consistent with similar features
+
+**Maintainability:**
+- [ ] Minimal code to solve the problem
+- [ ] No unused code left behind
+- [ ] Clear error messages
+- [ ] Loading/error states handled in UI

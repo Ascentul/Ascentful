@@ -48,6 +48,7 @@ interface EngagementPrediction {
 }
 
 const DEFAULT_LOOKBACK_WEEKS = 8;
+const MAX_LOOKBACK_WEEKS = 52; // Maximum 1 year to prevent unbounded queries (SIG-H1)
 const DEFAULT_FORECAST_WEEKS = 4;
 const MAX_FORECAST_WEEKS = 12;
 const PREDICTION_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -111,6 +112,11 @@ interface ScoringInputData {
   recentApplications: Doc<'applications'>[];
   daysSinceActivity: number;
   trend: ActivityTrend;
+  // Career Services-specific data
+  hasResume: boolean;
+  daysSinceAdvisorContact: number | null;
+  isSenior: boolean;
+  graduationYear: string | null;
 }
 
 /**
@@ -233,6 +239,83 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
     });
   }
 
+  // ============================================================================
+  // CAREER SERVICES-SPECIFIC FACTORS
+  // These factors address key Career Services concerns for student success
+  // ============================================================================
+
+  // Factor 5: Senior with no applications (graduation urgency)
+  // This is a critical Career Services indicator - seniors without applications
+  // are at high risk of graduating without employment outcomes
+  if (data.isSenior && applications.length === 0) {
+    factors.push({
+      factor: 'Graduation Urgency',
+      impact: 'negative',
+      weight: 25,
+      description: `Senior (Class of ${data.graduationYear}) with no job applications`,
+    });
+  } else if (data.isSenior && applications.length > 0 && applications.length < 5) {
+    factors.push({
+      factor: 'Graduation Urgency',
+      impact: 'negative',
+      weight: 10,
+      description: `Senior with only ${applications.length} application${applications.length === 1 ? '' : 's'}`,
+    });
+  }
+
+  // Factor 6: No resume on file
+  // Career Services cannot help students effectively without a resume
+  if (!data.hasResume) {
+    factors.push({
+      factor: 'Resume Status',
+      impact: 'negative',
+      weight: 15,
+      description: 'No resume on file',
+    });
+  } else {
+    factors.push({
+      factor: 'Resume Status',
+      impact: 'positive',
+      weight: 5,
+      description: 'Resume on file',
+    });
+  }
+
+  // Factor 7: Days since advisor contact
+  // Regular advisor contact is a key indicator of student engagement
+  if (data.daysSinceAdvisorContact !== null) {
+    if (data.daysSinceAdvisorContact > 60) {
+      factors.push({
+        factor: 'Advisor Contact',
+        impact: 'negative',
+        weight: 20,
+        description: `No advisor contact in ${data.daysSinceAdvisorContact} days`,
+      });
+    } else if (data.daysSinceAdvisorContact > 30) {
+      factors.push({
+        factor: 'Advisor Contact',
+        impact: 'negative',
+        weight: 10,
+        description: `Last advisor contact ${data.daysSinceAdvisorContact} days ago`,
+      });
+    } else if (data.daysSinceAdvisorContact <= 14) {
+      factors.push({
+        factor: 'Advisor Contact',
+        impact: 'positive',
+        weight: 10,
+        description: 'Recent advisor contact',
+      });
+    }
+  } else {
+    // No advisor sessions ever
+    factors.push({
+      factor: 'Advisor Contact',
+      impact: 'negative',
+      weight: 15,
+      description: 'No advisor sessions on record',
+    });
+  }
+
   // Calculate risk score
   // Base risk of 30 represents a neutral starting point.
   // Negative factors add their full weight; positive factors reduce by 70% of weight.
@@ -300,6 +383,21 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
     recommendations.push('Prioritize outreach before student becomes fully disengaged');
   }
 
+  // Career Services-specific recommendations
+  if (!data.hasResume) {
+    recommendations.push('Help student create or upload a resume');
+  }
+  if (data.daysSinceAdvisorContact !== null && data.daysSinceAdvisorContact > 30) {
+    recommendations.push('Schedule an advising appointment');
+  } else if (data.daysSinceAdvisorContact === null) {
+    recommendations.push('Encourage student to schedule their first advising session');
+  }
+  if (data.isSenior && applications.length === 0) {
+    recommendations.push('URGENT: Senior needs immediate career planning support');
+  } else if (data.isSenior && applications.length < 5) {
+    recommendations.push('Help senior expand job search and increase applications');
+  }
+
   return {
     current_status: currentStatus,
     predicted_status: predictedStatus,
@@ -312,6 +410,14 @@ function computePredictionFromScoringData(data: ScoringInputData): EngagementPre
 }
 
 /**
+ * Career Services-specific input data for enhanced at-risk prediction.
+ */
+interface CareerServicesData {
+  hasResume: boolean;
+  lastAdvisorSessionAt: number | null;
+}
+
+/**
  * Prepare scoring data from a student and their activity/application data.
  * Shared helper to transform raw data into the format needed for scoring.
  */
@@ -320,6 +426,7 @@ function prepareScoringData(
   activityEvents: Doc<'activity_events'>[],
   applications: Doc<'applications'>[],
   lookbackWeeks: number,
+  careerServicesData?: CareerServicesData,
 ): ScoringInputData {
   const now = Date.now();
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
@@ -362,6 +469,19 @@ function prepareScoringData(
   const lastActivityAt = lastEventAt ?? student.last_login_at ?? student._creationTime;
   const daysSinceActivity = Math.floor((now - lastActivityAt) / (24 * 60 * 60 * 1000));
 
+  // Career Services data: Calculate days since advisor contact
+  let daysSinceAdvisorContact: number | null = null;
+  if (careerServicesData?.lastAdvisorSessionAt) {
+    daysSinceAdvisorContact = Math.floor(
+      (now - careerServicesData.lastAdvisorSessionAt) / (24 * 60 * 60 * 1000),
+    );
+  }
+
+  // Determine if student is a senior (graduating this year or next)
+  const currentYear = new Date().getFullYear();
+  const gradYear = student.graduation_year ? parseInt(student.graduation_year, 10) : null;
+  const isSenior = gradYear !== null && gradYear <= currentYear + 1;
+
   return {
     weeklyActivityCounts,
     activityEventCount: filteredEvents.length,
@@ -370,6 +490,11 @@ function prepareScoringData(
     recentApplications,
     daysSinceActivity,
     trend,
+    // Career Services-specific data
+    hasResume: careerServicesData?.hasResume ?? false,
+    daysSinceAdvisorContact,
+    isSenior,
+    graduationYear: student.graduation_year ?? null,
   };
 }
 
@@ -393,8 +518,35 @@ async function computePredictionForStudent(
     .withIndex('by_user', (q) => q.eq('user_id', student._id))
     .collect();
 
+  // Fetch Career Services-specific data
+  // 1. Check if student has any resume on file
+  const resumes = await ctx.db
+    .query('resumes')
+    .withIndex('by_user', (q) => q.eq('user_id', student._id))
+    .first();
+  const hasResume = resumes !== null;
+
+  // 2. Get most recent advisor session for the student
+  const advisorSessions = await ctx.db
+    .query('advisor_sessions')
+    .withIndex('by_student', (q) => q.eq('student_id', student._id))
+    .order('desc')
+    .first();
+  const lastAdvisorSessionAt = advisorSessions?.start_at ?? null;
+
+  const careerServicesData: CareerServicesData = {
+    hasResume,
+    lastAdvisorSessionAt,
+  };
+
   // Prepare and compute using shared algorithm
-  const scoringData = prepareScoringData(student, activityEvents, applications, lookbackWeeks);
+  const scoringData = prepareScoringData(
+    student,
+    activityEvents,
+    applications,
+    lookbackWeeks,
+    careerServicesData,
+  );
   return computePredictionFromScoringData(scoringData);
 }
 
@@ -676,6 +828,10 @@ export const predictStudentEngagement = query({
     const { studentId, lookbackWeeks = DEFAULT_LOOKBACK_WEEKS } = args;
     if (lookbackWeeks <= 0) {
       throw new Error('lookbackWeeks must be >= 1');
+    }
+    // Prevent unbounded lookback queries (SIG-H1)
+    if (lookbackWeeks > MAX_LOOKBACK_WEEKS) {
+      throw new Error(`lookbackWeeks must be <= ${MAX_LOOKBACK_WEEKS}`);
     }
 
     const student = await ctx.db.get(studentId);

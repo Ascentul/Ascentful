@@ -274,17 +274,29 @@ export default function AdminSettingsPage() {
   const handleTestConnection = async (type: string) => {
     setLoading(true);
     try {
-      // TODO: Call real health check API endpoint based on provider type
-      // e.g., const response = await fetch(`/api/admin/health/${type.toLowerCase()}`)
-      await Promise.resolve();
-      toast({
-        title: 'Connection successful',
-        description: `${type} connection test passed.`,
-      });
+      const response = await fetch(`/api/admin/health/${type.toLowerCase()}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Connection successful',
+          description: `${type} connection test passed (${data.latency}ms)${data.cached ? ' [cached]' : ''}.`,
+        });
+      } else {
+        toast({
+          title: 'Connection issue',
+          description: data.error || `${type} connection test failed.`,
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       toast({
         title: 'Connection failed',
-        description: `${type} connection test failed.`,
+        description: `${type} connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       });
     } finally {

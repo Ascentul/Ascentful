@@ -17,13 +17,17 @@
  * - Easy to reset
  */
 
-import { Calendar, GraduationCap, Layers, X, Zap } from 'lucide-react';
-import React from 'react';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon, GraduationCap, Layers, X, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -232,17 +236,27 @@ export function AdvancedFiltersPanel({
         </>
       )}
 
-      {/* Date Range (Placeholder for future implementation) */}
+      {/* Date Range Picker */}
       {onSetDateRange && (
         <>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-green-600" aria-hidden="true" />
+              <CalendarIcon className="h-4 w-4 text-green-600" aria-hidden="true" />
               <Label className="text-sm font-medium">Applied Date Range</Label>
             </div>
-            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center">
-              <p className="text-sm text-muted-foreground">Date range picker coming soon</p>
-            </div>
+            <DateRangePicker
+              dateRange={filters.appliedDateRange}
+              onDateRangeChange={(range) => {
+                if (range?.from && range?.to) {
+                  onSetDateRange({
+                    from: range.from.getTime(),
+                    to: range.to.getTime(),
+                  });
+                } else {
+                  onSetDateRange(undefined);
+                }
+              }}
+            />
           </div>
           <Separator />
         </>
@@ -332,5 +346,99 @@ function CohortCheckbox({ cohort, checked, onToggle }: CohortCheckboxProps) {
     >
       <span className={checked ? 'font-semibold' : ''}>Class of {cohort}</span>
     </button>
+  );
+}
+
+// ============================================================================
+// Date Range Picker Component
+// ============================================================================
+
+interface DateRangePickerProps {
+  dateRange?: { from: number; to: number };
+  onDateRangeChange: (range: DateRange | undefined) => void;
+}
+
+function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [pendingRange, setPendingRange] = useState<DateRange | undefined>();
+
+  // Convert prop timestamps to Date objects
+  const committedRange: DateRange | undefined = dateRange
+    ? {
+        from: new Date(dateRange.from),
+        to: new Date(dateRange.to),
+      }
+    : undefined;
+
+  // Reset pending range when popover opens/closes
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setPendingRange(committedRange);
+    }
+  };
+
+  const handleSelect = (range: DateRange | undefined) => {
+    setPendingRange(range);
+    // Only propagate complete ranges to parent
+    if (range?.from && range?.to) {
+      onDateRangeChange(range);
+      setIsOpen(false);
+    }
+  };
+
+  // Use pending range in Calendar when open, committed range for display
+  const displayRange = committedRange;
+  const calendarRange = isOpen ? pendingRange : committedRange;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              'justify-start text-left font-normal',
+              !displayRange && 'text-muted-foreground',
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+            {displayRange?.from ? (
+              displayRange.to ? (
+                <>
+                  {format(displayRange.from, 'MMM d, yyyy')} -{' '}
+                  {format(displayRange.to, 'MMM d, yyyy')}
+                </>
+              ) : (
+                format(displayRange.from, 'MMM d, yyyy')
+              )
+            ) : (
+              <span>Pick a date range</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={calendarRange?.from}
+            selected={calendarRange}
+            onSelect={handleSelect}
+            numberOfMonths={2}
+          />
+        </PopoverContent>
+      </Popover>
+      {displayRange && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDateRangeChange(undefined)}
+          className="h-8 w-fit text-xs text-muted-foreground hover:text-foreground"
+        >
+          <X className="mr-1 h-3 w-3" aria-hidden="true" />
+          Clear dates
+        </Button>
+      )}
+    </div>
   );
 }

@@ -9,11 +9,25 @@ const Popover = PopoverPrimitive.Root;
 
 const PopoverTrigger = PopoverPrimitive.Trigger;
 
+// Custom portal that handles container safely to prevent removeChild errors during navigation
+const SafePortal = ({ children }: { children: React.ReactNode }) => {
+  const [container, setContainer] = React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    setContainer(document.body);
+    return () => setContainer(null);
+  }, []);
+
+  if (!container) return null;
+
+  return <PopoverPrimitive.Portal container={container}>{children}</PopoverPrimitive.Portal>;
+};
+
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
 >(({ className, align = 'center', sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
+  <SafePortal>
     <PopoverPrimitive.Content
       ref={ref}
       align={align}
@@ -24,7 +38,7 @@ const PopoverContent = React.forwardRef<
       )}
       {...props}
     />
-  </PopoverPrimitive.Portal>
+  </SafePortal>
 ));
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
 

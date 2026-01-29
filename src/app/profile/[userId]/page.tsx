@@ -51,12 +51,25 @@ export default function PublicProfilePage() {
     currentUser?.id ? { clerkId: currentUser.id } : 'skip',
   );
 
+  // Resolve storage IDs to URLs for profile and cover images
+  const profileImageUrl = useQuery(
+    api.avatar.getUserProfileImageUrl,
+    userData?.profile_image ? { storageId: userData.profile_image } : 'skip',
+  );
+  const coverImageUrl = useQuery(
+    api.avatar.getUserProfileImageUrl,
+    userData?.cover_image ? { storageId: userData.cover_image } : 'skip',
+  );
+
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   const updateUserMutation = useMutation(api.users.updateUserById);
+  const generateUploadUrl = useMutation(api.avatar.generateAvatarUploadUrl);
+  const updateAvatar = useMutation(api.avatar.updateUserAvatar);
+  const updateCoverImage = useMutation(api.avatar.updateUserCoverImage);
 
   const user = userData as any;
   const viewer = viewerData as any;
@@ -127,19 +140,13 @@ export default function PublicProfilePage() {
   };
 
   /**
-   * Handle cover image upload
-   * FEATURE INCOMPLETE: Currently only displays preview locally
-   * Implementation needed:
-   * 1. Use Convex file storage (preferred) or external storage (S3/R2)
-   * 2. Create upload endpoint in convex/files.ts
-   * 3. Store URL in users table cover_image field
-   * 4. Add file size/type validation
+   * Handle cover image upload - uploads to Convex storage and persists URL
    */
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentUser?.id) return;
 
-    // Validate file size (max 10MB to prevent browser freeze from large data URLs)
+    // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       toast({
@@ -150,35 +157,65 @@ export default function PublicProfilePage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setCoverImage(reader.result as string);
-      // TODO: Implement cloud storage upload - see comment above for implementation plan
-    };
-    reader.onerror = () => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
       toast({
-        title: 'Upload failed',
-        description: 'Failed to read the image file',
+        title: 'Invalid file type',
+        description: 'Please select an image file',
         variant: 'destructive',
       });
-    };
-    reader.readAsDataURL(file);
+      return;
+    }
+
+    // Show preview immediately using synchronous URL.createObjectURL
+    const previewUrl = URL.createObjectURL(file);
+    setCoverImage(previewUrl);
+
+    try {
+      // Generate upload URL and upload file
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const { storageId } = await response.json();
+
+      // Save to database
+      await updateCoverImage({ clerkId: currentUser.id, storageId });
+
+      // Clean up preview URL since we'll use the resolved URL from storage
+      URL.revokeObjectURL(previewUrl);
+      setCoverImage(null);
+
+      toast({
+        title: 'Cover image updated',
+        description: 'Your cover image has been saved',
+      });
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload cover image. Please try again.',
+        variant: 'destructive',
+      });
+      setCoverImage(null);
+      URL.revokeObjectURL(previewUrl);
+    }
   };
 
   /**
-   * Handle profile image upload
-   * FEATURE INCOMPLETE: Currently only displays preview locally
-   * Implementation needed:
-   * 1. Use Convex file storage (preferred) or external storage (S3/R2)
-   * 2. Create upload endpoint in convex/files.ts
-   * 3. Store URL in users table profile_image field
-   * 4. Add file size/type validation (max 5MB, images only)
+   * Handle profile image upload - uploads to Convex storage and persists URL
    */
-  const handleProfileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentUser?.id) return;
 
-    // Validate file size (max 5MB to prevent browser freeze from large data URLs)
+    // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       toast({
@@ -189,27 +226,63 @@ export default function PublicProfilePage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImage(reader.result as string);
-      // TODO: Implement cloud storage upload - see comment above for implementation plan
-    };
-    reader.onerror = () => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
       toast({
-        title: 'Upload failed',
-        description: 'Failed to read the image file',
+        title: 'Invalid file type',
+        description: 'Please select an image file',
         variant: 'destructive',
       });
-    };
-    reader.readAsDataURL(file);
+      return;
+    }
+
+    // Show preview immediately using synchronous URL.createObjectURL
+    const previewUrl = URL.createObjectURL(file);
+    setProfileImage(previewUrl);
+
+    try {
+      // Generate upload URL and upload file
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const { storageId } = await response.json();
+
+      // Save to database
+      await updateAvatar({ clerkId: currentUser.id, storageId });
+
+      // Clean up preview URL since we'll use the resolved URL from storage
+      URL.revokeObjectURL(previewUrl);
+      setProfileImage(null);
+
+      toast({
+        title: 'Profile image updated',
+        description: 'Your profile image has been saved',
+      });
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload profile image. Please try again.',
+        variant: 'destructive',
+      });
+      setProfileImage(null);
+      URL.revokeObjectURL(previewUrl);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Cover Image */}
       <div className="relative h-64 bg-gradient-to-r from-blue-600 to-indigo-700">
-        {(coverImage || user.cover_image) && (
-          <Image src={coverImage || user.cover_image} alt="Cover" fill className="object-cover" />
+        {(coverImage || coverImageUrl) && (
+          <Image src={(coverImage || coverImageUrl)!} alt="Cover" fill className="object-cover" />
         )}
         {isOwnProfile && (
           <label className="absolute bottom-4 right-4 cursor-pointer">
@@ -231,9 +304,9 @@ export default function PublicProfilePage() {
             {/* Profile Image */}
             <div className="relative">
               <div className="w-40 h-40 rounded-full border-4 border-white bg-white shadow-xl overflow-hidden relative">
-                {profileImage || user.profile_image ? (
+                {profileImage || profileImageUrl ? (
                   <Image
-                    src={profileImage || user.profile_image}
+                    src={(profileImage || profileImageUrl)!}
                     alt={user.name}
                     fill
                     className="object-cover"

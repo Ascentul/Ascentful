@@ -21,7 +21,12 @@
     "seed:university": "node scripts/seed-university-and-assign.js",
     "set:subscription": "node scripts/set-convex-subscription.js",
     "type-check": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deploy:dev": "cross-env CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_DEV npx convex deploy",
+    "deploy:prod": "cross-env CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy",
+    "seed:yc-demo": "npx convex run dev/seedYCDemo:seed",
+    "seed:yc-demo:status": "npx convex run dev/seedYCDemo:status",
+    "cleanup:yc-demo": "npx convex run dev/seedYCDemo:cleanup"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -129,6 +134,7 @@
     "@typescript-eslint/parser": "^8.48.0",
     "autoprefixer": "^10.4.20",
     "convex-test": "^0.0.38",
+    "cross-env": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.5",
     "eslint-config-prettier": "^10.1.8",

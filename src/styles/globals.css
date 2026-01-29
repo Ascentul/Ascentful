@@ -426,3 +426,95 @@
     pointer-events: none;
   }
 }
+
+/* ========================================
+   Print Styles - Clean Reports
+   ======================================== */
+@media print {
+  /* Reset for print */
+  html {
+    font-size: 12pt;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide non-essential UI elements */
+  nav,
+  aside,
+  .no-print,
+  [data-no-print],
+  button:not(.print-visible),
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print\\:block {
+    display: block !important;
+  }
+
+  /* Reset card styling for print */
+  .card,
+  [class*='Card'] {
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    background: white !important;
+    break-inside: avoid;
+  }
+
+  /* Print-friendly gradients */
+  .bg-gradient-to-r {
+    background: #f8fafc !important;
+  }
+
+  /* Ensure charts fit on page */
+  .recharts-responsive-container {
+    page-break-inside: avoid;
+  }
+
+  /* Page margins and breaks */
+  @page {
+    margin: 0.75in;
+    size: letter portrait;
+  }
+
+  /* Ensure headings stay with content */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-after: avoid;
+  }
+
+  /* Table print styles */
+  table {
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    border: 1px solid #d1d5db;
+    padding: 8px;
+  }
+
+  /* Hero KPI section print optimization */
+  .print\\:bg-white {
+    background: white !important;
+  }
+
+  .print\\:border-gray-200 {
+    border-color: #e5e7eb !important;
+  }
+
+  /* Ensure text is readable */
+  * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

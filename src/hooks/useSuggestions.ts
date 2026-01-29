@@ -93,7 +93,7 @@ export function useSuggestions(
   }, [activeSuggestions]);
 
   /**
-   * Fetch suggestions (currently uses mock, can be switched to API)
+   * Fetch suggestions from AI API with fallback to rule-based suggestions
    */
   const fetchSuggestions = useCallback(async () => {
     if (!enabled) return;
@@ -102,20 +102,37 @@ export function useSuggestions(
     setError(null);
 
     try {
-      // TODO: Replace with API call when AI suggestions are enabled
-      // const response = await fetch('/api/resumes/ai/suggestions', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ resumeData }),
-      // });
-
-      // For now, use mock suggestions
       // Use ref to get latest data (avoids stale closure issues)
-      const mockSuggestions = generateMockSuggestions(resumeDataRef.current);
+      const currentData = resumeDataRef.current;
+
+      // Try AI-powered suggestions first
+      const response = await fetch('/api/resumes/ai/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeData: currentData }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.suggestions && Array.isArray(data.suggestions)) {
+          setAllSuggestions(data.suggestions);
+          return;
+        }
+      }
+
+      // Fallback to rule-based suggestions if API fails
+      console.warn('AI suggestions unavailable, using rule-based suggestions');
+      const mockSuggestions = generateMockSuggestions(currentData);
       setAllSuggestions(mockSuggestions);
     } catch (err) {
       console.error('Error fetching suggestions:', err);
-      setError('Failed to load suggestions');
+      // Fallback to rule-based suggestions on error
+      try {
+        const mockSuggestions = generateMockSuggestions(resumeDataRef.current);
+        setAllSuggestions(mockSuggestions);
+      } catch {
+        setError('Failed to load suggestions');
+      }
     } finally {
       setLoading(false);
     }

@@ -193,8 +193,8 @@ describe('Signal Conditions - Using Production Utilities', () => {
       expect(checkInactivityCondition(10, 14)).toBe(false);
     });
 
-    it('should not trigger at exactly the threshold', () => {
-      expect(checkInactivityCondition(14, 14)).toBe(false);
+    it('should trigger at exactly the threshold (inclusive)', () => {
+      expect(checkInactivityCondition(14, 14)).toBe(true);
     });
 
     it('should trigger when no activity ever recorded (null)', () => {
@@ -237,8 +237,8 @@ describe('Signal Conditions - Using Production Utilities', () => {
       expect(checkStageStuckCondition('Interview', 'Interview', 10, 14)).toBe(false);
     });
 
-    it('should not trigger at exactly the threshold', () => {
-      expect(checkStageStuckCondition('Interview', 'Interview', 14, 14)).toBe(false);
+    it('should trigger at exactly the threshold (inclusive)', () => {
+      expect(checkStageStuckCondition('Interview', 'Interview', 14, 14)).toBe(true);
     });
   });
 });

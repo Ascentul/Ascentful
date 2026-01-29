@@ -1,9 +1,12 @@
 export { AddActionModal } from './AddActionModal';
 export { ApplicationDetailView } from './ApplicationDetailView';
 export { AssetSlideOver, type AssetType, type SelectedAsset } from './AssetSlideOver';
+export { CommunicationTab } from './CommunicationTab';
 export { CoverLetterDetailView } from './CoverLetterDetailView';
 export { EngagementPanel } from './EngagementPanel';
 export { GoalDetailView } from './GoalDetailView';
+export { InsightCard } from './InsightCard';
+export { MomentumPanel } from './MomentumPanel';
 export { NextActionsPanel } from './NextActionsPanel';
 export { ProjectDetailView } from './ProjectDetailView';
 export { ResumeDetailView } from './ResumeDetailView';

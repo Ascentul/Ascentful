@@ -180,7 +180,13 @@ export const createDefinition = mutation({
       throw new Error('Default definition must be active');
     }
 
-    // Validate thresholds
+    // Validate thresholds are within bounds [0, 100] (SIG-H2)
+    if (args.engagedThreshold < 0 || args.engagedThreshold > 100) {
+      throw new Error('engaged_threshold must be between 0 and 100');
+    }
+    if (args.atRiskThreshold < 0 || args.atRiskThreshold > 100) {
+      throw new Error('at_risk_threshold must be between 0 and 100');
+    }
     if (args.atRiskThreshold >= args.engagedThreshold) {
       throw new Error('at_risk_threshold must be less than engaged_threshold');
     }
@@ -252,6 +258,13 @@ export const updateDefinition = mutation({
     // Validate thresholds if both are being updated or one changes
     const newEngagedThreshold = args.engagedThreshold ?? definition.engaged_threshold;
     const newAtRiskThreshold = args.atRiskThreshold ?? definition.at_risk_threshold;
+    // Validate thresholds are within bounds [0, 100] (SIG-H2)
+    if (newEngagedThreshold < 0 || newEngagedThreshold > 100) {
+      throw new Error('engaged_threshold must be between 0 and 100');
+    }
+    if (newAtRiskThreshold < 0 || newAtRiskThreshold > 100) {
+      throw new Error('at_risk_threshold must be between 0 and 100');
+    }
     if (newAtRiskThreshold >= newEngagedThreshold) {
       throw new Error('at_risk_threshold must be less than engaged_threshold');
     }
@@ -951,6 +964,7 @@ export const getUniqueEngagedStats = query({
 
     // Calculate engagement for each student and track by group
     const byProgram: Record<string, { engaged: number; total: number; percent: number }> = {};
+    const byCohort: Record<string, { engaged: number; total: number; percent: number }> = {};
     let engaged = 0;
     let moderate = 0;
     let atRisk = 0;
@@ -999,8 +1013,13 @@ export const getUniqueEngagedStats = query({
         moderate++;
       }
 
-      // Track by cohort (users don't have cohort_id directly, skipping)
-      // Would need to join with student_outcomes for cohort tracking
+      // Track by cohort using graduation_year as the cohort identifier
+      const cohortKey = student.graduation_year || 'unknown';
+      if (!byCohort[cohortKey]) {
+        byCohort[cohortKey] = { engaged: 0, total: 0, percent: 0 };
+      }
+      byCohort[cohortKey].total++;
+      if (status === 'engaged') byCohort[cohortKey].engaged++;
 
       // Track by program/department
       const programKey = student.department_id?.toString() || 'unknown';
@@ -1011,11 +1030,19 @@ export const getUniqueEngagedStats = query({
       if (status === 'engaged') byProgram[programKey].engaged++;
     }
 
-    // Calculate percentages
+    // Calculate percentages for program breakdown
     for (const key of Object.keys(byProgram)) {
       byProgram[key].percent =
         byProgram[key].total > 0
           ? Math.round((byProgram[key].engaged / byProgram[key].total) * 100)
+          : 0;
+    }
+
+    // Calculate percentages for cohort breakdown
+    for (const key of Object.keys(byCohort)) {
+      byCohort[key].percent =
+        byCohort[key].total > 0
+          ? Math.round((byCohort[key].engaged / byCohort[key].total) * 100)
           : 0;
     }
 
@@ -1028,8 +1055,7 @@ export const getUniqueEngagedStats = query({
       at_risk_students: atRisk,
       at_risk_percent: totalStudents > 0 ? Math.round((atRisk / totalStudents) * 100) : 0,
       breakdown_by_status: { engaged, moderate, at_risk: atRisk },
-      // TODO: Implement when student-cohort relationships are available
-      by_cohort: {},
+      by_cohort: byCohort,
       by_program: byProgram,
     };
   },

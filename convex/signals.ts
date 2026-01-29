@@ -418,6 +418,109 @@ export const getAdvisorQueue = query({
 });
 
 /**
+ * Get student signals enriched with at-risk prediction factors.
+ * This query provides Career Services advisors with detailed insight into
+ * why a student is flagged as at-risk, including specific factors like:
+ * - Graduation urgency (seniors with no applications)
+ * - Resume status
+ * - Advisor contact recency
+ * - Activity trends
+ * - Application momentum
+ */
+export const getStudentSignalsWithFactors = query({
+  args: {
+    studentId: v.id('users'),
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const sessionCtx = await getCurrentUser(ctx);
+
+    // Role check: Only advisors and admins can access
+    const allowedRoles = ['super_admin', 'university_admin', 'advisor'];
+    if (!allowedRoles.includes(sessionCtx.role)) {
+      throw new Error('Unauthorized: Advisor or admin access required');
+    }
+
+    // Tenant check
+    if (sessionCtx.role !== 'super_admin') {
+      const universityId = requireTenant(sessionCtx);
+      if (universityId !== args.universityId) {
+        throw new Error('Unauthorized: Cannot access signals for another university');
+      }
+    }
+
+    // Verify access to this student
+    await assertSignalAccessForStudent(ctx, sessionCtx, args.universityId, args.studentId);
+
+    // Get active signals for this student
+    const signals = await ctx.db
+      .query('signals')
+      .withIndex('by_student_status', (q) =>
+        q.eq('student_id', args.studentId).eq('status', 'active'),
+      )
+      .collect();
+
+    // Filter to current university to ensure tenant isolation
+    const scopedSignals = signals.filter((s) => s.university_id === args.universityId);
+
+    // Get the cached prediction for this student (if available)
+    const prediction = await ctx.db
+      .query('engagement_prediction_cache')
+      .withIndex('by_student', (q) => q.eq('student_id', args.studentId))
+      .unique();
+
+    // Get student info and verify university match
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+    if (student.university_id !== args.universityId) {
+      throw new Error('Unauthorized: Student is not in this university');
+    }
+
+    // Return signals with prediction factors
+    return {
+      signals: scopedSignals.map((signal) => ({
+        ...signal,
+        student: student
+          ? {
+              id: student._id,
+              name: student.name,
+              email: student.email,
+              profileImage: student.profile_image,
+              graduationYear: student.graduation_year,
+            }
+          : null,
+      })),
+      prediction: prediction
+        ? {
+            currentStatus: prediction.current_status,
+            predictedStatus: prediction.predicted_status,
+            riskScore: prediction.risk_score,
+            confidence: prediction.confidence,
+            factors: prediction.factors,
+            recommendations: prediction.recommendations,
+            predictedDaysToRisk: prediction.predicted_days_to_risk,
+            computedAt: prediction.computed_at,
+          }
+        : null,
+      // Categorize factors for Career Services display
+      factorsSummary: prediction
+        ? {
+            criticalFactors: prediction.factors.filter(
+              (f) => f.impact === 'negative' && f.weight >= 20,
+            ),
+            warningFactors: prediction.factors.filter(
+              (f) => f.impact === 'negative' && f.weight < 20,
+            ),
+            positiveFactors: prediction.factors.filter((f) => f.impact === 'positive'),
+          }
+        : null,
+    };
+  },
+});
+
+/**
  * Get queue summary stats for the advisor dashboard.
  */
 export const getQueueStats = query({
@@ -741,6 +844,11 @@ export const createSignal = mutation({
       signalDescription: args.description,
     });
 
+    // Create/update queue item for this signal
+    await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+      signalId,
+    });
+
     return signalId;
   },
 });
@@ -814,6 +922,11 @@ export const createSignalFromRule = internalMutation({
         dueInDays: 7,
       });
     }
+
+    // Create/update queue item for this signal
+    await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+      signalId,
+    });
 
     return signalId;
   },
@@ -1474,6 +1587,11 @@ export const evaluateSignalRules = internalMutation({
               triggered_at: now,
               created_at: now,
               updated_at: now,
+            });
+
+            // Create/update queue item for this signal
+            await ctx.scheduler.runAfter(0, internal.queue_items.upsertQueueItemFromSignal, {
+              signalId,
             });
 
             // Auto-create follow-up if configured on the rule

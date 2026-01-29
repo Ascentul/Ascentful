@@ -13,7 +13,23 @@ const SheetTrigger = SheetPrimitive.Trigger;
 
 const SheetClose = SheetPrimitive.Close;
 
-const SheetPortal = SheetPrimitive.Portal;
+// Custom portal that handles container safely to prevent removeChild errors during navigation
+const SheetPortal = ({ children, ...props }: SheetPrimitive.DialogPortalProps) => {
+  const [container, setContainer] = React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    setContainer(document.body);
+    return () => setContainer(null);
+  }, []);
+
+  if (!container) return null;
+
+  return (
+    <SheetPrimitive.Portal container={container} {...props}>
+      {children}
+    </SheetPrimitive.Portal>
+  );
+};
 
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,

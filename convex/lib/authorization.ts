@@ -71,8 +71,20 @@ export interface AuthUser {
   clerkId: string;
   role: UserRole;
   email: string;
+  name?: string;
   university_id?: Id<'universities'> | null;
   account_status?: 'pending_activation' | 'pending_deletion' | 'active' | 'suspended' | 'deleted';
+}
+
+/**
+ * Membership record type for authorization checks
+ */
+export interface AuthMembership {
+  _id: Id<'memberships'>;
+  user_id: Id<'users'>;
+  role: string;
+  status: string;
+  university_id?: Id<'universities'> | null;
 }
 
 // ============================================================================
@@ -228,6 +240,41 @@ export async function requireRoles(ctx: Ctx, allowedRoles: readonly UserRole[]):
   }
 
   return user;
+}
+
+/**
+ * Require user to have an active membership with optional role filter
+ * @throws Error if no active membership found
+ */
+export async function requireMembership(
+  ctx: Ctx,
+  opts: { role?: 'student' | 'advisor' | 'university_admin' } = {},
+): Promise<{ user: AuthUser; membership: AuthMembership }> {
+  const user = await getAuthenticatedUser(ctx);
+
+  let membership = null as AuthMembership | null;
+
+  if (opts.role) {
+    membership = (await ctx.db
+      .query('memberships')
+      .withIndex('by_user_role', (q) => q.eq('user_id', user._id).eq('role', opts.role!))
+      .first()) as AuthMembership | null;
+  } else {
+    membership = (await ctx.db
+      .query('memberships')
+      .withIndex('by_user', (q) => q.eq('user_id', user._id))
+      .first()) as AuthMembership | null;
+  }
+
+  if (!membership) {
+    throw new Error('Unauthorized: Membership not found');
+  }
+
+  if (membership.status !== 'active') {
+    throw new Error('Unauthorized: Inactive membership');
+  }
+
+  return { user, membership };
 }
 
 // ============================================================================
@@ -534,6 +581,7 @@ export const auth = {
   requireUniversityAdmin,
   requireAdvisor,
   requireRoles,
+  requireMembership,
 
   // Permission checks (return boolean)
   isSuperAdmin,

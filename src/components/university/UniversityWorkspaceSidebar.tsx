@@ -12,25 +12,16 @@ import { api } from 'convex/_generated/api';
 import { useQuery } from 'convex/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  BarChart,
-  BookOpen,
-  Building,
   Calendar,
   ChevronRight,
   ClipboardList,
   Clock,
-  FileEdit,
   GraduationCap,
   HelpCircle,
   Home,
-  LayoutDashboard,
   LineChart,
-  Lock,
-  Mail,
-  Mic,
+  MessageSquare,
   Settings,
-  TrendingUp,
-  UserCog,
   Users,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -51,21 +42,13 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Home: <Home className="h-5 w-5" />,
   Users: <Users className="h-5 w-5" />,
   Calendar: <Calendar className="h-5 w-5" />,
-  Clock: <Clock className="h-4 w-4" />,
-  Mic: <Mic className="h-4 w-4" />,
-  FileEdit: <FileEdit className="h-4 w-4" />,
   ClipboardList: <ClipboardList className="h-5 w-5" />,
   LineChart: <LineChart className="h-5 w-5" />,
   GraduationCap: <GraduationCap className="h-5 w-5" />,
   HelpCircle: <HelpCircle className="h-5 w-5" />,
   Settings: <Settings className="h-5 w-5" />,
-  LayoutDashboard: <LayoutDashboard className="h-4 w-4" />,
-  UserCog: <UserCog className="h-4 w-4" />,
-  Building: <Building className="h-4 w-4" />,
-  BookOpen: <BookOpen className="h-4 w-4" />,
-  Mail: <Mail className="h-4 w-4" />,
-  TrendingUp: <TrendingUp className="h-4 w-4" />,
-  BarChart: <BarChart className="h-4 w-4" />,
+  Clock: <Clock className="h-5 w-5" />,
+  MessageSquare: <MessageSquare className="h-5 w-5" />,
 };
 
 // Get icon component from string name
@@ -100,7 +83,6 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   // Sidebar expanded/collapsed state - initialize with default to avoid hydration mismatch
   const [localExpanded, setLocalExpanded] = useState<boolean>(true);
   const expanded = sidebarContext?.isExpanded ?? localExpanded;
-  const setExpanded = sidebarContext?.setExpanded ?? setLocalExpanded;
 
   // Collapsed sections state - initialize with default to avoid hydration mismatch
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -132,9 +114,14 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   );
 
   // Get active section ID
+  const visibleNavItems = useMemo(
+    () => UNIVERSITY_WORKSPACE_NAV.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin],
+  );
+
   const getActiveSectionId = useCallback(() => {
-    for (const item of UNIVERSITY_WORKSPACE_NAV) {
-      if (item.href && isActive(item.href, !item.children)) return item.id;
+    for (const item of visibleNavItems) {
+      if (item.href && isActive(item.href)) return item.id;
       if (item.children) {
         for (const child of item.children) {
           if (isActive(child.href)) return item.id;
@@ -142,7 +129,7 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
       }
     }
     return null;
-  }, [isActive]);
+  }, [isActive, visibleNavItems]);
 
   // Auto-expand active section on route change
   useEffect(() => {
@@ -151,7 +138,7 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
 
     setCollapsedSections((prev) => {
       const next: Record<string, boolean> = {};
-      for (const item of UNIVERSITY_WORKSPACE_NAV) {
+      for (const item of visibleNavItems) {
         if (item.children && item.children.length > 0) {
           next[item.id] = item.id !== activeId;
         }
@@ -199,8 +186,7 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   // Render a single nav item (no children)
   const renderNavItem = useCallback(
     (item: UniversityNavItem, isChild = false) => {
-      const active = isActive(item.href, true);
-      const showLock = item.adminOnly && !isAdmin;
+      const active = isActive(item.href);
 
       return (
         <Link
@@ -220,22 +206,18 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
             {getIcon(item.icon, isChild)}
           </span>
           {expanded && (
-            <>
-              <span className="flex-1 whitespace-nowrap overflow-hidden">{item.label}</span>
-              {showLock && <Lock className="h-3 w-3 text-slate-400 flex-shrink-0" />}
-            </>
+            <span className="flex-1 whitespace-nowrap overflow-hidden">{item.label}</span>
           )}
         </Link>
       );
     },
-    [isActive, isAdmin, expanded],
+    [isActive, expanded],
   );
 
   // Render a collapsible section
   const renderCollapsibleSection = useCallback(
     (item: UniversityNavItem) => {
       const isCollapsed = !!collapsedSections[item.id];
-      const showLock = item.adminOnly && !isAdmin;
       const hasActiveChild = item.children?.some((child) => isActive(child.href));
 
       return (
@@ -256,7 +238,6 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
             {expanded && (
               <>
                 <span className="flex-1 whitespace-nowrap overflow-hidden">{item.label}</span>
-                {showLock && <Lock className="h-3 w-3 text-slate-400 flex-shrink-0 mr-1" />}
                 <ChevronRight
                   className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
                 />
@@ -281,18 +262,18 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
         </div>
       );
     },
-    [collapsedSections, isAdmin, expanded, toggleSection, renderNavItem, isActive],
+    [collapsedSections, expanded, toggleSection, renderNavItem, isActive],
   );
 
   // Render navigation items
   const renderNavItems = useMemo(() => {
-    return UNIVERSITY_WORKSPACE_NAV.map((item) => {
+    return visibleNavItems.map((item) => {
       if (item.children && item.children.length > 0) {
         return renderCollapsibleSection(item);
       }
       return renderNavItem(item);
     });
-  }, [renderNavItem, renderCollapsibleSection]);
+  }, [renderNavItem, renderCollapsibleSection, visibleNavItems]);
 
   return (
     <motion.div
@@ -349,16 +330,6 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
               </motion.button>
             )}
           </AnimatePresence>
-          {!expanded && (
-            <button
-              type="button"
-              onClick={toggleExpanded}
-              className="hidden md:flex items-center justify-center flex-shrink-0 ml-auto h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </button>
-          )}
         </div>
 
         {/* Navigation */}

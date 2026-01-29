@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StudentPredictionCard } from '@/components/analytics/EngagementPredictionPanel';
+import { ScheduleMeetingDialog } from '@/components/dashboard/university/dialogs';
 import { SignalList } from '@/components/signals/SignalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -168,6 +169,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
   const [cursor, setCursor] = useState<number | undefined>(undefined);
   const [allEvents, setAllEvents] = useState<TimelineEvent[]>([]);
   const [showSignals, setShowSignals] = useState(true);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const prevCursorRef = useRef<number | undefined>(undefined);
 
   const filters = useMemo(() => {
@@ -343,12 +345,7 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
               onSnooze={handleSnooze}
               onDismiss={handleDismiss}
               onResolve={handleResolve}
-              onScheduleMeeting={() => {
-                toast({
-                  title: 'Coming soon',
-                  description: 'Meeting scheduling will be available soon',
-                });
-              }}
+              onScheduleMeeting={() => setMeetingDialogOpen(true)}
               showResolved
             />
           </div>
@@ -445,6 +442,13 @@ export function StudentTimeline({ studentId, onAssetSelect }: StudentTimelinePro
           </div>
         )}
       </CardContent>
+
+      {/* Schedule Meeting Dialog */}
+      <ScheduleMeetingDialog
+        open={meetingDialogOpen}
+        onOpenChange={setMeetingDialogOpen}
+        studentId={studentId}
+      />
     </Card>
   );
 }

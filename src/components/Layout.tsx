@@ -101,6 +101,7 @@ export function Layout({ children }: LayoutProps) {
   const [shouldRedirect, setShouldRedirect] = useState<boolean | null>(null);
 
   // Redirect university users (advisor, university_admin) to unified workspace
+  // Note: Shared pages like /account and /profile are in the (shared) route group
   useEffect(() => {
     if (!isLoaded) return;
 
