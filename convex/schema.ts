@@ -384,6 +384,23 @@ export default defineSchema({
     ),
   }).index('by_university', ['university_id']),
 
+  // University engagement metrics cache (daily refresh for cross-university analytics)
+  university_engagement_metrics: defineTable({
+    university_id: v.id('universities'),
+    university_name: v.string(),
+    university_status: v.string(),
+    total_students: v.number(),
+    engaged_students: v.number(),
+    at_risk_students: v.number(),
+    scored_students: v.number(),
+    avg_engagement_score: v.number(),
+    active_signals: v.number(),
+    updated_at: v.number(),
+  })
+    .index('by_university', ['university_id'])
+    .index('by_status', ['university_status'])
+    .index('by_updated_at', ['updated_at']),
+
   // University departments
   departments: defineTable({
     university_id: v.id('universities'),
@@ -1580,6 +1597,18 @@ export default defineSchema({
     updated_at: v.number(),
   }).index('by_setting_key', ['setting_key']),
 
+  // Cached platform metrics for admin reporting (daily refresh)
+  platform_metrics_cache: defineTable({
+    snapshot_at: v.number(),
+    total_universities_all_time: v.number(),
+    active_universities_current: v.number(),
+    archived_universities: v.number(),
+    total_users_all_time: v.number(),
+    active_users_30d: v.number(),
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_snapshot_at', ['snapshot_at']),
+
   // Stripe payments table for revenue tracking
   stripe_payments: defineTable({
     user_id: v.optional(v.id('users')),
@@ -2034,7 +2063,7 @@ export default defineSchema({
   //   - New: previous_value, new_value (JSON fields - redact PII keys)
   //   - Legacy: performed_by_name, performed_by_email, target_name, target_email
   //
-  // TODO: Implement scheduled function for automated log retention management
+  // Automated log retention runs via cron (see convex/crons.ts -> audit log retention)
   //
   // MIGRATION NOTE: Schema supports both legacy and new formats for backward compatibility:
   // - Legacy: performed_by_id, target_id, timestamp, metadata
@@ -2531,6 +2560,7 @@ export default defineSchema({
     .index('by_cohort', ['cohort_id'])
     .index('by_institution', ['institution_id'])
     .index('by_student', ['student_id'])
+    .index('by_student_last_message', ['student_id', 'last_message_at'])
     .index('by_major', ['major_id'])
     .index('by_outcome_status', ['outcome_status'])
     .index('by_outcome_type', ['outcome_type'])
@@ -3658,10 +3688,12 @@ export default defineSchema({
     sla_due_at: v.optional(v.number()), // When response is due
     sla_breached: v.optional(v.boolean()), // True if sla_due_at passed
     priority: v.union(v.literal('P1'), v.literal('P2'), v.literal('P3')),
+    priority_rank: v.number(), // 1 (P1), 2 (P2), 3 (P3) for indexed sorting
 
     // === Aggregates for efficient queries ===
     message_count: v.number(),
     last_message_at: v.number(),
+    last_message_at_desc: v.number(), // -last_message_at for desc ordering
     last_message_sender_type: v.union(
       v.literal('student'),
       v.literal('advisor'),
@@ -3680,15 +3712,38 @@ export default defineSchema({
   })
     .index('by_university', ['university_id'])
     .index('by_university_status', ['university_id', 'status'])
+    .index('by_university_status_last_message', ['university_id', 'status', 'last_message_at_desc'])
+    .index('by_university_unread_status', ['university_id', 'has_unread', 'status'])
     .index('by_assigned_status', ['assigned_to', 'status'])
+    .index('by_assigned_unread_status', ['assigned_to', 'has_unread', 'status'])
+    .index('by_assigned_last_message', ['assigned_to', 'last_message_at_desc'])
     .index('by_student', ['student_id'])
+    .index('by_student_last_message', ['student_id', 'last_message_at_desc'])
     .index('by_identity_status', ['university_id', 'identity_status'])
     .index('by_sla_due', ['university_id', 'sla_due_at'])
     .index('by_updated', ['university_id', 'updated_at'])
     .index('by_queue_item', ['linked_queue_item_id'])
     .index('by_university_category', ['university_id', 'category'])
     .index('by_university_type', ['university_id', 'thread_type', 'updated_at'])
-    .index('by_referenced_student', ['referenced_student_id']),
+    .index('by_university_type_last_message', [
+      'university_id',
+      'thread_type',
+      'last_message_at_desc',
+    ])
+    .index('by_university_last_message', ['university_id', 'last_message_at_desc'])
+    .index('by_university_last_message_asc', ['university_id', 'last_message_at'])
+    .index('by_university_priority_last_message', [
+      'university_id',
+      'priority_rank',
+      'last_message_at_desc',
+    ])
+    .index('by_university_identity_last_message', [
+      'university_id',
+      'identity_status',
+      'last_message_at_desc',
+    ])
+    .index('by_referenced_student', ['referenced_student_id'])
+    .index('by_referenced_student_last_message', ['referenced_student_id', 'last_message_at_desc']),
 
   // ============================================================================
   // INBOX MESSAGES - Individual messages within threads

@@ -12,6 +12,7 @@ import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { getCurrentUser, requireAdvisorRole, requireTenant } from './advisor_auth';
 import { logUserAction } from './lib/auditLogger';
+import { toDescTimestamp } from './lib/inboxThreadUtils';
 
 /**
  * Add a message to a thread (advisor reply)
@@ -90,6 +91,9 @@ export const addMessage = mutation({
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
       last_message_at: shouldUpdateRecency ? now : thread.last_message_at,
+      last_message_at_desc: shouldUpdateRecency
+        ? toDescTimestamp(now)
+        : thread.last_message_at_desc,
       last_message_sender_type: shouldUpdateRecency ? 'advisor' : thread.last_message_sender_type,
       snippet,
       has_unread: isInternal ? thread.has_unread : true, // Preserve existing unread state for internal notes
@@ -215,6 +219,7 @@ export const addInternalNote = mutation({
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
       last_message_at: isInternalThread ? now : thread.last_message_at,
+      last_message_at_desc: isInternalThread ? toDescTimestamp(now) : thread.last_message_at_desc,
       last_message_sender_type: isInternalThread ? 'advisor' : thread.last_message_sender_type,
       snippet: isInternalThread ? snippet : thread.snippet,
       updated_at: now,
@@ -321,6 +326,7 @@ export const addStudentMessage = mutation({
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'student',
       snippet,
       has_unread: true,

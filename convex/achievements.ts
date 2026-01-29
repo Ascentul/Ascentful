@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { requireSuperAdmin } from './lib/roles';
 
 // Public list of all achievements
 export const getAllAchievements = query({
@@ -15,6 +16,7 @@ export const getAllAchievements = query({
 export const seedDefaults = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireSuperAdmin(ctx);
     const existing = await ctx.db.query('achievements').order('asc').collect();
     if (existing.length > 0) {
       return { seeded: false, count: existing.length };

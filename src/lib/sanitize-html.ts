@@ -65,6 +65,13 @@ export function sanitizeUserHtml(
         allowedAttributes: {
           ...defaultOptions.allowedAttributes,
           ...options.allowedAttributes,
+          // Ensure anchor security attributes are always allowed
+          a: [
+            ...new Set([
+              ...((defaultOptions.allowedAttributes?.a as string[] | undefined) || []),
+              ...((options.allowedAttributes?.a as string[] | undefined) || []),
+            ]),
+          ],
         },
         transformTags: {
           ...options.transformTags,

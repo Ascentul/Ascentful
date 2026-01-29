@@ -5,6 +5,7 @@
  * Uses Convex's built-in caching and reactivity
  */
 
+import { useAuth } from '@clerk/nextjs';
 import { useQuery } from 'convex/react';
 
 import { api } from '../../convex/_generated/api';
@@ -22,7 +23,11 @@ import { api } from '../../convex/_generated/api';
  * }
  */
 export function useFeatureFlag(flag: string): boolean | undefined {
-  const enabled = useQuery(api.feature_flags.getFeatureFlag, { flag });
+  const { isLoaded, userId } = useAuth();
+  const enabled = useQuery(
+    api.feature_flags.getFeatureFlag,
+    isLoaded && userId ? { flag } : 'skip',
+  );
   return enabled;
 }
 
@@ -39,7 +44,11 @@ export function useFeatureFlag(flag: string): boolean | undefined {
  * }
  */
 export function useFeatureFlags(flags: string[]): Record<string, boolean> | undefined {
-  const result = useQuery(api.feature_flags.getFeatureFlags, { flags });
+  const { isLoaded, userId } = useAuth();
+  const result = useQuery(
+    api.feature_flags.getFeatureFlags,
+    isLoaded && userId ? { flags } : 'skip',
+  );
   if (!result) return undefined;
   // Create defaults map to ensure all requested flags are present
   const defaults = Object.fromEntries(flags.map((flag) => [flag, false]));

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
+import { sanitizeUserHtml } from '@/lib/sanitize-html';
 
 const SAMPLE_DATA = {
   email: 'student@university.edu',
@@ -535,10 +536,10 @@ export default function EmailPreviewPage() {
 
             {/* Email Preview */}
             <div className="border rounded-lg overflow-hidden bg-white">
-              {/* Safe: HTML comes from hardcoded templates in this file, not user input */}
+              {/* Sanitize as a defense-in-depth against injected HTML */}
               <div
                 className="p-4"
-                dangerouslySetInnerHTML={{ __html: selectedTemplate.getHtml() }}
+                dangerouslySetInnerHTML={{ __html: sanitizeUserHtml(selectedTemplate.getHtml()) }}
               />
             </div>
 

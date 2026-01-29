@@ -9,6 +9,7 @@ import { v } from 'convex/values';
 
 import { internalMutation, mutation, query } from './_generated/server';
 import { ADVISOR_FLAGS } from './constants/advisor_flags';
+import { getAuthenticatedUser } from './lib/authorization';
 
 /**
  * Get feature flag value
@@ -19,6 +20,7 @@ export const getFeatureFlag = query({
     flag: v.string(),
   },
   handler: async (ctx, args) => {
+    await getAuthenticatedUser(ctx);
     const setting = await ctx.db
       .query('platform_settings')
       .withIndex('by_setting_key', (q) => q.eq('setting_key', args.flag))
@@ -43,6 +45,7 @@ export const getFeatureFlags = query({
     flags: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    await getAuthenticatedUser(ctx);
     // Fetch all settings in a single query
     const allSettings = await ctx.db.query('platform_settings').collect();
 

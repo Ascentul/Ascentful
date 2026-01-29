@@ -21,6 +21,20 @@ crons.daily(
   internal.audit_logs.deleteExpiredAuditLogs,
 );
 
+// Daily platform metrics cache refresh
+crons.daily(
+  'platform metrics cache',
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.metrics.recomputePlatformMetricsCache,
+);
+
+// Daily university engagement metrics cache refresh
+crons.daily(
+  'university engagement metrics cache',
+  { hourUTC: 3, minuteUTC: 15 },
+  internal.admin_engagement_analytics.recomputeEngagementMetricsBatch,
+);
+
 /**
  * Monitor for duplicate student profiles
  *

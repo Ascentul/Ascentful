@@ -11,6 +11,7 @@
 import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
+import { priorityRank, toDescTimestamp } from '../lib/inboxThreadUtils';
 import { Id } from '../_generated/dataModel';
 import { internalMutation, internalQuery } from '../_generated/server';
 
@@ -326,8 +327,10 @@ export const seed = internalMutation({
       const slaBreached = slaDueAt < now && template.status !== 'RESOLVED';
 
       // Create thread
+      const lastMessageAt = createdAt + (template.messages.length - 1) * 60 * 60 * 1000;
       const threadId = await ctx.db.insert('inbox_threads', {
         university_id: universityId,
+        thread_type: 'student',
         student_id: student.id,
         identity_status: 'matched',
         subject: template.subject,
@@ -340,8 +343,10 @@ export const seed = internalMutation({
         sla_due_at: slaDueAt,
         sla_breached: slaBreached,
         priority: template.priority,
+        priority_rank: priorityRank(template.priority),
         message_count: template.messages.length,
-        last_message_at: createdAt + (template.messages.length - 1) * 60 * 60 * 1000,
+        last_message_at: lastMessageAt,
+        last_message_at_desc: toDescTimestamp(lastMessageAt),
         last_message_sender_type: template.messages[template.messages.length - 1].sender_type,
         has_unread: template.status === 'NEW' || template.status === 'OPEN',
         created_at: createdAt,
@@ -389,6 +394,7 @@ export const seed = internalMutation({
 
       const threadId = await ctx.db.insert('inbox_threads', {
         university_id: universityId,
+        thread_type: 'student',
         identity_status: 'unmatched',
         external_sender_email: template.email,
         external_sender_name: template.name ?? undefined,
@@ -399,8 +405,10 @@ export const seed = internalMutation({
         sla_due_at: slaDueAt,
         sla_breached: false,
         priority: template.priority,
+        priority_rank: priorityRank(template.priority),
         message_count: template.messages.length,
         last_message_at: createdAt,
+        last_message_at_desc: toDescTimestamp(createdAt),
         last_message_sender_type: 'external',
         has_unread: true,
         created_at: createdAt,

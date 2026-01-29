@@ -10,7 +10,7 @@
 import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react';
 import {
   AlertCircle,
   Clock,
@@ -136,14 +136,21 @@ export default function InboxPage() {
   const [isCreatingThread, setIsCreatingThread] = useState(false);
 
   // Queries
-  const threads = useQuery(api.inbox_threads.listThreads, {
-    status: statusFilter,
-    assignedTo: assignmentFilter === 'all' ? undefined : assignmentFilter,
-    threadType: threadTypeFilter,
-    search: searchQuery || undefined,
-    sortBy: 'newest',
-    limit: 50,
-  });
+  const {
+    results: threads,
+    status: threadsStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.inbox_threads.listThreads,
+    {
+      status: statusFilter,
+      assignedTo: assignmentFilter === 'all' ? undefined : assignmentFilter,
+      threadType: threadTypeFilter,
+      search: searchQuery || undefined,
+      sortBy: 'newest',
+    },
+    { initialNumItems: 50 },
+  );
 
   const unreadCounts = useQuery(api.inbox_threads.getUnreadCounts, {});
 
@@ -267,7 +274,7 @@ export default function InboxPage() {
       ? newMessageStudentId && newMessageSubject.trim() && newMessageBody.trim()
       : newMessageSubject.trim() && newMessageBody.trim();
 
-  const isLoading = threads === undefined;
+  const isLoading = threadsStatus === 'LoadingFirstPage';
   const isThreadLoading = selectedThreadId !== null && selectedThread === undefined;
 
   return (
@@ -534,6 +541,21 @@ export default function InboxPage() {
                   </div>
                 </div>
               ))
+            )}
+
+            {threadsStatus === 'CanLoadMore' && (
+              <div className="p-4">
+                <Button variant="outline" className="w-full" onClick={() => loadMore(50)}>
+                  Load more
+                </Button>
+              </div>
+            )}
+
+            {threadsStatus === 'LoadingMore' && (
+              <div className="flex items-center justify-center py-4 text-sm text-neutral-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading more…
+              </div>
             )}
           </div>
         </div>

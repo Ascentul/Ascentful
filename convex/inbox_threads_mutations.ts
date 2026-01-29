@@ -17,6 +17,7 @@ import {
   assertCanAccessStudent,
 } from './advisor_auth';
 import { logUserAction } from './lib/auditLogger';
+import { priorityRank, toDescTimestamp } from './lib/inboxThreadUtils';
 
 // SLA configuration (hours) - can be made per-university later
 const SLA_CONFIG = {
@@ -86,10 +87,12 @@ export const createThread = mutation({
       sla_due_at: calculateSLADueAt(priority),
       sla_breached: false,
       priority,
+      priority_rank: priorityRank(priority),
       message_count: 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'advisor',
-      has_unread: true,
+      has_unread: false,
       created_at: now,
       updated_at: now,
     });
@@ -207,10 +210,12 @@ export const createInternalThread = mutation({
       sla_due_at: calculateSLADueAt(priority),
       sla_breached: false,
       priority,
+      priority_rank: priorityRank(priority),
       message_count: 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'advisor',
-      has_unread: mentionedUserIds.length > 0, // Unread for mentioned users
+      has_unread: false, // Mentions are tracked via inbox_mentions
       created_at: now,
       updated_at: now,
     });
@@ -343,6 +348,7 @@ export const assignThread = mutation({
 
     const now = Date.now();
     const previousAssignee = thread.assigned_to;
+    const isReassign = previousAssignee !== args.assignTo;
 
     // Update thread
     await ctx.db.patch(args.threadId, {
@@ -350,6 +356,7 @@ export const assignThread = mutation({
       assigned_at: now,
       assigned_by: sessionCtx.userId,
       updated_at: now,
+      ...(isReassign ? { has_unread: true } : {}),
     });
 
     // Create action log
@@ -520,6 +527,7 @@ export const resolveThread = mutation({
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'system',
       updated_at: now,
     });
@@ -687,6 +695,7 @@ export const updatePriority = mutation({
     // Update thread
     await ctx.db.patch(args.threadId, {
       priority: args.priority,
+      priority_rank: priorityRank(args.priority),
       sla_due_at: shouldRecalcSla ? calculateSLADueAt(args.priority) : thread.sla_due_at,
       updated_at: now,
     });

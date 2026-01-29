@@ -557,6 +557,7 @@ export default function InterviewReportPage() {
         yPos += 5;
 
         if (turn.scores?.overall) {
+          checkPageBreak(10);
           doc.text(`Score: ${turn.scores.overall.toFixed(1)}/5`, margin, yPos);
           yPos += 6;
         }

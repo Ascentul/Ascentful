@@ -8,50 +8,62 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { query, QueryCtx } from './_generated/server';
+import { internal } from './_generated/api';
+import { internalMutation, query } from './_generated/server';
 import { getAuthenticatedUser } from './lib/roles';
 
-async function getUniversityStudentEngagementStats(
-  ctx: QueryCtx,
+const UNIVERSITY_BATCH_SIZE = 5;
+const STUDENT_PAGE_SIZE = 500;
+
+async function computeUniversityEngagementMetrics(
+  ctx: any,
   universityId: Id<'universities'>,
 ): Promise<{
   totalStudents: number;
-  engagedCount: number;
-  atRiskCount: number;
-  totalScore: number;
-  scoredCount: number;
+  engagedStudents: number;
+  atRiskStudents: number;
+  scoredStudents: number;
+  avgEngagementScore: number;
 }> {
-  const students = await ctx.db
-    .query('users')
-    .withIndex('by_university', (q) => q.eq('university_id', universityId))
-    .filter((q) => q.eq(q.field('role'), 'student'))
-    .collect();
-
-  const totalStudents = students.length;
-  let engagedCount = 0;
-  let atRiskCount = 0;
+  let cursor: string | null = null;
+  let isDone = false;
+  let totalStudents = 0;
+  let engagedStudents = 0;
+  let atRiskStudents = 0;
+  let scoredStudents = 0;
   let totalScore = 0;
-  let scoredCount = 0;
 
-  // Use cached engagement data when available.
-  for (const student of students) {
-    if (student.engagement_status) {
-      scoredCount++;
-      if (student.engagement_status === 'engaged') {
-        engagedCount++;
-      } else if (student.engagement_status === 'at_risk') {
-        atRiskCount++;
+  while (!isDone) {
+    const page = await ctx.db
+      .query('users')
+      .withIndex('by_university_role', (q) =>
+        q.eq('university_id', universityId).eq('role', 'student'),
+      )
+      .paginate({ cursor, numItems: STUDENT_PAGE_SIZE });
+
+    for (const student of page.page) {
+      totalStudents++;
+      if (student.engagement_status) {
+        scoredStudents++;
+        if (student.engagement_status === 'engaged') {
+          engagedStudents++;
+        } else if (student.engagement_status === 'at_risk') {
+          atRiskStudents++;
+        }
+        totalScore += student.engagement_score ?? 0;
       }
-      totalScore += student.engagement_score ?? 0;
     }
+
+    cursor = page.continueCursor;
+    isDone = page.isDone;
   }
 
   return {
     totalStudents,
-    engagedCount,
-    atRiskCount,
-    totalScore,
-    scoredCount,
+    engagedStudents,
+    atRiskStudents,
+    scoredStudents,
+    avgEngagementScore: scoredStudents > 0 ? Math.round(totalScore / scoredStudents) : 0,
   };
 }
 
@@ -75,17 +87,18 @@ export const getCrossUniversityEngagement = query({
       throw new Error('Unauthorized: Super admin access required');
     }
 
-    const limit = args.limit ?? 50;
+    const limit = Math.max(0, Math.floor(args.limit ?? 50));
 
-    // Get ALL active universities for platform summary (not limited)
-    const allUniversities = await ctx.db
-      .query('universities')
-      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+    // Read from cached metrics table (computed by scheduled job)
+    const cached = await ctx.db
+      .query('university_engagement_metrics')
+      .filter((q) =>
+        q.or(
+          q.eq(q.field('university_status'), 'active'),
+          q.eq(q.field('university_status'), 'trial'),
+        ),
+      )
       .collect();
-
-    // We'll process all universities for accurate platform summary,
-    // but only return `limit` in the universities array for display
-    const universities = allUniversities;
 
     // Calculate engagement metrics for each university
     const universityMetrics: Array<{
@@ -101,31 +114,22 @@ export const getCrossUniversityEngagement = query({
       avgEngagementScore: number;
     }> = [];
 
-    for (const university of universities) {
-      const { totalStudents, engagedCount, atRiskCount, totalScore, scoredCount } =
-        await getUniversityStudentEngagementStats(ctx, university._id);
-
-      // Get active signals count
-      const activeSignals = await ctx.db
-        .query('signals')
-        .withIndex('by_university_status', (q) =>
-          q.eq('university_id', university._id).eq('status', 'active'),
-        )
-        .collect();
-
-      // Use scoredCount for averages to avoid bias from students without cached engagement data
-      const processedCount = scoredCount > 0 ? scoredCount : totalStudents;
+    for (const entry of cached) {
+      const processedCount =
+        entry.scored_students > 0 ? entry.scored_students : entry.total_students;
       universityMetrics.push({
-        universityId: university._id,
-        universityName: university.name,
-        status: university.status,
-        totalStudents,
-        engagedStudents: engagedCount,
-        atRiskStudents: atRiskCount,
-        engagedPercent: processedCount > 0 ? Math.round((engagedCount / processedCount) * 100) : 0,
-        atRiskPercent: processedCount > 0 ? Math.round((atRiskCount / processedCount) * 100) : 0,
-        activeSignals: activeSignals.length,
-        avgEngagementScore: processedCount > 0 ? Math.round(totalScore / processedCount) : 0,
+        universityId: entry.university_id,
+        universityName: entry.university_name,
+        status: entry.university_status,
+        totalStudents: entry.total_students,
+        engagedStudents: entry.engaged_students,
+        atRiskStudents: entry.at_risk_students,
+        engagedPercent:
+          processedCount > 0 ? Math.round((entry.engaged_students / processedCount) * 100) : 0,
+        atRiskPercent:
+          processedCount > 0 ? Math.round((entry.at_risk_students / processedCount) * 100) : 0,
+        activeSignals: entry.active_signals,
+        avgEngagementScore: entry.avg_engagement_score,
       });
     }
 
@@ -424,6 +428,77 @@ export const getCrossUniversitySignalAnalytics = query({
       avgResolutionHours,
       resolutionRate:
         allSignals.length > 0 ? Math.round((resolvedSignals.length / allSignals.length) * 100) : 0,
+    };
+  },
+});
+
+/**
+ * Recompute engagement metrics for a batch of universities.
+ * Scheduled job uses cursor pagination to avoid timeouts.
+ */
+export const recomputeEngagementMetricsBatch = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const pageSize = Math.max(1, Math.min(args.batchSize ?? UNIVERSITY_BATCH_SIZE, 20));
+
+    const page = await ctx.db
+      .query('universities')
+      .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+      .paginate({ cursor: args.cursor ?? null, numItems: pageSize });
+
+    for (const university of page.page) {
+      const metrics = await computeUniversityEngagementMetrics(ctx, university._id);
+
+      const activeSignals = await ctx.db
+        .query('signals')
+        .withIndex('by_university_status', (q) =>
+          q.eq('university_id', university._id).eq('status', 'active'),
+        )
+        .collect();
+
+      const existing = await ctx.db
+        .query('university_engagement_metrics')
+        .withIndex('by_university', (q) => q.eq('university_id', university._id))
+        .unique();
+
+      const payload = {
+        university_id: university._id,
+        university_name: university.name,
+        university_status: university.status,
+        total_students: metrics.totalStudents,
+        engaged_students: metrics.engagedStudents,
+        at_risk_students: metrics.atRiskStudents,
+        scored_students: metrics.scoredStudents,
+        avg_engagement_score: metrics.avgEngagementScore,
+        active_signals: activeSignals.length,
+        updated_at: Date.now(),
+      };
+
+      if (existing) {
+        await ctx.db.patch(existing._id, payload);
+      } else {
+        await ctx.db.insert('university_engagement_metrics', payload);
+      }
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.admin_engagement_analytics.recomputeEngagementMetricsBatch,
+        {
+          cursor: page.continueCursor,
+          batchSize: pageSize,
+        },
+      );
+    }
+
+    return {
+      processed: page.page.length,
+      hasMore: !page.isDone,
+      nextCursor: page.continueCursor,
     };
   },
 });

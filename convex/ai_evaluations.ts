@@ -10,6 +10,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { getAuthenticatedUser, isServiceRequest, requireSuperAdmin } from './lib/authorization';
 
 // ============================================================================
 // EVALUATION STORAGE
@@ -34,10 +35,15 @@ export const createEvaluation = mutation({
     output_hash: v.string(),
     environment: v.union(v.literal('dev'), v.literal('staging'), v.literal('production')),
     evaluation_duration_ms: v.number(),
+    serviceToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!isServiceRequest(args.serviceToken)) {
+      await requireSuperAdmin(ctx);
+    }
+    const { serviceToken, ...data } = args;
     const id = await ctx.db.insert('ai_evaluations', {
-      ...args,
+      ...data,
       created_at: Date.now(),
     });
     return id;
@@ -54,6 +60,7 @@ export const getEvaluationsByTool = query({
     passed_only: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const limit = args.limit ?? 100;
 
     if (args.passed_only !== undefined) {
@@ -83,6 +90,7 @@ export const getEvaluationsByUser = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const limit = args.limit ?? 50;
 
     return await ctx.db
@@ -101,6 +109,7 @@ export const getRecentEvaluations = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const limit = args.limit ?? 100;
 
     return await ctx.db.query('ai_evaluations').withIndex('by_created').order('desc').take(limit);
@@ -120,6 +129,7 @@ export const getToolMetrics = query({
     days: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const days = args.days ?? 30;
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
 
@@ -179,6 +189,7 @@ export const getAllToolMetrics = query({
     days: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const days = args.days ?? 30;
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
 
@@ -233,6 +244,7 @@ export const getToolConfig = query({
     tool_id: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireSuperAdmin(ctx);
     const config = await ctx.db
       .query('ai_evaluation_config')
       .withIndex('by_tool', (q) => q.eq('tool_id', args.tool_id))
@@ -267,14 +279,12 @@ export const updateToolConfig = mutation({
     clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Authorization check - admin only
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user || user.role !== 'super_admin') {
-      throw new Error('Unauthorized: Admin access required');
+    const actor = await getAuthenticatedUser(ctx);
+    if (actor.clerkId !== args.clerkId) {
+      throw new Error('Unauthorized: Clerk identity mismatch');
+    }
+    if (actor.role !== 'super_admin') {
+      throw new Error('Unauthorized: Super admin required');
     }
 
     const existing = await ctx.db
@@ -307,6 +317,7 @@ export const updateToolConfig = mutation({
 export const getAllToolConfigs = query({
   args: {},
   handler: async (ctx) => {
+    await requireSuperAdmin(ctx);
     return await ctx.db.query('ai_evaluation_config').collect();
   },
 });
@@ -326,14 +337,12 @@ export const deleteOldEvaluations = mutation({
     clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Authorization check - admin only
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user || user.role !== 'super_admin') {
-      throw new Error('Unauthorized: Admin access required');
+    const actor = await getAuthenticatedUser(ctx);
+    if (actor.clerkId !== args.clerkId) {
+      throw new Error('Unauthorized: Clerk identity mismatch');
+    }
+    if (actor.role !== 'super_admin') {
+      throw new Error('Unauthorized: Super admin required');
     }
 
     const cutoff = Date.now() - args.days_to_keep * 24 * 60 * 60 * 1000;

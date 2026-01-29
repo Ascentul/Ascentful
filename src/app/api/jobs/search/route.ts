@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
@@ -14,6 +15,18 @@ export async function POST(request: NextRequest) {
   log.debug('Job search request started', { event: 'request.start' });
 
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      log.warn('Unauthorized job search request', {
+        event: 'auth.failed',
+        errorCode: 'UNAUTHORIZED',
+      });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     let { query, location, jobType, experienceLevel, page = 1, perPage = 20, sortBy } = body;
     query = typeof query === 'string' ? query.trim() : '';

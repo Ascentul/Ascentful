@@ -354,7 +354,7 @@ export default function OutcomesDashboardPage() {
           a.download = `${prefix}-${new Date().toISOString().split('T')[0]}.csv`;
           document.body.appendChild(a);
           a.click();
-          document.body.removeChild(a);
+          a.remove();
         } finally {
           window.URL.revokeObjectURL(url);
         }

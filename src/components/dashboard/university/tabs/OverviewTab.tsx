@@ -123,10 +123,8 @@ export function OverviewTab({
   );
 
   const atRiskCount = studentProgress?.filter((s) => s.completion < 30).length || 0;
-  const atRiskPercent =
-    (overview?.totalStudents ?? 0) > 0
-      ? Math.round((atRiskCount / (overview?.totalStudents ?? 1)) * 100)
-      : 0;
+  const totalForPercent = studentProgress?.length || 0;
+  const atRiskPercent = totalForPercent > 0 ? Math.round((atRiskCount / totalForPercent) * 100) : 0;
 
   // Calculate Health Score (weighted average of key metrics)
   const healthScore = (() => {

@@ -5,6 +5,7 @@
  * Follows RBAC patterns from advisor_auth.ts.
  */
 
+import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
@@ -68,7 +69,7 @@ export const listThreads = query({
         v.literal('priority'),
       ),
     ),
-    limit: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     // Auth check
@@ -76,7 +77,6 @@ export const listThreads = query({
     requireAdvisorRole(sessionCtx);
     const universityId = requireTenant(sessionCtx);
 
-    const limit = args.limit ?? 50;
     const sortBy = args.sortBy ?? 'newest';
 
     // Build query based on filters
@@ -86,125 +86,155 @@ export const listThreads = query({
     if (args.status && args.status !== 'ALL_ACTIVE') {
       threadsQuery = ctx.db
         .query('inbox_threads')
-        .withIndex('by_university_status', (q) =>
+        .withIndex('by_university_status_last_message', (q) =>
           q.eq('university_id', universityId).eq('status', args.status as ThreadStatus),
         );
     } else if (args.identityStatus) {
       threadsQuery = ctx.db
         .query('inbox_threads')
-        .withIndex('by_identity_status', (q) =>
+        .withIndex('by_university_identity_last_message', (q) =>
           q.eq('university_id', universityId).eq('identity_status', args.identityStatus!),
+        );
+    } else if (args.studentId && args.threadType === 'internal') {
+      threadsQuery = ctx.db
+        .query('inbox_threads')
+        .withIndex('by_referenced_student_last_message', (q) =>
+          q.eq('referenced_student_id', args.studentId),
         );
     } else if (args.studentId) {
       threadsQuery = ctx.db
         .query('inbox_threads')
-        .withIndex('by_student', (q) => q.eq('student_id', args.studentId));
+        .withIndex('by_student_last_message', (q) => q.eq('student_id', args.studentId));
+    } else if (args.threadType === 'internal') {
+      threadsQuery = ctx.db
+        .query('inbox_threads')
+        .withIndex('by_university_type_last_message', (q) =>
+          q.eq('university_id', universityId).eq('thread_type', 'internal'),
+        );
+    } else if (args.assignedTo && args.assignedTo !== 'unassigned') {
+      const assigneeId = args.assignedTo === 'me' ? sessionCtx.userId : args.assignedTo;
+      threadsQuery = ctx.db
+        .query('inbox_threads')
+        .withIndex('by_assigned_last_message', (q) => q.eq('assigned_to', assigneeId));
     } else {
       threadsQuery = ctx.db
         .query('inbox_threads')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId));
+        .withIndex('by_university_last_message', (q) => q.eq('university_id', universityId));
     }
 
-    let threads = await threadsQuery.collect();
+    // Order and paginate
+    const order = sortBy === 'oldest' ? 'desc' : 'asc'; // last_message_at_desc asc = newest, desc = oldest
 
-    // NOTE: In-memory filtering used here due to complex filter combinations.
-    // For high-volume universities, consider optimizing with more targeted indices
-    // or implementing server-side pagination with cursor-based navigation.
+    const pageSize = args.paginationOpts.numItems;
+    let cursor = args.paginationOpts.cursor ?? null;
+    let combined: Doc<'inbox_threads'>[] = [];
+    let isDone = false;
+    let continueCursor = cursor;
 
-    // Filter by university (if using non-university index)
-    threads = threads.filter((t) => t.university_id === universityId);
+    while (combined.length < pageSize && !isDone) {
+      const result =
+        sortBy === 'sla_due'
+          ? await ctx.db
+              .query('inbox_threads')
+              .withIndex('by_sla_due', (q) => q.eq('university_id', universityId))
+              .paginate({ cursor, numItems: pageSize })
+          : sortBy === 'priority'
+            ? await ctx.db
+                .query('inbox_threads')
+                .withIndex('by_university_priority_last_message', (q) =>
+                  q.eq('university_id', universityId),
+                )
+                .paginate({ cursor, numItems: pageSize })
+            : await threadsQuery.order(order).paginate({ cursor, numItems: pageSize });
 
-    // Filter by status (ALL_ACTIVE = not RESOLVED or ARCHIVED)
-    if (args.status === 'ALL_ACTIVE') {
-      threads = threads.filter((t) => t.status !== 'RESOLVED' && t.status !== 'ARCHIVED');
+      cursor = result.continueCursor;
+      continueCursor = result.continueCursor;
+      isDone = result.isDone;
+
+      let threads = result.page;
+
+      // Filter by university (if using non-university index)
+      threads = threads.filter((t) => t.university_id === universityId);
+
+      // Filter by status (ALL_ACTIVE = not RESOLVED or ARCHIVED)
+      if (args.status === 'ALL_ACTIVE') {
+        threads = threads.filter((t) => t.status !== 'RESOLVED' && t.status !== 'ARCHIVED');
+      }
+
+      // Filter by assignment
+      if (args.assignedTo === 'me') {
+        threads = threads.filter((t) => t.assigned_to === sessionCtx.userId);
+      } else if (args.assignedTo === 'unassigned') {
+        threads = threads.filter((t) => !t.assigned_to);
+      } else if (args.assignedTo) {
+        threads = threads.filter((t) => t.assigned_to === args.assignedTo);
+      }
+
+      // Filter by student
+      if (args.studentId) {
+        threads = threads.filter((t) =>
+          t.thread_type === 'internal'
+            ? t.referenced_student_id === args.studentId
+            : t.student_id === args.studentId,
+        );
+      }
+
+      // Filter by identity status
+      if (args.identityStatus) {
+        threads = threads.filter((t) => t.identity_status === args.identityStatus);
+      }
+
+      // Filter by thread type (defaults to 'student' - internal threads excluded from main inbox)
+      // Treat null/undefined thread_type as 'student' for backward compatibility
+      if (args.threadType === 'internal') {
+        threads = threads.filter((t) => t.thread_type === 'internal');
+      } else if (args.threadType === 'all') {
+        // No filter - show all types
+      } else {
+        // Default: only show student threads (thread_type is 'student' or null/undefined)
+        threads = threads.filter((t) => !t.thread_type || t.thread_type === 'student');
+      }
+
+      // Search filter (subject + snippet)
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        threads = threads.filter(
+          (t) =>
+            t.subject.toLowerCase().includes(searchLower) ||
+            (t.snippet && t.snippet.toLowerCase().includes(searchLower)) ||
+            (t.external_sender_email &&
+              t.external_sender_email.toLowerCase().includes(searchLower)) ||
+            (t.external_sender_name && t.external_sender_name.toLowerCase().includes(searchLower)),
+        );
+      }
+
+      // RBAC: Advisors can only see threads for their assigned students (unless unmatched)
+      if (sessionCtx.role === 'advisor') {
+        // Get advisor's assigned students
+        const advisorStudents = await ctx.db
+          .query('student_advisors')
+          .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
+          .filter((q) => q.eq(q.field('is_owner'), true))
+          .collect();
+
+        const ownedStudentIds = new Set(advisorStudents.map((as) => as.student_id));
+
+        // Advisors can see:
+        // 1. Threads for their owned students
+        // 2. Unmatched threads (identity_status = 'unmatched')
+        // 3. Threads assigned to them
+        threads = threads.filter(
+          (t) =>
+            (t.student_id && ownedStudentIds.has(t.student_id)) ||
+            t.identity_status === 'unmatched' ||
+            t.assigned_to === sessionCtx.userId,
+        );
+      }
+
+      combined = combined.concat(threads);
     }
 
-    // Filter by assignment
-    if (args.assignedTo === 'me') {
-      threads = threads.filter((t) => t.assigned_to === sessionCtx.userId);
-    } else if (args.assignedTo === 'unassigned') {
-      threads = threads.filter((t) => !t.assigned_to);
-    } else if (args.assignedTo) {
-      threads = threads.filter((t) => t.assigned_to === args.assignedTo);
-    }
-
-    // Filter by student
-    if (args.studentId) {
-      threads = threads.filter((t) => t.student_id === args.studentId);
-    }
-
-    // Filter by identity status
-    if (args.identityStatus) {
-      threads = threads.filter((t) => t.identity_status === args.identityStatus);
-    }
-
-    // Filter by thread type (defaults to 'student' - internal threads excluded from main inbox)
-    // Treat null/undefined thread_type as 'student' for backward compatibility
-    if (args.threadType === 'internal') {
-      threads = threads.filter((t) => t.thread_type === 'internal');
-    } else if (args.threadType === 'all') {
-      // No filter - show all types
-    } else {
-      // Default: only show student threads (thread_type is 'student' or null/undefined)
-      threads = threads.filter((t) => !t.thread_type || t.thread_type === 'student');
-    }
-
-    // Search filter (subject + snippet)
-    if (args.search) {
-      const searchLower = args.search.toLowerCase();
-      threads = threads.filter(
-        (t) =>
-          t.subject.toLowerCase().includes(searchLower) ||
-          (t.snippet && t.snippet.toLowerCase().includes(searchLower)) ||
-          (t.external_sender_email &&
-            t.external_sender_email.toLowerCase().includes(searchLower)) ||
-          (t.external_sender_name && t.external_sender_name.toLowerCase().includes(searchLower)),
-      );
-    }
-
-    // RBAC: Advisors can only see threads for their assigned students (unless unmatched)
-    if (sessionCtx.role === 'advisor') {
-      // Get advisor's assigned students
-      const advisorStudents = await ctx.db
-        .query('student_advisors')
-        .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
-        .filter((q) => q.eq(q.field('is_owner'), true))
-        .collect();
-
-      const ownedStudentIds = new Set(advisorStudents.map((as) => as.student_id));
-
-      // Advisors can see:
-      // 1. Threads for their owned students
-      // 2. Unmatched threads (identity_status = 'unmatched')
-      // 3. Threads assigned to them
-      threads = threads.filter(
-        (t) =>
-          (t.student_id && ownedStudentIds.has(t.student_id)) ||
-          t.identity_status === 'unmatched' ||
-          t.assigned_to === sessionCtx.userId,
-      );
-    }
-
-    // Sort
-    if (sortBy === 'newest') {
-      threads.sort((a, b) => b.last_message_at - a.last_message_at);
-    } else if (sortBy === 'oldest') {
-      threads.sort((a, b) => a.last_message_at - b.last_message_at);
-    } else if (sortBy === 'sla_due') {
-      threads.sort((a, b) => {
-        // Threads without SLA go to the end
-        if (!a.sla_due_at && !b.sla_due_at) return 0;
-        if (!a.sla_due_at) return 1;
-        if (!b.sla_due_at) return -1;
-        return a.sla_due_at - b.sla_due_at;
-      });
-    } else if (sortBy === 'priority') {
-      const priorityOrder = { P1: 0, P2: 1, P3: 2 };
-      threads.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    }
-
-    // Limit
-    threads = threads.slice(0, limit);
+    const threads = combined.slice(0, pageSize);
 
     // Enrich with student, assignee, and referenced student info
     const enrichedThreads = await Promise.all(
@@ -258,7 +288,11 @@ export const listThreads = query({
       }),
     );
 
-    return enrichedThreads;
+    return {
+      page: enrichedThreads,
+      isDone: isDone && combined.length <= pageSize,
+      continueCursor,
+    };
   },
 });
 
@@ -493,14 +527,30 @@ export const getUnreadCounts = query({
     requireAdvisorRole(sessionCtx);
     const universityId = requireTenant(sessionCtx);
 
-    // Get all active threads in university
-    let threads = await ctx.db
-      .query('inbox_threads')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) =>
-        q.and(q.neq(q.field('status'), 'RESOLVED'), q.neq(q.field('status'), 'ARCHIVED')),
-      )
-      .collect();
+    const activeStatuses: ThreadStatus[] = [
+      'NEW',
+      'OPEN',
+      'IN_PROGRESS',
+      'WAITING_ON_STUDENT',
+      'WAITING_ON_STAFF',
+    ];
+
+    let threads =
+      sessionCtx.role === 'advisor'
+        ? await ctx.db
+            .query('inbox_threads')
+            .withIndex('by_assigned_unread_status', (q) =>
+              q.eq('assigned_to', sessionCtx.userId).eq('has_unread', true),
+            )
+            .collect()
+        : await ctx.db
+            .query('inbox_threads')
+            .withIndex('by_university_unread_status', (q) =>
+              q.eq('university_id', universityId).eq('has_unread', true),
+            )
+            .collect();
+
+    threads = threads.filter((t) => activeStatuses.includes(t.status));
 
     // Filter by thread type (defaults to 'student')
     if (args.threadType === 'internal') {
@@ -512,31 +562,7 @@ export const getUnreadCounts = query({
       threads = threads.filter((t) => !t.thread_type || t.thread_type === 'student');
     }
 
-    // RBAC: Advisors can only see threads for their assigned students
-    if (sessionCtx.role === 'advisor') {
-      const advisorStudents = await ctx.db
-        .query('student_advisors')
-        .withIndex('by_advisor', (q) => q.eq('advisor_id', sessionCtx.userId))
-        .filter((q) => q.eq(q.field('is_owner'), true))
-        .collect();
-
-      const ownedStudentIds = new Set(advisorStudents.map((as) => as.student_id));
-
-      threads = threads.filter(
-        (t) =>
-          (t.student_id && ownedStudentIds.has(t.student_id)) ||
-          t.identity_status === 'unmatched' ||
-          t.assigned_to === sessionCtx.userId,
-      );
-    }
-
-    // Get read states for current user
-    const readStates = await ctx.db
-      .query('inbox_read_state')
-      .withIndex('by_user_thread', (q) => q.eq('user_id', sessionCtx.userId))
-      .collect();
-
-    const readStateMap = new Map(readStates.map((rs) => [rs.thread_id, rs.last_read_at]));
+    // For advisors, threads are already scoped by assignment and unread status.
 
     // Get unread mentions for current user
     const unreadMentions = await ctx.db
@@ -556,10 +582,7 @@ export const getUnreadCounts = query({
     const now = Date.now();
 
     for (const thread of threads) {
-      const lastReadAt = readStateMap.get(thread._id);
-      const hasUnread = !lastReadAt || thread.last_message_at > lastReadAt;
-
-      if (hasUnread) {
+      if (thread.has_unread) {
         totalUnread++;
         if (thread.thread_type === 'internal') {
           internalUnread++;

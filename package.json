@@ -22,8 +22,8 @@
     "set:subscription": "node scripts/set-convex-subscription.js",
     "type-check": "tsc --noEmit",
     "prepare": "husky",
-    "deploy:dev": "cross-env CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_DEV npx convex deploy",
-    "deploy:prod": "cross-env CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy",
+    "deploy:dev": "cross-env-shell \"CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_DEV npx convex deploy\"",
+    "deploy:prod": "cross-env-shell \"CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy\"",
     "seed:yc-demo": "npx convex run dev/seedYCDemo:seed",
     "seed:yc-demo:status": "npx convex run dev/seedYCDemo:status",
     "cleanup:yc-demo": "npx convex run dev/seedYCDemo:cleanup"

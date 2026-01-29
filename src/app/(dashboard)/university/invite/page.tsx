@@ -226,7 +226,7 @@ export default function UniversityInviteStudentsPage() {
       a.click();
     } finally {
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      a.remove();
     }
   };
 
