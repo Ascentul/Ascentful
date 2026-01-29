@@ -189,6 +189,9 @@ export default function PublicProfilePage() {
       // Save to database
       await updateCoverImage({ clerkId: currentUser.id, storageId });
 
+      // Clean up preview URL since we'll use the resolved URL from storage
+      URL.revokeObjectURL(previewUrl);
+
       toast({
         title: 'Cover image updated',
         description: 'Your cover image has been saved',
@@ -253,6 +256,9 @@ export default function PublicProfilePage() {
 
       // Save to database
       await updateAvatar({ clerkId: currentUser.id, storageId });
+
+      // Clean up preview URL since we'll use the resolved URL from storage
+      URL.revokeObjectURL(previewUrl);
 
       toast({
         title: 'Profile image updated',

@@ -935,7 +935,10 @@ export default function AdvisorSupportPage() {
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={confirmDeleteTicket}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await confirmDeleteTicket();
+                  }}
                   disabled={isDeleting}
                   className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
                 >

@@ -1085,7 +1085,10 @@ export default function ResumeEditorPage() {
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={doDelete}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await doDelete();
+                  }}
                   disabled={deleting}
                   className="bg-red-600 hover:bg-red-700"
                 >

@@ -42,6 +42,7 @@ export function ExportReportDialog({
     setIsExporting(true);
     try {
       await onExport(filename.trim() || defaultFilename);
+      onOpenChange(false);
     } finally {
       setIsExporting(false);
     }

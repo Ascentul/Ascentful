@@ -21,6 +21,42 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 
 // ============================================================================
+// AUTHORIZATION HELPERS
+// ============================================================================
+
+async function requireUniversityAccess(ctx: any, universityId: Id<'universities'>) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error('Unauthorized');
+  }
+
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_clerk_id', (q: any) => q.eq('clerkId', identity.subject))
+    .unique();
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Super admins can access any university
+  if (user.role === 'super_admin') {
+    return user;
+  }
+
+  // University admins and advisors can only access their own university
+  if (!['university_admin', 'advisor'].includes(user.role)) {
+    throw new Error('Unauthorized: Insufficient permissions');
+  }
+
+  if (user.university_id !== universityId) {
+    throw new Error('Unauthorized: Cannot access other university data');
+  }
+
+  return user;
+}
+
+// ============================================================================
 // TYPES & CONSTANTS
 // ============================================================================
 
@@ -205,6 +241,7 @@ export const getStudentsByMomentum = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireUniversityAccess(ctx, args.universityId);
     const limit = args.limit ?? 100;
 
     let students;
@@ -242,6 +279,8 @@ export const getStudentsByMomentum = query({
 export const getMomentumDistribution = query({
   args: { universityId: v.id('universities') },
   handler: async (ctx, args) => {
+    await requireUniversityAccess(ctx, args.universityId);
+
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))

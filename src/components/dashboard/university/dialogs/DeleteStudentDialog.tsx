@@ -43,7 +43,10 @@ export function DeleteStudentDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={async (e) => {
+              e.preventDefault();
+              await onConfirm();
+            }}
             disabled={isLoading}
             className="bg-red-600 hover:bg-red-700"
           >

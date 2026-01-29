@@ -81,8 +81,15 @@ export function ViewReportDialog({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to load report (${response.status})`);
+        const errorText = await response.text();
+        let errorMessage = `Failed to load report (${response.status})`;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error) errorMessage = errorData.error;
+        } catch {
+          // Response wasn't JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const csvText = await response.text();
@@ -166,8 +173,15 @@ export function ViewReportDialog({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Download failed');
+        const errorText = await response.text();
+        let errorMessage = 'Download failed';
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error) errorMessage = errorData.error;
+        } catch {
+          // Response wasn't JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const blob = await response.blob();
