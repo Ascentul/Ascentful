@@ -62,6 +62,10 @@ export function sanitizeUserHtml(
     ? {
         ...defaultOptions,
         ...options,
+        allowedAttributes: {
+          ...defaultOptions.allowedAttributes,
+          ...options.allowedAttributes,
+        },
         transformTags: {
           ...options.transformTags,
           // Enforce safe link behavior by applying default 'a' transform last

@@ -70,6 +70,7 @@ export function AssignLicensesDialog({
         onOpenChange(false);
         setEmailsText('');
         setSelectedProgram('none');
+        setRole('student');
       }
     } finally {
       setIsAssigning(false);

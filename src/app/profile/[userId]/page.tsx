@@ -191,6 +191,7 @@ export default function PublicProfilePage() {
 
       // Clean up preview URL since we'll use the resolved URL from storage
       URL.revokeObjectURL(previewUrl);
+      setCoverImage(null);
 
       toast({
         title: 'Cover image updated',
@@ -259,6 +260,7 @@ export default function PublicProfilePage() {
 
       // Clean up preview URL since we'll use the resolved URL from storage
       URL.revokeObjectURL(previewUrl);
+      setProfileImage(null);
 
       toast({
         title: 'Profile image updated',
