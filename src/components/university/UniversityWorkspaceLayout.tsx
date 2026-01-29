@@ -13,12 +13,12 @@ import { ChevronRight, Loader2, Menu } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
-import AppTopBar from '@/components/layout/AppTopBar';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
 import { Button } from '@/components/ui/button';
 import { SidebarProvider, useSidebarOptional } from '@/contexts/SidebarContext';
 import { SIDEBAR_EXPAND_BUTTON_LEFT } from '@/lib/constants/sidebar';
 
+import UniversityTopBar from './UniversityTopBar';
 import { UniversityWorkspaceSidebar } from './UniversityWorkspaceSidebar';
 
 interface UniversityWorkspaceLayoutProps {
@@ -75,7 +75,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
         {/* Main column with top bar and content */}
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden bg-[#f0f2f5]">
-          <AppTopBar />
+          <UniversityTopBar />
           <main className="flex-1 overflow-y-auto min-w-0">
             <div className="px-4 pt-2 pb-4 md:px-6">
               {/* Content card */}

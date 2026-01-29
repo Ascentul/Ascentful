@@ -140,6 +140,7 @@ import type * as universities_admin from "../universities_admin.js";
 import type * as universities_assignments from "../universities_assignments.js";
 import type * as universities_queries from "../universities_queries.js";
 import type * as university_admin from "../university_admin.js";
+import type * as university_analytics from "../university_analytics.js";
 import type * as university_overview_cache from "../university_overview_cache.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
@@ -289,6 +290,7 @@ declare const fullApi: ApiFromModules<{
   universities_assignments: typeof universities_assignments;
   universities_queries: typeof universities_queries;
   university_admin: typeof university_admin;
+  university_analytics: typeof university_analytics;
   university_overview_cache: typeof university_overview_cache;
   usage: typeof usage;
   users: typeof users;

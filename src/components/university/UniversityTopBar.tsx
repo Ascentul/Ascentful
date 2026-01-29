@@ -1,0 +1,554 @@
+'use client';
+
+/**
+ * UniversityTopBar
+ *
+ * Top bar for the university workspace (/u/*) with university-specific search.
+ * Similar to AppTopBar but uses university search (students, advisors, departments, courses)
+ * instead of the global career tools search.
+ */
+
+import { useUser } from '@clerk/nextjs';
+import { api } from 'convex/_generated/api';
+import { useMutation, useQuery } from 'convex/react';
+import {
+  Bell,
+  BookOpen,
+  Building,
+  GraduationCap,
+  MessageCircle,
+  Search,
+  Settings,
+  User,
+  User as UserIcon,
+  Users,
+} from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command';
+import { useAuth } from '@/contexts/ClerkAuthProvider';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { useSidebarOptional } from '@/contexts/SidebarContext';
+import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '@/lib/constants/sidebar';
+import { cn } from '@/lib/utils';
+
+type IconButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  hasUnread?: boolean;
+  isActive?: boolean;
+};
+
+function IconButton({ hasUnread, isActive, className = '', children, ...rest }: IconButtonProps) {
+  return (
+    <button
+      {...rest}
+      className={cn(
+        'relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm text-slate-500 transition-colors',
+        isActive
+          ? 'ring-2 ring-primary-500/30 text-slate-700'
+          : 'hover:bg-slate-50 hover:text-slate-700',
+        className,
+      )}
+    >
+      {children}
+      {hasUnread && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />}
+    </button>
+  );
+}
+
+export default function UniversityTopBar() {
+  const router = useRouter();
+  const { user, subscription, isAdmin } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { impersonation, getEffectiveRole, getEffectivePlan } = useImpersonation();
+  const sidebarContext = useSidebarOptional();
+  const isSidebarExpanded = sidebarContext?.isExpanded ?? true;
+
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // University search results
+  const searchResults = useQuery(
+    api.university_admin.universitySearch,
+    clerkUser?.id && debouncedQuery.length >= 2
+      ? { clerkId: clerkUser.id, query: debouncedQuery, limit: 5 }
+      : 'skip',
+  );
+
+  // Keyboard shortcut to open search
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
+
+  const handleSelect = useCallback(
+    (type: string, id: string, clerkId?: string) => {
+      setSearchOpen(false);
+      setSearchQuery('');
+
+      switch (type) {
+        case 'student':
+          if (clerkId) {
+            router.push(`/u/students/${id}`);
+          } else {
+            router.push('/u/students');
+          }
+          break;
+        case 'advisor':
+          router.push('/u/admin/students?tab=advisors');
+          break;
+        case 'department':
+          router.push(`/u/admin/departments?id=${id}`);
+          break;
+        case 'course':
+          router.push(`/u/admin/courses/${id}`);
+          break;
+        default:
+          break;
+      }
+    },
+    [router],
+  );
+
+  const hasResults =
+    searchResults &&
+    (searchResults.students.length > 0 ||
+      searchResults.advisors.length > 0 ||
+      searchResults.departments.length > 0 ||
+      searchResults.courses.length > 0);
+
+  // Get effective role/plan for badge display
+  const effectiveRole = getEffectiveRole();
+  const effectivePlan = getEffectivePlan();
+  const effectiveIsAdmin = effectiveRole === 'super_admin';
+
+  // Fetch viewer data to get student context (university name)
+  const viewer = useQuery(api.viewer.getViewer, clerkUser ? {} : 'skip');
+
+  // Check if user is university-affiliated (they have a dedicated badge in sidebar)
+  const isUniversityAffiliated = viewer?.university != null;
+
+  // Compute badge text - only for non-university users (university users have sidebar badge)
+  const badgeText =
+    effectiveIsAdmin || isUniversityAffiliated
+      ? null
+      : impersonation.isImpersonating
+        ? effectivePlan || effectiveRole
+        : subscription.isPremium
+          ? subscription.planName
+          : null;
+
+  const [openPanel, setOpenPanel] = useState<
+    null | 'search' | 'messages' | 'notifications' | 'profile'
+  >(null);
+  const [unreadMessages, setUnreadMessages] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Fetch notification count from Convex
+  const unreadCount = useQuery(api.notifications.getUnreadCount, user ? {} : 'skip');
+
+  // Fetch notifications
+  const notifications = useQuery(
+    api.notifications.getNotifications,
+    openPanel === 'notifications' && user ? { unreadOnly: false } : 'skip',
+  );
+
+  // Mark notification as read mutation
+  const markAsRead = useMutation(api.notifications.markAsRead);
+  const markAllAsReadMutation = useMutation(api.notifications.markAllAsRead);
+
+  const hasUnreadNotifications = (unreadCount ?? 0) > 0;
+
+  const togglePanel = (panel: 'search' | 'messages' | 'notifications' | 'profile') => {
+    setOpenPanel((prev) => {
+      const next = prev === panel ? null : panel;
+      if (next === 'messages') {
+        setUnreadMessages(false);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!openPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpenPanel(null);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [openPanel]);
+
+  return (
+    <header className="sticky top-0 z-20 bg-[#f0f2f5]">
+      <div className="relative flex w-full items-center justify-end gap-3 px-4 md:px-6 h-[74px]">
+        {/* Centered Search Bar - university-specific search */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="hidden md:flex items-center gap-3 w-full max-w-md rounded-full border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-2.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+          style={{
+            left: `calc((100vw - ${isSidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED}px) / 2)`,
+          }}
+        >
+          <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-500 transition-colors" />
+          <span className="flex-1 text-left text-sm text-slate-400 group-hover:text-slate-500 transition-colors">
+            Search students, advisors, departments...
+          </span>
+          <kbd className="hidden lg:inline-flex h-5 items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 font-mono text-[10px] font-medium text-slate-500">
+            ⌘K
+          </kbd>
+        </button>
+
+        {/* Right side icons and panels container */}
+        <div className="flex items-center gap-2.5 mt-[1px] relative" ref={panelRef}>
+          {/* Plan/University Badge */}
+          {badgeText && (
+            <span className="hidden md:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+              {badgeText}
+            </span>
+          )}
+          <IconButton
+            aria-label="Messages"
+            hasUnread={unreadMessages}
+            isActive={openPanel === 'messages'}
+            onClick={() => togglePanel('messages')}
+          >
+            <MessageCircle className="h-4 w-4" />
+          </IconButton>
+          <IconButton
+            aria-label="Notifications"
+            hasUnread={hasUnreadNotifications}
+            isActive={openPanel === 'notifications'}
+            onClick={() => togglePanel('notifications')}
+          >
+            <Bell className="h-4 w-4" />
+          </IconButton>
+
+          {/* Profile Avatar */}
+          {clerkUser && (
+            <button
+              onClick={() => togglePanel('profile')}
+              className="flex-shrink-0"
+              aria-label="Profile menu"
+            >
+              <div
+                className={cn(
+                  'relative h-10 w-10 rounded-full ring-2 transition-all overflow-hidden shadow-sm cursor-pointer',
+                  openPanel === 'profile'
+                    ? 'ring-primary-500'
+                    : 'ring-primary-500/50 hover:ring-primary-500',
+                )}
+              >
+                <Image
+                  src={
+                    user?.profile_image ||
+                    clerkUser.imageUrl ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(clerkUser.firstName || user?.name || 'User')}&background=5371FF&color=fff`
+                  }
+                  alt="Profile"
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </button>
+          )}
+
+          {/* Dropdown Panels */}
+          {openPanel === 'messages' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+              <p className="mb-2 text-xs font-semibold text-slate-500">Messages</p>
+              <p className="text-sm text-slate-600">No new messages.</p>
+            </div>
+          )}
+
+          {openPanel === 'notifications' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-200 p-3">
+                <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                {hasUnreadNotifications && (
+                  <button
+                    onClick={async () => {
+                      if (isMarkingAllRead) return;
+                      setIsMarkingAllRead(true);
+                      try {
+                        await markAllAsReadMutation({});
+                      } catch (err) {
+                        console.error('Failed to mark all notifications as read:', err);
+                        toast.error('Failed to mark notifications as read. Please try again.');
+                      } finally {
+                        setIsMarkingAllRead(false);
+                      }
+                    }}
+                    className="text-xs text-[#4257FF] hover:text-[#3f5dde] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isMarkingAllRead}
+                  >
+                    {isMarkingAllRead ? 'Marking...' : 'Mark all as read'}
+                  </button>
+                )}
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {!notifications || notifications.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-slate-600">You are all caught up.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification._id}
+                        className={cn(
+                          'p-3 hover:bg-slate-50 transition-colors cursor-pointer',
+                          !notification.read && 'bg-blue-50/50',
+                        )}
+                        onClick={() => {
+                          if (!notification.read) {
+                            markAsRead({ notificationId: notification._id }).catch((err) => {
+                              console.error('Failed to mark notification as read:', err);
+                              toast.error('Failed to update notification.');
+                            });
+                          }
+                          if (notification.link) {
+                            setOpenPanel(null);
+                            router.push(notification.link);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900">
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-slate-600 mt-0.5">{notification.message}</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {new Date(notification.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          {!notification.read && (
+                            <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {openPanel === 'profile' && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden z-50">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/account');
+                  setOpenPanel(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100"
+              >
+                <Settings className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-900">Account Settings</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/profile');
+                  setOpenPanel(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
+              >
+                <UserIcon className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-900">Career Profile</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* University Search Modal */}
+      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <CommandInput
+          placeholder="Search students, advisors, departments, courses..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
+        <CommandList>
+          {debouncedQuery.length < 2 && (
+            <CommandEmpty>Type at least 2 characters to search...</CommandEmpty>
+          )}
+
+          {debouncedQuery.length >= 2 && !searchResults && (
+            <CommandEmpty>Searching...</CommandEmpty>
+          )}
+
+          {debouncedQuery.length >= 2 && searchResults && !hasResults && (
+            <CommandEmpty>No results found.</CommandEmpty>
+          )}
+
+          {searchResults && searchResults.students.length > 0 && (
+            <CommandGroup heading="Students">
+              {searchResults.students.map((student) => (
+                <CommandItem
+                  key={String(student._id)}
+                  value={`student-${student.email}`}
+                  onSelect={() => handleSelect('student', String(student._id), student.clerkId)}
+                  className="cursor-pointer"
+                >
+                  <GraduationCap className="mr-2 h-4 w-4 text-blue-500" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{student.name}</span>
+                    <span className="text-xs text-muted-foreground">{student.email}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {searchResults && searchResults.advisors.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Advisors">
+                {searchResults.advisors.map((advisor) => (
+                  <CommandItem
+                    key={String(advisor._id)}
+                    value={`advisor-${advisor.email}`}
+                    onSelect={() => handleSelect('advisor', String(advisor._id))}
+                    className="cursor-pointer"
+                  >
+                    <User className="mr-2 h-4 w-4 text-purple-500" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{advisor.name}</span>
+                      <span className="text-xs text-muted-foreground">{advisor.email}</span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {searchResults && searchResults.departments.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Departments">
+                {searchResults.departments.map((dept) => (
+                  <CommandItem
+                    key={String(dept._id)}
+                    value={`department-${dept.name}`}
+                    onSelect={() => handleSelect('department', String(dept._id))}
+                    className="cursor-pointer"
+                  >
+                    <Building className="mr-2 h-4 w-4 text-green-500" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{dept.name}</span>
+                      {dept.code && (
+                        <span className="text-xs text-muted-foreground">Code: {dept.code}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {searchResults && searchResults.courses.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Courses">
+                {searchResults.courses.map((course) => (
+                  <CommandItem
+                    key={String(course._id)}
+                    value={`course-${course.title}`}
+                    onSelect={() => handleSelect('course', String(course._id))}
+                    className="cursor-pointer"
+                  >
+                    <BookOpen className="mr-2 h-4 w-4 text-orange-500" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{course.title}</span>
+                      {course.category && (
+                        <span className="text-xs text-muted-foreground">{course.category}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {/* Quick Actions */}
+          <CommandSeparator />
+          <CommandGroup heading="Quick Actions">
+            <CommandItem
+              onSelect={() => {
+                setSearchOpen(false);
+                router.push('/u/students');
+              }}
+              className="cursor-pointer"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              <span>View All Students</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setSearchOpen(false);
+                router.push('/u/admin/departments');
+              }}
+              className="cursor-pointer"
+            >
+              <Building className="mr-2 h-4 w-4" />
+              <span>View All Departments</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setSearchOpen(false);
+                router.push('/u/admin/courses');
+              }}
+              className="cursor-pointer"
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              <span>View All Courses</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setSearchOpen(false);
+                router.push('/u/admin/invite');
+              }}
+              className="cursor-pointer"
+            >
+              <GraduationCap className="mr-2 h-4 w-4" />
+              <span>Invite Students</span>
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </header>
+  );
+}

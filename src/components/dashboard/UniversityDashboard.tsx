@@ -101,7 +101,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { UniversitySearchCommand } from '@/components/university/UniversitySearchCommand';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { useToast } from '@/hooks/use-toast';
@@ -112,6 +111,7 @@ import {
   DeleteStudentDialog,
   EditStudentDialog,
   ExportReportDialog,
+  ViewReportDialog,
 } from './university/dialogs';
 import { useAnalyticsTransforms, useStudentFilters, useUniversityData } from './university/hooks';
 import {
@@ -151,6 +151,8 @@ export function UniversityDashboard() {
   // Dialog open states
   const [assignOpen, setAssignOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [viewReportOpen, setViewReportOpen] = useState(false);
+  const [viewingReport, setViewingReport] = useState<{ name: string; type: string } | null>(null);
 
   // Invite students form state (used by inline invite tab - will be extracted in Phase 3)
   const [assignText, setAssignText] = useState('');
@@ -433,11 +435,9 @@ export function UniversityDashboard() {
   }
 
   // Report handlers
-  const handleViewReport = async (_reportName: string, _reportType: string) => {
-    toast({
-      title: 'Coming Soon',
-      description: 'Report viewing will be available in a future update.',
-    });
+  const handleViewReport = (reportName: string, reportType: string) => {
+    setViewingReport({ name: reportName, type: reportType });
+    setViewReportOpen(true);
   };
 
   const handleDownloadReport = async (reportName: string, reportType: string) => {
@@ -793,7 +793,6 @@ export function UniversityDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <UniversitySearchCommand />
           <button
             className="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
             onClick={() => setExportDialogOpen(true)}
@@ -859,6 +858,7 @@ export function UniversityDashboard() {
       {/* Overview Tab Content */}
       {activeTab === 'overview' && (
         <OverviewTab
+          clerkId={clerkUser?.id}
           overview={overview}
           studentMetrics={studentMetrics}
           students={students as Student[]}
@@ -942,6 +942,7 @@ export function UniversityDashboard() {
       {/* Departments Tab Content */}
       {activeTab === 'departments' && (
         <DepartmentsTab
+          clerkId={clerkUser?.id}
           departments={departments as Department[]}
           students={students as Student[]}
           studentProgress={studentProgress as StudentProgress[]}
@@ -952,6 +953,7 @@ export function UniversityDashboard() {
       {/* Platform Usage Tab Content */}
       {activeTab === 'usage' && (
         <UsageTab
+          clerkId={clerkUser?.id}
           departments={departments as Department[]}
           platformUsageData={platformUsageData}
           onViewReport={handleViewReport}
@@ -995,6 +997,14 @@ export function UniversityDashboard() {
         )}
         totalSeats={overview?.licenseCapacity ?? 0}
         onAssign={handleAssignLicenses}
+      />
+
+      <ViewReportDialog
+        open={viewReportOpen}
+        onOpenChange={setViewReportOpen}
+        reportName={viewingReport?.name || ''}
+        reportType={viewingReport?.type || ''}
+        clerkId={clerkUser?.id}
       />
     </div>
   );

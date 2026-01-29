@@ -99,11 +99,11 @@ function calculateMomentum(factors: MomentumFactors): MomentumResult {
     if (!issues.includes(REASONS.resumeStale)) {
       issues.push(REASONS.lowApplications);
     }
-  } else if (factors.applicationsLast30Days < THRESHOLDS.applications.moderate) {
-    score -= 15;
   } else if (factors.applicationsLast30Days < THRESHOLDS.applications.active) {
-    score -= 5;
+    // 1-2 applications: moderate activity, smaller deduction
+    score -= 15;
   }
+  // 3+ applications (active): no deduction
 
   // Factor 3: Last activity (20 points max deduction)
   if (factors.lastActivityDays > THRESHOLDS.activity.inactive) {

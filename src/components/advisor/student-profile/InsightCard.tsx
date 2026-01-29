@@ -33,7 +33,7 @@ function getInsightMessage(
       return 'Job search activity has plateaued. A check-in may help identify blockers.';
 
     case 'Resume Stale':
-      return `Resume hasn't been updated in ${resumeAgeDays || 'many'} days. Fresh content could improve application success.`;
+      return `Resume hasn't been updated in ${resumeAgeDays ?? 'many'} days. Fresh content could improve application success.`;
 
     case 'Inactive':
       return 'Student has been inactive for an extended period. Proactive outreach recommended.';

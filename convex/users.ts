@@ -289,6 +289,28 @@ export const getUserByClerkId = query({
   },
 });
 
+// Get user by ID (for internal lookups like dialogs)
+export const getUserById = query({
+  args: { userId: v.id('users') },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+
+    // Return minimal info for display purposes
+    return {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+  },
+});
+
 // Get user by email (useful for webhook sync verification)
 export const getUserByEmail = query({
   args: { email: v.string() },

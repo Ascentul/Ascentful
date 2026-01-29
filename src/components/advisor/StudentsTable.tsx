@@ -224,7 +224,7 @@ export function StudentsTable({ students, isLoading }: StudentsTableProps) {
                       <td className="px-4 py-3 align-middle">
                         <div>
                           <Link
-                            href={`/advisor/students/${student._id}`}
+                            href={`/u/students/${student._id}`}
                             className="font-medium hover:text-primary hover:underline transition-colors"
                           >
                             {student.name}
@@ -279,7 +279,7 @@ export function StudentsTable({ students, isLoading }: StudentsTableProps) {
                       <td className="px-4 py-3 align-middle hidden sm:table-cell">{statusBadge}</td>
                       <td className="px-4 py-3 align-middle text-right">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/advisor/students/${student._id}`}>View Profile</Link>
+                          <Link href={`/u/students/${student._id}`}>View Profile</Link>
                         </Button>
                       </td>
                     </tr>

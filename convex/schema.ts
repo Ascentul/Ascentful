@@ -3676,6 +3676,7 @@ export default defineSchema({
     // === Timestamps ===
     created_at: v.number(),
     updated_at: v.number(),
+    resolved_at: v.optional(v.number()), // When status changed to RESOLVED (for reopen window)
   })
     .index('by_university', ['university_id'])
     .index('by_university_status', ['university_id', 'status'])

@@ -861,6 +861,17 @@ export const recordSurveyResponse = mutation({
     }
     const now = Date.now();
 
+    // Prevent status regressions (e.g., completed → started due to retried requests)
+    const statusOrder = { pending: 0, started: 1, completed: 2, opted_out: 2 } as const;
+    const currentStatus = outcome.survey_response_status ?? 'pending';
+    if (statusOrder[args.responseStatus] < statusOrder[currentStatus]) {
+      return {
+        outcomeId: outcome._id,
+        responseStatus: currentStatus,
+        recordedAt: now,
+      };
+    }
+
     // Validate survey-submitted fields (ensures same constraints as other entry points)
     validateOutcomeData({
       salary: args.salary,

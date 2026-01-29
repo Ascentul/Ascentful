@@ -167,12 +167,11 @@ export default function PublicProfilePage() {
       return;
     }
 
-    try {
-      // Show preview immediately
-      const reader = new FileReader();
-      reader.onloadend = () => setCoverImage(reader.result as string);
-      reader.readAsDataURL(file);
+    // Show preview immediately using synchronous URL.createObjectURL
+    const previewUrl = URL.createObjectURL(file);
+    setCoverImage(previewUrl);
 
+    try {
       // Generate upload URL and upload file
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(uploadUrl, {
@@ -201,6 +200,7 @@ export default function PublicProfilePage() {
         variant: 'destructive',
       });
       setCoverImage(null);
+      URL.revokeObjectURL(previewUrl);
     }
   };
 
@@ -232,12 +232,11 @@ export default function PublicProfilePage() {
       return;
     }
 
-    try {
-      // Show preview immediately
-      const reader = new FileReader();
-      reader.onloadend = () => setProfileImage(reader.result as string);
-      reader.readAsDataURL(file);
+    // Show preview immediately using synchronous URL.createObjectURL
+    const previewUrl = URL.createObjectURL(file);
+    setProfileImage(previewUrl);
 
+    try {
       // Generate upload URL and upload file
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(uploadUrl, {
@@ -266,6 +265,7 @@ export default function PublicProfilePage() {
         variant: 'destructive',
       });
       setProfileImage(null);
+      URL.revokeObjectURL(previewUrl);
     }
   };
 

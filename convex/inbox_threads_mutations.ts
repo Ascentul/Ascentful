@@ -501,6 +501,7 @@ export const resolveThread = mutation({
     await ctx.db.patch(args.threadId, {
       status: 'RESOLVED',
       updated_at: now,
+      resolved_at: now,
     });
 
     // Add resolution as internal note
@@ -610,12 +611,13 @@ export const reopenThread = mutation({
     const now = Date.now();
     const previousStatus = thread.status;
 
-    // Update thread - recalculate SLA
+    // Update thread - recalculate SLA, clear resolved_at
     await ctx.db.patch(args.threadId, {
       status: 'OPEN',
       sla_due_at: calculateSLADueAt(thread.priority),
       sla_breached: false,
       updated_at: now,
+      resolved_at: undefined,
     });
 
     // Create action log

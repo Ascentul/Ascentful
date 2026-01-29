@@ -162,7 +162,7 @@ export interface AssignLicensesData {
 
 export type RoleFilter = 'all' | 'student' | 'advisor' | 'staff';
 export type StatusFilter = 'all' | 'active' | 'inactive' | 'pending';
-export type AnalyticsView = 'engagement' | 'features' | 'risk';
+export type AnalyticsView = 'engagement' | 'features' | 'risk' | 'predictions' | 'advisors';
 export type UsageView = 'overview' | 'features' | 'programs';
 export type ViewMode = 'table' | 'grid';
 

@@ -706,6 +706,7 @@ export const markResolved = mutation({
     await ctx.db.patch(args.threadId, {
       status: 'RESOLVED',
       updated_at: now,
+      resolved_at: now,
     });
 
     // Create action log
@@ -774,7 +775,8 @@ export const reopenThread = mutation({
 
     // Check if within 30 days of resolution
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    if (thread.updated_at < thirtyDaysAgo) {
+    const resolutionTime = thread.resolved_at ?? thread.updated_at; // Fallback for existing threads
+    if (resolutionTime < thirtyDaysAgo) {
       throw new ConvexError({
         code: 'VALIDATION_ERROR',
         message: 'This thread can no longer be reopened. Please create a new thread.',
@@ -783,10 +785,11 @@ export const reopenThread = mutation({
 
     const now = Date.now();
 
-    // Update thread status
+    // Update thread status, clear resolved_at
     await ctx.db.patch(args.threadId, {
       status: 'OPEN',
       updated_at: now,
+      resolved_at: undefined,
     });
 
     // Create action log

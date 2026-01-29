@@ -14,7 +14,7 @@
  *   - Cleanup removes only demo data, never touches other universities
  */
 
-import { mutation, query } from '../_generated/server';
+import { action, mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 
 // ============================================================================
@@ -745,11 +745,13 @@ export const seedAdvisorData = mutation({
         await ctx.db.insert('queue_items', {
           university_id: args.universityId,
           student_id: student._id,
-          signal_id: undefined,
           owner_id: advisor._id,
+          title: reasonData.reason,
           status: i < 3 ? 'IN_PROGRESS' : 'OPEN',
           priority: reasonData.priority,
           due_at: now + (i + 1) * 24 * 60 * 60 * 1000, // Staggered due dates
+          created_from: 'manual',
+          version: 1,
           created_at: now - Math.random() * 7 * 24 * 60 * 60 * 1000,
           updated_at: now,
         });
@@ -811,10 +813,12 @@ export const seedAdvisorData = mutation({
           student_id: student._id,
           identity_status: 'matched',
           subject: `Chat with ${student.name}`,
+          channel: 'in_app',
           assigned_to: advisor._id,
-          status: i < 3 ? 'open' : 'active',
+          status: i < 3 ? 'OPEN' : 'IN_PROGRESS',
+          priority: 'P2',
+          message_count: 2, // One student msg + one advisor response
           last_message_at: now - i * 2 * 60 * 60 * 1000, // Staggered messages
-          last_message_preview: template.advisorMsg.substring(0, 100),
           last_message_sender_type: i % 2 === 0 ? 'student' : 'advisor',
           has_unread: i < 2,
           created_at: now - (10 - i) * 24 * 60 * 60 * 1000,
@@ -863,31 +867,32 @@ export const seedAdvisorData = mutation({
       'application_strategy',
     ] as const;
 
-    for (let i = 0; i < Math.min(5, studentsToAssign.length); i++) {
+    // Create upcoming sessions for first 6 students
+    for (let i = 0; i < Math.min(6, studentsToAssign.length); i++) {
       const student = studentsToAssign[i];
       const sessionType = sessionTypes[i % sessionTypes.length];
 
       // Check if session already exists
       const existingSession = await ctx.db
         .query('advisor_sessions')
-        .withIndex('by_student', (q) =>
-          q.eq('student_id', student._id).eq('university_id', args.universityId),
-        )
+        .withIndex('by_student', (q) => q.eq('student_id', student._id))
         .first();
 
       if (!existingSession && !isDryRun) {
-        const startAt = now + (i + 1) * 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000; // Future dates at 10am
+        const startTime = now + (i + 1) * 24 * 60 * 60 * 1000; // Future sessions
         await ctx.db.insert('advisor_sessions', {
           student_id: student._id,
           advisor_id: advisor._id,
           university_id: args.universityId,
-          title: `${sessionType.replace('_', ' ')} with ${student.name?.split(' ')[0]}`,
-          start_at: startAt,
-          end_at: startAt + 30 * 60 * 1000, // 30 min
+          title: `${sessionType.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())} Session`,
+          scheduled_at: startTime,
+          start_at: startTime,
           duration_minutes: 30,
           session_type: sessionType,
-          status: 'scheduled',
+          location: 'Virtual',
+          meeting_url: 'https://meet.google.com/demo-session',
           visibility: 'shared',
+          status: 'scheduled',
           created_at: now,
           updated_at: now,
         });
@@ -896,48 +901,481 @@ export const seedAdvisorData = mutation({
     }
     console.log(`  Created ${sessionsCreated} upcoming sessions`);
 
-    // Create review requests
-    console.log('\n[5/5] Creating review requests...');
-    let reviewsCreated = 0;
+    // Summary
+    console.log('\n[5/5] Seeding complete!');
+    console.log('='.repeat(60));
 
-    for (let i = 0; i < Math.min(5, studentsToAssign.length); i++) {
-      const student = studentsToAssign[i + 5]; // Use different students
-      if (!student) continue;
+    return {
+      success: true,
+      advisorId: advisor._id,
+      assignmentsCreated,
+      queueItemsCreated,
+      threadsCreated,
+      sessionsCreated,
+      studentsProcessed: studentsToAssign.length,
+    };
+  },
+});
 
-      // Check if review already exists
-      const existingReview = await ctx.db
-        .query('advisor_reviews')
-        .withIndex('by_student', (q) =>
-          q.eq('student_id', student._id).eq('university_id', args.universityId),
-        )
-        .first();
+// ============================================================================
+// SEED STUDENT PROFILE DATA - Adds majors, grad years, applications, follow-ups
+// ============================================================================
 
-      if (!existingReview && !isDryRun) {
-        await ctx.db.insert('advisor_reviews', {
-          student_id: student._id,
-          university_id: args.universityId,
-          asset_type: i % 2 === 0 ? 'resume' : 'cover_letter',
-          status: i === 0 ? 'in_review' : 'waiting',
-          created_at: now - i * 24 * 60 * 60 * 1000,
+const MAJORS_FINANCE = [
+  'Finance',
+  'Accounting',
+  'Economics',
+  'Business Administration',
+  'Financial Engineering',
+  'Investment Management',
+];
+
+const MAJORS_LIBERAL_ARTS = [
+  'Marketing',
+  'Communications',
+  'Psychology',
+  'English',
+  'Political Science',
+  'Sociology',
+];
+
+const COMPANIES = [
+  { company: 'Google', logo: 'https://logo.clearbit.com/google.com' },
+  { company: 'Microsoft', logo: 'https://logo.clearbit.com/microsoft.com' },
+  { company: 'Apple', logo: 'https://logo.clearbit.com/apple.com' },
+  { company: 'Amazon', logo: 'https://logo.clearbit.com/amazon.com' },
+  { company: 'Meta', logo: 'https://logo.clearbit.com/meta.com' },
+  { company: 'Netflix', logo: 'https://logo.clearbit.com/netflix.com' },
+  { company: 'Stripe', logo: 'https://logo.clearbit.com/stripe.com' },
+  { company: 'Airbnb', logo: 'https://logo.clearbit.com/airbnb.com' },
+  { company: 'Uber', logo: 'https://logo.clearbit.com/uber.com' },
+  { company: 'Salesforce', logo: 'https://logo.clearbit.com/salesforce.com' },
+  { company: 'Adobe', logo: 'https://logo.clearbit.com/adobe.com' },
+  { company: 'LinkedIn', logo: 'https://logo.clearbit.com/linkedin.com' },
+  { company: 'Goldman Sachs', logo: 'https://logo.clearbit.com/goldmansachs.com' },
+  { company: 'JPMorgan Chase', logo: 'https://logo.clearbit.com/jpmorganchase.com' },
+  { company: 'Morgan Stanley', logo: 'https://logo.clearbit.com/morganstanley.com' },
+  { company: 'Deloitte', logo: 'https://logo.clearbit.com/deloitte.com' },
+  { company: 'McKinsey', logo: 'https://logo.clearbit.com/mckinsey.com' },
+  { company: 'Spotify', logo: 'https://logo.clearbit.com/spotify.com' },
+];
+
+const JOB_TITLES_FINANCE = [
+  'Financial Analyst',
+  'Investment Banking Analyst',
+  'Accountant',
+  'Business Analyst',
+  'Risk Analyst',
+  'Portfolio Analyst',
+];
+
+const JOB_TITLES_LA = [
+  'Marketing Coordinator',
+  'Communications Specialist',
+  'Content Writer',
+  'Social Media Manager',
+  'HR Coordinator',
+  'Project Coordinator',
+];
+
+export const seedStudentProfiles = mutation({
+  args: {
+    universityId: v.id('universities'),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const isDryRun = args.dryRun === true;
+
+    console.log('='.repeat(60));
+    console.log('Seeding Student Profile Data');
+    console.log('='.repeat(60));
+
+    if (isDryRun) {
+      console.log('DRY RUN MODE - No changes will be made');
+    }
+
+    // Get all demo students
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
+      .filter((q) => q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('is_test_user'), true)))
+      .collect();
+
+    console.log(`\n[1/3] Updating ${students.length} student profiles...`);
+
+    // Get the advisor for assigning applications and follow-ups
+    const advisor = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', 'demo-advisor@ascentul.io'))
+      .first();
+
+    if (!advisor) {
+      console.log('Demo advisor not found. Create the Clerk user first.');
+      return {
+        success: false,
+        message: 'Advisor not found',
+        profilesUpdated: 0,
+        applicationsCreated: 0,
+        followupsCreated: 0,
+      };
+    }
+
+    // Get assigned students (first 30 from student_advisors table)
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_advisor', (q) =>
+        q.eq('advisor_id', advisor._id).eq('university_id', args.universityId),
+      )
+      .collect();
+
+    const assignedStudentIds = new Set(advisorAssignments.map((a) => a.student_id.toString()));
+    console.log(`  Found ${assignedStudentIds.size} students assigned to advisor`);
+
+    // Get departments to determine major
+    const departments = await ctx.db
+      .query('departments')
+      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
+      .collect();
+
+    const financeDept = departments.find((d) => d.code === 'FIN');
+    const liberalArtsDept = departments.find((d) => d.code === 'LA');
+
+    let profilesUpdated = 0;
+    let applicationsCreated = 0;
+    let followupsCreated = 0;
+
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      const isFinance = student.department_id === financeDept?._id;
+
+      // Determine major based on department
+      const majors = isFinance ? MAJORS_FINANCE : MAJORS_LIBERAL_ARTS;
+      const major = majors[i % majors.length];
+
+      // Graduation years: 2025, 2026, 2027 (mostly 2025)
+      const gradYears = ['2025', '2025', '2025', '2026', '2026', '2027'];
+      const graduationYear = gradYears[i % gradYears.length];
+
+      // Activity level - make ~60% active in last 7 days
+      const activityLevel = i % 10;
+      let lastLoginAt;
+      if (activityLevel < 6) {
+        // Active - logged in within 7 days
+        lastLoginAt = now - Math.random() * 7 * 24 * 60 * 60 * 1000;
+      } else if (activityLevel < 8) {
+        // Semi-active - logged in 7-14 days ago
+        lastLoginAt = now - (7 + Math.random() * 7) * 24 * 60 * 60 * 1000;
+      } else {
+        // Inactive - logged in 14-30 days ago
+        lastLoginAt = now - (14 + Math.random() * 16) * 24 * 60 * 60 * 1000;
+      }
+
+      if (!isDryRun) {
+        await ctx.db.patch(student._id, {
+          major,
+          graduation_year: graduationYear,
+          last_login_at: lastLoginAt,
           updated_at: now,
         });
-        reviewsCreated++;
+        profilesUpdated++;
+      }
+
+      // Create applications for this student (2-5 apps per student)
+      // Only assign advisor for students in advisor's caseload
+      const isAssignedToAdvisor = assignedStudentIds.has(student._id.toString());
+      const numApps = 2 + (i % 4);
+      const existingApps = await ctx.db
+        .query('applications')
+        .withIndex('by_user', (q) => q.eq('user_id', student._id))
+        .collect();
+
+      if (existingApps.length < numApps && !isDryRun) {
+        const jobTitles = isFinance ? JOB_TITLES_FINANCE : JOB_TITLES_LA;
+
+        for (let j = 0; j < numApps - existingApps.length; j++) {
+          const companyData = COMPANIES[(i + j) % COMPANIES.length];
+          const jobTitle = jobTitles[j % jobTitles.length];
+
+          // Distribute stages: 30% Applied, 25% Interview, 20% Prospect, 15% Offer, 10% Rejected
+          const stageRoll = (i + j) % 20;
+          let stage: 'Prospect' | 'Applied' | 'Interview' | 'Offer' | 'Rejected';
+          let status: 'saved' | 'applied' | 'interview' | 'offer' | 'rejected';
+
+          if (stageRoll < 6) {
+            stage = 'Applied';
+            status = 'applied';
+          } else if (stageRoll < 11) {
+            stage = 'Interview';
+            status = 'interview';
+          } else if (stageRoll < 15) {
+            stage = 'Prospect';
+            status = 'saved';
+          } else if (stageRoll < 18) {
+            stage = 'Offer';
+            status = 'offer';
+          } else {
+            stage = 'Rejected';
+            status = 'rejected';
+          }
+
+          const appliedAt = now - Math.random() * 30 * 24 * 60 * 60 * 1000;
+
+          await ctx.db.insert('applications', {
+            user_id: student._id,
+            university_id: args.universityId,
+            company: companyData.company,
+            job_title: jobTitle,
+            status,
+            stage,
+            stage_set_at: appliedAt,
+            logo_url: companyData.logo,
+            location: 'Remote',
+            applied_at: stage !== 'Prospect' ? appliedAt : undefined,
+            // Assign advisor for students in their caseload
+            assigned_advisor_id: isAssignedToAdvisor ? advisor._id : undefined,
+            created_at: appliedAt,
+            updated_at: now,
+          });
+          applicationsCreated++;
+        }
+      }
+
+      // Create follow-ups for students assigned to advisor (every 3rd assigned student)
+      if (isAssignedToAdvisor && i % 3 === 0 && !isDryRun) {
+        // Check follow_ups table (the correct table that advisor_students.ts queries)
+        const existingFollowups = await ctx.db
+          .query('follow_ups')
+          .withIndex('by_user_university', (q) =>
+            q.eq('user_id', student._id).eq('university_id', args.universityId),
+          )
+          .collect();
+
+        if (existingFollowups.length === 0) {
+          const followupTitles = [
+            'Check in on interview preparation',
+            'Review updated resume',
+            'Discuss job offer decision',
+            'Follow up on application status',
+            'Schedule mock interview',
+          ];
+
+          // Create in follow_ups table (queried by advisor_students.ts)
+          await ctx.db.insert('follow_ups', {
+            user_id: student._id, // The student this relates to
+            owner_id: advisor._id, // Who is responsible
+            created_by_id: advisor._id, // Created by advisor (this is what the query filters on!)
+            created_by_type: 'advisor',
+            university_id: args.universityId,
+            title: followupTitles[i % followupTitles.length],
+            related_type: 'general',
+            due_at: now + (1 + (i % 7)) * 24 * 60 * 60 * 1000, // Due in 1-7 days
+            priority: i % 4 === 0 ? 'high' : 'medium',
+            status: 'open',
+            created_at: now,
+            updated_at: now,
+          });
+          followupsCreated++;
+        }
       }
     }
-    console.log(`  Created ${reviewsCreated} review requests`);
+
+    console.log(`  Updated ${profilesUpdated} student profiles`);
+    console.log(`\n[2/3] Creating applications...`);
+    console.log(`  Created ${applicationsCreated} applications`);
+    console.log(`\n[3/3] Creating follow-ups...`);
+    console.log(`  Created ${followupsCreated} follow-ups`);
 
     console.log('\n' + '='.repeat(60));
-    console.log('ADVISOR DATA SEED COMPLETE');
+    console.log('STUDENT PROFILE DATA SEED COMPLETE');
     console.log('='.repeat(60));
 
     return {
       success: true,
       isDryRun,
-      assignmentsCreated,
-      queueItemsCreated,
-      threadsCreated,
-      sessionsCreated,
-      reviewsCreated,
+      profilesUpdated,
+      applicationsCreated,
+      followupsCreated,
+    };
+  },
+});
+
+// ============================================================================
+// ENABLE ADVISOR FEATURE FLAGS - Required for advisor pages to work
+// ============================================================================
+
+export const enableAdvisorFeatureFlags = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const advisorFlags = [
+      'advisor.dashboard',
+      'advisor.students',
+      'advisor.advising',
+      'advisor.reviews',
+      'advisor.applications',
+      'advisor.analytics',
+      'advisor.support',
+    ];
+
+    console.log('='.repeat(60));
+    console.log('Enabling Advisor Feature Flags');
+    console.log('='.repeat(60));
+
+    let flagsEnabled = 0;
+
+    for (const flag of advisorFlags) {
+      // Check if setting exists
+      const existing = await ctx.db
+        .query('platform_settings')
+        .withIndex('by_setting_key', (q) => q.eq('setting_key', flag))
+        .unique();
+
+      if (existing) {
+        if (existing.setting_value !== true) {
+          await ctx.db.patch(existing._id, {
+            setting_value: true,
+            updated_at: now,
+          });
+          console.log(`  Enabled: ${flag}`);
+          flagsEnabled++;
+        } else {
+          console.log(`  Already enabled: ${flag}`);
+        }
+      } else {
+        await ctx.db.insert('platform_settings', {
+          setting_key: flag,
+          setting_value: true,
+          created_at: now,
+          updated_at: now,
+        });
+        console.log(`  Created and enabled: ${flag}`);
+        flagsEnabled++;
+      }
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log(`FEATURE FLAGS ENABLED: ${flagsEnabled}`);
+    console.log('='.repeat(60));
+
+    return { success: true, flagsEnabled };
+  },
+});
+
+// ============================================================================
+// FIX EXISTING DATA - Updates applications with advisor assignment and creates follow-ups
+// ============================================================================
+
+export const fixExistingData = mutation({
+  args: {
+    universityId: v.id('universities'),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const isDryRun = args.dryRun === true;
+
+    console.log('='.repeat(60));
+    console.log('Fixing Existing Data');
+    console.log('='.repeat(60));
+
+    // Get the advisor
+    const advisor = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', 'demo-advisor@ascentul.io'))
+      .first();
+
+    if (!advisor) {
+      return { success: false, message: 'Advisor not found' };
+    }
+
+    // Get assigned students
+    const advisorAssignments = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_advisor', (q) =>
+        q.eq('advisor_id', advisor._id).eq('university_id', args.universityId),
+      )
+      .collect();
+
+    const assignedStudentIds = new Set(advisorAssignments.map((a) => a.student_id));
+    console.log(`Found ${assignedStudentIds.size} students assigned to advisor`);
+
+    // Fix applications - set assigned_advisor_id
+    console.log('\n[1/2] Updating applications with advisor assignment...');
+    let applicationsUpdated = 0;
+
+    for (const studentId of assignedStudentIds) {
+      const applications = await ctx.db
+        .query('applications')
+        .withIndex('by_user', (q) => q.eq('user_id', studentId))
+        .collect();
+
+      for (const app of applications) {
+        if (!app.assigned_advisor_id && !isDryRun) {
+          await ctx.db.patch(app._id, {
+            assigned_advisor_id: advisor._id,
+            updated_at: now,
+          });
+          applicationsUpdated++;
+        }
+      }
+    }
+    console.log(`  Updated ${applicationsUpdated} applications`);
+
+    // Create follow-ups in the correct table
+    console.log('\n[2/2] Creating follow-ups in follow_ups table...');
+    let followupsCreated = 0;
+
+    const followupTitles = [
+      'Check in on interview preparation',
+      'Review updated resume',
+      'Discuss job offer decision',
+      'Follow up on application status',
+      'Schedule mock interview',
+    ];
+
+    let studentIndex = 0;
+    for (const studentId of assignedStudentIds) {
+      // Only create for every 3rd student
+      if (studentIndex % 3 === 0) {
+        const existingFollowups = await ctx.db
+          .query('follow_ups')
+          .withIndex('by_user_university', (q) =>
+            q.eq('user_id', studentId).eq('university_id', args.universityId),
+          )
+          .collect();
+
+        if (existingFollowups.length === 0 && !isDryRun) {
+          await ctx.db.insert('follow_ups', {
+            user_id: studentId,
+            owner_id: advisor._id,
+            created_by_id: advisor._id,
+            created_by_type: 'advisor',
+            university_id: args.universityId,
+            title: followupTitles[studentIndex % followupTitles.length],
+            related_type: 'general',
+            due_at: now + (1 + (studentIndex % 7)) * 24 * 60 * 60 * 1000,
+            priority: studentIndex % 4 === 0 ? 'high' : 'medium',
+            status: 'open',
+            created_at: now,
+            updated_at: now,
+          });
+          followupsCreated++;
+        }
+      }
+      studentIndex++;
+    }
+    console.log(`  Created ${followupsCreated} follow-ups`);
+
+    console.log('\n' + '='.repeat(60));
+    console.log('FIX COMPLETE');
+    console.log('='.repeat(60));
+
+    return {
+      success: true,
+      isDryRun,
+      applicationsUpdated,
+      followupsCreated,
     };
   },
 });
@@ -1055,5 +1493,137 @@ export const cleanupOldYCDemo = mutation({
       studentsDeleted: students.length,
       departmentsDeleted: departments.length,
     };
+  },
+});
+
+// ============================================================================
+// SYNC DEMO USERS TO CLERK - Updates Clerk publicMetadata with roles
+// ============================================================================
+
+/**
+ * Sync demo users' roles to Clerk publicMetadata.
+ * This is required because RequireRole checks Clerk publicMetadata, not Convex.
+ *
+ * Usage:
+ *   npx convex run dev/seedYCDemo:syncDemoUsersToClerk --universityId <id>
+ *
+ * Requires: CLERK_SECRET_KEY environment variable
+ */
+export const syncDemoUsersToClerk = action({
+  args: {
+    universityId: v.id('universities'),
+  },
+  handler: async (ctx, args) => {
+    const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+    if (!CLERK_SECRET_KEY) {
+      throw new Error('CLERK_SECRET_KEY environment variable is required');
+    }
+
+    console.log('='.repeat(60));
+    console.log('Syncing Demo Users to Clerk');
+    console.log('='.repeat(60));
+
+    // Demo users to sync
+    const demoUsers = [
+      { email: 'demo-admin@ascentul.io', expectedRole: 'university_admin' },
+      { email: 'demo-advisor@ascentul.io', expectedRole: 'advisor' },
+      { email: 'demo-student@ascentul.io', expectedRole: 'student' },
+    ];
+
+    const results: Array<{
+      email: string;
+      status: 'synced' | 'error' | 'not_found';
+      message: string;
+    }> = [];
+
+    for (const demoUser of demoUsers) {
+      try {
+        // Search for user in Clerk by email
+        const searchResponse = await fetch(
+          `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(demoUser.email)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${CLERK_SECRET_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        if (!searchResponse.ok) {
+          results.push({
+            email: demoUser.email,
+            status: 'error',
+            message: `Clerk search failed: ${searchResponse.status}`,
+          });
+          continue;
+        }
+
+        const searchData = await searchResponse.json();
+        if (!searchData || searchData.length === 0) {
+          results.push({
+            email: demoUser.email,
+            status: 'not_found',
+            message: 'User not found in Clerk. Create the user in Clerk Dashboard first.',
+          });
+          continue;
+        }
+
+        const clerkUser = searchData[0];
+        const currentMetadata = clerkUser.public_metadata || {};
+
+        // Update Clerk publicMetadata with role and university_id
+        const updateResponse = await fetch(`https://api.clerk.com/v1/users/${clerkUser.id}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${CLERK_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            public_metadata: {
+              ...currentMetadata,
+              role: demoUser.expectedRole,
+              university_id: args.universityId,
+            },
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          results.push({
+            email: demoUser.email,
+            status: 'error',
+            message: `Clerk update failed: ${updateResponse.status}`,
+          });
+          continue;
+        }
+
+        results.push({
+          email: demoUser.email,
+          status: 'synced',
+          message: `Set role="${demoUser.expectedRole}", university_id="${args.universityId}"`,
+        });
+        console.log(`  Synced: ${demoUser.email} → role=${demoUser.expectedRole}`);
+      } catch (error) {
+        results.push({
+          email: demoUser.email,
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log('SYNC COMPLETE');
+    console.log('='.repeat(60));
+
+    const synced = results.filter((r) => r.status === 'synced').length;
+    const errors = results.filter((r) => r.status === 'error').length;
+    const notFound = results.filter((r) => r.status === 'not_found').length;
+
+    console.log(`Synced: ${synced}, Errors: ${errors}, Not Found: ${notFound}`);
+    if (notFound > 0) {
+      console.log('\nUsers not found need to be created in Clerk Dashboard first.');
+    }
+
+    return { success: errors === 0, results };
   },
 });

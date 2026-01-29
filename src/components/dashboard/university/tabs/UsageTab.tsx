@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { api } from 'convex/_generated/api';
+import { useQuery } from 'convex/react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Legend,
@@ -26,6 +29,7 @@ import {
 import type { Department, PlatformUsageData, UsageView } from '../types';
 
 interface UsageTabProps {
+  clerkId: string | undefined;
   departments: Department[];
   platformUsageData: PlatformUsageData[];
   onViewReport: (name: string, type: string) => void;
@@ -33,6 +37,7 @@ interface UsageTabProps {
 }
 
 export function UsageTab({
+  clerkId,
   departments,
   platformUsageData,
   onViewReport,
@@ -41,6 +46,24 @@ export function UsageTab({
   const [usageTimeFilter, setUsageTimeFilter] = useState('Last month');
   const [usageProgramFilter, setUsageProgramFilter] = useState('All Programs');
   const [usageView, setUsageView] = useState<UsageView>('overview');
+
+  // Map filter to API parameter
+  const timeFilterParam = useMemo(() => {
+    switch (usageTimeFilter) {
+      case 'Last 3 months':
+        return 'last_3_months';
+      case 'Last 6 months':
+        return 'last_6_months';
+      default:
+        return 'last_month';
+    }
+  }, [usageTimeFilter]);
+
+  // Fetch usage metrics
+  const usageMetrics = useQuery(
+    api.university_analytics.getUsageMetrics,
+    clerkId ? { clerkId, timeFilter: timeFilterParam } : 'skip',
+  );
 
   return (
     <div className="space-y-6">
@@ -82,20 +105,36 @@ export function UsageTab({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="relative">
-              <div className="absolute top-2 right-2">
-                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                  Coming Soon
-                </span>
-              </div>
+            {/* Total Logins */}
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Logins</p>
-                    <p className="text-2xl font-bold text-muted-foreground/50">--</p>
+                    <p className="text-2xl font-bold">
+                      {usageMetrics?.totalLogins?.toLocaleString() ?? '--'}
+                    </p>
+                    {usageMetrics?.loginTrend !== undefined && usageMetrics.loginTrend !== 0 && (
+                      <p
+                        className={`text-xs flex items-center gap-1 ${usageMetrics.loginTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {usageMetrics.loginTrend > 0 ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3" />
+                        )}
+                        {usageMetrics.loginTrend > 0 ? '+' : ''}
+                        {usageMetrics.loginTrend}% vs prev period
+                      </p>
+                    )}
                   </div>
-                  <div className="text-green-600/50">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="text-green-600">
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
@@ -107,20 +146,37 @@ export function UsageTab({
               </CardContent>
             </Card>
 
-            <Card className="relative">
-              <div className="absolute top-2 right-2">
-                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                  Coming Soon
-                </span>
-              </div>
+            {/* Active Users */}
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Active Users</p>
-                    <p className="text-2xl font-bold text-muted-foreground/50">--</p>
+                    <p className="text-sm font-medium text-muted-foreground">Active Users (30d)</p>
+                    <p className="text-2xl font-bold">
+                      {usageMetrics?.activeUsers30d?.toLocaleString() ?? '--'}
+                    </p>
+                    {usageMetrics?.activeUsersTrend !== undefined &&
+                      usageMetrics.activeUsersTrend !== 0 && (
+                        <p
+                          className={`text-xs flex items-center gap-1 ${usageMetrics.activeUsersTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+                        >
+                          {usageMetrics.activeUsersTrend > 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {usageMetrics.activeUsersTrend > 0 ? '+' : ''}
+                          {usageMetrics.activeUsersTrend}% vs prev period
+                        </p>
+                      )}
                   </div>
-                  <div className="text-blue-600/50">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="text-blue-600">
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
@@ -132,20 +188,24 @@ export function UsageTab({
               </CardContent>
             </Card>
 
-            <Card className="relative">
-              <div className="absolute top-2 right-2">
-                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                  Coming Soon
-                </span>
-              </div>
+            {/* Active Users 7d */}
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Avg Session Time</p>
-                    <p className="text-2xl font-bold text-muted-foreground/50">--</p>
+                    <p className="text-sm font-medium text-muted-foreground">Active Users (7d)</p>
+                    <p className="text-2xl font-bold">
+                      {usageMetrics?.activeUsers7d?.toLocaleString() ?? '--'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Last 7 days</p>
                   </div>
-                  <div className="text-purple-600/50">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="text-purple-600">
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
@@ -157,20 +217,24 @@ export function UsageTab({
               </CardContent>
             </Card>
 
-            <Card className="relative">
-              <div className="absolute top-2 right-2">
-                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                  Coming Soon
-                </span>
-              </div>
+            {/* Feature Usage */}
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Feature Usage</p>
-                    <p className="text-2xl font-bold text-muted-foreground/50">--</p>
+                    <p className="text-2xl font-bold">
+                      {usageMetrics?.featureUsageCount?.toLocaleString() ?? '--'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Total actions</p>
                   </div>
-                  <div className="text-orange-600/50">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="text-orange-600">
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
                       <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
                     </svg>
                   </div>

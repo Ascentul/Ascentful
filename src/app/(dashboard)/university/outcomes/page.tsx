@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
+import jsPDF from 'jspdf';
 import {
   ArrowDown,
   ArrowUp,
@@ -379,6 +380,164 @@ export default function OutcomesDashboardPage() {
     [clerkUser?.id, filters, selectedSnapshotId, toast],
   );
 
+  const handleExportPDF = useCallback(() => {
+    if (!displayData.summary) {
+      toast({
+        title: 'No data to export',
+        description: 'Please wait for the data to load.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentWidth = pageWidth - 2 * margin;
+    let yPos = margin;
+
+    // Helper to add wrapped text
+    const addWrappedText = (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      lineHeight: number = 7,
+    ) => {
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, x, y);
+      return y + lines.length * lineHeight;
+    };
+
+    // Helper for page break
+    const checkPageBreak = (neededSpace: number) => {
+      if (yPos + neededSpace > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        yPos = margin;
+      }
+    };
+
+    // Title
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Career Outcomes Report', margin, yPos);
+    yPos += 10;
+
+    // Date
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      margin,
+      yPos,
+    );
+    yPos += 15;
+
+    // Summary section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Executive Summary', margin, yPos);
+    yPos += 10;
+
+    const summary = displayData.summary;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+
+    // Key metrics
+    const metrics = [
+      { label: 'Career Outcomes Rate', value: `${summary.career_outcomes_rate?.toFixed(1) || 0}%` },
+      { label: 'Knowledge Rate', value: `${summary.knowledge_rate?.toFixed(1) || 0}%` },
+      { label: 'Employment Rate', value: `${summary.employment_rate?.toFixed(1) || 0}%` },
+      {
+        label: 'Continuing Education Rate',
+        value: `${summary.continuing_ed_rate?.toFixed(1) || 0}%`,
+      },
+      { label: 'Total Students', value: String(summary.total_students || 0) },
+      { label: 'Known Outcomes', value: String(summary.known_outcomes || 0) },
+    ];
+
+    metrics.forEach((metric) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${metric.label}:`, margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(metric.value, margin + 70, yPos);
+      yPos += 7;
+    });
+    yPos += 10;
+
+    // Breakdown by outcome type
+    checkPageBreak(40);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Outcome Distribution', margin, yPos);
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    const outcomeTypes = [
+      { label: 'Employed Full-time', value: summary.employed_fulltime || 0 },
+      { label: 'Employed Part-time', value: summary.employed_parttime || 0 },
+      { label: 'Continuing Education', value: summary.continuing_education || 0 },
+      { label: 'Military Service', value: summary.military || 0 },
+      { label: 'Volunteer Service', value: summary.volunteer || 0 },
+      { label: 'Unknown Outcomes', value: summary.unknown_outcomes || 0 },
+    ];
+
+    outcomeTypes.forEach((type) => {
+      if (type.value > 0) {
+        doc.text(`• ${type.label}: ${type.value}`, margin + 5, yPos);
+        yPos += 6;
+      }
+    });
+    yPos += 10;
+
+    // Program breakdown if available
+    if (displayData.breakdown && Object.keys(displayData.breakdown).length > 0) {
+      checkPageBreak(30);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Breakdown by Program', margin, yPos);
+      yPos += 10;
+
+      doc.setFontSize(9);
+      Object.entries(displayData.breakdown).forEach(
+        ([program, data]: [
+          string,
+          { knowledge_rate?: number; employment_rate?: number; total_students?: number },
+        ]) => {
+          checkPageBreak(15);
+          doc.setFont('helvetica', 'bold');
+          yPos = addWrappedText(program, margin, yPos, contentWidth);
+          doc.setFont('helvetica', 'normal');
+          doc.text(
+            `  Knowledge Rate: ${data.knowledge_rate?.toFixed(1) || 0}% | Employment Rate: ${data.employment_rate?.toFixed(1) || 0}% | Total: ${data.total_students || 0}`,
+            margin + 5,
+            yPos,
+          );
+          yPos += 8;
+        },
+      );
+    }
+
+    // Footer with benchmark comparison
+    checkPageBreak(30);
+    yPos += 5;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Benchmarks: NACE First Destination Survey National Averages', margin, yPos);
+
+    // Save
+    const filename = `career-outcomes-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+
+    toast({
+      title: 'PDF exported',
+      description: 'Career outcomes report has been downloaded.',
+    });
+  }, [displayData, toast]);
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -469,14 +628,7 @@ export default function OutcomesDashboardPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 NACE FDS Format
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  toast({
-                    title: 'PDF Export',
-                    description: 'PDF export functionality coming soon.',
-                  });
-                }}
-              >
+              <DropdownMenuItem onClick={handleExportPDF}>
                 <FileText className="mr-2 h-4 w-4" />
                 Export as PDF
               </DropdownMenuItem>

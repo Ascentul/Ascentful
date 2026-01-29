@@ -83,7 +83,6 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
   // Sidebar expanded/collapsed state - initialize with default to avoid hydration mismatch
   const [localExpanded, setLocalExpanded] = useState<boolean>(true);
   const expanded = sidebarContext?.isExpanded ?? localExpanded;
-  const setExpanded = sidebarContext?.setExpanded ?? setLocalExpanded;
 
   // Collapsed sections state - initialize with default to avoid hydration mismatch
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -331,16 +330,6 @@ export const UniversityWorkspaceSidebar = React.memo(function UniversityWorkspac
               </motion.button>
             )}
           </AnimatePresence>
-          {!expanded && (
-            <button
-              type="button"
-              onClick={toggleExpanded}
-              className="hidden md:flex items-center justify-center flex-shrink-0 ml-auto h-6 w-6 cursor-pointer hover:opacity-70 transition-opacity"
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </button>
-          )}
         </div>
 
         {/* Navigation */}

@@ -1,5 +1,7 @@
 'use client';
 
+import { api } from 'convex/_generated/api';
+import { useQuery } from 'convex/react';
 import {
   Activity,
   AlertTriangle,
@@ -8,6 +10,7 @@ import {
   Award,
   BarChart3,
   Briefcase,
+  FileText,
   GraduationCap,
   Heart,
   Target,
@@ -73,6 +76,7 @@ interface MomentumDistribution {
 }
 
 interface OverviewTabProps {
+  clerkId: string | undefined;
   overview: UniversityOverview;
   studentMetrics: StudentMetrics | undefined;
   students: Student[];
@@ -90,6 +94,7 @@ interface OverviewTabProps {
 }
 
 export function OverviewTab({
+  clerkId,
   overview,
   studentMetrics,
   students,
@@ -105,6 +110,18 @@ export function OverviewTab({
   isUniversityAdmin,
   onStudentClick,
 }: OverviewTabProps) {
+  // Fetch activity trends for charts
+  const activityTrends = useQuery(
+    api.university_analytics.getActivityTrends,
+    clerkId ? { clerkId } : 'skip',
+  );
+
+  // Fetch asset completion stats
+  const assetStats = useQuery(
+    api.university_analytics.getAssetCompletionStats,
+    clerkId ? { clerkId } : 'skip',
+  );
+
   const atRiskCount = studentProgress?.filter((s) => s.completion < 30).length || 0;
   const atRiskPercent =
     (overview?.totalStudents ?? 0) > 0
@@ -428,70 +445,173 @@ export function OverviewTab({
           </Card>
         </div>
 
-        {/* Coming Soon Placeholders */}
+        {/* Student Activity Trends & Asset Completion */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="relative">
-            <div className="absolute top-4 right-4 z-10">
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
-                Coming Soon
-              </span>
-            </div>
+          {/* Weekly Activity Trends Chart */}
+          <Card>
             <CardHeader>
-              <CardTitle className="text-muted-foreground">Student Activity Trends</CardTitle>
+              <CardTitle>Student Activity Trends</CardTitle>
               <CardDescription>
                 Weekly student engagement and feature usage patterns
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-80 flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm">Activity analytics will be available soon</p>
-              </div>
+            <CardContent className="h-80">
+              {!activityTrends?.weeklyTrends || activityTrends.weeklyTrends.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" aria-hidden="true" />
+                    <p className="text-sm">No activity data available yet</p>
+                    <p className="text-xs mt-1">
+                      Activity will appear as students use the platform
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activityTrends.weeklyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="events" fill="#6366F1" name="Total Events">
+                      <LabelList dataKey="events" position="top" />
+                    </Bar>
+                    <Bar dataKey="uniqueUsers" fill="#10B981" name="Active Students">
+                      <LabelList dataKey="uniqueUsers" position="top" />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="relative">
-            <div className="absolute top-4 right-4 z-10">
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
-                Coming Soon
-              </span>
-            </div>
+          {/* Asset Completion Breakdown */}
+          <Card>
             <CardHeader>
-              <CardTitle className="text-muted-foreground">
-                Asset Completion Breakdown by Category
-              </CardTitle>
-              <CardDescription>
-                Average completion levels across resumes, cover letters, goals, applications
-              </CardDescription>
+              <CardTitle>Asset Completion Breakdown</CardTitle>
+              <CardDescription>Average assets per student across categories</CardDescription>
             </CardHeader>
-            <CardContent className="h-80 flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm">Completion analytics will be available soon</p>
-              </div>
+            <CardContent className="h-80">
+              {!assetStats || assetStats.totalStudents === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" aria-hidden="true" />
+                    <p className="text-sm">No asset data available</p>
+                    <p className="text-xs mt-1">Data appears as students create content</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      {
+                        name: 'Resumes',
+                        avg: assetStats.avgResumes,
+                        students: assetStats.studentsWithResume,
+                      },
+                      {
+                        name: 'Cover Letters',
+                        avg: assetStats.avgCoverLetters,
+                        students: assetStats.studentsWithCoverLetter,
+                      },
+                      {
+                        name: 'Goals',
+                        avg: assetStats.avgGoals,
+                        students: assetStats.studentsWithGoals,
+                      },
+                      {
+                        name: 'Applications',
+                        avg: assetStats.avgApplications,
+                        students: assetStats.studentsWithApplications,
+                      },
+                    ]}
+                    layout="vertical"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="name" type="category" width={100} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === 'Avg per Student') return value.toFixed(1);
+                        return value;
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="avg" fill="#8B5CF6" name="Avg per Student" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Progress Insights Coming Soon */}
-        <Card className="relative">
-          <div className="absolute top-4 right-4 z-10">
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
-              Coming Soon
-            </span>
-          </div>
+        {/* Category Usage Breakdown */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-muted-foreground">Student Progress Insights</CardTitle>
-            <CardDescription>
-              Goals in progress vs completed, applications by stage, and resume/cover letter
-              activity
-            </CardDescription>
+            <CardTitle>Feature Category Breakdown</CardTitle>
+            <CardDescription>Activity breakdown by feature category (last 4 weeks)</CardDescription>
           </CardHeader>
-          <CardContent className="h-80 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
-              <p className="text-sm">Progress insights will be available soon</p>
-            </div>
+          <CardContent className="h-80">
+            {!activityTrends?.categoryBreakdown || activityTrends.categoryBreakdown.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" aria-hidden="true" />
+                  <p className="text-sm">No category data available</p>
+                  <p className="text-xs mt-1">
+                    Usage data will appear as students interact with features
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={activityTrends.categoryBreakdown.filter((c) => c.count > 0)}
+                      dataKey="count"
+                      nameKey="category"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ category, percent }) =>
+                        `${category}: ${(percent * 100).toFixed(0)}%`
+                      }
+                    >
+                      {activityTrends.categoryBreakdown.map((entry, index) => (
+                        <Cell
+                          key={entry.category}
+                          fill={['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index % 5]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col justify-center space-y-3">
+                  {activityTrends.categoryBreakdown.map((category, index) => (
+                    <div key={category.category} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{
+                            backgroundColor: [
+                              '#6366F1',
+                              '#10B981',
+                              '#F59E0B',
+                              '#EF4444',
+                              '#8B5CF6',
+                            ][index % 5],
+                          }}
+                        />
+                        <span className="text-sm">{category.category}</span>
+                      </div>
+                      <span className="text-sm font-medium">{category.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

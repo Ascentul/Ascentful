@@ -1,5 +1,7 @@
 'use client';
 
+import { api } from 'convex/_generated/api';
+import { useQuery } from 'convex/react';
 import { Award, BarChart as BarChartIcon, BarChart3, GraduationCap, Users } from 'lucide-react';
 import {
   Bar,
@@ -23,6 +25,7 @@ import { Progress } from '@/components/ui/progress';
 import type { Department, Student, StudentProgress, UniversityOverview } from '../types';
 
 interface DepartmentsTabProps {
+  clerkId: string | undefined;
   departments: Department[];
   students: Student[];
   studentProgress: StudentProgress[];
@@ -30,11 +33,18 @@ interface DepartmentsTabProps {
 }
 
 export function DepartmentsTab({
+  clerkId,
   departments,
   students,
   studentProgress,
   overview,
 }: DepartmentsTabProps) {
+  // Fetch department activity data
+  const departmentActivity = useQuery(
+    api.university_analytics.getDepartmentActivity,
+    clerkId ? { clerkId } : 'skip',
+  );
+
   // Helper to get department students and calculate metrics
   const getDepartmentMetrics = (deptId: string) => {
     const deptStudents = students.filter((s) => s.department_id === deptId);
@@ -261,20 +271,49 @@ export function DepartmentsTab({
         </Card>
       </div>
 
-      {/* Department Activity Chart - Coming Soon */}
-      <Card className="relative">
-        <div className="absolute top-4 right-4 z-10">
-          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Coming Soon</span>
-        </div>
+      {/* Department Activity Chart */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-muted-foreground">Department Activity Overview</CardTitle>
-          <CardDescription>Monthly activity trends across all departments</CardDescription>
+          <CardTitle>Department Activity Overview</CardTitle>
+          <CardDescription>Activity metrics by department (last 30 days)</CardDescription>
         </CardHeader>
-        <CardContent className="h-80 flex items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-30" />
-            <p className="text-sm">Department activity analytics will be available soon</p>
-          </div>
+        <CardContent className="h-80">
+          {!departmentActivity?.departments || departmentActivity.departments.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="text-center">
+                <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" aria-hidden="true" />
+                <p className="text-sm">No department activity data available</p>
+                <p className="text-xs mt-1">Activity will appear as students use the platform</p>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={departmentActivity.departments.slice(0, 8)}
+                layout="vertical"
+                margin={{ left: 20, right: 30 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis
+                  dataKey="departmentName"
+                  type="category"
+                  width={120}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip
+                  formatter={(value: number, name: string) => {
+                    if (name === 'Avg Events/Student') return value.toFixed(1);
+                    return value;
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="totalStudents" fill="#6366F1" name="Students" />
+                <Bar dataKey="activeStudents" fill="#10B981" name="Active Students" />
+                <Bar dataKey="avgEventsPerStudent" fill="#F59E0B" name="Avg Events/Student" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
