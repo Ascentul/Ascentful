@@ -89,9 +89,11 @@ export function UsageTab({
                 <option>Last 6 months</option>
               </select>
               <select
-                className="px-3 py-1 text-sm border rounded-md bg-white"
+                className="px-3 py-1 text-sm border rounded-md bg-white opacity-50 cursor-not-allowed"
                 value={usageProgramFilter}
                 onChange={(e) => setUsageProgramFilter(e.target.value)}
+                disabled
+                title="Program filtering coming soon"
               >
                 <option>All Programs</option>
                 {departments?.map((dept) => (
@@ -270,46 +272,70 @@ export function UsageTab({
             </Button>
           </div>
 
-          {/* Monthly Activity Chart */}
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={platformUsageData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="applications"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  name="Applications"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="resumes"
-                  stroke="#F59E0B"
-                  strokeWidth={2}
-                  name="Resumes"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="goals"
-                  stroke="#4F46E5"
-                  strokeWidth={2}
-                  name="Goals"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="coverLetters"
-                  stroke="#EF4444"
-                  strokeWidth={2}
-                  name="Cover Letters"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Content based on selected view */}
+          {usageView === 'overview' && (
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={platformUsageData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="applications"
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    name="Applications"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="resumes"
+                    stroke="#F59E0B"
+                    strokeWidth={2}
+                    name="Resumes"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="goals"
+                    stroke="#4F46E5"
+                    strokeWidth={2}
+                    name="Goals"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="coverLetters"
+                    stroke="#EF4444"
+                    strokeWidth={2}
+                    name="Cover Letters"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {usageView === 'features' && (
+            <div className="h-80 flex items-center justify-center border border-dashed border-slate-300 rounded-lg bg-slate-50">
+              <div className="text-center">
+                <p className="text-slate-500 font-medium">Feature Usage Analytics</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Detailed breakdown by feature coming soon
+                </p>
+              </div>
+            </div>
+          )}
+
+          {usageView === 'programs' && (
+            <div className="h-80 flex items-center justify-center border border-dashed border-slate-300 rounded-lg bg-slate-50">
+              <div className="text-center">
+                <p className="text-slate-500 font-medium">Program Usage Analytics</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Usage breakdown by program coming soon
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

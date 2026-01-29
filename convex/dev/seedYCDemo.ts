@@ -430,10 +430,16 @@ NEXT STEPS:
      First Name: Alex, Last Name: Chen
      Role: student
 
-3. Set Clerk publicMetadata for each user:
+3. Sync roles to Clerk (REQUIRED for authorization):
+   Run: npx convex run dev/seedYCDemo:syncDemoUsersToClerk '{"universityId": "${universityId}"}'
+
+   Or manually set Clerk publicMetadata for each user:
    Admin:   {"role": "university_admin", "university_id": "${universityId}"}
    Advisor: {"role": "advisor", "university_id": "${universityId}"}
    Student: {"role": "student", "university_id": "${universityId}"}
+
+   NOTE: Clerk publicMetadata.role is the source of truth for authorization.
+   Skipping this step will cause role mismatches.
 
 4. Login and verify:
    - Admin/Advisor: /u/home (see dashboard with Health Score)

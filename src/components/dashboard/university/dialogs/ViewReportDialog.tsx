@@ -100,7 +100,7 @@ export function ViewReportDialog({
         return;
       }
 
-      // Parse CSV - handle quoted values
+      // Parse CSV - handle quoted values and escaped quotes
       const parseCSVLine = (line: string): string[] => {
         const result: string[] = [];
         let current = '';
@@ -109,7 +109,13 @@ export function ViewReportDialog({
         for (let i = 0; i < line.length; i++) {
           const char = line[i];
           if (char === '"') {
-            inQuotes = !inQuotes;
+            // Check for escaped quote ("")
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++; // Skip the next quote
+            } else {
+              inQuotes = !inQuotes;
+            }
           } else if (char === ',' && !inQuotes) {
             result.push(current.trim());
             current = '';

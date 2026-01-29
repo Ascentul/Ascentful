@@ -4,7 +4,7 @@ import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { Calendar, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -122,9 +122,11 @@ export function ScheduleMeetingDialog({
   };
 
   // Initialize body when student data loads
-  if (student && !body) {
-    setBody(getDefaultBody(meetingType, student.name || ''));
-  }
+  useEffect(() => {
+    if (student && !body) {
+      setBody(getDefaultBody(meetingType, student.name || ''));
+    }
+  }, [student, body, meetingType]);
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {

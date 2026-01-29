@@ -169,10 +169,24 @@ async function checkConvex(): Promise<HealthCheckResult> {
     };
   }
 
+  // Validate standard Convex domain format (e.g., https://deployment-name.convex.cloud)
+  const isStandardConvexUrl = convexUrl.includes('.convex.cloud');
+  if (!isStandardConvexUrl) {
+    return {
+      success: false,
+      latency: 0,
+      error:
+        'Health check only supports standard .convex.cloud deployments. Custom domains are not supported.',
+      details: {
+        deploymentUrl: convexUrl,
+      },
+    };
+  }
+
   const start = Date.now();
   try {
-    // Convex deployments respond to HTTP requests at the deployment URL
-    const healthUrl = convexUrl.replace('.cloud', '.site');
+    // Convex deployments respond to HTTP requests at the .site domain
+    const healthUrl = convexUrl.replace('.convex.cloud', '.convex.site');
     const response = await fetch(healthUrl, {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000),

@@ -221,6 +221,11 @@ export const getStudentMomentum = query({
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
 
+    // Verify caller has access to this student's data
+    if (user.university_id) {
+      await requireUniversityAccess(ctx, user.university_id);
+    }
+
     return {
       score: user.momentum_score ?? null,
       signal: user.momentum_signal ?? null,
