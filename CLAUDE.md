@@ -670,3 +670,216 @@ This codebase uses Next.js route groups:
 - University/advisor features → `/u/*`
 - Regular user features → `(dashboard)/*`
 - Don't mix contexts within a route group
+
+## AI Code Quality Standards
+
+These guidelines address common failure modes in AI-generated code. Follow them rigorously.
+
+### Correctness Over Plausibility
+
+**The "looks right but is wrong" problem:** AI code often passes happy-path tests but fails edge cases.
+
+**Requirements:**
+- Handle null/undefined explicitly - don't assume data exists
+- Consider off-by-one errors in loops and array operations
+- Validate assumptions about inputs - add guards where needed
+- Check for race conditions in async code (especially with React state)
+- Verify logic matches the actual spec, not just a plausible interpretation
+
+**Before submitting code, verify:**
+```
+✓ What happens when the array is empty?
+✓ What happens when the user is not found?
+✓ What happens when the API returns an error?
+✓ What happens on the boundary values?
+✓ Does this match what the existing code expects?
+```
+
+### Security by Default
+
+**Never assume security can be "added later."**
+
+**Always include:**
+- Input validation at system boundaries (API routes, form handlers)
+- Proper authentication checks before data access
+- Authorization checks (is this user allowed to access THIS resource?)
+- Parameterized queries (Convex handles this, but be aware)
+- Secure headers in API responses where needed
+
+**This codebase patterns:**
+```typescript
+// API routes - ALWAYS check auth first
+const { userId } = await auth();
+if (!userId) return new Response("Unauthorized", { status: 401 });
+
+// Convex - ALWAYS verify user can access the resource
+const user = await getCurrentUser(ctx, args.clerkId);
+if (resource.user_id !== user._id && user.role !== 'super_admin') {
+  throw new Error('Unauthorized');
+}
+```
+
+**Watch for:**
+- Exposing user IDs or internal IDs in client-facing code unnecessarily
+- Missing role checks on admin-only operations
+- Leaking data through error messages
+
+### Codebase Conformance
+
+**The "context failure" problem:** Code that works but doesn't fit the existing architecture.
+
+**Before writing new code:**
+1. Search for existing utilities that do what you need
+2. Check how similar features are implemented elsewhere
+3. Follow established patterns for the feature type
+4. Use existing abstractions rather than creating new ones
+
+**This codebase specifics:**
+- State management: Convex queries/mutations, not local state for server data
+- Auth: Clerk `publicMetadata.role` for authorization, not Convex role
+- UI: Radix primitives in `src/components/ui/`, not raw HTML
+- Styling: Tailwind with design system tokens (`rounded-card`, `primary-500`)
+- Forms: Follow existing patterns in similar forms
+
+**Anti-patterns to avoid:**
+```
+❌ Creating a new date formatting utility when one exists
+❌ Using raw fetch() when Convex mutations exist
+❌ Inline styles when Tailwind classes exist
+❌ New state management patterns (Redux, Zustand) - use Convex
+❌ Different component structure than existing similar components
+```
+
+### Minimal Footprint
+
+**The "maintainability debt" problem:** Bloated, over-abstracted, or inconsistent code.
+
+**Principles:**
+- Write the minimum code needed to solve the problem
+- Don't add "nice to have" features that weren't requested
+- Don't create abstractions for single-use code
+- Don't add configuration options unless needed
+- Match the verbosity level of surrounding code
+
+**Avoid:**
+- Generic utilities for one-time operations
+- Wrapper components that just pass props through
+- Configuration objects when a simple parameter works
+- Comments that restate what the code does
+- Types/interfaces for objects used in only one place
+
+**Example:**
+```typescript
+// ❌ Over-engineered
+interface UserDisplayOptions {
+  showAvatar?: boolean;
+  showEmail?: boolean;
+  avatarSize?: 'sm' | 'md' | 'lg';
+}
+function UserDisplay({ user, options = {} }: { user: User; options?: UserDisplayOptions }) { ... }
+
+// ✅ Simple and direct (if only used one way)
+function UserDisplay({ user }: { user: User }) { ... }
+```
+
+### Testing and Observability
+
+**The "missing safety net" problem:** Code without verification or debugging support.
+
+**Requirements:**
+- Error handling should be explicit, not silent failures
+- Async operations need proper error states in UI
+- Console.error for unexpected errors (not console.log)
+- Toast notifications for user-facing errors
+- Loading states for async operations
+
+**Patterns in this codebase:**
+```typescript
+// Mutations with proper error handling
+try {
+  await mutation({ ... });
+  toast({ title: 'Success', description: '...' });
+} catch (error) {
+  console.error('Operation failed:', error);
+  toast({
+    title: 'Error',
+    description: error instanceof Error ? error.message : 'Operation failed',
+    variant: 'destructive'
+  });
+}
+
+// Queries with loading/error states
+const data = useQuery(api.module.query, args);
+if (data === undefined) return <Loading />;
+if (data === null) return <NotFound />;
+```
+
+### React-Specific Patterns
+
+**Common React mistakes to avoid:**
+
+```typescript
+// ❌ Setting state during render
+if (condition) {
+  setState(value);
+}
+
+// ✅ Use useEffect
+useEffect(() => {
+  if (condition) {
+    setState(value);
+  }
+}, [condition]);
+
+// ❌ Missing dependencies in useEffect
+useEffect(() => {
+  doSomething(prop);
+}, []); // prop is missing
+
+// ✅ Include all dependencies
+useEffect(() => {
+  doSomething(prop);
+}, [prop]);
+
+// ❌ Mutating state directly
+items.push(newItem);
+setItems(items);
+
+// ✅ Create new references
+setItems([...items, newItem]);
+
+// ❌ useEffect for derived state
+useEffect(() => {
+  setFullName(`${firstName} ${lastName}`);
+}, [firstName, lastName]);
+
+// ✅ Compute during render or useMemo
+const fullName = `${firstName} ${lastName}`;
+```
+
+### Verification Checklist
+
+Before considering code complete, verify:
+
+**Functional correctness:**
+- [ ] Handles empty/null/undefined cases
+- [ ] Handles error cases explicitly
+- [ ] Logic matches the actual requirement (re-read the request)
+- [ ] Edge cases considered
+
+**Security:**
+- [ ] Auth check present for protected operations
+- [ ] Authorization verified (user can access THIS resource)
+- [ ] No sensitive data exposed
+
+**Codebase fit:**
+- [ ] Uses existing utilities and patterns
+- [ ] Follows established conventions
+- [ ] No unnecessary new abstractions
+- [ ] Consistent with similar features
+
+**Maintainability:**
+- [ ] Minimal code to solve the problem
+- [ ] No unused code left behind
+- [ ] Clear error messages
+- [ ] Loading/error states handled in UI

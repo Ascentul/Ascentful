@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
         extra: { suggestionCount: suggestions.length },
       });
 
-      // Evaluate AI-generated suggestions (non-critical - result doesn't affect response)
+      // Evaluate AI-generated suggestions - fall back to rule-based if evaluation fails
       try {
         const evalResult = await evaluate({
           tool_id: 'resume-suggestions',
@@ -264,19 +264,26 @@ export async function POST(req: NextRequest) {
         });
 
         if (!evalResult.passed) {
-          log.warn('AI suggestions failed evaluation', {
+          log.warn('AI suggestions failed evaluation, falling back to rules', {
             event: 'ai.evaluation.failed',
             extra: {
               score: evalResult.overall_score,
               riskFlagsCount: evalResult.risk_flags?.length ?? 0,
             },
           });
+          // Fall back to rule-based suggestions when evaluation fails
+          const safeSuggestions = generateMockSuggestions(resumeData);
+          return NextResponse.json(
+            { suggestions: safeSuggestions },
+            { headers: { 'x-correlation-id': correlationId } },
+          );
         }
       } catch (evalError) {
         log.warn('Error evaluating AI suggestions', {
           event: 'ai.evaluation.error',
           errorCode: toErrorCode(evalError),
         });
+        // Continue with AI suggestions if evaluation itself errors (fail-open for availability)
       }
 
       const durationMs = Date.now() - startTime;
