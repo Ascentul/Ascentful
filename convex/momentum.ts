@@ -325,6 +325,7 @@ export const getMomentumByDepartment = query({
     departmentId: v.optional(v.id('departments')),
   },
   handler: async (ctx, args) => {
+    await requireUniversityAccess(ctx, args.universityId);
     // Get all students, optionally filtered by department
     let studentsQuery = ctx.db
       .query('users')
@@ -431,6 +432,13 @@ export const calculateStudentMomentum = mutation({
       return { success: false, error: 'User not found or not a student' };
     }
 
+    // Require university access to calculate momentum
+    if (user.university_id) {
+      await requireUniversityAccess(ctx, user.university_id);
+    } else {
+      throw new Error('User is not associated with a university');
+    }
+
     // Get resume freshness
     const resumes = await ctx.db
       .query('resumes')
@@ -504,6 +512,7 @@ export const calculateUniversityMomentum = mutation({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireUniversityAccess(ctx, args.universityId);
     const limit = args.limit ?? 500;
 
     const students = await ctx.db

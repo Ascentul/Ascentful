@@ -215,6 +215,9 @@ export const seed = mutation({
     let universityId;
 
     if (existingUniversity) {
+      if (!existingUniversity.is_test && !args.confirmProd) {
+        throw new Error('Existing "demo" university is not marked as test. Aborting.');
+      }
       console.log('  University already exists, using existing record');
       universityId = existingUniversity._id;
     } else if (!isDryRun) {
@@ -279,7 +282,6 @@ export const seed = mutation({
         if (!isDryRun) {
           await ctx.db.patch(user._id, {
             university_id: universityId,
-            role: clerkUser.role,
             updated_at: now,
           });
           console.log(`  Linked ${clerkUser.email} as ${clerkUser.role}`);
