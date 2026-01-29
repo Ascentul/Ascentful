@@ -5,13 +5,18 @@ import { api } from 'convex/_generated/api';
 import { Id } from 'convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   ChevronDown,
   Download,
   Eye,
   FileSpreadsheet,
+  FileText,
   Loader2,
+  Printer,
   Search,
+  TrendingUp,
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -464,6 +469,21 @@ export default function OutcomesDashboardPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 NACE FDS Format
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  toast({
+                    title: 'PDF Export',
+                    description: 'PDF export functionality coming soon.',
+                  });
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Report
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -494,6 +514,68 @@ export default function OutcomesDashboardPage() {
         </div>
       ) : (
         <>
+          {/* Hero KPI - Placement Readiness Delta */}
+          <Card className="bg-gradient-to-r from-primary-50 to-emerald-50 border-primary-200 print:bg-white print:border-gray-200">
+            <CardContent className="py-6">
+              <div className="flex items-center justify-between">
+                {(() => {
+                  const delta =
+                    Math.round(
+                      ((displayData.summary?.career_outcomes_rate || 0) -
+                        NACE_OUTCOME_BENCHMARKS.career_outcomes_rate.nationalAverage) *
+                        100,
+                    ) / 100;
+                  const isPositive = delta >= 0;
+                  return (
+                    <div className="flex items-center gap-6">
+                      <div className="p-4 bg-white rounded-2xl shadow-sm">
+                        <TrendingUp className="h-8 w-8 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-primary-700 uppercase tracking-wide">
+                          Placement Readiness Delta
+                        </p>
+                        <div className="flex items-baseline gap-3 mt-1">
+                          <span
+                            className={`text-5xl font-bold ${isPositive ? 'text-primary-900' : 'text-amber-700'}`}
+                          >
+                            {isPositive ? '+' : ''}
+                            {delta}%
+                          </span>
+                          <span
+                            className={`flex items-center font-medium ${isPositive ? 'text-emerald-600' : 'text-amber-600'}`}
+                          >
+                            {isPositive ? (
+                              <ArrowUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4 mr-1" />
+                            )}
+                            vs national average
+                          </span>
+                        </div>
+                        <p className="text-sm text-primary-600 mt-2">
+                          {isPositive
+                            ? 'Your graduates are outperforming the national career outcomes benchmark'
+                            : 'Your graduates are below the national career outcomes benchmark'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="hidden md:block text-right">
+                  <p className="text-sm text-neutral-500">National Average</p>
+                  <p className="text-2xl font-semibold text-neutral-700">
+                    {NACE_OUTCOME_BENCHMARKS.career_outcomes_rate.nationalAverage}%
+                  </p>
+                  <p className="text-sm text-neutral-500 mt-1">Your Rate</p>
+                  <p className="text-2xl font-semibold text-primary-700">
+                    {displayData.summary?.career_outcomes_rate || 0}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* KPI Cards with NACE Benchmarks */}
           <KPICardGroup>
             <KPICard

@@ -8,6 +8,11 @@ describe('next.config.js secret exposure', () => {
       'SUPABASE_SERVICE_ROLE_KEY',
       'OPENAI_API_KEY',
       'STRIPE_SECRET_KEY',
+      'CLERK_SECRET_KEY',
+      'CONVEX_INTERNAL_SERVICE_TOKEN',
+      'MAILGUN_SENDING_API_KEY',
+      'VAPID_PRIVATE_KEY',
+      'EMAIL_INTEGRATION_ENCRYPTION_KEY',
     ];
 
     forbiddenKeys.forEach((key) => {

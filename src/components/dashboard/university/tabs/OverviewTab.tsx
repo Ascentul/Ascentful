@@ -1,11 +1,15 @@
 'use client';
 
 import {
+  Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Award,
   BarChart3,
   Briefcase,
   GraduationCap,
+  Heart,
   Target,
   TrendingUp,
   Users,
@@ -60,6 +64,14 @@ import type {
   UniversityOverview,
 } from '../types';
 
+interface MomentumDistribution {
+  green: number;
+  yellow: number;
+  red: number;
+  unknown: number;
+  total: number;
+}
+
 interface OverviewTabProps {
   overview: UniversityOverview;
   studentMetrics: StudentMetrics | undefined;
@@ -72,6 +84,7 @@ interface OverviewTabProps {
   progressCompletionData: ChartDataPoint[];
   topFeaturesData: FeatureUsageData[];
   atRiskStudentsData: RiskSegmentData[];
+  momentumDistribution: MomentumDistribution | undefined;
   isUniversityAdmin: boolean;
   onStudentClick: (clerkId: string) => void;
 }
@@ -88,6 +101,7 @@ export function OverviewTab({
   progressCompletionData,
   topFeaturesData,
   atRiskStudentsData,
+  momentumDistribution,
   isUniversityAdmin,
   onStudentClick,
 }: OverviewTabProps) {
@@ -96,6 +110,15 @@ export function OverviewTab({
     (overview?.totalStudents ?? 0) > 0
       ? Math.round((atRiskCount / (overview?.totalStudents ?? 1)) * 100)
       : 0;
+
+  // Calculate Health Score (weighted average of key metrics)
+  const healthScore = (() => {
+    if (!momentumDistribution || momentumDistribution.total === 0) return null;
+    const greenPercent = (momentumDistribution.green / momentumDistribution.total) * 100;
+    const yellowPercent = (momentumDistribution.yellow / momentumDistribution.total) * 100;
+    // Weight: green = 100%, yellow = 50%, red = 0%
+    return Math.round(greenPercent + yellowPercent * 0.5);
+  })();
 
   return (
     <>
@@ -118,6 +141,80 @@ export function OverviewTab({
             <Button variant="outline" size="sm" asChild>
               <Link href="/u/admin/settings">Settings</Link>
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Health Score Hero Section */}
+      {healthScore !== null && (
+        <Card className="bg-gradient-to-r from-primary-50 via-white to-emerald-50 border-primary-200">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="p-4 bg-white rounded-2xl shadow-sm">
+                  <Heart className="h-8 w-8 text-primary-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-primary-700 uppercase tracking-wide">
+                    Student Health Score
+                  </p>
+                  <div className="flex items-baseline gap-3 mt-1">
+                    <span className="text-5xl font-bold text-primary-900">{healthScore}</span>
+                    <span className="text-2xl text-primary-600">/100</span>
+                    {healthScore >= 70 ? (
+                      <span className="flex items-center text-emerald-600 font-medium">
+                        <ArrowUp className="h-4 w-4 mr-1" />
+                        Healthy
+                      </span>
+                    ) : healthScore >= 40 ? (
+                      <span className="flex items-center text-amber-600 font-medium">
+                        <Activity className="h-4 w-4 mr-1" />
+                        Moderate
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-red-600 font-medium">
+                        <ArrowDown className="h-4 w-4 mr-1" />
+                        Needs Attention
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-primary-600 mt-2">
+                    Based on student momentum signals and engagement patterns
+                  </p>
+                </div>
+              </div>
+              {momentumDistribution && (
+                <div className="hidden md:flex gap-6">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <span className="text-2xl font-bold text-emerald-700">
+                        {momentumDistribution.green}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">On Track</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-amber-500" />
+                      <span className="text-2xl font-bold text-amber-700">
+                        {momentumDistribution.yellow}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Slipping</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-500" />
+                      <span className="text-2xl font-bold text-red-700">
+                        {momentumDistribution.red}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Stalled</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

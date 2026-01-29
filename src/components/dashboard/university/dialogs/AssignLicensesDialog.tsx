@@ -182,7 +182,10 @@ export function AssignLicensesDialog({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) handleImportCsv(f);
+                if (f) {
+                  handleImportCsv(f);
+                  e.target.value = ''; // Reset to allow re-importing same file
+                }
               }}
             />
             <Button

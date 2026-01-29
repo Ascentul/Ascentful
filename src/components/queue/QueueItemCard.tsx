@@ -30,6 +30,9 @@ import { cn } from '@/lib/utils';
 type QueueItemPriority = 'P1' | 'P2' | 'P3';
 type QueueItemStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 
+type MomentumSignal = 'green' | 'yellow' | 'red';
+type JobBoardActivity = 'active' | 'moderate' | 'inactive';
+
 interface QueueItemCardProps {
   item: {
     _id: Id<'queue_items'>;
@@ -44,6 +47,12 @@ interface QueueItemCardProps {
       name: string;
       email: string;
       imageUrl?: string;
+      // Momentum data
+      momentumScore?: number;
+      momentumSignal?: MomentumSignal;
+      momentumReason?: string;
+      jobBoardActivity?: JobBoardActivity;
+      resumeAgeDays?: number | null;
     } | null;
     owner: {
       _id: Id<'users'>;
@@ -74,6 +83,18 @@ const statusConfig: Record<
   IN_PROGRESS: { label: 'In Progress', variant: 'secondary' },
   RESOLVED: { label: 'Resolved', variant: 'outline' },
   CLOSED: { label: 'Closed', variant: 'outline' },
+};
+
+const momentumConfig: Record<MomentumSignal, { label: string; className: string }> = {
+  green: { label: 'On Track', className: 'bg-green-100 text-green-700 border-green-200' },
+  yellow: { label: 'Needs Attention', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  red: { label: 'Stalled', className: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+const jobBoardConfig: Record<JobBoardActivity, { label: string; className: string }> = {
+  active: { label: 'Active', className: 'text-green-600' },
+  moderate: { label: 'Moderate', className: 'text-amber-600' },
+  inactive: { label: 'Inactive', className: 'text-neutral-400' },
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -160,6 +181,43 @@ export function QueueItemCard({
             </div>
           </div>
         )}
+
+        {/* Momentum Signal */}
+        {item.student?.momentumSignal && (
+          <div className="flex flex-col items-center gap-1 min-w-[80px]">
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-xs font-medium',
+                momentumConfig[item.student.momentumSignal].className,
+              )}
+            >
+              {momentumConfig[item.student.momentumSignal].label}
+            </Badge>
+            {item.student.momentumReason && (
+              <span className="text-[10px] text-neutral-500">{item.student.momentumReason}</span>
+            )}
+          </div>
+        )}
+
+        {/* Resume Age & Job Board */}
+        <div className="flex flex-col gap-1 min-w-[100px] text-xs">
+          {item.student?.resumeAgeDays !== undefined && item.student?.resumeAgeDays !== null && (
+            <div className="flex items-center gap-1 text-neutral-500">
+              <span className={item.student.resumeAgeDays > 30 ? 'text-amber-600 font-medium' : ''}>
+                Resume: {item.student.resumeAgeDays}d
+              </span>
+            </div>
+          )}
+          {item.student?.jobBoardActivity && (
+            <div className="flex items-center gap-1">
+              <span className="text-neutral-400">Job Board:</span>
+              <span className={jobBoardConfig[item.student.jobBoardActivity].className}>
+                {jobBoardConfig[item.student.jobBoardActivity].label}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Item Info */}
         <div className="flex-1 min-w-0">

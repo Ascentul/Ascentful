@@ -30,7 +30,7 @@ const MAX_SUBSCRIPTIONS_PER_REQUEST = 1000;
 const ALLOWED_PUSH_SERVICE_HOSTS = [
   'fcm.googleapis.com', // Firebase Cloud Messaging (Chrome, Android)
   'updates.push.services.mozilla.com', // Mozilla Push Service (Firefox)
-  'wns.windows.com', // Windows Push Notification Service (Edge, Windows)
+  'notify.windows.com', // Windows Push Notification Service (Edge, Windows)
   'push.apple.com', // Apple Push Notification Service
   'web.push.apple.com', // Apple Web Push
 ];

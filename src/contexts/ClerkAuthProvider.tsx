@@ -169,12 +169,18 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
               ? (normalizedMetaRole as any)
               : undefined;
 
+          // Get university_id from Clerk public metadata if present
+          const metaUniversityId = (clerkUser.publicMetadata as any)?.university_id as
+            | string
+            | undefined;
+
           await initializeUserProfile({
             clerkId: clerkUser.id,
             email: clerkUser.emailAddresses[0]?.emailAddress || '',
             name: clerkUser.fullName || clerkUser.firstName || 'User',
             username: clerkUser.username || undefined,
             role: initialRole,
+            university_id: metaUniversityId as any, // Pass university_id from Clerk metadata
           });
         } catch (error) {
           console.error('Error creating user profile:', error);

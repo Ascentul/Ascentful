@@ -17,8 +17,8 @@ interface QueueStatsProps {
 export function QueueStats({ stats }: QueueStatsProps) {
   if (!stats) {
     return (
-      <div className="grid gap-4 md:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid gap-4 md:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
           <Card key={i}>
             <CardContent className="pt-6">
               <div className="h-16 animate-pulse bg-neutral-100 rounded" />
@@ -30,7 +30,7 @@ export function QueueStats({ stats }: QueueStatsProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-5">
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
@@ -63,6 +63,18 @@ export function QueueStats({ stats }: QueueStatsProps) {
               <p className="text-3xl font-bold text-blue-700">{stats.inProgress}</p>
             </div>
             <TrendingUp className="h-8 w-8 text-blue-500" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-amber-700">Snoozed</p>
+              <p className="text-3xl font-bold text-amber-700">{stats.snoozed}</p>
+            </div>
+            <Pause className="h-8 w-8 text-amber-500" />
           </div>
         </CardContent>
       </Card>

@@ -17,6 +17,7 @@ import { useMemo } from 'react';
 
 import { AdvisorGate } from '@/components/advisor/AdvisorGate';
 import { ActivityChart } from '@/components/advisor/analytics/ActivityChart';
+import { CohortMomentumChart } from '@/components/advisor/analytics/CohortMomentumChart';
 import { ReviewQueueSnapshot } from '@/components/advisor/analytics/ReviewQueueSnapshot';
 import { UpcomingItem, UpcomingItems } from '@/components/advisor/analytics/UpcomingItems';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -300,6 +301,9 @@ export default function AdvisorAnalyticsPage() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Cohort Momentum Analytics */}
+                <CohortMomentumChart />
               </>
             )}
           </div>

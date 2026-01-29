@@ -224,6 +224,7 @@ export function UniversityDashboard() {
     studentProgress,
     studentFunnel,
     activeUsersData,
+    momentumDistribution,
     studentGrowthData,
     activityData,
     departmentStats,
@@ -869,6 +870,7 @@ export function UniversityDashboard() {
           progressCompletionData={progressCompletionData}
           topFeaturesData={topFeaturesData}
           atRiskStudentsData={atRiskStudentsData}
+          momentumDistribution={momentumDistribution}
           isUniversityAdmin={isUniversityAdmin}
           onStudentClick={(clerkId) => router.push(`/profile/${clerkId}`)}
         />

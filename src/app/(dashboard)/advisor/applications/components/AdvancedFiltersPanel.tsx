@@ -402,7 +402,7 @@ function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps)
               !displayRange && 'text-muted-foreground',
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
             {displayRange?.from ? (
               displayRange.to ? (
                 <>
@@ -435,7 +435,7 @@ function DateRangePicker({ dateRange, onDateRangeChange }: DateRangePickerProps)
           onClick={() => onDateRangeChange(undefined)}
           className="h-8 w-fit text-xs text-muted-foreground hover:text-foreground"
         >
-          <X className="mr-1 h-3 w-3" />
+          <X className="mr-1 h-3 w-3" aria-hidden="true" />
           Clear dates
         </Button>
       )}

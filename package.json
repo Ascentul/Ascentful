@@ -23,7 +23,10 @@
     "type-check": "tsc --noEmit",
     "prepare": "husky",
     "deploy:dev": "CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_DEV npx convex deploy",
-    "deploy:prod": "CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy"
+    "deploy:prod": "CONVEX_DEPLOY_KEY=$CONVEX_DEPLOY_KEY_PROD npx convex deploy",
+    "seed:yc-demo": "npx convex run dev/seedYCDemo:seed",
+    "seed:yc-demo:status": "npx convex run dev/seedYCDemo:status",
+    "cleanup:yc-demo": "npx convex run dev/seedYCDemo:cleanup"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

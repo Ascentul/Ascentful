@@ -123,7 +123,11 @@ export function SharedProfileLayout({
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !clerkUser?.id) return;
+    if (!file) return;
+    if (!clerkUser?.id) {
+      setImportError('Please wait while we load your profile');
+      return;
+    }
 
     // Validate file type
     const validTypes = [
@@ -201,7 +205,9 @@ export function SharedProfileLayout({
 
       if (parsed.summary) updates.bio = parsed.summary;
       // Skills are stored as comma-separated string in Convex
-      if (parsed.skills?.length) updates.skills = parsed.skills.join(', ');
+      if (Array.isArray(parsed.skills) && parsed.skills.length) {
+        updates.skills = parsed.skills.join(', ');
+      }
 
       // Map work history (matching workHistoryValidator schema)
       if (parsed.experience?.length) {

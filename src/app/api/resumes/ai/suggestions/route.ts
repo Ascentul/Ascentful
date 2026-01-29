@@ -68,6 +68,12 @@ function validateType(t: string): SuggestionType {
   return 'clarity';
 }
 
+function validateCategory(c: string): string {
+  const validCategories = ['Impact', 'ATS', 'Clarity', 'Format'];
+  if (validCategories.includes(c)) return c;
+  return 'Impact';
+}
+
 function validateAISuggestions(raw: AIResponse): Suggestion[] {
   if (!raw.suggestions || !Array.isArray(raw.suggestions)) {
     return [];
@@ -88,7 +94,7 @@ function validateAISuggestions(raw: AIResponse): Suggestion[] {
       spanId: s.spanId,
       severity: validateSeverity(s.severity),
       type: validateType(s.type),
-      category: s.category || 'Impact',
+      category: validateCategory(s.category || 'Impact'),
       message: s.message,
       proposedText: typeof s.proposedText === 'string' ? s.proposedText : null,
       explainText: typeof s.explainText === 'string' ? s.explainText : undefined,
@@ -192,6 +198,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (typeof resumeData !== 'object' || Array.isArray(resumeData)) {
+      log.warn('Invalid resumeData type', { event: 'validation.failed', errorCode: 'BAD_REQUEST' });
+      return NextResponse.json(
+        { error: 'resumeData must be an object', suggestions: [] },
+        { status: 400, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       log.info('No OpenAI key, using rule-based suggestions', { event: 'ai.not_configured' });
@@ -204,19 +218,22 @@ export async function POST(req: NextRequest) {
       const client = new OpenAI({ apiKey });
 
       const resumeText = formatResumeForAI(resumeData);
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: `Analyze this resume and provide suggestions:\n\n${resumeText}`,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 2000,
-      });
+      const response = await client.chat.completions.create(
+        {
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: `Analyze this resume and provide suggestions:\n\n${resumeText}`,
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+          max_tokens: 2000,
+        },
+        { timeout: 30000 },
+      );
 
       const content = response.choices[0]?.message?.content || '{"suggestions":[]}';
       let parsed: AIResponse;

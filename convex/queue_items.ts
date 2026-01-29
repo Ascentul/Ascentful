@@ -812,11 +812,31 @@ export const getMyQueue = query({
     // Apply limit after filtering and sorting
     filtered = filtered.slice(0, limit);
 
-    // Enrich with student data
+    // Enrich with student data including momentum
     const enrichedItems = await Promise.all(
       filtered.map(async (item) => {
         const student = await ctx.db.get(item.student_id);
         const owner = item.owner_id ? await ctx.db.get(item.owner_id) : null;
+
+        // Get resume age for the student
+        let resumeAgeDays: number | null = null;
+        if (student) {
+          const resumes = await ctx.db
+            .query('resumes')
+            .withIndex('by_user', (q) => q.eq('user_id', student._id))
+            .collect();
+          if (resumes.length > 0) {
+            const latestResume = resumes.reduce((latest, r) =>
+              (r.updated_at ?? r.created_at) > (latest.updated_at ?? latest.created_at)
+                ? r
+                : latest,
+            );
+            resumeAgeDays = Math.floor(
+              (now - (latestResume.updated_at ?? latestResume.created_at)) / (24 * 60 * 60 * 1000),
+            );
+          }
+        }
+
         return {
           ...item,
           student: student
@@ -825,6 +845,12 @@ export const getMyQueue = query({
                 name: student.name,
                 email: student.email,
                 imageUrl: student.profile_image,
+                // Momentum data
+                momentumScore: student.momentum_score,
+                momentumSignal: student.momentum_signal,
+                momentumReason: student.momentum_reason,
+                jobBoardActivity: student.job_board_activity,
+                resumeAgeDays,
               }
             : null,
           owner: owner
@@ -1143,7 +1169,9 @@ export const getQueueStats = query({
         .collect();
       const scopedItems = items.filter((i) => i.university_id === universityId);
 
-      openCount = scopedItems.filter((i) => i.status === 'OPEN' && !i.snoozed_until).length;
+      openCount = scopedItems.filter(
+        (i) => i.status === 'OPEN' && (!i.snoozed_until || i.snoozed_until <= now),
+      ).length;
       inProgressCount = scopedItems.filter((i) => i.status === 'IN_PROGRESS').length;
       snoozedCount = scopedItems.filter((i) => i.snoozed_until && i.snoozed_until > now).length;
       resolvedTodayCount = scopedItems.filter(
@@ -1156,7 +1184,9 @@ export const getQueueStats = query({
         .withIndex('by_university', (q) => q.eq('university_id', universityId))
         .collect();
 
-      openCount = items.filter((i) => i.status === 'OPEN' && !i.snoozed_until).length;
+      openCount = items.filter(
+        (i) => i.status === 'OPEN' && (!i.snoozed_until || i.snoozed_until <= now),
+      ).length;
       inProgressCount = items.filter((i) => i.status === 'IN_PROGRESS').length;
       snoozedCount = items.filter((i) => i.snoozed_until && i.snoozed_until > now).length;
       resolvedTodayCount = items.filter(

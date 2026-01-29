@@ -1,5 +1,6 @@
 'use client';
 
+import { Id } from 'convex/_generated/dataModel';
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+import { SendReminderDialog } from '../dialogs';
 import type {
   ActiveUsersData,
   ActivityData,
@@ -65,6 +67,21 @@ export function AnalyticsTab({
   featureEngagementByRisk,
 }: AnalyticsTabProps) {
   const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('engagement');
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{
+    _id: Id<'users'>;
+    name: string | undefined;
+    email: string;
+  } | null>(null);
+
+  const handleSendReminder = (student: Student) => {
+    setSelectedStudent({
+      _id: student._id as Id<'users'>,
+      name: student.name,
+      email: student.email,
+    });
+    setReminderDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -464,7 +481,11 @@ export function AnalyticsTab({
                             {daysAgo !== null ? `${daysAgo} days ago` : 'Never'}
                           </TableCell>
                           <TableCell>
-                            <Button size="sm" variant="outline">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendReminder(s)}
+                            >
                               <Mail className="h-3 w-3 mr-1" />
                               Send Reminder
                             </Button>
@@ -477,6 +498,15 @@ export function AnalyticsTab({
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Send Reminder Dialog */}
+      {selectedStudent && (
+        <SendReminderDialog
+          open={reminderDialogOpen}
+          onOpenChange={setReminderDialogOpen}
+          student={selectedStudent}
+        />
       )}
     </div>
   );

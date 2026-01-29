@@ -176,10 +176,18 @@ function ThreadDetailContent() {
     }
   };
 
-  if (!threadData) {
+  if (threadData === undefined) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (threadData === null) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-muted-foreground">Thread not found</p>
       </div>
     );
   }

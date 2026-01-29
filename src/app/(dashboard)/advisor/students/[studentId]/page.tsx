@@ -33,6 +33,8 @@ import {
   AssetSlideOver,
   CommunicationTab,
   EngagementPanel,
+  InsightCard,
+  MomentumPanel,
   NextActionsPanel,
   type SelectedAsset,
   StudentTagsPopover,
@@ -127,6 +129,7 @@ function StudentProfileContent() {
     projects,
     sessions,
     engagement,
+    momentum,
     upcomingSession,
     assignedAdvisor,
     lastNoteAt,
@@ -339,6 +342,22 @@ function StudentProfileContent() {
               outreachSnoozedUntil={engagement.outreachSnoozedUntil}
               inactivityDays={engagement.inactivityDays}
             />
+            {momentum?.signal && (
+              <MomentumPanel
+                momentumScore={momentum.score}
+                momentumSignal={momentum.signal}
+                momentumReason={momentum.reason}
+                jobBoardActivity={momentum.jobBoardActivity}
+                resumeAgeDays={momentum.resumeAgeDays}
+              />
+            )}
+            {momentum?.signal && momentum.signal !== 'green' && (
+              <InsightCard
+                momentumSignal={momentum.signal}
+                momentumReason={momentum.reason}
+                resumeAgeDays={momentum.resumeAgeDays}
+              />
+            )}
             <NextActionsPanel studentId={studentId} />
           </div>
 

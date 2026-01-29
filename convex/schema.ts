@@ -243,6 +243,17 @@ export default defineSchema({
     created_by_admin: v.optional(v.boolean()),
     // Test user and deletion tracking
     is_test_user: v.optional(v.boolean()), // Flag for test users (can be hard deleted)
+
+    // === Momentum Signal System (YC Demo) ===
+    // Used to calculate and display student momentum for advisor triage
+    momentum_score: v.optional(v.number()), // 0-100 score based on activity metrics
+    momentum_signal: v.optional(v.union(v.literal('green'), v.literal('yellow'), v.literal('red'))), // Red/Yellow/Green status indicator
+    momentum_reason: v.optional(v.string()), // Reason tag e.g., "Search Plateau", "Resume Stale"
+    momentum_updated_at: v.optional(v.number()), // When momentum was last calculated
+    job_board_activity: v.optional(
+      v.union(v.literal('active'), v.literal('moderate'), v.literal('inactive')),
+    ), // Job board engagement level
+
     deletion_scheduled_at: v.optional(v.number()), // When account will be permanently deleted (GDPR grace period)
     deleted_at: v.optional(v.number()), // Timestamp when soft deleted
     deleted_by: v.optional(v.id('users')), // Admin who deleted the user
@@ -280,7 +291,8 @@ export default defineSchema({
     // SECURITY: Index for efficient activation token lookup (avoids full table scan)
     .index('by_activation_token', ['activation_token'])
     .index('by_password_reset_token', ['password_reset_token'])
-    .index('by_university_engagement', ['university_id', 'engagement_status']),
+    .index('by_university_engagement', ['university_id', 'engagement_status'])
+    .index('by_university_momentum', ['university_id', 'momentum_signal']),
 
   // Universities table for institutional licensing
   universities: defineTable({
@@ -2523,7 +2535,8 @@ export default defineSchema({
     .index('by_outcome_status', ['outcome_status'])
     .index('by_outcome_type', ['outcome_type'])
     .index('by_employer', ['employer_name'])
-    .index('by_external_outcome_id', ['institution_id', 'external_outcome_id']),
+    .index('by_external_outcome_id', ['institution_id', 'external_outcome_id'])
+    .index('by_survey_token', ['survey_token']),
 
   // ============================================================================
   // EMAIL AUTO UPDATES (Gmail + Outlook)

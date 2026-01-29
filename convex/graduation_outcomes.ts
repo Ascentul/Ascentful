@@ -850,16 +850,15 @@ export const recordSurveyResponse = mutation({
   },
   handler: async (ctx, args) => {
     // Find outcome by survey token (no auth required - token is the auth)
-    const outcomes = await ctx.db
+    // Uses indexed lookup for O(1) performance and consistent timing (security)
+    const outcome = await ctx.db
       .query('graduate_outcomes')
-      .filter((q) => q.eq(q.field('survey_token'), args.surveyToken))
-      .collect();
+      .withIndex('by_survey_token', (q) => q.eq('survey_token', args.surveyToken))
+      .unique();
 
-    if (outcomes.length === 0) {
+    if (!outcome) {
       throw new Error('Invalid survey token');
     }
-
-    const outcome = outcomes[0];
     const now = Date.now();
 
     // Validate survey-submitted fields (ensures same constraints as other entry points)

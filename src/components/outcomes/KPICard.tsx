@@ -96,8 +96,10 @@ export function KPICard({
                 <span className="text-xs text-neutral-500">{benchmark.label || 'NACE Avg'}:</span>
                 <span className="text-xs font-medium text-neutral-600">
                   {format === 'percentage'
-                    ? `${benchmark.nationalAverage.toFixed(1)}%`
-                    : benchmark.nationalAverage.toLocaleString()}
+                    ? `${Number.isFinite(benchmark.nationalAverage) ? benchmark.nationalAverage.toFixed(1) : '0.0'}%`
+                    : Number.isFinite(benchmark.nationalAverage)
+                      ? benchmark.nationalAverage.toLocaleString()
+                      : '0'}
                 </span>
                 {benchmarkComparison && (
                   <span
@@ -112,8 +114,10 @@ export function KPICard({
                   >
                     {benchmarkComparison.difference > 0 ? '+' : ''}
                     {format === 'percentage'
-                      ? `${benchmarkComparison.difference.toFixed(1)}%`
-                      : benchmarkComparison.difference.toLocaleString()}
+                      ? `${Number.isFinite(benchmarkComparison.difference) ? benchmarkComparison.difference.toFixed(1) : '0.0'}%`
+                      : Number.isFinite(benchmarkComparison.difference)
+                        ? benchmarkComparison.difference.toLocaleString()
+                        : '0'}
                   </span>
                 )}
               </div>

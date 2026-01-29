@@ -656,6 +656,8 @@ export const initializeUserProfile = mutation({
         v.literal('super_admin'),
       ),
     ),
+    // Allow setting university_id from Clerk public metadata for university roles
+    university_id: v.optional(v.id('universities')),
   },
   handler: async (ctx, args) => {
     // Verify the caller is the authenticated user
@@ -722,9 +724,25 @@ export const initializeUserProfile = mutation({
 
     // Validate role for new user creation
     const requestedRole = args.role ?? 'individual';
-    const finalRole = normalizeLegacyUserRole(requestedRole, undefined) ?? 'individual';
-    if (isUniversityRole(finalRole)) {
+    const finalRole = normalizeLegacyUserRole(requestedRole, args.university_id) ?? 'individual';
+
+    // Validate role-university invariant
+    if (isUniversityRole(finalRole) && !args.university_id) {
       throw new Error(`Cannot create user with role '${finalRole}' without university assignment.`);
+    }
+    if (isIndividualRole(finalRole) && args.university_id) {
+      throw new Error(
+        `Cannot create user with role '${finalRole}' and university assignment. ` +
+          `Individual roles must not have university_id.`,
+      );
+    }
+
+    // Verify university exists if provided
+    if (args.university_id) {
+      const university = await ctx.db.get(args.university_id);
+      if (!university) {
+        throw new Error(`University not found: ${args.university_id}`);
+      }
     }
 
     // Create new user
@@ -735,7 +753,8 @@ export const initializeUserProfile = mutation({
       username: args.username || `user_${Date.now()}`,
       profile_image: args.profile_image,
       role: finalRole,
-      subscription_plan: 'free',
+      university_id: args.university_id,
+      subscription_plan: args.university_id ? 'university' : 'free',
       subscription_status: 'active',
       onboarding_completed: false,
       created_at: Date.now(),

@@ -71,6 +71,12 @@ export function useUniversityData({
     universityId ? { universityId, timeRange: 'daily' as const } : 'skip',
   );
 
+  // Momentum distribution for student health metrics
+  const momentumDistribution = useQuery(
+    api.momentum.getMomentumDistribution,
+    universityId ? { universityId } : 'skip',
+  );
+
   // Loading state
   const isLoading = !overview || !students || !departments;
 
@@ -89,6 +95,7 @@ export function useUniversityData({
     studentProgress,
     studentFunnel,
     activeUsersData,
+    momentumDistribution,
 
     // Derived data
     studentGrowthData,

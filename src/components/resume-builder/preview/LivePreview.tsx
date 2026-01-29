@@ -10,7 +10,7 @@ import type { TemplateId, TemplateTheme } from '../templates/types';
 
 interface LivePreviewProps {
   data: ResumeData;
-  templateId: string;
+  templateId: TemplateId;
   theme: TemplateTheme;
   className?: string;
 }
@@ -45,7 +45,7 @@ export function LivePreview({ data, templateId, theme, className = '' }: LivePre
   }, [data]);
 
   // Get the template component based on templateId
-  const TemplateComponent = getTemplateComponent(templateId as TemplateId);
+  const TemplateComponent = getTemplateComponent(templateId);
 
   return (
     <div className={`relative h-full flex flex-col ${className}`}>

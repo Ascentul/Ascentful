@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,13 @@ export function ExportReportDialog({
   const [filename, setFilename] = useState(defaultFilename);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Sync filename when dialog opens or defaultFilename changes
+  useEffect(() => {
+    if (open) {
+      setFilename(defaultFilename);
+    }
+  }, [open, defaultFilename]);
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -54,11 +61,11 @@ export function ExportReportDialog({
               id="export-filename"
               value={filename}
               onChange={(e) => setFilename(e.target.value)}
-              placeholder="university-report"
+              placeholder={defaultFilename}
               className="mt-2"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              File will be saved as: {filename.trim() || 'university-report'}.csv
+              File will be saved as: {filename.trim() || defaultFilename}.csv
             </p>
           </div>
         </div>
