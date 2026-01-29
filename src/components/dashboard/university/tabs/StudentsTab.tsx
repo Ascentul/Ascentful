@@ -464,7 +464,10 @@ export function StudentsTab({
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) onImportCsv(f);
+                      if (f) {
+                        onImportCsv(f);
+                        e.target.value = ''; // Reset to allow re-importing same file
+                      }
                     }}
                   />
                   <Button

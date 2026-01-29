@@ -301,6 +301,27 @@ export const getUserById = query({
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
 
+    // Check authorization
+    const requester = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!requester) {
+      throw new Error('Unauthorized');
+    }
+
+    const isSelf = requester._id === user._id;
+    const isSuperAdmin = requester.role === 'super_admin';
+    const isUniversityStaff =
+      ['university_admin', 'advisor'].includes(requester.role) &&
+      requester.university_id &&
+      requester.university_id === user.university_id;
+
+    if (!isSelf && !isSuperAdmin && !isUniversityStaff) {
+      throw new Error('Unauthorized: Cannot access this user');
+    }
+
     // Return minimal info for display purposes
     return {
       _id: user._id,

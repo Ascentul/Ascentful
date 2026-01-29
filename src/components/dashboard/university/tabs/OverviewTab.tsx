@@ -364,7 +364,7 @@ export function OverviewTab({
             <CardContent>
               <div className="flex items-center">
                 <Award className="h-5 w-5 text-muted-foreground mr-2" />
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">{studentMetrics?.totalApplications || 0}</div>
               </div>
               <div className="text-xs text-muted-foreground mt-1">Tracked this semester</div>
             </CardContent>

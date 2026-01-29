@@ -283,7 +283,12 @@ export async function POST(req: NextRequest) {
           event: 'ai.evaluation.error',
           errorCode: toErrorCode(evalError),
         });
-        // Continue with AI suggestions if evaluation itself errors (fail-open for availability)
+        // Fail-closed: fall back to rule-based suggestions when evaluation service errors
+        const safeSuggestions = generateMockSuggestions(resumeData);
+        return NextResponse.json(
+          { suggestions: safeSuggestions },
+          { headers: { 'x-correlation-id': correlationId } },
+        );
       }
 
       const durationMs = Date.now() - startTime;

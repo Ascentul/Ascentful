@@ -330,8 +330,28 @@ export const deleteExpiredAuditLogs = internalMutation({
       });
 
       if (expired.length > 0) {
+        const expiredStart = Math.min(
+          ...expired.map((log) => log.created_at ?? log.timestamp ?? 0),
+        );
+        const expiredEnd = Math.max(...expired.map((log) => log.created_at ?? log.timestamp ?? 0));
+
+        // Filter out logs that may have already been archived in a previous failed run
+        // by checking for a recent archive batch with the same date range and count.
+        const recentBatches = await ctx.db
+          .query('audit_logs_archive')
+          .withIndex('by_created_at', (q) => q.gte('created_at', now - 60 * 60 * 1000))
+          .collect();
+        const matchingBatch = recentBatches.find(
+          (batch) =>
+            batch.start_date === expiredStart &&
+            batch.end_date === expiredEnd &&
+            batch.log_count === expired.length,
+        );
+
         // Archive logs before deletion
-        const batchId = await exportAuditLogsForArchive(ctx, expired);
+        const batchId = matchingBatch
+          ? matchingBatch.batch_id
+          : await exportAuditLogsForArchive(ctx, expired);
         archiveBatches.push(batchId);
         archivedCount += expired.length;
 
