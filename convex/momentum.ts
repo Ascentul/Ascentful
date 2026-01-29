@@ -604,6 +604,7 @@ export const calculateUniversityMomentum = mutation({
 export const seedDemoMomentum = mutation({
   args: { universityId: v.id('universities') },
   handler: async (ctx, args) => {
+    await requireUniversityAccess(ctx, args.universityId);
     const now = Date.now();
 
     // Get all demo students

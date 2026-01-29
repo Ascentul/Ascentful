@@ -55,7 +55,7 @@ export const listMyThreads = query({
   handler: async (ctx, args) => {
     // Auth check
     const student = await requireUniversityStudent(ctx, args.clerkId);
-    const limit = args.limit ?? 50;
+    const limit = Math.max(0, Math.floor(args.limit ?? 50));
     const statusFilter = args.status ?? 'active';
 
     // Get threads for this student

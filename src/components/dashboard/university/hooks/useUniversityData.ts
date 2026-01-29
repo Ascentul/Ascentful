@@ -78,7 +78,7 @@ export function useUniversityData({
   );
 
   // Loading state
-  const isLoading = !overview || !students || !departments;
+  const isLoading = !!clerkUserId && (!overview || !students || !departments);
 
   // Derived data from analytics
   const studentGrowthData = analytics?.studentGrowthData || [];

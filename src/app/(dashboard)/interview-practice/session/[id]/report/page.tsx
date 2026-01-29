@@ -588,7 +588,14 @@ export default function InterviewReportPage() {
     }
 
     // Save the PDF
-    const filename = `interview-report-${session.role_profile?.job_title?.toLowerCase().replace(/\s+/g, '-') || 'session'}-${new Date().toISOString().split('T')[0]}.pdf`;
+    const jobTitleSlug = (
+      session.role_profile?.job_title ||
+      session.role_snapshot?.job_title ||
+      'session'
+    )
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+    const filename = `interview-report-${jobTitleSlug}-${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(filename);
 
     toast({

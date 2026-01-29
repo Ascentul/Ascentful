@@ -279,6 +279,12 @@ export const seed = mutation({
         .first();
 
       if (user) {
+        if (user.role === 'individual') {
+          console.warn(
+            `  Skipping ${clerkUser.email}: role is still "individual". Run syncDemoUsersToClerk first.`,
+          );
+          continue;
+        }
         if (!isDryRun) {
           await ctx.db.patch(user._id, {
             university_id: universityId,
@@ -1476,10 +1482,9 @@ export const cleanupOldYCDemo = mutation({
         await ctx.db.patch(user._id, {
           university_id: undefined,
           department_id: undefined,
-          role: 'individual', // Reset role to maintain role/university invariant
           updated_at: Date.now(),
         });
-        console.log(`  Unlinked ${email} (role reset to individual)`);
+        console.log(`  Unlinked ${email}`);
       }
     }
 
