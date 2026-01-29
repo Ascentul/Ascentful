@@ -535,9 +535,10 @@ export const cleanup = mutation({
         await ctx.db.patch(user._id, {
           university_id: undefined,
           department_id: undefined,
+          role: 'individual', // Reset role to maintain role/university invariant
           updated_at: Date.now(),
         });
-        console.log(`  Unlinked ${clerkUser.email}`);
+        console.log(`  Unlinked ${clerkUser.email} (role reset to individual)`);
       }
     }
 
@@ -1473,9 +1474,10 @@ export const cleanupOldYCDemo = mutation({
         await ctx.db.patch(user._id, {
           university_id: undefined,
           department_id: undefined,
+          role: 'individual', // Reset role to maintain role/university invariant
           updated_at: Date.now(),
         });
-        console.log(`  Unlinked ${email}`);
+        console.log(`  Unlinked ${email} (role reset to individual)`);
       }
     }
 

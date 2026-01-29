@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useMutation, useQuery } from 'convex/react';
 import React from 'react';
 
-import AccountPage from '@/app/(dashboard)/account/page';
+import AccountPage from '@/app/(shared)/account/page';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 
 // Mock dependencies
