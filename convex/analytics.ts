@@ -3102,11 +3102,16 @@ export const recomputeAdminAnalyticsCache = internalMutation({
 
     const users = await ctx.db.query('users').collect();
     for (const user of users) {
-      // Subscription distribution (all users)
+      // Exclude test/super_admin users from all investor-facing metrics
+      if (user.is_test_user === true || user.role === 'super_admin') {
+        continue;
+      }
+
+      // Subscription distribution
       const plan = user.subscription_plan || 'free';
       planSegmentation[plan] = (planSegmentation[plan] || 0) + 1;
 
-      // User growth (all users)
+      // User growth
       for (let i = 0; i < monthBoundaries.length; i++) {
         const boundary = monthBoundaries[i];
         if (user.created_at >= boundary.start && user.created_at <= boundary.end) {
@@ -3115,18 +3120,13 @@ export const recomputeAdminAnalyticsCache = internalMutation({
         }
       }
 
-      // Registrations last 7 days (all users)
+      // Registrations last 7 days
       for (let i = 0; i < dayBoundaries.length; i++) {
         const day = dayBoundaries[i];
         if (user.created_at >= day.start && user.created_at <= day.end) {
           dailyRegistrations[i]++;
           break;
         }
-      }
-
-      // Real users only for system stats
-      if (user.is_test_user === true || user.role === 'super_admin') {
-        continue;
       }
 
       totalUsersAllTime++;

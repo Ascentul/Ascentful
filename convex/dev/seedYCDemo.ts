@@ -14,7 +14,7 @@
  *   - Cleanup removes only demo data, never touches other universities
  */
 
-import { action, mutation, query } from '../_generated/server';
+import { internalAction, internalMutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import { priorityRank, toDescTimestamp } from '../lib/inboxThreadUtils';
 
@@ -188,7 +188,7 @@ const LAST_NAMES = [
 // SEED FUNCTION
 // ============================================================================
 
-export const seed = mutation({
+export const seed = internalMutation({
   args: {
     confirmProd: v.optional(v.boolean()),
     dryRun: v.optional(v.boolean()),
@@ -469,7 +469,7 @@ NEXT STEPS:
 // CLEANUP FUNCTION
 // ============================================================================
 
-export const cleanup = mutation({
+export const cleanup = internalMutation({
   args: {
     removeUniversity: v.optional(v.boolean()),
     dryRun: v.optional(v.boolean()),
@@ -648,7 +648,7 @@ export const status = query({
 // SEED ADVISOR DATA - Assigns students and creates queue/inbox items
 // ============================================================================
 
-export const seedAdvisorData = mutation({
+export const seedAdvisorData = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -996,7 +996,7 @@ const JOB_TITLES_LA = [
   'Project Coordinator',
 ];
 
-export const seedStudentProfiles = mutation({
+export const seedStudentProfiles = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -1222,7 +1222,7 @@ export const seedStudentProfiles = mutation({
 // ENABLE ADVISOR FEATURE FLAGS - Required for advisor pages to work
 // ============================================================================
 
-export const enableAdvisorFeatureFlags = mutation({
+export const enableAdvisorFeatureFlags = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -1284,7 +1284,7 @@ export const enableAdvisorFeatureFlags = mutation({
 // FIX EXISTING DATA - Updates applications with advisor assignment and creates follow-ups
 // ============================================================================
 
-export const fixExistingData = mutation({
+export const fixExistingData = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -1402,7 +1402,7 @@ export const fixExistingData = mutation({
 // ONE-TIME MIGRATION: Clean up old 'yc-demo' slug data
 // ============================================================================
 
-export const cleanupOldYCDemo = mutation({
+export const cleanupOldYCDemo = internalMutation({
   args: {
     dryRun: v.optional(v.boolean()),
   },
@@ -1527,7 +1527,7 @@ export const cleanupOldYCDemo = mutation({
  *
  * Requires: CLERK_SECRET_KEY environment variable
  */
-export const syncDemoUsersToClerk = action({
+export const syncDemoUsersToClerk = internalAction({
   args: {
     universityId: v.id('universities'),
   },

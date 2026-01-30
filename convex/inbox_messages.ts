@@ -96,7 +96,11 @@ export const addMessage = mutation({
         : thread.last_message_at_desc,
       last_message_sender_type: shouldUpdateRecency ? 'advisor' : thread.last_message_sender_type,
       snippet,
-      has_unread: isInternal ? thread.has_unread : true, // Preserve existing unread state for internal notes
+      // Mark unread only when advisors should be notified:
+      // - Internal notes on internal threads: mark unread (other advisors need to see)
+      // - Internal notes on student threads: preserve existing state
+      // - Non-internal advisor replies: mark as read (advisor just responded)
+      has_unread: isInternal ? (isInternalThread ? true : thread.has_unread) : false,
       updated_at: now,
     });
 

@@ -201,7 +201,7 @@ export default function CoverLetterDetailPage() {
     if (!clerkId || !id) return;
     setDeleting(true);
     try {
-      await deleteCoverLetter({ coverLetterId: id as any });
+      await deleteCoverLetter({ coverLetterId: id as Id<'cover_letters'> });
       toast({
         title: 'Cover letter deleted',
         description: 'Your cover letter has been deleted successfully.',

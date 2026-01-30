@@ -817,6 +817,20 @@ export const sendSurveyReminders = mutation({
  * Record a survey response for an outcome
  * Called when a graduate submits their FDS survey
  */
+/**
+ * Record a graduate's survey response.
+ *
+ * SECURITY NOTE: This mutation intentionally uses token-based authentication rather than JWT.
+ * This is consistent with the activateUserAccount pattern in admin_users.ts.
+ *
+ * Rationale:
+ * - Graduates receiving the survey may not have Ascentul accounts
+ * - The survey token is sent via email to the graduate's verified address
+ * - Token lookup uses an index for O(1) timing to prevent timing attacks
+ * - Status regression is prevented (completed cannot go back to started)
+ *
+ * The survey token serves as both authentication and authorization for this specific endpoint.
+ */
 export const recordSurveyResponse = mutation({
   args: {
     surveyToken: v.string(),

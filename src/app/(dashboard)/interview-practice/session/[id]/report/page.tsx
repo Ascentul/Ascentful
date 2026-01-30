@@ -620,9 +620,10 @@ export default function InterviewReportPage() {
 
   // Share handler
   const handleShare = useCallback(async () => {
+    const roleTitle = session?.role_profile?.job_title || session?.role_snapshot?.job_title;
     const shareData = {
       title: 'Interview Practice Report',
-      text: `Check out my interview practice report${session?.role_profile?.job_title ? ` for ${session.role_profile.job_title}` : ''}`,
+      text: `Check out my interview practice report${roleTitle ? ` for ${roleTitle}` : ''}`,
       url: window.location.href,
     };
 
