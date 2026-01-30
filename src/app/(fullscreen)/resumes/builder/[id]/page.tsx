@@ -149,7 +149,6 @@ export default function ResumeBuilderPage() {
     setSaveStatus('saving');
     try {
       await autosaveMutation({
-        clerkId,
         resumeId: resumeConvexId,
         content: {
           contactInfo: resumeData.contactInfo,
@@ -345,7 +344,6 @@ export default function ResumeBuilderPage() {
     if (isNewResume && clerkId && hasContent) {
       try {
         await createResumeMutation({
-          clerkId,
           title,
           content: {
             contactInfo: resumeData.contactInfo,

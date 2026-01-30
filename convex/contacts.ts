@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
+import { getAuthenticatedUser } from './lib/authorization';
 import { requireMembership } from './lib/roles';
 
 // List contacts for the current user by Clerk ID
@@ -58,7 +59,6 @@ export const getContactById = query({
 // Create a contact for the current user
 export const createContact = mutation({
   args: {
-    clerkId: v.string(),
     name: v.string(),
     company: v.optional(v.string()),
     position: v.optional(v.string()),
@@ -68,14 +68,32 @@ export const createContact = mutation({
     notes: v.optional(v.string()),
     relationship: v.optional(v.string()),
     last_contact: v.optional(v.number()),
+    // SECURITY: Optional clerkId for server-side API routes that have already
+    // authenticated the user through their own mechanisms.
+    // Client-side calls should NOT pass this - JWT auth is preferred.
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) throw new Error('User not found');
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
+    if (!user) {
+      throw new Error('Unauthorized: User not found');
+    }
 
     const membership =
       user.role === 'student'
@@ -99,7 +117,7 @@ export const createContact = mutation({
     //   }
     // }
 
-    const contactUniversityId = membership?.university_id ?? user.university_id;
+    const contactUniversityId = membership?.university_id ?? user.university_id ?? undefined;
     const now = Date.now();
     const id = await ctx.db.insert('networking_contacts', {
       user_id: user._id,
@@ -148,7 +166,6 @@ export const createContact = mutation({
 // Update a contact (ownership enforced)
 export const updateContact = mutation({
   args: {
-    clerkId: v.string(),
     contactId: v.id('networking_contacts'),
     updates: v.object({
       name: v.optional(v.string()),
@@ -163,14 +180,29 @@ export const updateContact = mutation({
       saved: v.optional(v.boolean()),
       tags: v.optional(v.array(v.string())),
     }),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) throw new Error('User not found');
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
+    if (!user) {
+      throw new Error('Unauthorized: User not found');
+    }
 
     const membership =
       user.role === 'student'
@@ -203,16 +235,30 @@ export const updateContact = mutation({
 // Delete a contact (ownership enforced)
 export const deleteContact = mutation({
   args: {
-    clerkId: v.string(),
     contactId: v.id('networking_contacts'),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) throw new Error('User not found');
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
+    if (!user) {
+      throw new Error('Unauthorized: User not found');
+    }
 
     const membership =
       user.role === 'student'

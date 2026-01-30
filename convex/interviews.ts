@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { getAuthenticatedUser } from './lib/authorization';
 
 export const getStagesForApplication = query({
   args: { clerkId: v.string(), applicationId: v.id('applications') },
@@ -45,7 +46,6 @@ export const getUserInterviewStages = query({
 
 export const createStage = mutation({
   args: {
-    clerkId: v.string(),
     applicationId: v.id('applications'),
     title: v.string(),
     scheduled_at: v.optional(v.number()),
@@ -53,14 +53,13 @@ export const createStage = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
-    if (!user) throw new Error('User not found');
-
-    // Verify the application belongs to the user
+    // SECURITY: Verify the application belongs to the user
+    // This ownership check provides implicit tenant isolation since users can only
+    // create interview stages for their own applications.
+    // See CLAUDE.md "Tenant Isolation & Data Access" for design rationale.
     const application = await ctx.db.get(args.applicationId);
     if (!application || application.user_id !== user._id) {
       throw new Error('Application not found or unauthorized');
@@ -104,7 +103,6 @@ export const createStage = mutation({
 
 export const updateStage = mutation({
   args: {
-    clerkId: v.string(),
     stageId: v.id('interview_stages'),
     updates: v.object({
       title: v.optional(v.string()),
@@ -122,13 +120,10 @@ export const updateStage = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
-    if (!user) throw new Error('User not found');
-
+    // SECURITY: Ownership check - users can only modify their own interview stages
     const stage = await ctx.db.get(args.stageId);
     if (!stage || stage.user_id !== user._id) throw new Error('Stage not found or unauthorized');
 
@@ -138,15 +133,12 @@ export const updateStage = mutation({
 });
 
 export const deleteStage = mutation({
-  args: { clerkId: v.string(), stageId: v.id('interview_stages') },
+  args: { stageId: v.id('interview_stages') },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
-    if (!user) throw new Error('User not found');
-
+    // SECURITY: Ownership check - users can only delete their own interview stages
     const stage = await ctx.db.get(args.stageId);
     if (!stage || stage.user_id !== user._id) throw new Error('Stage not found or unauthorized');
 

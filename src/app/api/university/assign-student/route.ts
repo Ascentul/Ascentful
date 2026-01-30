@@ -84,7 +84,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify admin has permission
+    // SECURITY: Role-based access control
+    // - hasAdvisorAccess allows super_admin, university_admin, and advisor roles
+    // - Combined with university_id check above, this ensures tenant isolation:
+    //   - university_admin/advisor can only assign to their own university
+    //   - super_admin must also have a university_id to use this endpoint
     if (!hasAdvisorAccess(adminUser.role)) {
       return NextResponse.json(
         {
@@ -95,7 +99,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate department ownership (if provided)
+    // SECURITY: Validate department ownership (if provided)
     if (departmentId !== undefined) {
       const department = await convexServer.query(
         api.departments.getDepartment,
@@ -114,12 +118,30 @@ export async function POST(req: NextRequest) {
     // Assign student in Convex
     // Note: This mutation should be idempotent - if the student is already assigned,
     // it should update rather than fail, to prevent issues on retry
-    // Validate role if provided
+
+    // Validate and normalize role
+    // Legacy 'user' role is migrated to 'student'
     const normalizedRole = role === 'user' ? 'student' : role;
-    const assignedRole =
-      normalizedRole && (ASSIGNABLE_STUDENT_ROLES as readonly string[]).includes(normalizedRole)
-        ? normalizedRole
-        : 'student';
+
+    // Validate role is in allowed list - reject invalid roles instead of silent fallback
+    if (
+      normalizedRole &&
+      !(ASSIGNABLE_STUDENT_ROLES as readonly string[]).includes(normalizedRole)
+    ) {
+      log.warn('Invalid role provided for student assignment', {
+        event: 'validation.failed',
+        errorCode: 'BAD_REQUEST',
+        extra: { providedRole: role, allowedRoles: ASSIGNABLE_STUDENT_ROLES },
+      });
+      return NextResponse.json(
+        {
+          error: `Invalid role: "${role}". Allowed roles: ${ASSIGNABLE_STUDENT_ROLES.join(', ')}`,
+        },
+        { status: 400, headers: { 'x-correlation-id': correlationId } },
+      );
+    }
+
+    const assignedRole = normalizedRole || 'student';
 
     const result = await convexServer.mutation(
       api.university_admin.assignStudentByEmail,

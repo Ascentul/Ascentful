@@ -124,7 +124,6 @@ export default function LinkedInIntegrationPage() {
     }
     try {
       await createApplication({
-        clerkId,
         company: company.trim() || 'LinkedIn',
         job_title: jobTitle.trim(),
         status: 'saved',

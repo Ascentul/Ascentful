@@ -413,196 +413,209 @@ export default function InterviewReportPage() {
   const handleExportPDF = useCallback(() => {
     if (!session) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const contentWidth = pageWidth - 2 * margin;
-    let yPos = margin;
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      let yPos = margin;
 
-    // Helper to add text with word wrap
-    const addWrappedText = (
-      text: string,
-      x: number,
-      y: number,
-      maxWidth: number,
-      lineHeight: number = 7,
-    ) => {
-      const lines = doc.splitTextToSize(text, maxWidth);
-      doc.text(lines, x, y);
-      return y + lines.length * lineHeight;
-    };
+      // Helper to add text with word wrap
+      const addWrappedText = (
+        text: string,
+        x: number,
+        y: number,
+        maxWidth: number,
+        lineHeight: number = 7,
+      ) => {
+        const lines = doc.splitTextToSize(text, maxWidth);
+        doc.text(lines, x, y);
+        return y + lines.length * lineHeight;
+      };
 
-    // Helper to check page break
-    const checkPageBreak = (neededSpace: number) => {
-      if (yPos + neededSpace > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage();
-        yPos = margin;
+      // Helper to check page break
+      const checkPageBreak = (neededSpace: number) => {
+        if (yPos + neededSpace > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          yPos = margin;
+        }
+      };
+
+      // Title
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Interview Practice Report', margin, yPos);
+      yPos += 12;
+
+      // Role info
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      const roleTitle =
+        session.role_profile?.job_title || session.role_snapshot?.job_title || 'Interview Session';
+      const company = session.role_profile?.company_name || session.role_snapshot?.company_name;
+      doc.text(roleTitle + (company ? ` at ${company}` : ''), margin, yPos);
+      yPos += 8;
+
+      // Date
+      if (session.started_at) {
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(
+          new Date(session.started_at).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+          margin,
+          yPos,
+        );
+        yPos += 15;
       }
-    };
 
-    // Title
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Interview Practice Report', margin, yPos);
-    yPos += 12;
-
-    // Role info
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    const roleTitle =
-      session.role_profile?.job_title || session.role_snapshot?.job_title || 'Interview Session';
-    const company = session.role_profile?.company_name || session.role_snapshot?.company_name;
-    doc.text(roleTitle + (company ? ` at ${company}` : ''), margin, yPos);
-    yPos += 8;
-
-    // Date
-    if (session.started_at) {
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
+      // Overall Score
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Overall Score', margin, yPos);
+      yPos += 8;
+      doc.setFontSize(24);
       doc.text(
-        new Date(session.started_at).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
+        session.overall_score ? `${session.overall_score.toFixed(1)}/5` : 'N/A',
         margin,
         yPos,
       );
       yPos += 15;
-    }
 
-    // Overall Score
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Overall Score', margin, yPos);
-    yPos += 8;
-    doc.setFontSize(24);
-    doc.text(session.overall_score ? `${session.overall_score.toFixed(1)}/5` : 'N/A', margin, yPos);
-    yPos += 15;
+      // Dimension Scores
+      if (session.dimension_scores) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Dimension Scores:', margin, yPos);
+        yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        Object.entries(session.dimension_scores).forEach(([key, value]) => {
+          if (value !== undefined) {
+            doc.text(
+              `• ${key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}: ${(value as number).toFixed(1)}/5`,
+              margin + 5,
+              yPos,
+            );
+            yPos += 6;
+          }
+        });
+        yPos += 5;
+      }
 
-    // Dimension Scores
-    if (session.dimension_scores) {
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Dimension Scores:', margin, yPos);
-      yPos += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      Object.entries(session.dimension_scores).forEach(([key, value]) => {
-        if (value !== undefined) {
+      // Coach Summary
+      if (session.coach_summary) {
+        checkPageBreak(40);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Coach Summary', margin, yPos);
+        yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        yPos = addWrappedText(session.coach_summary, margin, yPos, contentWidth);
+        yPos += 10;
+      }
+
+      // Key Takeaways
+      if (session.key_takeaways && session.key_takeaways.length > 0) {
+        checkPageBreak(30);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Key Takeaways', margin, yPos);
+        yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        session.key_takeaways.forEach((takeaway) => {
+          checkPageBreak(15);
+          yPos = addWrappedText(`• ${takeaway}`, margin + 5, yPos, contentWidth - 5);
+          yPos += 3;
+        });
+        yPos += 10;
+      }
+
+      // Questions & Responses
+      if (turns.length > 0) {
+        checkPageBreak(20);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Question-by-Question Breakdown', margin, yPos);
+        yPos += 10;
+
+        turns.forEach((turn, index) => {
+          checkPageBreak(50);
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
           doc.text(
-            `• ${key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}: ${(value as number).toFixed(1)}/5`,
-            margin + 5,
+            `Q${index + 1}: ${turn.question_type?.replace('_', ' ') || 'Question'}`,
+            margin,
             yPos,
           );
           yPos += 6;
-        }
-      });
-      yPos += 5;
-    }
-
-    // Coach Summary
-    if (session.coach_summary) {
-      checkPageBreak(40);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Coach Summary', margin, yPos);
-      yPos += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      yPos = addWrappedText(session.coach_summary, margin, yPos, contentWidth);
-      yPos += 10;
-    }
-
-    // Key Takeaways
-    if (session.key_takeaways && session.key_takeaways.length > 0) {
-      checkPageBreak(30);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Key Takeaways', margin, yPos);
-      yPos += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      session.key_takeaways.forEach((takeaway) => {
-        checkPageBreak(15);
-        yPos = addWrappedText(`• ${takeaway}`, margin + 5, yPos, contentWidth - 5);
-        yPos += 3;
-      });
-      yPos += 10;
-    }
-
-    // Questions & Responses
-    if (turns.length > 0) {
-      checkPageBreak(20);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Question-by-Question Breakdown', margin, yPos);
-      yPos += 10;
-
-      turns.forEach((turn, index) => {
-        checkPageBreak(50);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(
-          `Q${index + 1}: ${turn.question_type?.replace('_', ' ') || 'Question'}`,
-          margin,
-          yPos,
-        );
-        yPos += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        yPos = addWrappedText(turn.question_text, margin, yPos, contentWidth);
-        yPos += 5;
-
-        if (turn.scores?.overall) {
-          checkPageBreak(10);
-          doc.text(`Score: ${turn.scores.overall.toFixed(1)}/5`, margin, yPos);
-          yPos += 6;
-        }
-
-        if (turn.strengths && turn.strengths.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Strengths:', margin, yPos);
-          yPos += 5;
           doc.setFont('helvetica', 'normal');
-          turn.strengths.forEach((s) => {
-            checkPageBreak(10);
-            yPos = addWrappedText(`+ ${s}`, margin + 5, yPos, contentWidth - 5);
-          });
-          yPos += 3;
-        }
-
-        if (turn.improvements && turn.improvements.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Areas for Improvement:', margin, yPos);
+          doc.setFontSize(10);
+          yPos = addWrappedText(turn.question_text, margin, yPos, contentWidth);
           yPos += 5;
-          doc.setFont('helvetica', 'normal');
-          turn.improvements.forEach((i) => {
+
+          if (turn.scores?.overall) {
             checkPageBreak(10);
-            yPos = addWrappedText(`- ${i}`, margin + 5, yPos, contentWidth - 5);
-          });
-        }
-        yPos += 10;
+            doc.text(`Score: ${turn.scores.overall.toFixed(1)}/5`, margin, yPos);
+            yPos += 6;
+          }
+
+          if (turn.strengths && turn.strengths.length > 0) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Strengths:', margin, yPos);
+            yPos += 5;
+            doc.setFont('helvetica', 'normal');
+            turn.strengths.forEach((s) => {
+              checkPageBreak(10);
+              yPos = addWrappedText(`+ ${s}`, margin + 5, yPos, contentWidth - 5);
+            });
+            yPos += 3;
+          }
+
+          if (turn.improvements && turn.improvements.length > 0) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Areas for Improvement:', margin, yPos);
+            yPos += 5;
+            doc.setFont('helvetica', 'normal');
+            turn.improvements.forEach((i) => {
+              checkPageBreak(10);
+              yPos = addWrappedText(`- ${i}`, margin + 5, yPos, contentWidth - 5);
+            });
+          }
+          yPos += 10;
+        });
+      }
+
+      // Save the PDF
+      const jobTitleSlug = (
+        session.role_profile?.job_title ||
+        session.role_snapshot?.job_title ||
+        'session'
+      )
+        .toLowerCase()
+        .replace(/\s+/g, '-');
+      const filename = `interview-report-${jobTitleSlug}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(filename);
+
+      toast({
+        title: 'PDF exported',
+        description: 'Your interview report has been downloaded.',
+      });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Could not generate PDF. Please try again.',
+        variant: 'destructive',
       });
     }
-
-    // Save the PDF
-    const jobTitleSlug = (
-      session.role_profile?.job_title ||
-      session.role_snapshot?.job_title ||
-      'session'
-    )
-      .toLowerCase()
-      .replace(/\s+/g, '-');
-    const filename = `interview-report-${jobTitleSlug}-${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(filename);
-
-    toast({
-      title: 'PDF exported',
-      description: 'Your interview report has been downloaded.',
-    });
   }, [session, turns, toast]);
 
   // Share handler

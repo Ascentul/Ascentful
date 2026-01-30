@@ -273,6 +273,59 @@ To grant super admin access:
 - `/dashboard/*` → All authenticated users
 - `/applications/*`, `/resumes/*`, `/goals/*` → All authenticated users
 
+### Tenant Isolation & Data Access
+
+**IMPORTANT: This section documents intentional design decisions about data isolation.**
+
+#### Multi-University Tenant Isolation
+
+University-affiliated data (students, advisors, applications within university context) is isolated by `university_id`:
+- ✅ University admins can only access users in their university
+- ✅ Advisors can only access students assigned to them via `student_advisors` table
+- ✅ Support tickets, inbox threads, sessions are scoped by `university_id`
+
+#### User-Owned Data: Historical Access Pattern
+
+**Design Decision**: Users retain access to their own data even if they change universities.
+
+Affected tables: `applications`, `resumes`, `cover_letters`, `contacts`, `goals`, `projects`, `ai_coach_conversations`
+
+```
+Query Pattern:
+.withIndex('by_user', (q) => q.eq('user_id', user._id))
+// No university_id filter - intentional
+```
+
+**Rationale**:
+- Students who transfer universities should retain their career history
+- Job applications, resumes, and networking contacts are personal assets
+- This mirrors how LinkedIn/career tools work - your history follows you
+
+**Security Implication**:
+- If a student leaves University A for University B, they can still query their applications from University A
+- This does NOT allow cross-user access - only the owning user can access their data
+- University A admins lose visibility into this student's data once they leave
+
+**If stricter isolation is needed**:
+Add `requireMembership()` check to read queries:
+```typescript
+// Strict mode: Only allow access if user has active membership
+const membership = await requireMembership(ctx, user._id);
+if (resource.university_id !== membership.university_id) {
+  throw new Error('Access denied');
+}
+```
+
+#### Authorization Helpers
+
+Key functions in `convex/lib/authorization.ts`:
+- `getAuthenticatedUser(ctx)` - Get user from JWT (preferred over client-supplied clerkId)
+- `requireSuperAdmin(ctx)` - Guard for super_admin only operations
+- `requireUniversityAccess(ctx, universityId)` - Verify caller can access university
+- `assertUserAccess(ctx, actingUser, targetUserId)` - Verify access to specific user
+- `assertResourceOwnership(actingUser, resourceOwnerId)` - Verify resource ownership
+- `assertCanAccessStudent(ctx, sessionCtx, studentId)` - Advisor-specific student access
+
 ### TypeScript Paths
 ```typescript
 @/*           → ./src/*

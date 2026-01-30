@@ -159,7 +159,6 @@ export default function ApplicationsPage() {
     try {
       if (!user?.id) return;
       await createMutation({
-        clerkId: user.id,
         company: form.company,
         job_title: form.job_title,
         status: form.status,
@@ -209,7 +208,6 @@ export default function ApplicationsPage() {
 
       try {
         await moveMutation({
-          clerkId: user.id,
           applicationId: applicationId as Id<'applications'>,
           newStatus: targetStatus,
           beforeId: lastApp?._id as Id<'applications'> | undefined,
@@ -259,7 +257,6 @@ export default function ApplicationsPage() {
 
       try {
         await moveMutation({
-          clerkId: user.id,
           applicationId: applicationId as Id<'applications'>,
           newStatus,
           beforeId: beforeId as Id<'applications'> | undefined,
@@ -427,7 +424,6 @@ export default function ApplicationsPage() {
             saveFn={async (id, values) => {
               if (!user?.id) throw new Error('Not signed in');
               await updateMutation({
-                clerkId: user.id,
                 applicationId: id as Id<'applications'>,
                 updates: {
                   company: values.company,
@@ -442,7 +438,6 @@ export default function ApplicationsPage() {
             deleteFn={async (id) => {
               if (!user?.id) throw new Error('Not signed in');
               await deleteMutation({
-                clerkId: user.id,
                 applicationId: id as Id<'applications'>,
               });
             }}

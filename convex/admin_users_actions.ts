@@ -92,6 +92,16 @@ export const softDeleteUser = action({
       throw new Error('Unauthorized: Not authenticated');
     }
 
+    // SECURITY: Explicit role check at action boundary (defense-in-depth)
+    // Internal mutation also checks, but we validate early to fail fast
+    const admin = await ctx.runQuery(api.users.getUserByClerkId, {
+      clerkId: identity.subject,
+    });
+
+    if (!admin || admin.role !== 'super_admin') {
+      throw new Error('Forbidden: Only super admins can soft delete users');
+    }
+
     // Soft delete in Convex
     const result: { success: boolean; message: string; userId: any } = await ctx.runMutation(
       internal.admin_users._softDeleteUserInternal,
