@@ -136,9 +136,17 @@ export function QueueItemCard({
   return (
     <Card
       className={cn(
-        'hover:shadow-md transition-shadow cursor-pointer',
+        'hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
         isSnoozed && 'opacity-60 bg-neutral-50',
       )}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onViewDetail(item._id);
+        }
+      }}
       onClick={() => onViewDetail(item._id)}
     >
       <CardContent className="flex items-center gap-4 py-4">

@@ -551,6 +551,54 @@ export const calculateUniversityMomentum = mutation({
       .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .take(limit);
 
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    // Batch-fetch all data for the university (3 queries instead of N×3)
+    const [allResumes, allApplications, allGoals] = await Promise.all([
+      ctx.db
+        .query('resumes')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
+        .collect(),
+      ctx.db
+        .query('applications')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
+        .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo))
+        .collect(),
+      ctx.db
+        .query('goals')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
+        .collect(),
+    ]);
+
+    // Group by user_id for O(1) lookup
+    const resumesByUser = new Map<string, typeof allResumes>();
+    for (const resume of allResumes) {
+      const key = resume.user_id;
+      if (!resumesByUser.has(key)) {
+        resumesByUser.set(key, []);
+      }
+      resumesByUser.get(key)!.push(resume);
+    }
+
+    const applicationsByUser = new Map<string, typeof allApplications>();
+    for (const app of allApplications) {
+      const key = app.user_id;
+      if (!applicationsByUser.has(key)) {
+        applicationsByUser.set(key, []);
+      }
+      applicationsByUser.get(key)!.push(app);
+    }
+
+    const goalsByUser = new Map<string, typeof allGoals>();
+    for (const goal of allGoals) {
+      const key = goal.user_id;
+      if (!goalsByUser.has(key)) {
+        goalsByUser.set(key, []);
+      }
+      goalsByUser.get(key)!.push(goal);
+    }
+
     const results = {
       processed: 0,
       green: 0,
@@ -561,14 +609,10 @@ export const calculateUniversityMomentum = mutation({
 
     for (const student of students) {
       try {
-        const now = Date.now();
-        const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-
-        // Get resume freshness
-        const resumes = await ctx.db
-          .query('resumes')
-          .withIndex('by_user', (q) => q.eq('user_id', student._id))
-          .collect();
+        // Get data from pre-fetched maps (O(1) lookup)
+        const resumes = resumesByUser.get(student._id) ?? [];
+        const applications = applicationsByUser.get(student._id) ?? [];
+        const goals = goalsByUser.get(student._id) ?? [];
 
         let resumeFreshnessDays = 365;
         if (resumes.length > 0) {
@@ -578,19 +622,6 @@ export const calculateUniversityMomentum = mutation({
           const resumeAge = now - (latestResume.updated_at ?? latestResume.created_at);
           resumeFreshnessDays = Math.floor(resumeAge / (24 * 60 * 60 * 1000));
         }
-
-        // Get application count
-        const applications = await ctx.db
-          .query('applications')
-          .withIndex('by_user', (q) => q.eq('user_id', student._id))
-          .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo))
-          .collect();
-
-        // Get goals
-        const goals = await ctx.db
-          .query('goals')
-          .withIndex('by_user', (q) => q.eq('user_id', student._id))
-          .collect();
 
         const lastActivityTs = student.last_login_at ?? student.updated_at ?? student.created_at;
         const lastActivityDays = Math.floor((now - lastActivityTs) / (24 * 60 * 60 * 1000));
