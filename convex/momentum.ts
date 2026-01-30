@@ -221,9 +221,33 @@ export const getStudentMomentum = query({
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
 
+    // Get caller identity
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const caller = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q: any) => q.eq('clerkId', identity.subject))
+      .unique();
+
+    if (!caller) {
+      throw new Error('Caller not found');
+    }
+
     // Verify caller has access to this student's data
     if (user.university_id) {
+      // University user: use existing university access check
       await requireUniversityAccess(ctx, user.university_id);
+    } else {
+      // Non-university user: only allow self-access or super_admin
+      const isSelf = caller._id === user._id;
+      const isSuperAdmin = caller.role === 'super_admin';
+
+      if (!isSelf && !isSuperAdmin) {
+        throw new Error('Unauthorized: Cannot access other user data');
+      }
     }
 
     return {
@@ -286,10 +310,11 @@ export const getMomentumDistribution = query({
   handler: async (ctx, args) => {
     await requireUniversityAccess(ctx, args.universityId);
 
+    // Include legacy role: 'user' with university_id as student-like
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .collect();
 
     const distribution = {
@@ -327,10 +352,11 @@ export const getMomentumByDepartment = query({
   handler: async (ctx, args) => {
     await requireUniversityAccess(ctx, args.universityId);
     // Get all students, optionally filtered by department
+    // Include legacy role: 'user' with university_id as student-like
     let studentsQuery = ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'));
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')));
 
     const allStudents = await studentsQuery.collect();
 
@@ -428,7 +454,10 @@ export const calculateStudentMomentum = mutation({
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
     const user = await ctx.db.get(args.userId);
-    if (!user || user.role !== 'student') {
+    // Treat legacy role: 'user' with university_id as student-like
+    const isStudentLike =
+      user && (user.role === 'student' || (user.role === 'user' && user.university_id));
+    if (!isStudentLike) {
       return { success: false, error: 'User not found or not a student' };
     }
 
@@ -515,10 +544,11 @@ export const calculateUniversityMomentum = mutation({
     await requireUniversityAccess(ctx, args.universityId);
     const limit = args.limit ?? 500;
 
+    // Include legacy role: 'user' with university_id as student-like
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.eq(q.field('role'), 'student'))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
       .take(limit);
 
     const results = {
@@ -607,11 +637,16 @@ export const seedDemoMomentum = mutation({
     await requireUniversityAccess(ctx, args.universityId);
     const now = Date.now();
 
-    // Get all demo students
+    // Get all demo students (include legacy role: 'user' with university_id as student-like)
     const students = await ctx.db
       .query('users')
       .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .filter((q) => q.and(q.eq(q.field('role'), 'student'), q.eq(q.field('is_test_user'), true)))
+      .filter((q) =>
+        q.and(
+          q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')),
+          q.eq(q.field('is_test_user'), true),
+        ),
+      )
       .collect();
 
     let seeded = 0;

@@ -141,6 +141,11 @@ export async function getStudentAdvisor(
     return null;
   }
 
+  // Validate advisor belongs to the same university (cross-university protection)
+  if (advisor.university_id !== universityId) {
+    return null;
+  }
+
   // Check if advisor has any active availability slots
   const availabilitySlot = await ctx.db
     .query('advisor_availability')

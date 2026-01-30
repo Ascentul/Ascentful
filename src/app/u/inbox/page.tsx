@@ -464,7 +464,7 @@ export default function InboxPage() {
                     <Badge
                       className={cn(
                         'mt-1 min-w-[28px] justify-center text-xs',
-                        priorityConfig[thread.priority].className,
+                        priorityConfig[thread.priority as keyof typeof priorityConfig].className,
                       )}
                     >
                       {thread.priority}
@@ -517,9 +517,12 @@ export default function InboxPage() {
                         )}
                         <Badge
                           variant="outline"
-                          className={cn('text-xs', statusConfig[thread.status].className)}
+                          className={cn(
+                            'text-xs',
+                            statusConfig[thread.status as keyof typeof statusConfig].className,
+                          )}
                         >
-                          {statusConfig[thread.status].label}
+                          {statusConfig[thread.status as keyof typeof statusConfig].label}
                         </Badge>
                         <span className="text-xs text-neutral-400">
                           {formatTimeAgo(thread.last_message_at)}

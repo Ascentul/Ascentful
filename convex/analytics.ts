@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
 
-import { query } from './_generated/server';
-import { assertUniversityAccess, getAuthenticatedUser } from './lib/roles';
+import { internal } from './_generated/api';
+import { internalMutation, mutation, query } from './_generated/server';
+import { assertUniversityAccess, getAuthenticatedUser, isServiceRequest } from './lib/roles';
 
 // ============================================================================
 // Helper Functions for Optimized Analytics
@@ -105,6 +106,61 @@ async function requireSuperAdminUser(ctx: any, providedClerkId?: string) {
   return user;
 }
 
+async function getLatestAdminAnalyticsCache(ctx: any) {
+  const latest = await ctx.db
+    .query('admin_analytics_cache')
+    .withIndex('by_snapshot_at')
+    .order('desc')
+    .take(1);
+  return latest[0] ?? null;
+}
+
+type PaginatedPage<T> = { page: T[]; continueCursor: string; isDone: boolean };
+
+async function collectAll<T>(
+  makeQuery: () => { paginate: (opts: any) => Promise<PaginatedPage<T>> },
+) {
+  let cursor: string | null = null;
+  let isDone = false;
+  const results: T[] = [];
+
+  while (!isDone) {
+    const page = await makeQuery().paginate({ cursor, numItems: 500 });
+    results.push(...page.page);
+    cursor = page.continueCursor;
+    isDone = page.isDone;
+  }
+
+  return results;
+}
+
+async function countFeatureUsage(
+  ctx: any,
+  tableName:
+    | 'applications'
+    | 'resumes'
+    | 'goals'
+    | 'cover_letters'
+    | 'ai_coach_conversations'
+    | 'interview_practice_sessions'
+    | 'career_paths'
+    | 'networking_contacts',
+  eligibleUserIds: Set<string>,
+) {
+  let total = 0;
+  const uniqueUsers = new Set<string>();
+  const items = await ctx.db.query(tableName).collect();
+
+  for (const item of items) {
+    if (item.user_id && eligibleUserIds.has(item.user_id)) {
+      total++;
+      uniqueUsers.add(item.user_id);
+    }
+  }
+
+  return { users: uniqueUsers.size, total };
+}
+
 // MIGRATION: Using stage with status fallback for consistency
 // See docs/TECH_DEBT_APPLICATION_STATUS_STAGE.md
 function stageFromStatus(status?: string) {
@@ -146,91 +202,20 @@ export const getSystemStatsOptimized = query({
   },
   handler: async (ctx, args) => {
     await requireSuperAdminUser(ctx, args.clerkId);
-
-    // Use centralized metrics from metrics module
-    // This ensures consistency across all dashboard views
-    const users = await ctx.db.query('users').collect();
-    const universities = await ctx.db.query('universities').collect();
-
-    // Filter real universities (exclude test)
-    const realUniversities = universities.filter((u) => u.is_test !== true);
-
-    // Total universities all time (trial, active, archived)
-    const totalUniversitiesAllTime = realUniversities.filter(
-      (u) => u.status === 'trial' || u.status === 'active' || u.status === 'archived',
-    ).length;
-
-    // Active universities current (trial, active)
-    const activeUniversitiesCurrent = realUniversities.filter(
-      (u) => u.status === 'trial' || u.status === 'active',
-    ).length;
-
-    // Total users all time (exclude test and internal)
-    const totalUsersAllTime = users.filter(
-      (u) => u.is_test_user !== true && u.role !== 'super_admin',
-    ).length;
-
-    // Active users 30d
-    const universityMap = new Map(universities.map((u) => [u._id, u]));
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-    const activeUsers30d = users.filter((u) => {
-      if (u.is_test_user === true) return false;
-      if (u.role === 'super_admin') return false;
-      if (!u.last_login_at || u.last_login_at < thirtyDaysAgo) return false;
-
-      if (u.university_id) {
-        const university = universityMap.get(u.university_id);
-        if (!university) return false;
-        if (university.is_test === true) return false;
-        if (university.status !== 'trial' && university.status !== 'active') {
-          return false;
-        }
-      }
-
-      return true;
-    }).length;
-
-    // Calculate monthly growth for display
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const thisMonthUsers = users.filter((u) => {
-      if (u.is_test_user === true || u.role === 'super_admin') return false;
-      const userDate = new Date(u.created_at);
-      return userDate.getMonth() === currentMonth && userDate.getFullYear() === currentYear;
-    }).length;
-
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const prevMonthUsers = users.filter((u) => {
-      if (u.is_test_user === true || u.role === 'super_admin') return false;
-      const userDate = new Date(u.created_at);
-      return userDate.getMonth() === lastMonth && userDate.getFullYear() === lastMonthYear;
-    }).length;
-
-    const monthlyGrowth =
-      prevMonthUsers === 0
-        ? 0
-        : Math.round(((thisMonthUsers - prevMonthUsers) / prevMonthUsers) * 100);
-
-    // Get support ticket counts
-    const supportTickets = await ctx.db.query('support_tickets').collect();
-    const openTickets = supportTickets.filter(
-      (t) => t.status === 'open' || t.status === 'in_progress',
-    ).length;
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
 
     return {
-      // Updated to use accurate investor metrics
-      totalUsers: totalUsersAllTime,
-      totalUniversities: totalUniversitiesAllTime,
-      activeUsers: activeUsers30d,
-      activeUniversities: activeUniversitiesCurrent,
-      systemHealth: 98.5, // Would be calculated from actual monitoring
-      monthlyGrowth,
-      supportTickets: openTickets,
-      systemUptime: 99.9,
+      totalUsers: cache.total_users_all_time,
+      totalUniversities: cache.total_universities_all_time,
+      activeUsers: cache.active_users_30d,
+      activeUniversities: cache.active_universities_current,
+      systemHealth: cache.system_health,
+      monthlyGrowth: cache.monthly_growth,
+      supportTickets: cache.open_support_tickets,
+      systemUptime: cache.system_uptime,
     };
   },
 });
@@ -245,9 +230,12 @@ export const getUserGrowthOptimized = query({
     await requireSuperAdminUser(ctx, args.clerkId);
 
     const monthsBack = args.monthsBack || 6;
-    const users = await ctx.db.query('users').collect();
-
-    return calculateUserGrowth(users, monthsBack);
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
+    const start = Math.max(0, cache.user_growth.length - monthsBack);
+    return cache.user_growth.slice(start);
   },
 });
 
@@ -258,21 +246,11 @@ export const getActivityDataOptimized = query({
   },
   handler: async (ctx, args) => {
     await requireSuperAdminUser(ctx, args.clerkId);
-
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-    // Fetch only recent users and applications
-    const recentUsers = await ctx.db
-      .query('users')
-      .filter((q) => q.gte(q.field('created_at'), sevenDaysAgo))
-      .collect();
-
-    const recentApplications = await ctx.db
-      .query('applications')
-      .filter((q) => q.gte(q.field('created_at'), sevenDaysAgo))
-      .collect();
-
-    return calculateActivityData(recentUsers, recentApplications, 7);
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
+    return cache.activity_data;
   },
 });
 
@@ -283,34 +261,17 @@ export const getSupportMetricsOptimized = query({
   },
   handler: async (ctx, args) => {
     await requireSuperAdminUser(ctx, args.clerkId);
-
-    const supportTickets = await ctx.db.query('support_tickets').collect();
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayTimestamp = todayStart.getTime();
-
-    const openTickets = supportTickets.filter(
-      (t) => t.status === 'open' || t.status === 'in_progress',
-    );
-    const resolvedToday = supportTickets.filter(
-      (t) => t.status === 'resolved' && t.resolved_at && t.resolved_at >= todayTimestamp,
-    );
-    const resolvedTickets = supportTickets.filter((t) => t.status === 'resolved' && t.resolved_at);
-    const avgResponseTimeMs =
-      resolvedTickets.length > 0
-        ? resolvedTickets.reduce((sum, t) => sum + (t.resolved_at! - t.created_at), 0) /
-          resolvedTickets.length
-        : 0;
-    const avgResponseTimeHours = (avgResponseTimeMs / (1000 * 60 * 60)).toFixed(1);
-
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
     return {
-      openTickets: openTickets.length,
-      resolvedToday: resolvedToday.length,
-      avgResponseTime: avgResponseTimeHours,
-      totalTickets: supportTickets.length,
-      resolvedTickets: resolvedTickets.length,
-      inProgressTickets: supportTickets.filter((t) => t.status === 'in_progress').length,
+      openTickets: cache.support_metrics.open_tickets,
+      resolvedToday: cache.support_metrics.resolved_today,
+      avgResponseTime: cache.support_metrics.avg_response_time_hours,
+      totalTickets: cache.support_metrics.total_tickets,
+      resolvedTickets: cache.support_metrics.resolved_tickets,
+      inProgressTickets: cache.support_metrics.in_progress_tickets,
     };
   },
 });
@@ -351,23 +312,11 @@ export const getSubscriptionDistributionOptimized = query({
   },
   handler: async (ctx, args) => {
     await requireSuperAdminUser(ctx, args.clerkId);
-
-    const users = await ctx.db.query('users').collect();
-
-    const planSegmentation = users.reduce(
-      (acc, user) => {
-        const plan = user.subscription_plan || 'free';
-        acc[plan] = (acc[plan] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    return [
-      { name: 'University', value: planSegmentation.university || 0, color: '#4F46E5' },
-      { name: 'Premium', value: planSegmentation.premium || 0, color: '#10B981' },
-      { name: 'Free', value: planSegmentation.free || 0, color: '#F59E0B' },
-    ];
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
+    return cache.subscription_distribution;
   },
 });
 
@@ -636,7 +585,7 @@ export const getAdminAnalytics = query({
       .slice(0, 20);
 
     // Get universities for university data
-    const universities = await ctx.db.query('universities').collect();
+    const universities = await collectAll(() => ctx.db.query('universities'));
 
     // Get all support tickets for detailed metrics (limited for bandwidth)
     const allSupportTickets = await ctx.db.query('support_tickets').take(2000);
@@ -702,10 +651,9 @@ export const getAdminAnalytics = query({
     // Limit to top 10 universities to prevent excessive data fetching and stay under 16MB limit
     const universityData = await Promise.all(
       universities.slice(0, 10).map(async (uni) => {
-        const uniUsers = await ctx.db
-          .query('users')
-          .withIndex('by_university', (q) => q.eq('university_id', uni._id))
-          .collect();
+        const uniUsers = await collectAll(() =>
+          ctx.db.query('users').withIndex('by_university', (q) => q.eq('university_id', uni._id)),
+        );
 
         // Calculate license utilization
         const licenseUtilization =
@@ -858,10 +806,9 @@ export const getAdminAnalytics = query({
     const universityUsersMap = new Map();
     for (const uni of universities.slice(0, 10)) {
       // Limit to top 10 universities to prevent excessive data
-      const uniUsers = await ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', uni._id))
-        .collect();
+      const uniUsers = await collectAll(() =>
+        ctx.db.query('users').withIndex('by_university', (q) => q.eq('university_id', uni._id)),
+      );
       universityUsersMap.set(
         uni._id,
         uniUsers.map((u) => u._id),
@@ -1885,10 +1832,11 @@ export const getSingleUniversityAnalytics = query({
     }
 
     // Get all users in this university
-    const universityUsers = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', args.universityId))
-      .collect();
+    const universityUsers = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', args.universityId)),
+    );
 
     const userIds = universityUsers.map((u) => u._id);
     const students = universityUsers.filter((u) => u.role === 'user');
@@ -2210,20 +2158,22 @@ export const getUniversityActiveUsersOverTime = query({
     const msPerDay = 24 * 60 * 60 * 1000;
 
     // Get all students in this university (include legacy 'user' role)
-    const students = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const students = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
 
     const studentIds = new Set(students.map((s) => s._id));
 
     // Get advisors
-    const advisors = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.eq(q.field('role'), 'advisor'))
-      .collect();
+    const advisors = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.eq(q.field('role'), 'advisor')),
+    );
 
     const advisorIds = new Set(advisors.map((a) => a._id));
 
@@ -2317,28 +2267,31 @@ export const getUniversityFeatureUsage = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students in this university (include legacy 'user' role)
-    const students = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const students = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
 
     // Bulk fetch networking contacts for the university, filter to students
-    const allContacts = await ctx.db
-      .query('networking_contacts')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allContacts = await collectAll(() =>
+      ctx.db
+        .query('networking_contacts')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
     const networkingContactsCount = allContacts.filter((c) =>
       studentIdSet.has(c.user_id.toString()),
     ).length;
 
     // Bulk fetch AI coach conversations for the university
-    const allConversations = await ctx.db
-      .query('ai_coach_conversations')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allConversations = await collectAll(() =>
+      ctx.db
+        .query('ai_coach_conversations')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
     const aiCoachConversationsCount = allConversations.filter((c) =>
       studentIdSet.has(c.user_id.toString()),
     ).length;
@@ -2368,11 +2321,12 @@ export const getUniversityMonthlyTrends = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students in the university (role-filtered)
-    const students = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const students = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
     const studentIds = new Set(students.map((s) => s._id));
 
     // Build month boundaries
@@ -2396,20 +2350,21 @@ export const getUniversityMonthlyTrends = query({
 
     // Use university-scoped queries instead of per-student N+1 queries
     // This keeps query counts bounded regardless of student count
-    const applications = await ctx.db
-      .query('applications')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const applications = await collectAll(() =>
+      ctx.db
+        .query('applications')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
-    const goals = await ctx.db
-      .query('goals')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const goals = await collectAll(() =>
+      ctx.db.query('goals').withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
-    const resumes = await ctx.db
-      .query('resumes')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const resumes = await collectAll(() =>
+      ctx.db
+        .query('resumes')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Aggregate by month (filtered to students only)
     const trends = monthBoundaries.map((month) => {
@@ -2455,34 +2410,36 @@ export const getUniversityDepartmentAnalytics = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all departments
-    const departments = await ctx.db
-      .query('departments')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const departments = await collectAll(() =>
+      ctx.db
+        .query('departments')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Get all students (include legacy 'user' role)
-    const students = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const students = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
 
     // Collect all student IDs for bulk queries
     const allStudentIds = students.map((s) => s._id);
     const studentIdSet = new Set(allStudentIds.map((id) => id.toString()));
 
     // Bulk fetch all goals for the university and filter to students
-    const allGoals = await ctx.db
-      .query('goals')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allGoals = await collectAll(() =>
+      ctx.db.query('goals').withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
     const studentGoals = allGoals.filter((g) => studentIdSet.has(g.user_id.toString()));
 
     // Bulk fetch all applications for the university and filter to students
-    const allApplications = await ctx.db
-      .query('applications')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allApplications = await collectAll(() =>
+      ctx.db
+        .query('applications')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
     const studentApplications = allApplications.filter((a) =>
       studentIdSet.has(a.user_id.toString()),
     );
@@ -2551,20 +2508,22 @@ export const getUniversityStudentFunnel = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students (include legacy 'user' role)
-    const students = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const students = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
     const totalStudents = students.length;
 
     // Bulk fetch all applications for this university
-    const allApplications = await ctx.db
-      .query('applications')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allApplications = await collectAll(() =>
+      ctx.db
+        .query('applications')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Group applications by student for O(1) lookups
     const applicationsByStudent = new Map<string, typeof allApplications>();
@@ -2675,10 +2634,9 @@ export const getAdvisorCaseloadMetrics = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all users for this university
-    const allUsers = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allUsers = await collectAll(() =>
+      ctx.db.query('users').withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Separate students and advisors
     const students = allUsers.filter((u) => u.role === 'student' || u.role === 'user');
@@ -2692,10 +2650,11 @@ export const getAdvisorCaseloadMetrics = query({
       totalAdvisors > 0 ? Math.round((totalStudents / totalAdvisors) * 10) / 10 : 0;
 
     // Get advisor assignments to calculate caseload distribution
-    const advisorAssignments = await ctx.db
-      .query('student_advisors')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const advisorAssignments = await collectAll(() =>
+      ctx.db
+        .query('student_advisors')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Count students per advisor (initialize all advisors with 0)
     const studentCountByAdvisor = new Map<string, number>();
@@ -2720,11 +2679,12 @@ export const getAdvisorCaseloadMetrics = query({
 
     // Get sessions from the last 30 days for appointment metrics
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentSessions = await ctx.db
-      .query('advisor_sessions')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo))
-      .collect();
+    const recentSessions = await collectAll(() =>
+      ctx.db
+        .query('advisor_sessions')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.gte(q.field('created_at'), thirtyDaysAgo)),
+    );
 
     // Calculate sessions per advisor (include zero-session advisors)
     const sessionCountByAdvisor = new Map<string, number>();
@@ -2814,20 +2774,22 @@ export const getInterventionCorrelation = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students for this university
-    const allUsers = await ctx.db
-      .query('users')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
-      .collect();
+    const allUsers = await collectAll(() =>
+      ctx.db
+        .query('users')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
+    );
 
     const studentIds = allUsers.map((u) => u._id);
     const studentIdSet = new Set(studentIds.map((id) => id.toString()));
 
     // Get all sessions for students in this university
-    const allSessions = await ctx.db
-      .query('advisor_sessions')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const allSessions = await collectAll(() =>
+      ctx.db
+        .query('advisor_sessions')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     // Count sessions per student
     const sessionCountByStudent = new Map<string, number>();
@@ -2839,17 +2801,19 @@ export const getInterventionCorrelation = query({
     }
 
     // Get graduate outcomes for this university
-    const outcomes = await ctx.db
-      .query('graduate_outcomes')
-      .withIndex('by_institution', (q) => q.eq('institution_id', universityId))
-      .collect();
+    const outcomes = await collectAll(() =>
+      ctx.db
+        .query('graduate_outcomes')
+        .withIndex('by_institution', (q) => q.eq('institution_id', universityId)),
+    );
 
     // Build reverse lookup: external_student_id → user_id via studentProfiles
     // This allows matching outcomes imported with only external_student_id
-    const studentProfiles = await ctx.db
-      .query('studentProfiles')
-      .withIndex('by_university', (q) => q.eq('university_id', universityId))
-      .collect();
+    const studentProfiles = await collectAll(() =>
+      ctx.db
+        .query('studentProfiles')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
+    );
 
     const externalIdToUserId = new Map<string, string>();
     for (const profile of studentProfiles) {
@@ -3000,7 +2964,263 @@ export const getPlatformFeatureUsage = query({
     // Authorization: Require super admin
     await requireSuperAdminUser(ctx, args.clerkId);
 
-    // Get counts of unique users for each feature using parallel queries
+    const cache = await getLatestAdminAnalyticsCache(ctx);
+    if (!cache) {
+      throw new Error('Admin analytics cache not available');
+    }
+
+    return {
+      totalUsers: cache.total_users_all_time,
+      features: cache.platform_feature_usage,
+    };
+  },
+});
+
+/**
+ * Get latest cache timestamps for admin analytics + engagement metrics.
+ * Super admin only.
+ */
+export const getAnalyticsCacheStatus = query({
+  args: {
+    serviceToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!isServiceRequest(args.serviceToken)) {
+      await requireSuperAdminUser(ctx);
+    }
+
+    const adminCache = await getLatestAdminAnalyticsCache(ctx);
+    const latestEngagement = await ctx.db
+      .query('university_engagement_metrics')
+      .withIndex('by_updated_at')
+      .order('desc')
+      .take(1);
+    const engagementCache = latestEngagement[0] ?? null;
+
+    return {
+      adminAnalyticsCache: adminCache
+        ? {
+            snapshot_at: adminCache.snapshot_at,
+            created_at: adminCache.created_at,
+            updated_at: adminCache.updated_at,
+          }
+        : null,
+      engagementMetricsCache: engagementCache
+        ? {
+            updated_at: engagementCache.updated_at,
+            university_id: engagementCache.university_id,
+          }
+        : null,
+    };
+  },
+});
+
+/**
+ * Trigger a manual recompute of the admin analytics cache.
+ * Super admin only.
+ */
+export const triggerAdminAnalyticsRecompute = mutation({
+  args: {
+    serviceToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!isServiceRequest(args.serviceToken)) {
+      await requireSuperAdminUser(ctx);
+    }
+    await ctx.scheduler.runAfter(0, internal.analytics.recomputeAdminAnalyticsCache, {});
+    return { scheduled: true };
+  },
+});
+
+/**
+ * Internal: recompute admin analytics cache
+ * Scheduled via cron to avoid expensive on-demand scans.
+ */
+export const recomputeAdminAnalyticsCache = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Build university map and counts
+    const universityMap = new Map<string, { is_test?: boolean; status?: string }>();
+    let totalUniversitiesAllTime = 0;
+    let activeUniversitiesCurrent = 0;
+
+    const universities = await ctx.db.query('universities').collect();
+    for (const uni of universities) {
+      universityMap.set(uni._id, { is_test: uni.is_test, status: uni.status });
+      if (uni.is_test !== true) {
+        if (uni.status === 'trial' || uni.status === 'active' || uni.status === 'archived') {
+          totalUniversitiesAllTime++;
+        }
+        if (uni.status === 'trial' || uni.status === 'active') {
+          activeUniversitiesCurrent++;
+        }
+      }
+    }
+
+    // Month boundaries for user growth (12 months)
+    const monthBoundaries: Array<{ start: number; end: number; label: string }> = [];
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).getTime();
+      const label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthBoundaries.push({ start: monthStart, end: monthEnd, label });
+    }
+    const userGrowthCounts = monthBoundaries.map(() => 0);
+
+    // Day boundaries for activity data (last 7 days)
+    const dayBoundaries: Array<{ start: number; end: number; label: string }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+      dayBoundaries.push({
+        start: dayStart,
+        end: dayEnd,
+        label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      });
+    }
+    const dailyRegistrations = dayBoundaries.map(() => 0);
+    const dailyApplications = dayBoundaries.map(() => 0);
+
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    let totalUsersAllTime = 0;
+    let activeUsers30d = 0;
+    let thisMonthUsers = 0;
+    let prevMonthUsers = 0;
+    const planSegmentation: Record<string, number> = {};
+    const eligibleUserIds = new Set<string>();
+
+    const users = await ctx.db.query('users').collect();
+    for (const user of users) {
+      // Subscription distribution (all users)
+      const plan = user.subscription_plan || 'free';
+      planSegmentation[plan] = (planSegmentation[plan] || 0) + 1;
+
+      // User growth (all users)
+      for (let i = 0; i < monthBoundaries.length; i++) {
+        const boundary = monthBoundaries[i];
+        if (user.created_at >= boundary.start && user.created_at <= boundary.end) {
+          userGrowthCounts[i]++;
+          break;
+        }
+      }
+
+      // Registrations last 7 days (all users)
+      for (let i = 0; i < dayBoundaries.length; i++) {
+        const day = dayBoundaries[i];
+        if (user.created_at >= day.start && user.created_at <= day.end) {
+          dailyRegistrations[i]++;
+          break;
+        }
+      }
+
+      // Real users only for system stats
+      if (user.is_test_user === true || user.role === 'super_admin') {
+        continue;
+      }
+
+      totalUsersAllTime++;
+      eligibleUserIds.add(user._id);
+
+      const userDate = new Date(user.created_at);
+      if (userDate.getMonth() === currentMonth && userDate.getFullYear() === currentYear) {
+        thisMonthUsers++;
+      }
+      if (userDate.getMonth() === lastMonth && userDate.getFullYear() === lastMonthYear) {
+        prevMonthUsers++;
+      }
+
+      if (user.last_login_at && user.last_login_at >= thirtyDaysAgo) {
+        if (user.university_id) {
+          const uni = universityMap.get(user.university_id);
+          if (!uni || uni.is_test === true) {
+            continue;
+          }
+          if (uni.status !== 'trial' && uni.status !== 'active') {
+            continue;
+          }
+        }
+        activeUsers30d++;
+      }
+    }
+
+    // Applications last 7 days for activity data
+    const applications = await ctx.db.query('applications').collect();
+    for (const app of applications) {
+      for (let i = 0; i < dayBoundaries.length; i++) {
+        const day = dayBoundaries[i];
+        if (app.created_at >= day.start && app.created_at <= day.end) {
+          dailyApplications[i]++;
+          break;
+        }
+      }
+    }
+
+    // Support ticket metrics
+    let openTickets = 0;
+    let resolvedToday = 0;
+    let resolvedTickets = 0;
+    let inProgressTickets = 0;
+    let totalTickets = 0;
+    let totalResolutionMs = 0;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTimestamp = todayStart.getTime();
+
+    const tickets = await ctx.db.query('support_tickets').collect();
+    for (const ticket of tickets) {
+      totalTickets++;
+      if (ticket.status === 'open' || ticket.status === 'in_progress') {
+        openTickets++;
+      }
+      if (ticket.status === 'in_progress') {
+        inProgressTickets++;
+      }
+      if (ticket.status === 'resolved' && ticket.resolved_at) {
+        resolvedTickets++;
+        totalResolutionMs += ticket.resolved_at - ticket.created_at;
+        if (ticket.resolved_at >= todayTimestamp) {
+          resolvedToday++;
+        }
+      }
+    }
+
+    const avgResponseTimeMs = resolvedTickets > 0 ? totalResolutionMs / resolvedTickets : 0;
+    const avgResponseTimeHours = (avgResponseTimeMs / (1000 * 60 * 60)).toFixed(1);
+
+    const monthlyGrowth =
+      prevMonthUsers === 0
+        ? 0
+        : Math.round(((thisMonthUsers - prevMonthUsers) / prevMonthUsers) * 100);
+
+    const activityData = dayBoundaries.map((day, i) => ({
+      day: day.label,
+      logins: Math.max(dailyApplications[i] * 3, dailyRegistrations[i] * 5),
+      registrations: dailyRegistrations[i],
+    }));
+
+    const userGrowth = monthBoundaries.map((m, i) => ({
+      month: m.label,
+      users: userGrowthCounts[i],
+    }));
+
+    const subscriptionDistribution = [
+      { name: 'University', value: planSegmentation.university || 0, color: '#4F46E5' },
+      { name: 'Premium', value: planSegmentation.premium || 0, color: '#10B981' },
+      { name: 'Free', value: planSegmentation.free || 0, color: '#F59E0B' },
+    ];
+
     const [
       applicationsCount,
       resumesCount,
@@ -3011,119 +3231,63 @@ export const getPlatformFeatureUsage = query({
       careerPathsCount,
       networkingContactsCount,
     ] = await Promise.all([
-      // Applications: count unique users
-      ctx.db
-        .query('applications')
-        .collect()
-        .then((apps) => {
-          const uniqueUsers = new Set(apps.map((a) => a.user_id.toString()));
-          return { users: uniqueUsers.size, total: apps.length };
-        }),
-      // Resumes: count unique users
-      ctx.db
-        .query('resumes')
-        .collect()
-        .then((resumes) => {
-          const uniqueUsers = new Set(resumes.map((r) => r.user_id.toString()));
-          return { users: uniqueUsers.size, total: resumes.length };
-        }),
-      // Goals: count unique users
-      ctx.db
-        .query('goals')
-        .collect()
-        .then((goals) => {
-          const uniqueUsers = new Set(goals.map((g) => g.user_id.toString()));
-          return { users: uniqueUsers.size, total: goals.length };
-        }),
-      // Cover Letters: count unique users
-      ctx.db
-        .query('cover_letters')
-        .collect()
-        .then((letters) => {
-          const uniqueUsers = new Set(letters.map((l) => l.user_id.toString()));
-          return { users: uniqueUsers.size, total: letters.length };
-        }),
-      // AI Coach: count unique users
-      ctx.db
-        .query('ai_coach_conversations')
-        .collect()
-        .then((convos) => {
-          const uniqueUsers = new Set(convos.map((c) => c.user_id.toString()));
-          return { users: uniqueUsers.size, total: convos.length };
-        }),
-      // Interview Practice: count unique users
-      ctx.db
-        .query('interview_practice_sessions')
-        .collect()
-        .then((sessions) => {
-          const uniqueUsers = new Set(sessions.map((s) => s.user_id.toString()));
-          return { users: uniqueUsers.size, total: sessions.length };
-        }),
-      // Career Paths: count unique users
-      ctx.db
-        .query('career_paths')
-        .collect()
-        .then((paths) => {
-          const uniqueUsers = new Set(paths.map((p) => p.user_id.toString()));
-          return { users: uniqueUsers.size, total: paths.length };
-        }),
-      // Networking Contacts: count unique users
-      ctx.db
-        .query('networking_contacts')
-        .collect()
-        .then((contacts) => {
-          const uniqueUsers = new Set(contacts.map((c) => c.user_id.toString()));
-          return { users: uniqueUsers.size, total: contacts.length };
-        }),
+      countFeatureUsage(ctx, 'applications', eligibleUserIds),
+      countFeatureUsage(ctx, 'resumes', eligibleUserIds),
+      countFeatureUsage(ctx, 'goals', eligibleUserIds),
+      countFeatureUsage(ctx, 'cover_letters', eligibleUserIds),
+      countFeatureUsage(ctx, 'ai_coach_conversations', eligibleUserIds),
+      countFeatureUsage(ctx, 'interview_practice_sessions', eligibleUserIds),
+      countFeatureUsage(ctx, 'career_paths', eligibleUserIds),
+      countFeatureUsage(ctx, 'networking_contacts', eligibleUserIds),
     ]);
 
-    // Get total user count for percentage calculations
-    const totalUsers = await ctx.db.query('users').collect();
-    const totalUserCount = totalUsers.length;
-
-    // Build feature usage array sorted by user adoption
-    const features = [
+    const platformFeatureUsage = [
       {
         name: 'Applications',
         users: applicationsCount.users,
         total: applicationsCount.total,
         percentage:
-          totalUserCount > 0 ? Math.round((applicationsCount.users / totalUserCount) * 100) : 0,
+          totalUsersAllTime > 0
+            ? Math.round((applicationsCount.users / totalUsersAllTime) * 100)
+            : 0,
       },
       {
         name: 'Resumes',
         users: resumesCount.users,
         total: resumesCount.total,
         percentage:
-          totalUserCount > 0 ? Math.round((resumesCount.users / totalUserCount) * 100) : 0,
+          totalUsersAllTime > 0 ? Math.round((resumesCount.users / totalUsersAllTime) * 100) : 0,
       },
       {
         name: 'Goals',
         users: goalsCount.users,
         total: goalsCount.total,
-        percentage: totalUserCount > 0 ? Math.round((goalsCount.users / totalUserCount) * 100) : 0,
+        percentage:
+          totalUsersAllTime > 0 ? Math.round((goalsCount.users / totalUsersAllTime) * 100) : 0,
       },
       {
         name: 'Cover Letters',
         users: coverLettersCount.users,
         total: coverLettersCount.total,
         percentage:
-          totalUserCount > 0 ? Math.round((coverLettersCount.users / totalUserCount) * 100) : 0,
+          totalUsersAllTime > 0
+            ? Math.round((coverLettersCount.users / totalUsersAllTime) * 100)
+            : 0,
       },
       {
         name: 'AI Coach',
         users: aiCoachCount.users,
         total: aiCoachCount.total,
         percentage:
-          totalUserCount > 0 ? Math.round((aiCoachCount.users / totalUserCount) * 100) : 0,
+          totalUsersAllTime > 0 ? Math.round((aiCoachCount.users / totalUsersAllTime) * 100) : 0,
       },
       {
         name: 'Interview Practice',
         users: interviewPracticeCount.users,
         total: interviewPracticeCount.total,
         percentage:
-          totalUserCount > 0
-            ? Math.round((interviewPracticeCount.users / totalUserCount) * 100)
+          totalUsersAllTime > 0
+            ? Math.round((interviewPracticeCount.users / totalUsersAllTime) * 100)
             : 0,
       },
       {
@@ -3131,22 +3295,55 @@ export const getPlatformFeatureUsage = query({
         users: careerPathsCount.users,
         total: careerPathsCount.total,
         percentage:
-          totalUserCount > 0 ? Math.round((careerPathsCount.users / totalUserCount) * 100) : 0,
+          totalUsersAllTime > 0
+            ? Math.round((careerPathsCount.users / totalUsersAllTime) * 100)
+            : 0,
       },
       {
         name: 'Networking',
         users: networkingContactsCount.users,
         total: networkingContactsCount.total,
         percentage:
-          totalUserCount > 0
-            ? Math.round((networkingContactsCount.users / totalUserCount) * 100)
+          totalUsersAllTime > 0
+            ? Math.round((networkingContactsCount.users / totalUsersAllTime) * 100)
             : 0,
       },
     ].sort((a, b) => b.percentage - a.percentage);
 
+    await ctx.db.insert('admin_analytics_cache', {
+      snapshot_at: now,
+      total_users_all_time: totalUsersAllTime,
+      total_universities_all_time: totalUniversitiesAllTime,
+      active_users_30d: activeUsers30d,
+      active_universities_current: activeUniversitiesCurrent,
+      monthly_growth: monthlyGrowth,
+      open_support_tickets: openTickets,
+      system_health: 98.5,
+      system_uptime: 99.9,
+      user_growth: userGrowth,
+      activity_data: activityData,
+      support_metrics: {
+        open_tickets: openTickets,
+        resolved_today: resolvedToday,
+        avg_response_time_hours: avgResponseTimeHours,
+        total_tickets: totalTickets,
+        resolved_tickets: resolvedTickets,
+        in_progress_tickets: inProgressTickets,
+      },
+      subscription_distribution: subscriptionDistribution,
+      platform_feature_usage: platformFeatureUsage,
+      created_at: now,
+      updated_at: now,
+    });
+
     return {
-      totalUsers: totalUserCount,
-      features,
+      snapshot_at: now,
+      totalUsersAllTime,
+      totalUniversitiesAllTime,
+      activeUsers30d,
+      activeUniversitiesCurrent,
+      monthlyGrowth,
+      openTickets,
     };
   },
 });

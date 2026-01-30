@@ -332,6 +332,94 @@ export const getUserById = query({
   },
 });
 
+/**
+ * Check if a user can access another user's data.
+ * Used by API routes to verify authorization before serving files or data.
+ *
+ * Rules:
+ * - super_admin: can access anyone
+ * - university_admin: can access users in their university
+ * - advisor: can only access assigned students (via student_advisors table)
+ * - others: can only access their own data
+ */
+export const canAccessUser = query({
+  args: {
+    requesterClerkId: v.string(),
+    targetClerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { canAccess: false, reason: 'Not authenticated' };
+    }
+
+    // Get requester
+    const requester = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.requesterClerkId))
+      .unique();
+
+    if (!requester) {
+      return { canAccess: false, reason: 'Requester not found' };
+    }
+
+    // Get target user
+    const target = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.targetClerkId))
+      .unique();
+
+    if (!target) {
+      return { canAccess: false, reason: 'Target user not found' };
+    }
+
+    // Self-access is always allowed
+    if (requester._id === target._id) {
+      return { canAccess: true, reason: 'Self access' };
+    }
+
+    // Super admin can access anyone
+    if (requester.role === 'super_admin') {
+      return { canAccess: true, reason: 'Super admin access' };
+    }
+
+    // University admin can access users in their university
+    if (requester.role === 'university_admin') {
+      if (requester.university_id && requester.university_id === target.university_id) {
+        return { canAccess: true, reason: 'University admin access' };
+      }
+      return { canAccess: false, reason: 'Target not in your university' };
+    }
+
+    // Advisor can only access assigned students
+    if (requester.role === 'advisor') {
+      // First check university match
+      if (!requester.university_id || requester.university_id !== target.university_id) {
+        return { canAccess: false, reason: 'Target not in your university' };
+      }
+
+      // Check if advisor is assigned to this student
+      const assignment = await ctx.db
+        .query('student_advisors')
+        .withIndex('by_advisor', (q) =>
+          q.eq('advisor_id', requester._id).eq('university_id', requester.university_id!),
+        )
+        .filter((q) =>
+          q.and(q.eq(q.field('student_id'), target._id), q.eq(q.field('is_owner'), true)),
+        )
+        .first();
+
+      if (assignment) {
+        return { canAccess: true, reason: 'Assigned student access' };
+      }
+      return { canAccess: false, reason: 'Not assigned to this student' };
+    }
+
+    // All other cases: access denied
+    return { canAccess: false, reason: 'Insufficient permissions' };
+  },
+});
+
 // Get user by email (useful for webhook sync verification)
 export const getUserByEmail = query({
   args: { email: v.string() },

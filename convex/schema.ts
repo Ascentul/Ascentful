@@ -1609,6 +1609,57 @@ export default defineSchema({
     updated_at: v.number(),
   }).index('by_snapshot_at', ['snapshot_at']),
 
+  // Admin analytics cache (daily refresh for admin dashboards)
+  admin_analytics_cache: defineTable({
+    snapshot_at: v.number(),
+    total_users_all_time: v.number(),
+    total_universities_all_time: v.number(),
+    active_users_30d: v.number(),
+    active_universities_current: v.number(),
+    monthly_growth: v.number(),
+    open_support_tickets: v.number(),
+    system_health: v.number(),
+    system_uptime: v.number(),
+    user_growth: v.array(
+      v.object({
+        month: v.string(),
+        users: v.number(),
+      }),
+    ),
+    activity_data: v.array(
+      v.object({
+        day: v.string(),
+        logins: v.number(),
+        registrations: v.number(),
+      }),
+    ),
+    support_metrics: v.object({
+      open_tickets: v.number(),
+      resolved_today: v.number(),
+      avg_response_time_hours: v.string(),
+      total_tickets: v.number(),
+      resolved_tickets: v.number(),
+      in_progress_tickets: v.number(),
+    }),
+    subscription_distribution: v.array(
+      v.object({
+        name: v.string(),
+        value: v.number(),
+        color: v.string(),
+      }),
+    ),
+    platform_feature_usage: v.array(
+      v.object({
+        name: v.string(),
+        users: v.number(),
+        total: v.number(),
+        percentage: v.number(),
+      }),
+    ),
+    created_at: v.number(),
+    updated_at: v.number(),
+  }).index('by_snapshot_at', ['snapshot_at']),
+
   // Stripe payments table for revenue tracking
   stripe_payments: defineTable({
     user_id: v.optional(v.id('users')),
@@ -2560,7 +2611,6 @@ export default defineSchema({
     .index('by_cohort', ['cohort_id'])
     .index('by_institution', ['institution_id'])
     .index('by_student', ['student_id'])
-    .index('by_student_last_message', ['student_id', 'last_message_at'])
     .index('by_major', ['major_id'])
     .index('by_outcome_status', ['outcome_status'])
     .index('by_outcome_type', ['outcome_type'])

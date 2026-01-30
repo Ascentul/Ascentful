@@ -54,14 +54,12 @@ export const createUserByAdmin = mutation({
     const admin = await getAuthenticatedUser(ctx);
 
     const isSuperAdmin = admin.role === 'super_admin';
+    // Note: Advisors cannot create users - only view/assist students
     const isUniversityAdmin =
-      (admin.role === 'university_admin' || admin.role === 'advisor') &&
-      admin.university_id === args.university_id;
+      admin.role === 'university_admin' && admin.university_id === args.university_id;
 
     if (!isSuperAdmin && !isUniversityAdmin) {
-      throw new Error(
-        'Unauthorized - Only admins, super admins, university admins, and advisors can create users',
-      );
+      throw new Error('Unauthorized - Only super admins and university admins can create users');
     }
 
     // Check if user already exists

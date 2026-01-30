@@ -22,6 +22,12 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/ClerkAuthProvider';
 
+type UserGrowthPoint = { month: string; users: number };
+type SubscriptionEntry = { name: string; value: number; color: string };
+type ActivityPoint = { day: string; logins: number; registrations: number };
+type FeatureUsage = { name: string; users: number; total: number; percentage: number };
+type FeatureUsageData = { totalUsers: number; features: FeatureUsage[] };
+
 function AdminAnalyticsPage() {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const { user: convexUser } = useAuth();
@@ -44,17 +50,17 @@ function AdminAnalyticsPage() {
   const userGrowth = useQuery(
     api.analytics.getUserGrowthOptimized,
     shouldQuery ? { clerkId: clerkUser!.id, monthsBack: 12 } : 'skip',
-  );
+  ) as UserGrowthPoint[] | undefined;
 
   const subscriptionData = useQuery(
     api.analytics.getSubscriptionDistributionOptimized,
     shouldQuery ? { clerkId: clerkUser!.id } : 'skip',
-  );
+  ) as SubscriptionEntry[] | undefined;
 
   const activityData = useQuery(
     api.analytics.getActivityDataOptimized,
     shouldQuery ? { clerkId: clerkUser!.id } : 'skip',
-  );
+  ) as ActivityPoint[] | undefined;
 
   const universityData = useQuery(
     api.analytics.getTopUniversitiesOptimized,
@@ -69,7 +75,7 @@ function AdminAnalyticsPage() {
   const featureUsageData = useQuery(
     api.analytics.getPlatformFeatureUsage,
     shouldQuery ? { clerkId: clerkUser!.id } : 'skip',
-  );
+  ) as FeatureUsageData | undefined;
 
   // Memoize derived calculations BEFORE any early returns (Rules of Hooks)
   const totalUsers = useMemo(() => systemStats?.totalUsers ?? 0, [systemStats]);
@@ -79,7 +85,7 @@ function AdminAnalyticsPage() {
     if (!userGrowth || userGrowth.length === 0) return 0;
     return userGrowth[userGrowth.length - 1]?.users ?? 0;
   }, [userGrowth]);
-  const last6Months = useMemo(() => userGrowth?.slice(-6) ?? [], [userGrowth]);
+  const last6Months = useMemo<UserGrowthPoint[]>(() => userGrowth?.slice(-6) ?? [], [userGrowth]);
 
   // Combined loading state - show loading if critical data isn't ready
   // Include investorMetrics to ensure complete page render for business-critical data

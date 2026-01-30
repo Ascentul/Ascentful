@@ -129,7 +129,7 @@ export const listThreads = query({
     let cursor = args.paginationOpts.cursor ?? null;
     let combined: Doc<'inbox_threads'>[] = [];
     let isDone = false;
-    let continueCursor = cursor;
+    let continueCursor = '';
 
     while (combined.length < pageSize && !isDone) {
       const result =

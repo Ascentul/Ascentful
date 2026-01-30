@@ -5,18 +5,20 @@
  * Provides aggregate metrics across all universities for platform-level insights.
  */
 
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server';
 import { v } from 'convex/values';
 
-import { Id } from './_generated/dataModel';
+import type { DataModel, Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
-import { internalMutation, query } from './_generated/server';
-import { getAuthenticatedUser } from './lib/roles';
+import { internalMutation, mutation, query } from './_generated/server';
+import { getAuthenticatedUser, isServiceRequest } from './lib/roles';
 
 const UNIVERSITY_BATCH_SIZE = 5;
-const STUDENT_PAGE_SIZE = 500;
+
+type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
 
 async function computeUniversityEngagementMetrics(
-  ctx: any,
+  ctx: Ctx,
   universityId: Id<'universities'>,
 ): Promise<{
   totalStudents: number;
@@ -25,37 +27,31 @@ async function computeUniversityEngagementMetrics(
   scoredStudents: number;
   avgEngagementScore: number;
 }> {
-  let cursor: string | null = null;
-  let isDone = false;
   let totalStudents = 0;
   let engagedStudents = 0;
   let atRiskStudents = 0;
   let scoredStudents = 0;
   let totalScore = 0;
 
-  while (!isDone) {
-    const page = await ctx.db
-      .query('users')
-      .withIndex('by_university_role', (q) =>
-        q.eq('university_id', universityId).eq('role', 'student'),
-      )
-      .paginate({ cursor, numItems: STUDENT_PAGE_SIZE });
+  const users = await ctx.db
+    .query('users')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .collect();
 
-    for (const student of page.page) {
-      totalStudents++;
-      if (student.engagement_status) {
-        scoredStudents++;
-        if (student.engagement_status === 'engaged') {
-          engagedStudents++;
-        } else if (student.engagement_status === 'at_risk') {
-          atRiskStudents++;
-        }
-        totalScore += student.engagement_score ?? 0;
-      }
+  for (const student of users) {
+    if (student.role !== 'student') {
+      continue;
     }
-
-    cursor = page.continueCursor;
-    isDone = page.isDone;
+    totalStudents++;
+    if (student.engagement_status) {
+      scoredStudents++;
+      if (student.engagement_status === 'engaged') {
+        engagedStudents++;
+      } else if (student.engagement_status === 'at_risk') {
+        atRiskStudents++;
+      }
+      totalScore += student.engagement_score ?? 0;
+    }
   }
 
   return {
@@ -64,6 +60,43 @@ async function computeUniversityEngagementMetrics(
     atRiskStudents,
     scoredStudents,
     avgEngagementScore: scoredStudents > 0 ? Math.round(totalScore / scoredStudents) : 0,
+  };
+}
+
+async function getUniversityStudentEngagementStats(
+  ctx: Ctx,
+  universityId: Id<'universities'>,
+): Promise<{
+  totalStudents: number;
+  engagedCount: number;
+  atRiskCount: number;
+  totalScore: number;
+  scoredCount: number;
+}> {
+  const cached = await ctx.db
+    .query('university_engagement_metrics')
+    .withIndex('by_university', (q) => q.eq('university_id', universityId))
+    .unique();
+
+  if (cached) {
+    const scoredCount = cached.scored_students ?? 0;
+    const avgScore = cached.avg_engagement_score ?? 0;
+    return {
+      totalStudents: cached.total_students,
+      engagedCount: cached.engaged_students,
+      atRiskCount: cached.at_risk_students,
+      totalScore: avgScore * scoredCount,
+      scoredCount,
+    };
+  }
+
+  const metrics = await computeUniversityEngagementMetrics(ctx, universityId);
+  return {
+    totalStudents: metrics.totalStudents,
+    engagedCount: metrics.engagedStudents,
+    atRiskCount: metrics.atRiskStudents,
+    totalScore: metrics.avgEngagementScore * metrics.scoredStudents,
+    scoredCount: metrics.scoredStudents,
   };
 }
 
@@ -500,5 +533,29 @@ export const recomputeEngagementMetricsBatch = internalMutation({
       hasMore: !page.isDone,
       nextCursor: page.continueCursor,
     };
+  },
+});
+
+/**
+ * Trigger a manual recompute of the university engagement metrics cache.
+ * Super admin only.
+ */
+export const triggerEngagementMetricsRecompute = mutation({
+  args: {
+    serviceToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!isServiceRequest(args.serviceToken)) {
+      const user = await getAuthenticatedUser(ctx);
+      if (user.role !== 'super_admin') {
+        throw new Error('Unauthorized: Super admin access required');
+      }
+    }
+    await ctx.scheduler.runAfter(
+      0,
+      internal.admin_engagement_analytics.recomputeEngagementMetricsBatch,
+      {},
+    );
+    return { scheduled: true };
   },
 });

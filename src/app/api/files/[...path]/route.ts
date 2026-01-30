@@ -126,7 +126,25 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
         }
 
         try {
-          await convexServer.query(api.users.getUserByClerkId, { clerkId: ownerClerkId }, token);
+          // Verify the requester has permission to access this user's files
+          // Uses comprehensive authorization check including:
+          // - super_admin: can access anyone
+          // - university_admin: can access users in their university
+          // - advisor: can only access assigned students
+          const accessCheck = await convexServer.query(
+            api.users.canAccessUser,
+            { requesterClerkId: userId, targetClerkId: ownerClerkId },
+            token,
+          );
+
+          if (!accessCheck.canAccess) {
+            log.warn('Access denied to file', {
+              event: 'security.file_access_denied',
+              errorCode: 'FORBIDDEN',
+              extra: { reason: accessCheck.reason },
+            });
+            throw new Error(accessCheck.reason || 'Not authorized');
+          }
         } catch (error) {
           log.warn('Forbidden file access', {
             event: 'security.file_access_denied',

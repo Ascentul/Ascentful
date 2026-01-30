@@ -63,13 +63,27 @@ export function sanitizeUserHtml(
         ...defaultOptions,
         ...options,
         allowedAttributes: {
-          ...defaultOptions.allowedAttributes,
-          ...options.allowedAttributes,
+          ...((defaultOptions.allowedAttributes &&
+          typeof defaultOptions.allowedAttributes === 'object'
+            ? defaultOptions.allowedAttributes
+            : {}) as Record<string, string[]>),
+          ...((options.allowedAttributes && typeof options.allowedAttributes === 'object'
+            ? options.allowedAttributes
+            : {}) as Record<string, string[]>),
           // Ensure anchor security attributes are always allowed
           a: [
             ...new Set([
-              ...((defaultOptions.allowedAttributes?.a as string[] | undefined) || []),
-              ...((options.allowedAttributes?.a as string[] | undefined) || []),
+              ...((
+                (defaultOptions.allowedAttributes &&
+                typeof defaultOptions.allowedAttributes === 'object'
+                  ? defaultOptions.allowedAttributes
+                  : {}) as Record<string, string[]>
+              ).a || []),
+              ...((
+                (options.allowedAttributes && typeof options.allowedAttributes === 'object'
+                  ? options.allowedAttributes
+                  : {}) as Record<string, string[]>
+              ).a || []),
             ]),
           ],
         },

@@ -60,6 +60,12 @@ export const createStage = mutation({
 
     if (!user) throw new Error('User not found');
 
+    // Verify the application belongs to the user
+    const application = await ctx.db.get(args.applicationId);
+    if (!application || application.user_id !== user._id) {
+      throw new Error('Application not found or unauthorized');
+    }
+
     // Check existing stages BEFORE inserting to accurately count for status update
     const existingStages = await ctx.db
       .query('interview_stages')
