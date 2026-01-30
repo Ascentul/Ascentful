@@ -20,7 +20,8 @@ if [[ -z "${CONVEX_INTERNAL_SERVICE_TOKEN:-}" ]]; then
   exit 1
 fi
 
-ARGS=$(printf '{"serviceToken":"%s"}' "$CONVEX_INTERNAL_SERVICE_TOKEN")
+# Use jq for proper JSON escaping to prevent injection from special characters in token
+ARGS=$(jq -n --arg token "$CONVEX_INTERNAL_SERVICE_TOKEN" '{"serviceToken": $token}')
 
 npx convex run analytics:triggerAdminAnalyticsRecompute "$ARGS" ${ENV_FLAG}
 npx convex run admin_engagement_analytics:triggerEngagementMetricsRecompute "$ARGS" ${ENV_FLAG}

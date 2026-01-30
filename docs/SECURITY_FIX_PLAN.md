@@ -8,8 +8,10 @@ Generated from comprehensive security audit on 2026-01-30.
 |----------|-------|--------|
 | CRITICAL | 0 | N/A |
 | HIGH | 0 | N/A |
-| MEDIUM | 7 | Documented below |
+| MEDIUM | 7 | **6 COMPLETE**, 1 backlog (M4: pagination) |
 | LOW | 15 | Documented below |
+
+**Last Updated**: 2026-01-30 - Completed Sprint 3 JWT auth migration (M1)
 
 ---
 
@@ -359,10 +361,29 @@ Some mutations that create/modify sensitive data don't have audit logging.
 - [x] L1: Add explicit tenant check to assign-student ✅ (documented existing checks)
 - [x] L2-L3: Minor logging/comment improvements ✅ (enhanced extension token logging, grant-pro-access comments)
 
-### Sprint 3 (Planned)
-- [ ] M1: Migrate clerkId args to JWT authentication
-  - This is a larger refactor affecting multiple files
-  - Requires updating React components that call these mutations
+### Sprint 3 (COMPLETED 2026-01-30)
+- [x] M1: Migrate clerkId args to JWT authentication ✅ **COMPLETE**
+
+  **Pattern 1 - JWT only** (used for client-only mutations):
+  - `convex/resumes.ts` - all mutations use `getAuthenticatedUser(ctx)`
+  - `convex/interviews.ts` - all mutations use `getAuthenticatedUser(ctx)`
+  - `convex/projects.ts` - most mutations use `getAuthenticatedUser(ctx)`
+
+  **Pattern 2 - JWT + optional clerkId fallback** (for mutations called by API routes):
+  - `convex/contacts.ts` - JWT preferred, clerkId fallback for API routes
+  - `convex/ai_coach.ts` - JWT preferred, clerkId fallback for API routes
+  - `convex/applications.ts` - JWT preferred, clerkId fallback for API routes
+  - `convex/cover_letters.ts` - JWT preferred, clerkId fallback for API routes
+  - `convex/goals.ts` - JWT preferred, clerkId fallback for API routes
+  - `convex/projects.ts` - create/update have optional clerkId for API routes
+
+  **Documentation Updates**:
+  - [x] Added "Convex Mutation Authentication (CRITICAL)" section to CLAUDE.md
+  - [x] Added mutation authentication patterns to .coderabbit.yaml
+  - [x] Updated calling React components to remove client-supplied clerkId args
+
+  **Note**: Queries still accept clerkId args - this is acceptable per the documented
+  security architecture since queries are read-only and run within auth context.
 
 ### Backlog (Schedule Before 2,000 Profiles)
 - [ ] M4: Paginate diagnostic queries

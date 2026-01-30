@@ -53,101 +53,112 @@ export function ViewReportDialog({
   const [error, setError] = useState<string | null>(null);
 
   // Fetch report data when dialog opens
-  const fetchReportData = useCallback(async () => {
-    if (!clerkId) return;
+  const fetchReportData = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!clerkId) return;
 
-    setIsLoading(true);
-    setError(null);
-    setReportData(null);
+      setIsLoading(true);
+      setError(null);
+      setReportData(null);
 
-    try {
-      const token = await getToken({ template: 'convex' });
-      if (!token) {
-        setError('Authentication required. Please log in again.');
-        return;
-      }
-
-      const response = await fetch('/api/university/export-reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          clerkId,
-          reportType,
-          reportName,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `Failed to load report (${response.status})`;
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.error) errorMessage = errorData.error;
-        } catch {
-          // Response wasn't JSON
+      try {
+        const token = await getToken({ template: 'convex' });
+        if (!token) {
+          setError('Authentication required. Please log in again.');
+          return;
         }
-        throw new Error(errorMessage);
-      }
 
-      const csvText = await response.text();
-      const lines = csvText.split('\n').filter((line) => line.trim());
+        const response = await fetch('/api/university/export-reports', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            clerkId,
+            reportType,
+            reportName,
+          }),
+          signal,
+        });
 
-      if (lines.length === 0) {
-        setReportData({ headers: [], rows: [], totalRows: 0 });
-        return;
-      }
-
-      // Parse CSV - handle quoted values and escaped quotes
-      const parseCSVLine = (line: string): string[] => {
-        const result: string[] = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"') {
-            // Check for escaped quote ("")
-            if (inQuotes && line[i + 1] === '"') {
-              current += '"';
-              i++; // Skip the next quote
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-          } else {
-            current += char;
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage = `Failed to load report (${response.status})`;
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error) errorMessage = errorData.error;
+          } catch {
+            // Response wasn't JSON
           }
+          throw new Error(errorMessage);
         }
-        result.push(current.trim());
-        return result;
-      };
 
-      const headers = parseCSVLine(lines[0]);
-      const allRows = lines.slice(1).map(parseCSVLine);
-      const previewRows = allRows.slice(0, 10); // Show first 10 rows
+        const csvText = await response.text();
+        const lines = csvText.split('\n').filter((line) => line.trim());
 
-      setReportData({
-        headers,
-        rows: previewRows,
-        totalRows: allRows.length,
-      });
-    } catch (err) {
-      console.error('Failed to fetch report:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load report data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [clerkId, getToken, reportName, reportType]);
+        if (lines.length === 0) {
+          setReportData({ headers: [], rows: [], totalRows: 0 });
+          return;
+        }
+
+        // Parse CSV - handle quoted values and escaped quotes
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              // Check for escaped quote ("")
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++; // Skip the next quote
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseCSVLine(lines[0]);
+        const allRows = lines.slice(1).map(parseCSVLine);
+        const previewRows = allRows.slice(0, 10); // Show first 10 rows
+
+        setReportData({
+          headers,
+          rows: previewRows,
+          totalRows: allRows.length,
+        });
+      } catch (err) {
+        // Don't update state if the request was aborted (dialog closed)
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Failed to fetch report:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load report data');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [clerkId, getToken, reportName, reportType],
+  );
 
   useEffect(() => {
-    if (open && clerkId) {
-      fetchReportData();
-    }
+    if (!open || !clerkId) return;
+
+    const abortController = new AbortController();
+    fetchReportData(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
   }, [open, clerkId, fetchReportData]);
 
   const handleDownload = async () => {
@@ -241,7 +252,12 @@ export function ViewReportDialog({
             <div className="flex flex-col items-center justify-center h-full text-center p-6">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-destructive font-medium">{error}</p>
-              <Button variant="outline" size="sm" className="mt-4" onClick={fetchReportData}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => fetchReportData()}
+              >
                 Try Again
               </Button>
             </div>

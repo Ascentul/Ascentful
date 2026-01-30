@@ -105,6 +105,7 @@ export function CommunicationTab({ studentId, studentName }: CommunicationTabPro
 
   const formatRelativeDate = (timestamp: number) => {
     const days = Math.floor((Date.now() - timestamp) / 86400000);
+    if (days < 0) return 'Just now';
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;

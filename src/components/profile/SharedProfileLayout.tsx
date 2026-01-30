@@ -434,6 +434,7 @@ export function SharedProfileLayout({
                 onClick={() => {
                   setImportStatus('idle');
                   setImportError(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 variant="outline"
                 className="w-full"
