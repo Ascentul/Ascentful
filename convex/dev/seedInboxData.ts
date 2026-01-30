@@ -476,6 +476,12 @@ export const clearInboxData = internalMutation({
       throw new Error('Either universityId or universitySlug is required');
     }
 
+    // Safety guard: only allow hard-delete for test universities
+    const university = await ctx.db.get(universityId);
+    if (!university?.is_test) {
+      throw new Error('Refusing to hard-delete inbox data for non-test universities.');
+    }
+
     // Delete in order: messages -> actions -> read_state -> identity_matches -> threads
     const threads = await ctx.db
       .query('inbox_threads')

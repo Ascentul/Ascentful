@@ -218,12 +218,15 @@ export default function InterviewSessionPage() {
   // Get next question mutation (uses prefetched data if available)
   const nextQuestionMutation = useMutation({
     mutationFn: async () => {
-      // Check if we have a prefetched response
-      if (prefetchedNextQuestionRef.current) {
+      // Capture and clear prefetch atomically to prevent concurrent access
+      // (avoids race condition where response body is consumed twice)
+      const prefetchPromise = prefetchedNextQuestionRef.current;
+      prefetchedNextQuestionRef.current = null;
+
+      if (prefetchPromise) {
         console.log('[InterviewSession] Using prefetched next question');
         try {
-          const response = await prefetchedNextQuestionRef.current;
-          prefetchedNextQuestionRef.current = null; // Clear after use
+          const response = await prefetchPromise;
           if (response) {
             return response.json();
           }

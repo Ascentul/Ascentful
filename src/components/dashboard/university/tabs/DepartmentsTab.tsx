@@ -168,47 +168,53 @@ export function DepartmentsTab({
             <CardDescription>Enrollment breakdown across academic departments</CardDescription>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={departments.map((d, index) => {
-                    const deptStudents = students.filter((s) => s.department_id === d._id);
-                    const percentage =
-                      departments.length > 0 && students.length > 0
-                        ? Math.round((deptStudents.length / students.length) * 100)
-                        : 0;
-                    return {
-                      name: d.name,
-                      value: percentage,
-                      students: deptStudents.length,
-                      color: ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4'][
-                        index % 6
-                      ],
-                    };
-                  })}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ value }) => `${value}%`}
-                  labelLine={true}
-                >
-                  {departments.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4'][
+            {students.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <p className="text-sm">No students assigned to departments</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={departments.map((d, index) => {
+                      const deptStudents = students.filter((s) => s.department_id === d._id);
+                      const percentage =
+                        departments.length > 0 && students.length > 0
+                          ? Math.round((deptStudents.length / students.length) * 100)
+                          : 0;
+                      return {
+                        name: d.name,
+                        value: percentage,
+                        students: deptStudents.length,
+                        color: ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4'][
                           index % 6
-                        ]
-                      }
-                    />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, name) => [`${value}%`, name]} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+                        ],
+                      };
+                    })}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ value }) => `${value}%`}
+                    labelLine={true}
+                  >
+                    {departments.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          ['#4F46E5', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4'][
+                            index % 6
+                          ]
+                        }
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [`${value}%`, name]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
