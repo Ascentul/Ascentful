@@ -14,6 +14,7 @@
  */
 
 import { GenericMutationCtx, GenericQueryCtx } from 'convex/server';
+import { ConvexError } from 'convex/values';
 
 import { DataModel, Id } from '../_generated/dataModel';
 import { UserRole, VALID_ROLES } from './roleValidation';
@@ -123,7 +124,10 @@ export async function getAuthenticatedUser(ctx: Ctx): Promise<AuthUser> {
   const identity = await ctx.auth.getUserIdentity();
 
   if (!identity) {
-    throw new Error('Unauthorized: User not authenticated');
+    throw new ConvexError({
+      code: 'UNAUTHENTICATED',
+      message: 'User not authenticated',
+    });
   }
 
   const user = await ctx.db
@@ -132,7 +136,11 @@ export async function getAuthenticatedUser(ctx: Ctx): Promise<AuthUser> {
     .unique();
 
   if (!user) {
-    throw new Error('Unauthorized: User not found in database');
+    throw new ConvexError({
+      code: 'USER_NOT_FOUND',
+      message: 'User not found in database',
+      clerkId: identity.subject,
+    });
   }
 
   // Check account status
@@ -163,10 +171,16 @@ export async function getUserByClerkId(ctx: Ctx, clerkId: string): Promise<AuthU
  */
 export function assertAccountActive(user: Pick<AuthUser, 'account_status'>): void {
   if (user.account_status === 'deleted') {
-    throw new Error('Forbidden: User account has been deleted');
+    throw new ConvexError({
+      code: 'ACCOUNT_DELETED',
+      message: 'User account has been deleted',
+    });
   }
   if (user.account_status === 'suspended') {
-    throw new Error('Forbidden: User account has been suspended');
+    throw new ConvexError({
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'User account has been suspended',
+    });
   }
 }
 
@@ -340,11 +354,21 @@ export function assertUniversityAccess(
 
   // Other roles must match university_id
   if (!user.university_id || !targetUniversityId) {
-    throw new Error('Unauthorized: Tenant access denied - missing university ID');
+    throw new ConvexError({
+      code: 'TENANT_ACCESS_DENIED',
+      message: 'Tenant access denied - missing university ID',
+      hasUserUniversityId: !!user.university_id,
+      hasTargetUniversityId: !!targetUniversityId,
+      role: user.role,
+    });
   }
 
   if (user.university_id !== targetUniversityId) {
-    throw new Error('Unauthorized: Tenant access denied - university mismatch');
+    throw new ConvexError({
+      code: 'TENANT_ACCESS_DENIED',
+      message: 'Tenant access denied - university mismatch',
+      role: user.role,
+    });
   }
 }
 
@@ -354,7 +378,10 @@ export function assertUniversityAccess(
  */
 export function requireUniversityId(user: Pick<AuthUser, 'university_id'>): Id<'universities'> {
   if (!user.university_id) {
-    throw new Error('Forbidden: User must be associated with a university');
+    throw new ConvexError({
+      code: 'NO_UNIVERSITY_AFFILIATION',
+      message: 'User must be associated with a university',
+    });
   }
   return user.university_id;
 }
