@@ -11,6 +11,7 @@ import {
   Download,
   FileText,
   Globe,
+  Mail,
   MessageSquare,
   Search,
   Send,
@@ -21,13 +22,20 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { ImportSurveyModal } from '@/components/cohortos/modals';
 import { AlertCard } from '@/components/cohortos/ui/alert-card';
 import { PipelineBar } from '@/components/cohortos/ui/pipeline-bar';
 import { StatCard } from '@/components/cohortos/ui/stat-card';
 import { Button } from '@/components/ui/button';
-import { getAlertCounts, getPipelineStats, mockSurveys } from '@/lib/cohortos/mock-data';
+import {
+  getAlertCounts,
+  getPipelineStats,
+  mockSurveys,
+  studentSuggestedActions,
+} from '@/lib/cohortos/mock-data';
+import { cn } from '@/lib/utils';
 
 // Recent activity data (hardcoded for demo)
 const recentActivity = [
@@ -191,6 +199,12 @@ export default function CohortOSDashboardPage() {
               count={alerts.cptDeadlineSoonCount}
               onAction={() => navigateToStudents('filter', 'cpt-deadline')}
             />
+            <AlertCard
+              variant="warning"
+              title="Students needing outreach"
+              count={alerts.needsOutreachCount}
+              onAction={() => navigateToStudents('filter', 'needs-outreach')}
+            />
           </div>
         </section>
 
@@ -270,6 +284,83 @@ export default function CohortOSDashboardPage() {
           )}
         </section>
       </div>
+
+      {/* Outreach Queue Section */}
+      <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Send className="h-5 w-5 text-slate-600" />
+            <h2 className="text-lg font-medium text-slate-900">Outreach Queue</h2>
+          </div>
+          <span className="text-sm text-slate-500">
+            {studentSuggestedActions.length} actions pending
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          {studentSuggestedActions.slice(0, 5).map((action) => (
+            <div
+              key={action.id}
+              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                {/* Priority indicator */}
+                <div
+                  className={cn(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    action.priority === 'high' && 'bg-red-500',
+                    action.priority === 'medium' && 'bg-amber-500',
+                    action.priority === 'low' && 'bg-green-500',
+                  )}
+                />
+
+                <div>
+                  <p className="font-medium text-slate-900">{action.studentName}</p>
+                  <p className="text-sm text-slate-500">{action.reason}</p>
+                </div>
+              </div>
+
+              {/* Quick action buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toast.success(`Opening email to ${action.studentName}...`)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Mail className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toast.success(`Opening SMS to ${action.studentName}...`)}
+                  className="h-8 w-8 p-0"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/cohortos/students/${action.studentId}`)}
+                >
+                  View
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {studentSuggestedActions.length > 5 && (
+          <Button
+            variant="ghost"
+            className="w-full mt-4"
+            onClick={() => navigateToStudents('filter', 'needs-outreach')}
+          >
+            View all {studentSuggestedActions.length} pending actions
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        )}
+      </section>
 
       {/* Recent Activity Section */}
       <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">

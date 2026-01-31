@@ -14,7 +14,12 @@ import { usePathname } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
 
-const navItems = [
+const navItems: Array<{
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  disabled?: boolean;
+}> = [
   { label: 'Dashboard', href: '/cohortos/dashboard', icon: LayoutDashboard },
   { label: 'Students', href: '/cohortos/students', icon: Users },
   { label: 'Surveys', href: '/cohortos/surveys', icon: ClipboardList },

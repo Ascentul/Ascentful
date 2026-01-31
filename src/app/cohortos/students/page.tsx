@@ -8,13 +8,21 @@ import { BulkOutreachModal } from '@/components/cohortos/modals';
 import { StudentRow, StudentTableHeader } from '@/components/cohortos/ui/student-row';
 import { Button } from '@/components/ui/button';
 import {
+  formatRelativeTime,
+  getDaysSinceLastContact,
   getDaysSinceUpdate,
+  getOutreachStatus,
   getStaleStudents,
   getStudentsWithBlockers,
   mockCoaches,
   mockStudents,
 } from '@/lib/cohortos/mock-data';
-import { type Program, type Status, type Student } from '@/lib/cohortos/types';
+import {
+  OUTREACH_STATUS_CONFIG,
+  type Program,
+  type Status,
+  type Student,
+} from '@/lib/cohortos/types';
 import { cn } from '@/lib/utils';
 
 // Filter options
@@ -46,6 +54,7 @@ const flagOptions = [
   { value: 'international-searching', label: 'International Searching' },
   { value: 'cpt-deadline', label: 'CPT Deadline Soon' },
   { value: 'non-responders', label: 'Survey Non-Responders' },
+  { value: 'needs-outreach', label: 'Needs Outreach (14+ days)' },
 ];
 
 type SortField = 'name' | 'status' | 'lastUpdated';
@@ -129,6 +138,12 @@ export default function CohortosStudentsPage() {
       // For demo: student-1 and student-2 have responded to the survey
       const respondedIds = ['student-1', 'student-2'];
       result = result.filter((s) => !respondedIds.includes(s.id));
+    } else if (flagFilter === 'needs-outreach') {
+      // Filter for students needing outreach (14+ days since contact or never contacted)
+      result = result.filter((s) => {
+        if (!s.lastContactDate) return true;
+        return getDaysSinceLastContact(s) >= 14;
+      });
     }
 
     // Search filter
@@ -416,6 +431,9 @@ export default function CohortosStudentsPage() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Target Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Last Contact
                   </th>
                   <SortableHeader field="lastUpdated" label="Last Updated" />
                 </tr>

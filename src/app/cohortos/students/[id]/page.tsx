@@ -24,12 +24,14 @@ import { TimelineEntry } from '@/components/cohortos/ui/timeline-entry';
 import { Button } from '@/components/ui/button';
 import {
   formatRelativeTime,
+  getOutreachStatus,
   getTimelineForStudent,
   mockCoaches,
   mockStudents,
 } from '@/lib/cohortos/mock-data';
 import {
   type NoteType,
+  OUTREACH_STATUS_CONFIG,
   PROGRAM_CONFIG,
   type Status,
   type TimelineEntry as TimelineEntryType,
@@ -269,6 +271,53 @@ export default function StudentDetailPage() {
                   Save Changes
                 </Button>
               </div>
+            </div>
+          </div>
+
+          {/* Outreach Summary */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-lg font-medium text-slate-900 mb-4">Outreach Summary</h2>
+            <div className="space-y-3">
+              {/* Total Touchpoints */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Total Touchpoints</span>
+                <span className="text-lg font-semibold text-slate-900">
+                  {student.totalTouchpoints}
+                </span>
+              </div>
+
+              {/* Last Contact */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Last Contact</span>
+                {student.lastContactDate ? (
+                  <div className="text-right">
+                    <span
+                      className={cn(
+                        'inline-flex px-2 py-0.5 rounded-full text-xs font-medium',
+                        OUTREACH_STATUS_CONFIG[getOutreachStatus(student)].bgColor,
+                        OUTREACH_STATUS_CONFIG[getOutreachStatus(student)].color,
+                      )}
+                    >
+                      {formatRelativeTime(student.lastContactDate)}
+                    </span>
+                    <p className="text-xs text-slate-500 mt-0.5 capitalize">
+                      via {student.lastContactType}
+                    </p>
+                  </div>
+                ) : (
+                  <span className="text-sm text-red-600 font-medium">Never contacted</span>
+                )}
+              </div>
+
+              {/* Status Indicator for Overdue */}
+              {getOutreachStatus(student) === 'overdue' && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+                  <p className="text-sm text-red-700 font-medium">This student needs outreach</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {student.lastContactDate ? 'No contact in 14+ days' : 'Never been contacted'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

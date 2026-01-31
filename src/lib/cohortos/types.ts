@@ -10,12 +10,20 @@ export type Program = 'ft-mba' | 'pt-mba' | 'emba';
 // Note type for communication logs
 export type NoteType = 'note' | 'email' | 'sms' | 'call' | 'survey';
 
+// Outreach status for tracking contact recency
+export type OutreachStatus = 'recent' | 'due' | 'overdue';
+
+// Contact types for outreach tracking
+export type ContactType = 'email' | 'sms' | 'call' | 'meeting';
+
 // Coach/Advisor interface
 export interface Coach {
   id: string;
   name: string;
   email: string;
   title: string;
+  role?: string;
+  studentCount?: number;
 }
 
 // Student interface
@@ -37,6 +45,10 @@ export interface Student {
   linkedinUrl?: string;
   lastUpdated: string; // ISO date string
   createdAt: string; // ISO date string
+  // Outreach tracking fields
+  lastContactDate?: string; // ISO date string
+  lastContactType?: ContactType;
+  totalTouchpoints: number; // Total outreach count
 }
 
 // Timeline entry for activity feed
@@ -48,6 +60,26 @@ export interface TimelineEntry {
   type: NoteType;
   content: string;
   createdAt: string; // ISO date string
+  // Engagement tracking (for emails/SMS)
+  opened?: boolean;
+  openedAt?: string; // ISO date string
+  replied?: boolean;
+  repliedAt?: string; // ISO date string
+  resultedInAction?: boolean;
+  actionNote?: string;
+}
+
+// Suggested action for outreach queue
+export type SuggestedActionType = 'follow-up' | 'check-in' | 'reminder' | 'urgent';
+
+export interface SuggestedAction {
+  id: string;
+  studentId: string;
+  studentName: string;
+  type: SuggestedActionType;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+  suggestedAction: string;
 }
 
 // Enhanced survey response tracking per stage
@@ -115,6 +147,7 @@ export interface AlertCounts {
   blockerCount: number;
   internationalSearchingCount: number;
   cptDeadlineSoonCount: number;
+  needsOutreachCount: number;
 }
 
 // Status display configuration
@@ -131,4 +164,14 @@ export const PROGRAM_CONFIG: Record<Program, { label: string; shortLabel: string
   'ft-mba': { label: 'Full-Time MBA', shortLabel: 'FT-MBA' },
   'pt-mba': { label: 'Part-Time MBA', shortLabel: 'PT-MBA' },
   emba: { label: 'Executive MBA', shortLabel: 'EMBA' },
+};
+
+// Outreach status display configuration
+export const OUTREACH_STATUS_CONFIG: Record<
+  OutreachStatus,
+  { label: string; color: string; bgColor: string }
+> = {
+  recent: { label: 'Recent', color: 'text-green-700', bgColor: 'bg-green-100' },
+  due: { label: 'Due Soon', color: 'text-amber-700', bgColor: 'bg-amber-100' },
+  overdue: { label: 'Overdue', color: 'text-red-700', bgColor: 'bg-red-100' },
 };

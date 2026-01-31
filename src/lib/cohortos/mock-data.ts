@@ -4,9 +4,12 @@
 import type {
   AlertCounts,
   Coach,
+  ContactType,
+  OutreachStatus,
   PipelineStats,
   Status,
   Student,
+  SuggestedAction,
   Survey,
   SurveyResponse,
   TimelineEntry,
@@ -25,12 +28,16 @@ export const mockCoaches: Coach[] = [
     name: 'Kazah Mims',
     email: 'kazah.mims@pepperdine.edu',
     title: 'Director of Career Advancement',
+    role: 'Director',
+    studentCount: 9,
   },
   {
     id: 'coach-2',
     name: 'Sarah Johnson',
     email: 'sarah.johnson@pepperdine.edu',
     title: 'Career Coach',
+    role: 'Coach',
+    studentCount: 6,
   },
 ];
 
@@ -58,6 +65,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/sarah-chen',
     lastUpdated: '2026-01-28T10:30:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-28T14:30:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 8,
   },
   {
     id: 'student-2',
@@ -75,6 +85,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/michael-torres',
     lastUpdated: '2026-01-25T14:15:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-25T14:15:00Z',
+    lastContactType: 'call',
+    totalTouchpoints: 5,
   },
   {
     id: 'student-3',
@@ -94,6 +107,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/priya-sharma',
     lastUpdated: '2026-01-20T11:00:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-15T10:00:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 3,
   },
   {
     id: 'student-4',
@@ -111,6 +127,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/james-wilson',
     lastUpdated: '2026-01-22T09:30:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-22T09:30:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 6,
   },
   {
     id: 'student-5',
@@ -128,6 +147,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/emily-park',
     lastUpdated: '2026-01-27T16:45:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-27T16:45:00Z',
+    lastContactType: 'sms',
+    totalTouchpoints: 4,
   },
   {
     id: 'student-6',
@@ -145,6 +167,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/david-kim',
     lastUpdated: '2026-01-18T13:20:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-10T13:20:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 2,
   },
   {
     id: 'student-7',
@@ -162,6 +187,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/rachel-adams',
     lastUpdated: '2026-01-10T10:00:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-05T10:00:00Z',
+    lastContactType: 'call',
+    totalTouchpoints: 2,
   },
   {
     id: 'student-8',
@@ -179,6 +207,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/carlos-martinez',
     lastUpdated: '2026-01-26T15:30:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-26T15:30:00Z',
+    lastContactType: 'call',
+    totalTouchpoints: 7,
   },
   {
     id: 'student-9',
@@ -198,6 +229,8 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/aisha-patel',
     lastUpdated: '2026-01-08T11:45:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    // Never contacted - critical outreach needed
+    totalTouchpoints: 0,
   },
   {
     id: 'student-10',
@@ -215,6 +248,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/tom-bradley',
     lastUpdated: '2026-01-15T08:00:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-20T08:00:00Z',
+    lastContactType: 'meeting',
+    totalTouchpoints: 4,
   },
   {
     id: 'student-11',
@@ -233,6 +269,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/lin-wang',
     lastUpdated: '2026-01-23T12:30:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-23T12:30:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 3,
   },
   {
     id: 'student-12',
@@ -250,6 +289,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/jessica-moore',
     lastUpdated: '2026-01-24T14:00:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-12T14:00:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 3,
   },
   {
     id: 'student-13',
@@ -267,6 +309,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/ahmed-hassan',
     lastUpdated: '2026-01-12T09:15:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-08T09:15:00Z',
+    lastContactType: 'sms',
+    totalTouchpoints: 1,
   },
   {
     id: 'student-14',
@@ -284,6 +329,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/olivia-scott',
     lastUpdated: '2026-01-19T16:00:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-19T16:00:00Z',
+    lastContactType: 'call',
+    totalTouchpoints: 5,
   },
   {
     id: 'student-15',
@@ -302,6 +350,9 @@ export const mockStudents: Student[] = [
     linkedinUrl: 'https://linkedin.com/in/kevin-nguyen',
     lastUpdated: '2026-01-21T11:30:00Z',
     createdAt: '2025-09-01T09:00:00Z',
+    lastContactDate: '2026-01-21T11:30:00Z',
+    lastContactType: 'email',
+    totalTouchpoints: 6,
   },
 ];
 
@@ -394,6 +445,13 @@ export const mockTimelineForSarahChen: TimelineEntry[] = [
     content:
       'Subject: Checking in on your Deloitte interview - Hi Sarah, wanted to follow up on how your Deloitte interview went yesterday. Let me know if you need any help preparing for the next round!',
     createdAt: '2026-01-28T14:30:00Z',
+    // Engagement tracking
+    opened: true,
+    openedAt: '2026-01-28T14:45:00Z',
+    replied: true,
+    repliedAt: '2026-01-28T16:20:00Z',
+    resultedInAction: true,
+    actionNote: 'Scheduled final round prep session',
   },
   {
     id: 'timeline-2',
@@ -414,6 +472,12 @@ export const mockTimelineForSarahChen: TimelineEntry[] = [
     content:
       'Automated reminder: Please complete the Internship Status Check-in survey. Your feedback helps us support you better!',
     createdAt: '2026-01-22T09:00:00Z',
+    // Engagement tracking
+    opened: true,
+    openedAt: '2026-01-22T09:05:00Z',
+    replied: false,
+    resultedInAction: true,
+    actionNote: 'Student completed survey',
   },
   {
     id: 'timeline-4',
@@ -555,6 +619,7 @@ export function getAlertCounts(): AlertCounts {
   let blockerCount = 0;
   let internationalSearchingCount = 0;
   let cptDeadlineSoonCount = 0;
+  let needsOutreachCount = 0;
 
   for (const student of mockStudents) {
     // Stale: not updated in 14+ days
@@ -580,6 +645,16 @@ export function getAlertCounts(): AlertCounts {
         cptDeadlineSoonCount++;
       }
     }
+
+    // Needs outreach: never contacted or 14+ days since last contact
+    if (!student.lastContactDate) {
+      needsOutreachCount++;
+    } else {
+      const lastContact = new Date(student.lastContactDate);
+      if (lastContact < fourteenDaysAgo) {
+        needsOutreachCount++;
+      }
+    }
   }
 
   return {
@@ -587,6 +662,7 @@ export function getAlertCounts(): AlertCounts {
     blockerCount,
     internationalSearchingCount,
     cptDeadlineSoonCount,
+    needsOutreachCount,
   };
 }
 
@@ -630,3 +706,104 @@ export function formatRelativeTime(dateString: string): string {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
   return `${Math.floor(diffDays / 30)} months ago`;
 }
+
+// =============================================================================
+// OUTREACH TRACKING HELPERS
+// =============================================================================
+
+/**
+ * Get days since last contact with a student
+ * Returns Infinity if never contacted
+ */
+export function getDaysSinceLastContact(student: Student): number {
+  if (!student.lastContactDate) return Infinity;
+  const currentDate = new Date(DEMO_CURRENT_DATE);
+  const lastContact = new Date(student.lastContactDate);
+  const diffTime = currentDate.getTime() - lastContact.getTime();
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Get outreach status based on days since last contact
+ * - recent: 0-7 days
+ * - due: 8-14 days
+ * - overdue: 14+ days or never contacted
+ */
+export function getOutreachStatus(student: Student): OutreachStatus {
+  if (!student.lastContactDate) return 'overdue';
+  const days = getDaysSinceLastContact(student);
+  if (days <= 7) return 'recent';
+  if (days <= 14) return 'due';
+  return 'overdue';
+}
+
+/**
+ * Get students needing outreach (14+ days since contact or never contacted)
+ */
+export function getStudentsNeedingOutreach(): Student[] {
+  return mockStudents.filter((s) => {
+    if (!s.lastContactDate) return true;
+    return getDaysSinceLastContact(s) >= 14;
+  });
+}
+
+// =============================================================================
+// SUGGESTED ACTIONS FOR OUTREACH QUEUE
+// =============================================================================
+
+export const studentSuggestedActions: SuggestedAction[] = [
+  {
+    id: 'action-1',
+    studentId: 'student-9', // Aisha Patel - never contacted
+    studentName: 'Aisha Patel',
+    type: 'urgent',
+    reason: 'Never been contacted',
+    priority: 'high',
+    suggestedAction: 'Send introduction email',
+  },
+  {
+    id: 'action-2',
+    studentId: 'student-7', // Rachel Adams - 24 days ago
+    studentName: 'Rachel Adams',
+    type: 'follow-up',
+    reason: 'No contact in 24 days',
+    priority: 'high',
+    suggestedAction: 'Schedule check-in call',
+  },
+  {
+    id: 'action-3',
+    studentId: 'student-13', // Ahmed Hassan - 21 days, international
+    studentName: 'Ahmed Hassan',
+    type: 'urgent',
+    reason: 'International student, no contact in 21 days',
+    priority: 'high',
+    suggestedAction: 'Review visa timeline and schedule meeting',
+  },
+  {
+    id: 'action-4',
+    studentId: 'student-6', // David Kim - 19 days
+    studentName: 'David Kim',
+    type: 'follow-up',
+    reason: 'No contact in 19 days',
+    priority: 'high',
+    suggestedAction: 'Check on application progress',
+  },
+  {
+    id: 'action-5',
+    studentId: 'student-12', // Jessica Moore - 17 days
+    studentName: 'Jessica Moore',
+    type: 'check-in',
+    reason: 'No contact in 17 days',
+    priority: 'medium',
+    suggestedAction: 'Send status update request',
+  },
+  {
+    id: 'action-6',
+    studentId: 'student-3', // Priya Sharma - 14 days, international with blocker
+    studentName: 'Priya Sharma',
+    type: 'urgent',
+    reason: 'International student with blocker, 14 days since contact',
+    priority: 'high',
+    suggestedAction: 'Discuss sponsorship options',
+  },
+];

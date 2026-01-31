@@ -8,6 +8,34 @@ import { Button } from '@/components/ui/button';
 import { mockCoaches } from '@/lib/cohortos/mock-data';
 import { cn } from '@/lib/utils';
 
+const ToggleSwitch = ({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) => (
+  <button
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    onClick={() => onChange(!checked)}
+    className={cn(
+      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+      checked ? 'bg-primary-500' : 'bg-slate-200',
+    )}
+  >
+    <span
+      className={cn(
+        'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+        checked ? 'translate-x-6' : 'translate-x-1',
+      )}
+    />
+  </button>
+);
+
 export default function CohortosSettingsPage() {
   // Notification settings
   const [notifications, setNotifications] = useState({
@@ -33,34 +61,6 @@ export default function CohortosSettingsPage() {
     setSaving(false);
     toast.success('Settings saved successfully');
   };
-
-  const ToggleSwitch = ({
-    checked,
-    onChange,
-    label,
-  }: {
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-    label: string;
-  }) => (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-        checked ? 'bg-primary-500' : 'bg-slate-200',
-      )}
-    >
-      <span
-        className={cn(
-          'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-          checked ? 'translate-x-6' : 'translate-x-1',
-        )}
-      />
-    </button>
-  );
 
   return (
     <div className="space-y-6">

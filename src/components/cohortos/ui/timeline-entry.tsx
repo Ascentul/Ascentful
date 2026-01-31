@@ -1,6 +1,15 @@
 'use client';
 
-import { ClipboardList, FileText, Mail, MessageSquare, Phone } from 'lucide-react';
+import {
+  CheckCircle,
+  ClipboardList,
+  Eye,
+  FileText,
+  Mail,
+  MessageSquare,
+  Phone,
+  Reply,
+} from 'lucide-react';
 
 import { formatRelativeTime } from '@/lib/cohortos/mock-data';
 import { type NoteType, type TimelineEntry as TimelineEntryType } from '@/lib/cohortos/types';
@@ -85,6 +94,41 @@ export function TimelineEntry({ entry, isLast = false, className }: TimelineEntr
           </time>
         </div>
         <p className="mt-1 text-sm text-slate-600 whitespace-pre-wrap">{entry.content}</p>
+
+        {/* Engagement indicators for email/sms */}
+        {(entry.type === 'email' || entry.type === 'sms') && (
+          <div className="flex items-center gap-4 mt-2 pt-2 border-t border-slate-100">
+            {/* Opened indicator */}
+            <div
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                entry.opened ? 'text-green-600' : 'text-slate-400',
+              )}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>{entry.opened ? 'Opened' : 'Not opened'}</span>
+            </div>
+
+            {/* Replied indicator */}
+            <div
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                entry.replied ? 'text-green-600' : 'text-slate-400',
+              )}
+            >
+              <Reply className="h-3.5 w-3.5" />
+              <span>{entry.replied ? 'Replied' : 'No reply'}</span>
+            </div>
+
+            {/* Action indicator */}
+            {entry.resultedInAction && (
+              <div className="flex items-center gap-1 text-xs text-blue-600">
+                <CheckCircle className="h-3.5 w-3.5" />
+                <span>{entry.actionNote || 'Action taken'}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
