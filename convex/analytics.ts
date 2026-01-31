@@ -2506,24 +2506,22 @@ export const getUniversityStudentFunnel = query({
     // Authorization: Verify user can access this university's data
     const actingUser = await getAuthenticatedUser(ctx);
     assertUniversityAccess(actingUser, universityId);
-
     // Get all students (include legacy 'user' role)
-    const students = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
-    );
+    // Note: Using .collect() instead of collectAll() because Convex only allows one paginated query per function
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
     const totalStudents = students.length;
 
     // Bulk fetch all applications for this university
-    const allApplications = await collectAll(() =>
-      ctx.db
-        .query('applications')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
     // Group applications by student for O(1) lookups
     const applicationsByStudent = new Map<string, typeof allApplications>();
