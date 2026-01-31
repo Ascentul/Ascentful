@@ -19,7 +19,7 @@ const navItems = [
   { label: 'Students', href: '/cohortos/students', icon: Users },
   { label: 'Surveys', href: '/cohortos/surveys', icon: ClipboardList },
   { label: 'Reports', href: '/cohortos/reports', icon: BarChart3 },
-  { label: 'Settings', href: '/cohortos/settings', icon: Settings, disabled: true },
+  { label: 'Settings', href: '/cohortos/settings', icon: Settings },
 ];
 
 export function CohortosNav() {

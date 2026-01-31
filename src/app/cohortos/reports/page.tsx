@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -126,6 +127,7 @@ export default function CohortosReportsPage() {
 
     setExporting(false);
     setExportSuccess(true);
+    toast.success('Report exported as PDF');
 
     // Reset success after 3 seconds
     setTimeout(() => setExportSuccess(false), 3000);
@@ -140,6 +142,7 @@ export default function CohortosReportsPage() {
 
     setEmailSending(false);
     setShowEmailModal(false);
+    toast.success('Email sent to Dean Williams');
   };
 
   // Progress bar component

@@ -52,6 +52,12 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     }
   }, [redirectPath, router]);
 
+  // Render immediately for bypass routes (isolated demos like CohortOS)
+  const shouldBypass = BYPASS_REDIRECT_ROUTES.some((route) => pathname?.startsWith(route));
+  if (shouldBypass) {
+    return <>{children}</>;
+  }
+
   // Show loading while determining redirect
   if (!clerkLoaded || !authLoaded || (clerkUser && !userProfile)) {
     // Debug info to help diagnose loading issues (development only)
