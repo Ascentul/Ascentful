@@ -1,10 +1,13 @@
 'use client';
 
 import { useAuth as useClerkAuth, useUser } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '@/contexts/ClerkAuthProvider';
+
+// Routes that should bypass role-based redirects (e.g., isolated demo prototypes)
+const BYPASS_REDIRECT_ROUTES = ['/cohortos'];
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -15,11 +18,16 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const { isLoaded: authLoaded } = useClerkAuth();
   const { user: userProfile } = useAuth(); // Use context instead of separate query
   const router = useRouter();
+  const pathname = usePathname();
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for all auth states to be loaded
     if (!clerkLoaded || !authLoaded) return;
+
+    // Skip redirect for bypass routes (isolated demos, etc.)
+    const shouldBypass = BYPASS_REDIRECT_ROUTES.some((route) => pathname?.startsWith(route));
+    if (shouldBypass) return;
 
     // If we have a user profile, determine the correct redirect
     if (clerkUser && userProfile) {
@@ -35,7 +43,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 
       setRedirectPath(targetPath);
     }
-  }, [clerkUser, userProfile, clerkLoaded, authLoaded]);
+  }, [clerkUser, userProfile, clerkLoaded, authLoaded, pathname]);
 
   // If we need to redirect, do it now
   useEffect(() => {
