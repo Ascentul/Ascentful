@@ -17,7 +17,9 @@ import {
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
+import { SendEmailModal, SendSmsModal } from '@/components/cohortos/modals';
 import { TimelineEntry } from '@/components/cohortos/ui/timeline-entry';
 import { Button } from '@/components/ui/button';
 import {
@@ -76,6 +78,10 @@ export default function StudentDetailPage() {
   const [newNoteContent, setNewNoteContent] = useState<string>('');
   const [isAddingNote, setIsAddingNote] = useState(false);
 
+  // Modal state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showSmsModal, setShowSmsModal] = useState(false);
+
   // Handle not found
   if (!student) {
     return (
@@ -97,15 +103,19 @@ export default function StudentDetailPage() {
 
   // Action handlers
   const handleEmail = () => {
-    window.location.href = `mailto:${student.email}`;
+    setShowEmailModal(true);
   };
 
   const handleSMS = () => {
-    window.location.href = `sms:${student.phone}`;
+    setShowSmsModal(true);
   };
 
   const handleCall = () => {
     window.location.href = `tel:${student.phone}`;
+  };
+
+  const handleSaveChanges = () => {
+    toast.success('Changes saved successfully');
   };
 
   const handleAddNote = () => {
@@ -251,6 +261,13 @@ export default function StudentDetailPage() {
                     rows={3}
                   />
                 )}
+              </div>
+
+              {/* Save Changes Button */}
+              <div className="pt-4 border-t border-slate-200">
+                <Button onClick={handleSaveChanges} className="w-full">
+                  Save Changes
+                </Button>
               </div>
             </div>
           </div>
@@ -427,6 +444,20 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Email Modal */}
+      <SendEmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        recipients={student}
+      />
+
+      {/* SMS Modal */}
+      <SendSmsModal
+        isOpen={showSmsModal}
+        onClose={() => setShowSmsModal(false)}
+        recipients={student}
+      />
     </div>
   );
 }

@@ -174,6 +174,14 @@ export function SendEmailModal({
             </p>
           </div>
 
+          {/* Preview */}
+          <div className="space-y-2">
+            <Label>Preview (for {recipientsList[0].name.split(' ')[0]})</Label>
+            <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-700 border border-slate-200 max-h-32 overflow-y-auto whitespace-pre-wrap">
+              {previewBody}
+            </div>
+          </div>
+
           {/* Log to Timeline */}
           <label className="flex items-center gap-2 cursor-pointer">
             <input

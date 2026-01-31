@@ -20,7 +20,9 @@ import {
   Users,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import { ImportSurveyModal } from '@/components/cohortos/modals';
 import { AlertCard } from '@/components/cohortos/ui/alert-card';
 import { PipelineBar } from '@/components/cohortos/ui/pipeline-bar';
 import { StatCard } from '@/components/cohortos/ui/stat-card';
@@ -77,6 +79,9 @@ export default function CohortOSDashboardPage() {
   const alerts = getAlertCounts();
   const latestSurvey = mockSurveys[0];
 
+  // Modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Navigation handlers
   const navigateToStudents = (filter?: string, value?: string) => {
     const params = new URLSearchParams();
@@ -96,7 +101,7 @@ export default function CohortOSDashboardPage() {
           <p className="text-slate-500 mt-1">Spring 2026 Cohort</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => console.log('Import Survey clicked')}>
+          <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Import Survey
           </Button>
@@ -291,6 +296,9 @@ export default function CohortOSDashboardPage() {
           })}
         </div>
       </section>
+
+      {/* Import Survey Modal */}
+      <ImportSurveyModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} />
     </div>
   );
 }

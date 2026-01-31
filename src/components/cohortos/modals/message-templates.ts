@@ -105,7 +105,8 @@ export function personalizeMessage(
 
   if (additionalReplacements) {
     Object.entries(additionalReplacements).forEach(([key, value]) => {
-      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g'), value);
     });
   }
 

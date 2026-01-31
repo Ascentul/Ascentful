@@ -48,7 +48,7 @@ export function StudentRow({ student, selected, onSelect, onClick, className }: 
         <td className="px-4 py-3 w-12">
           <input
             type="checkbox"
-            checked={selected}
+            checked={selected ?? false}
             onChange={handleCheckboxChange}
             className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
           />

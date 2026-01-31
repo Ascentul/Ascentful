@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
+import { ImportSurveyModal } from '@/components/cohortos/modals';
 import { Button } from '@/components/ui/button';
 import { mockSurveys } from '@/lib/cohortos/mock-data';
 import { cn } from '@/lib/utils';
@@ -60,6 +62,9 @@ export default function CohortosSurveysPage() {
   // Email preview expanded state
   const [showEmailPreview, setShowEmailPreview] = useState(false);
 
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Toggle a reminder setting
   const toggleReminder = (key: keyof typeof reminderSettings) => {
     setReminderSettings((prev) => ({
@@ -80,8 +85,23 @@ export default function CohortosSurveysPage() {
 
   // Handle import survey
   const handleImportSurvey = () => {
-    console.log('Import survey clicked');
+    setShowImportModal(true);
   };
+
+  // Handle missing survey data
+  if (!survey) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <ClipboardList className="h-16 w-16 text-slate-300 mb-4" />
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">No Surveys Available</h2>
+        <p className="text-slate-500 mb-6">There are no surveys to display at this time.</p>
+        <Button variant="outline" onClick={handleImportSurvey}>
+          <Upload className="h-4 w-4 mr-2" />
+          Import Survey
+        </Button>
+      </div>
+    );
+  }
 
   // Funnel stage data
   const funnelStages = [
@@ -256,6 +276,9 @@ export default function CohortosSurveysPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  role="switch"
+                  aria-checked={reminderSettings.sms48hr}
+                  aria-label="SMS Reminder"
                   onClick={() => toggleReminder('sms48hr')}
                   className={cn(
                     'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
@@ -284,6 +307,9 @@ export default function CohortosSurveysPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  role="switch"
+                  aria-checked={reminderSettings.email72hr}
+                  aria-label="Email Reminder"
                   onClick={() => toggleReminder('email72hr')}
                   className={cn(
                     'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
@@ -312,6 +338,9 @@ export default function CohortosSurveysPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  role="switch"
+                  aria-checked={reminderSettings.final5day}
+                  aria-label="Final Reminder"
                   onClick={() => toggleReminder('final5day')}
                   className={cn(
                     'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
@@ -447,6 +476,15 @@ export default function CohortosSurveysPage() {
           <span className="text-sm text-slate-500">with auto-reminders</span>
         </div>
       </div>
+
+      {/* Import Survey Modal */}
+      <ImportSurveyModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={(count) => {
+          toast.success(`Imported ${count} survey responses`);
+        }}
+      />
     </div>
   );
 }

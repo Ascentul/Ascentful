@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Download, Search, Send, Users, X } from 'lucide
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
+import { BulkOutreachModal } from '@/components/cohortos/modals';
 import { StudentRow, StudentTableHeader } from '@/components/cohortos/ui/student-row';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,7 @@ const flagOptions = [
   { value: 'stale', label: 'Not Updated (14+ days)' },
   { value: 'international-searching', label: 'International Searching' },
   { value: 'cpt-deadline', label: 'CPT Deadline Soon' },
+  { value: 'non-responders', label: 'Survey Non-Responders' },
 ];
 
 type SortField = 'name' | 'status' | 'lastUpdated';
@@ -72,6 +74,9 @@ export default function CohortosStudentsPage() {
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Modal state
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Sort state
   const [sortBy, setSortBy] = useState<SortField>('lastUpdated');
@@ -120,6 +125,10 @@ export default function CohortosStudentsPage() {
       result = result.filter((s) => s.isInternational && s.status === 'searching');
     } else if (flagFilter === 'cpt-deadline') {
       result = result.filter((s) => s.requiresCpt && s.cptDeadline && s.status !== 'placed');
+    } else if (flagFilter === 'non-responders') {
+      // For demo: student-1 and student-2 have responded to the survey
+      const respondedIds = ['student-1', 'student-2'];
+      result = result.filter((s) => !respondedIds.includes(s.id));
     }
 
     // Search filter
@@ -230,8 +239,7 @@ export default function CohortosStudentsPage() {
   };
 
   const handleBulkOutreach = () => {
-    console.log('Bulk outreach for:', Array.from(selectedIds));
-    // TODO: Open modal
+    setShowBulkModal(true);
   };
 
   // Sortable header component
@@ -439,6 +447,13 @@ export default function CohortosStudentsPage() {
           )}
         </div>
       )}
+
+      {/* Bulk Outreach Modal */}
+      <BulkOutreachModal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        students={mockStudents.filter((s) => selectedIds.has(s.id))}
+      />
     </div>
   );
 }
