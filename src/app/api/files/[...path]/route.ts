@@ -1,13 +1,30 @@
+import { auth } from '@clerk/nextjs/server';
+import { api } from 'convex/_generated/api';
 import { promises as fs } from 'fs';
 import { NextRequest } from 'next/server';
 import path from 'path';
 
+import { convexServer } from '@/lib/convex-server';
 import { createRequestLogger, getCorrelationIdFromRequest, toErrorCode } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_ROOTS = new Set(['images', 'resumes', 'audio']);
+const PROTECTED_ROOTS = new Set(['resumes', 'audio']);
+const OWNER_PREFIX_BY_ROOT: Record<string, string> = {
+  resumes: 'resume_',
+  audio: 'speech_',
+  images: 'profile_',
+};
+
+function extractOwnerClerkId(root: string, filename: string): string | null {
+  const prefix = OWNER_PREFIX_BY_ROOT[root];
+  if (!prefix) return null;
+  const pattern = new RegExp(`^${prefix}(.+)_\\d+\\.`);
+  const match = filename.match(pattern);
+  return match?.[1] ?? null;
+}
 
 function uploadsRoot() {
   return path.join(process.cwd(), 'uploads');
@@ -70,6 +87,75 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
         status: 404,
         headers: { 'x-correlation-id': correlationId },
       });
+    }
+
+    if (PROTECTED_ROOTS.has(root)) {
+      const { userId, getToken } = await auth();
+      if (!userId) {
+        log.warn('Unauthorized file access', { event: 'auth.failed', errorCode: 'UNAUTHORIZED' });
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'x-correlation-id': correlationId },
+        });
+      }
+
+      const filename = rest[rest.length - 1];
+      const ownerClerkId = filename ? extractOwnerClerkId(root, filename) : null;
+      if (!ownerClerkId) {
+        log.warn('Owner could not be resolved from filename', {
+          event: 'security.file_owner_missing',
+          errorCode: 'FORBIDDEN',
+        });
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { 'x-correlation-id': correlationId },
+        });
+      }
+
+      if (ownerClerkId !== userId) {
+        const token = await getToken({ template: 'convex' });
+        if (!token) {
+          log.warn('Missing Convex auth token', {
+            event: 'auth.failed',
+            errorCode: 'TOKEN_ERROR',
+          });
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'x-correlation-id': correlationId },
+          });
+        }
+
+        try {
+          // Verify the requester has permission to access this user's files
+          // Uses comprehensive authorization check including:
+          // - super_admin: can access anyone
+          // - university_admin: can access users in their university
+          // - advisor: can only access assigned students
+          const accessCheck = await convexServer.query(
+            api.users.canAccessUser,
+            { requesterClerkId: userId, targetClerkId: ownerClerkId },
+            token,
+          );
+
+          if (!accessCheck.canAccess) {
+            log.warn('Access denied to file', {
+              event: 'security.file_access_denied',
+              errorCode: 'FORBIDDEN',
+              extra: { reason: accessCheck.reason },
+            });
+            throw new Error(accessCheck.reason || 'Not authorized');
+          }
+        } catch (error) {
+          log.warn('Forbidden file access', {
+            event: 'security.file_access_denied',
+            errorCode: 'FORBIDDEN',
+          });
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'x-correlation-id': correlationId },
+          });
+        }
+      }
     }
 
     const safeRelPath = path.join(root, ...rest);

@@ -484,7 +484,7 @@ export function UniversityDashboard() {
           a.click();
         } finally {
           window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          a.remove();
         }
 
         toast({
@@ -548,7 +548,7 @@ export function UniversityDashboard() {
           a.click();
         } finally {
           window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          a.remove();
         }
         toast({
           title: 'Export successful',

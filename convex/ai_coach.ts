@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
+import { getAuthenticatedUser } from './lib/authorization';
 
 // Get conversations for a user
 export const getConversations = query({
@@ -36,24 +37,38 @@ export const getConversations = query({
 // Create a new conversation
 export const createConversation = mutation({
   args: {
-    clerkId: v.string(),
     title: v.string(),
+    // SECURITY: Optional clerkId for server-side API routes that have already
+    // authenticated the user through their own mechanisms.
+    // Client-side calls should NOT pass this - JWT auth is preferred.
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get user first
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .first();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .first();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .first();
+    }
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     const now = Date.now();
     const conversationId = await ctx.db.insert('ai_coach_conversations', {
       user_id: user._id,
-      university_id: user.university_id,
+      university_id: user.university_id ?? undefined,
       title: args.title,
       created_at: now,
       updated_at: now,
@@ -63,7 +78,7 @@ export const createConversation = mutation({
     try {
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: user.university_id,
+        universityId: user.university_id ?? undefined,
         eventType: ACTIVITY_EVENTS.COACH_CONVERSATION_STARTED,
         eventCategory: 'ai_coach',
         entityType: 'conversation',
@@ -129,20 +144,31 @@ export const getMessages = query({
 // Add messages to a conversation
 export const addMessages = mutation({
   args: {
-    clerkId: v.string(),
     conversationId: v.id('ai_coach_conversations'),
     userMessage: v.string(),
     aiMessage: v.string(),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get user first
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .first();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .first();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .first();
+    }
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     // Verify conversation belongs to user
@@ -180,7 +206,7 @@ export const addMessages = mutation({
     try {
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: user.university_id,
+        universityId: user.university_id ?? undefined,
         eventType: ACTIVITY_EVENTS.COACH_MESSAGE_SENT,
         eventCategory: 'ai_coach',
         entityType: 'conversation',

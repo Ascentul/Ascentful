@@ -281,7 +281,7 @@ export function highlightTextRange(
           while (highlight.firstChild) {
             parent.insertBefore(highlight.firstChild, highlight);
           }
-          parent.removeChild(highlight);
+          highlight.remove();
         }
       },
     };

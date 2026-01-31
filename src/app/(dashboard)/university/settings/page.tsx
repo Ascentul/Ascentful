@@ -135,7 +135,7 @@ export default function UniversitySettingsPage() {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      a.remove();
 
       toast({
         title: 'Export Complete',

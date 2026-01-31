@@ -103,7 +103,6 @@ export default function CoverLetterDetailPage() {
     setSaving(true);
     try {
       await updateCoverLetter({
-        clerkId,
         coverLetterId: id as Id<'cover_letters'>,
         updates: {
           name,
@@ -172,7 +171,6 @@ export default function CoverLetterDetailPage() {
       // Fallback to existing Convex mutation
       try {
         const result = await generateContent({
-          clerkId,
           job_title: jobTitle || 'Position',
           company_name: companyName || 'Company',
           job_description: jobDescription || undefined,
@@ -203,7 +201,7 @@ export default function CoverLetterDetailPage() {
     if (!clerkId || !id) return;
     setDeleting(true);
     try {
-      await deleteCoverLetter({ clerkId, coverLetterId: id as any });
+      await deleteCoverLetter({ coverLetterId: id as Id<'cover_letters'> });
       toast({
         title: 'Cover letter deleted',
         description: 'Your cover letter has been deleted successfully.',

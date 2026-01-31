@@ -27,10 +27,13 @@ reviews:
         - Don't add guards for schema-validated fields
         - `v.id()`, `v.union(v.literal(...))` handle validation
 
-        ### Authentication
+        ### Authentication (CRITICAL SECURITY)
         - `convexServer.query/mutation/action` takes token as THIRD param (src/lib/convex-server.ts)
-        - `getCurrentUser(ctx, args.clerkId)` validates clerkId against JWT
+        - **Convex mutations MUST use JWT auth via `getAuthenticatedUser(ctx)` or `ctx.auth.getUserIdentity()`**
+        - **NEVER accept required `clerkId` args in mutations** - client-supplied IDs can be spoofed
+        - Optional `clerkId` is ONLY allowed for mutations called by server-side API routes
         - Clerk `publicMetadata.role` is source of truth for authorization
+        - Flag any new mutation with `clerkId: v.string()` (required) as a security vulnerability
 
         ### Error Handling
         - Dialog components delegate error handling to parent callbacks
@@ -87,6 +90,32 @@ reviews:
       instructions: |
         ## Convex-Specific Patterns
 
+        ### Mutation Authentication (CRITICAL - Flag Violations)
+        **All mutations must authenticate via JWT, not client-supplied clerkId.**
+
+        CORRECT patterns:
+        ```typescript
+        // Pattern 1: Client-only mutations (preferred)
+        const user = await getAuthenticatedUser(ctx);
+
+        // Pattern 2: Mutations also used by API routes
+        const identity = await ctx.auth.getUserIdentity();
+        let user;
+        if (identity) {
+          user = await ctx.db.query('users').withIndex('by_clerk_id', q => q.eq('clerkId', identity.subject)).unique();
+        } else if (args.clerkId) {  // Optional clerkId for API routes
+          user = await ctx.db.query('users').withIndex('by_clerk_id', q => q.eq('clerkId', args.clerkId)).unique();
+        }
+        ```
+
+        FLAG AS SECURITY VULNERABILITY:
+        - `args: { clerkId: v.string(), ... }` - Required clerkId in mutations
+        - `const user = await getCurrentUser(ctx, args.clerkId)` without JWT check first
+
+        ACCEPTABLE:
+        - `clerkId: v.optional(v.string())` - Optional fallback for API routes
+        - Queries using clerkId (queries can't be called without auth context)
+
         ### Batch Processing
         - ID-based cursors (`_id > cursor`) preferred over `.paginate()` for cron/batch jobs
         - `.collect()` + in-memory filter acceptable when role-based filtering needs computed Sets
@@ -119,6 +148,30 @@ reviews:
         ### Memoization
         - Don't suggest useCallback/useMemo for tiny pure functions (<10 lines)
         - Only memoize when expensive or in dependency arrays
+
+    - path: "src/app/api/**"
+      instructions: |
+        ## API Route Patterns
+
+        ### Authentication
+        - API routes MUST verify auth via `auth()` from Clerk before calling Convex
+        - When calling Convex mutations, pass `clerkId` as optional param (the mutation validates via JWT first)
+        - API routes are server-side so they can pass clerkId as fallback when JWT context unavailable
+
+        ### Convex Calls from API Routes
+        ```typescript
+        // CORRECT: API route verifies auth, passes clerkId as optional fallback
+        const { userId } = await auth();
+        if (!userId) return new Response("Unauthorized", { status: 401 });
+        await convexClient.mutation(api.contacts.createContact, {
+          name: "John",
+          clerkId: userId,  // Optional fallback - mutation prefers JWT
+        });
+        ```
+
+        ### JSON Construction in Scripts
+        - Use `jq` for JSON escaping to prevent injection: `jq -n --arg token "$VAR" '{key: $token}'`
+        - Never use `printf '{"key":"%s"}' "$VAR"` - vulnerable to special characters
 
 chat:
   auto_reply: true

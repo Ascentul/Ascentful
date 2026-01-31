@@ -126,7 +126,6 @@ export function VersionHistoryPanel({
     setIsRestoring(true);
     try {
       await restoreVersionMutation({
-        clerkId,
         resumeId,
         versionNumber,
       });

@@ -268,7 +268,6 @@ export default function ResumeStudioPage() {
       if (!original) return;
 
       const id = await createResumeMutation({
-        clerkId,
         title: `${title} (Copy)`,
         content: original.content,
         visibility: 'private',
@@ -296,7 +295,7 @@ export default function ResumeStudioPage() {
     if (!confirm('Are you sure you want to delete this resume?')) return;
 
     try {
-      await deleteResumeMutation({ clerkId, resumeId });
+      await deleteResumeMutation({ resumeId });
       toast({
         title: 'Resume Deleted',
         description: 'Your resume has been deleted successfully',
@@ -362,7 +361,6 @@ export default function ResumeStudioPage() {
     setCreatingResume(true);
     try {
       await createResumeMutation({
-        clerkId,
         title: 'AI-Generated Resume',
         content: generatedResume,
         visibility: 'private',
@@ -552,7 +550,6 @@ export default function ResumeStudioPage() {
       );
 
       await createResumeMutation({
-        clerkId,
         title: resumeTitle,
         content: {
           contactInfo: parsedData.personalInfo,
@@ -684,7 +681,6 @@ export default function ResumeStudioPage() {
       const data = await response.json();
 
       await createResumeMutation({
-        clerkId,
         title: 'AI-Optimized Resume',
         content: data.resume,
         visibility: 'private',
@@ -774,7 +770,6 @@ export default function ResumeStudioPage() {
     setCreatingCoverLetter(true);
     try {
       const doc = await createCoverLetterMutation({
-        clerkId,
         name: 'Untitled Cover Letter',
         job_title: 'Position',
         company_name: undefined,
@@ -805,7 +800,6 @@ export default function ResumeStudioPage() {
       if (!original) return;
 
       const doc = await createCoverLetterMutation({
-        clerkId,
         name: `${name} (Copy)`,
         job_title: original.job_title,
         company_name: original.company_name,
@@ -839,7 +833,7 @@ export default function ResumeStudioPage() {
     if (!confirm('Are you sure you want to delete this cover letter?')) return;
 
     try {
-      await deleteCoverLetterMutation({ clerkId, coverLetterId: letterId });
+      await deleteCoverLetterMutation({ coverLetterId: letterId });
       toast({
         title: 'Cover Letter Deleted',
         description: 'Your cover letter has been deleted successfully',
@@ -897,7 +891,6 @@ export default function ResumeStudioPage() {
         router.push(`/cover-letters/${created._id}`);
       } else {
         const doc = await createCoverLetterMutation({
-          clerkId,
           name: `AI Cover Letter - ${clJobCompany}`,
           job_title: clJobRole,
           company_name: clJobCompany || undefined,
@@ -980,7 +973,6 @@ export default function ResumeStudioPage() {
     setSavingOptimized(true);
     try {
       const doc = await createCoverLetterMutation({
-        clerkId,
         name: `Optimized Cover Letter - ${clAnalyzeCompany || 'Saved'}`,
         job_title: clAnalyzeRole || 'Target Role',
         company_name: clAnalyzeCompany || undefined,

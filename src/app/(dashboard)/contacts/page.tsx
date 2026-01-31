@@ -200,7 +200,6 @@ export default function ContactsPage() {
     try {
       if (!clerkUser?.id) return;
       const result = await createContactMutation({
-        clerkId: clerkUser.id,
         name: form.full_name,
         company: form.company || undefined,
         position: form.position || undefined,
@@ -246,7 +245,6 @@ export default function ContactsPage() {
     setCreating(true);
     try {
       await updateContactMutation({
-        clerkId: clerkUser.id,
         contactId: editingContact._id as any,
         updates: {
           name: form.full_name,
@@ -316,7 +314,6 @@ export default function ContactsPage() {
     if (!clerkUser?.id || !deleteId) return;
     try {
       await deleteContactMutation({
-        clerkId: clerkUser.id,
         contactId: deleteId as any,
       });
       toast({
@@ -465,7 +462,6 @@ export default function ContactsPage() {
     if (!clerkUser?.id || !detailContact) return;
     try {
       await updateContactMutation({
-        clerkId: clerkUser.id,
         contactId: detailContact._id as any,
         updates: {
           notes: detailNotes,

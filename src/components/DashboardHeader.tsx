@@ -88,7 +88,7 @@ interface StageMetrics {
   // Interview prep
   questionsAnswered: number;
   storiesPrepared: number;
-  mockInterviewsScheduled: number;
+  mockInterviewsCompleted: number;
   nextInterviewDays: number | null;
   // Learning
   skillsAdded: number;
@@ -363,8 +363,8 @@ const stageConfigs: StageConfig[] = [
         label: 'Schedule a mock interview',
         icon: Users,
         getProgress: (m) => ({
-          value: m.mockInterviewsScheduled,
-          percentage: m.mockInterviewsScheduled > 0 ? 100 : 0,
+          value: m.mockInterviewsCompleted,
+          percentage: m.mockInterviewsCompleted > 0 ? 100 : 0,
         }),
       },
     ],
@@ -624,7 +624,7 @@ export function DashboardHeader({
     // Interview prep
     questionsAnswered,
     storiesPrepared,
-    mockInterviewsScheduled: mockInterviewsCompleted,
+    mockInterviewsCompleted,
     nextInterviewDays,
     // Learning
     skillsAdded: skillsCount,

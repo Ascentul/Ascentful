@@ -190,10 +190,10 @@ export async function POST(request: NextRequest) {
 
     // Create application with explicit stage to preserve distinct values
     // (e.g., Withdrawn vs Rejected) that would be lost in status mapping
+    // SECURITY: User identity is derived from JWT token, not clerkId parameter
     const applicationId = await fetchMutation(
       api.applications.createApplication,
       {
-        clerkId,
         company,
         job_title: jobTitle,
         status,

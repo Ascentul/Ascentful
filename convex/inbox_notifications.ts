@@ -169,14 +169,21 @@ export const notifyMentionedUsers = internalMutation({
       }
     }
 
+    const mentionedUsers = await Promise.all(args.mentionedUserIds.map((id) => ctx.db.get(id)));
+
     let notifiedCount = 0;
-    // Create notifications for each mentioned user
-    for (const userId of args.mentionedUserIds) {
+    // Create notifications for each mentioned user (tenant-scoped)
+    for (const user of mentionedUsers) {
+      if (!user) continue;
+      // Validate user belongs to the same university as the thread
+      if (user.university_id !== thread.university_id) continue;
+      // Only notify staff roles who can access internal threads
+      if (!['advisor', 'university_admin', 'super_admin'].includes(user.role)) continue;
       // Don't notify the person who made the mention
-      if (userId === args.mentionedById) continue;
+      if (user._id === args.mentionedById) continue;
 
       await ctx.db.insert('notifications', {
-        user_id: userId,
+        user_id: user._id,
         type: 'inbox_mention',
         title: `${mentionerName} mentioned you`,
         message: `You were mentioned in an internal thread${studentContext}: "${thread.subject}"`,

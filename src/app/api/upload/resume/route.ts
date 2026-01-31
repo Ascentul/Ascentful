@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { promises as fs } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
@@ -29,9 +30,20 @@ export async function POST(request: NextRequest) {
   log.info('Resume upload request started', { event: 'request.start' });
 
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      log.warn('Unauthorized resume upload', { event: 'auth.failed', errorCode: 'UNAUTHORIZED' });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        {
+          status: 401,
+          headers: { 'x-correlation-id': correlationId },
+        },
+      );
+    }
+
     const form = await request.formData();
     const file = form.get('file') as File | null;
-    const userId = (form.get('userId') as string) || 'anonymous';
     // Sanitize userId to prevent path traversal attacks
     const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '_');
 

@@ -90,6 +90,7 @@ import type * as lib_engagementScoring from "../lib/engagementScoring.js";
 import type * as lib_followUpConstants from "../lib/followUpConstants.js";
 import type * as lib_followUpValidation from "../lib/followUpValidation.js";
 import type * as lib_importUtils from "../lib/importUtils.js";
+import type * as lib_inboxThreadUtils from "../lib/inboxThreadUtils.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_outcomeMetrics from "../lib/outcomeMetrics.js";
 import type * as lib_permissions from "../lib/permissions.js";
@@ -108,6 +109,7 @@ import type * as migrate_session_scheduled_at from "../migrate_session_scheduled
 import type * as migrations from "../migrations.js";
 import type * as migrations_backfill_ai_coach_university_id from "../migrations/backfill_ai_coach_university_id.js";
 import type * as migrations_backfill_engagement_cache from "../migrations/backfill_engagement_cache.js";
+import type * as migrations_backfill_inbox_thread_sort_fields from "../migrations/backfill_inbox_thread_sort_fields.js";
 import type * as migrations_migrate_user_to_individual from "../migrations/migrate_user_to_individual.js";
 import type * as momentum from "../momentum.js";
 import type * as notifications from "../notifications.js";
@@ -240,6 +242,7 @@ declare const fullApi: ApiFromModules<{
   "lib/followUpConstants": typeof lib_followUpConstants;
   "lib/followUpValidation": typeof lib_followUpValidation;
   "lib/importUtils": typeof lib_importUtils;
+  "lib/inboxThreadUtils": typeof lib_inboxThreadUtils;
   "lib/logger": typeof lib_logger;
   "lib/outcomeMetrics": typeof lib_outcomeMetrics;
   "lib/permissions": typeof lib_permissions;
@@ -258,6 +261,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   "migrations/backfill_ai_coach_university_id": typeof migrations_backfill_ai_coach_university_id;
   "migrations/backfill_engagement_cache": typeof migrations_backfill_engagement_cache;
+  "migrations/backfill_inbox_thread_sort_fields": typeof migrations_backfill_inbox_thread_sort_fields;
   "migrations/migrate_user_to_individual": typeof migrations_migrate_user_to_individual;
   momentum: typeof momentum;
   notifications: typeof notifications;

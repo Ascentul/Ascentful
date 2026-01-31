@@ -42,7 +42,7 @@ export function LivePreview({ data, templateId, theme, className = '' }: LivePre
     resizeObserver.observe(contentRef.current);
 
     return () => resizeObserver.disconnect();
-  }, [data]);
+  }, [data, templateId]);
 
   // Get the template component based on templateId
   const TemplateComponent = getTemplateComponent(templateId);

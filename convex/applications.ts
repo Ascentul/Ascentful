@@ -4,6 +4,7 @@ import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
+import { getAuthenticatedUser } from './lib/authorization';
 import { requireMembership } from './lib/roles';
 import { mapStatusToStage } from './migrate_application_status_to_stage';
 
@@ -37,7 +38,6 @@ export const getUserApplications = query({
 // Create a new application
 export const createApplication = mutation({
   args: {
-    clerkId: v.string(),
     company: v.string(),
     job_title: v.string(),
     status: v.union(
@@ -71,14 +71,8 @@ export const createApplication = mutation({
     cover_letter_id: v.optional(v.id('cover_letters')),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -104,7 +98,8 @@ export const createApplication = mutation({
     // }
 
     const now = Date.now();
-    const applicationUniversityId = membership?.university_id ?? user.university_id;
+    // Convert null to undefined for schema compatibility
+    const applicationUniversityId = membership?.university_id ?? user.university_id ?? undefined;
 
     const applicationId = await ctx.db.insert('applications', {
       user_id: user._id,
@@ -157,7 +152,7 @@ export const createApplication = mutation({
       action: 'application.created',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'application',
       targetId: applicationId,
       metadata: {
@@ -174,7 +169,6 @@ export const createApplication = mutation({
 // Update an application
 export const updateApplication = mutation({
   args: {
-    clerkId: v.string(),
     applicationId: v.id('applications'),
     updates: v.object({
       company: v.optional(v.string()),
@@ -195,15 +189,31 @@ export const updateApplication = mutation({
       resume_id: v.optional(v.union(v.id('resumes'), v.null())),
       cover_letter_id: v.optional(v.union(v.id('cover_letters'), v.null())),
     }),
+    // SECURITY: Optional clerkId for server-side API routes that have already
+    // authenticated the user through their own mechanisms (e.g., extension token).
+    // Client-side calls should NOT pass this - JWT auth is preferred.
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     const membership =
@@ -255,7 +265,7 @@ export const updateApplication = mutation({
         : ACTIVITY_EVENTS.APPLICATION_UPDATED;
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: application.university_id,
+        universityId: application.university_id ?? undefined,
         eventType,
         eventCategory: 'application',
         entityType: 'application',
@@ -278,7 +288,7 @@ export const updateApplication = mutation({
       action,
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'application',
       targetId: args.applicationId,
       previousValue: args.updates.status ? { status: application.status } : undefined,
@@ -296,18 +306,11 @@ export const updateApplication = mutation({
 // Delete an application
 export const deleteApplication = mutation({
   args: {
-    clerkId: v.string(),
     applicationId: v.id('applications'),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -334,7 +337,7 @@ export const deleteApplication = mutation({
     try {
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: application.university_id,
+        universityId: application.university_id ?? undefined,
         eventType: ACTIVITY_EVENTS.APPLICATION_DELETED,
         eventCategory: 'application',
         entityType: 'application',
@@ -355,7 +358,7 @@ export const deleteApplication = mutation({
       action: 'application.deleted',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'application',
       targetId: args.applicationId,
       previousValue: {
@@ -695,7 +698,6 @@ function calculateNewSortOrder(
  */
 export const moveApplication = mutation({
   args: {
-    clerkId: v.string(),
     applicationId: v.id('applications'),
     newStatus: v.union(
       v.literal('saved'),
@@ -709,14 +711,8 @@ export const moveApplication = mutation({
     afterId: v.optional(v.id('applications')), // Application that will be BELOW (higher sort_order)
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -794,7 +790,7 @@ export const moveApplication = mutation({
       try {
         await trackActivity(ctx, {
           userId: user._id,
-          universityId: application.university_id,
+          universityId: application.university_id ?? undefined,
           eventType: ACTIVITY_EVENTS.APPLICATION_STAGE_CHANGED,
           eventCategory: 'application',
           entityType: 'application',
@@ -815,7 +811,7 @@ export const moveApplication = mutation({
         action: 'application.status_changed',
         actorUserId: user._id,
         actorRole: user.role,
-        actorUniversityId: user.university_id,
+        actorUniversityId: user.university_id ?? undefined,
         targetType: 'application',
         targetId: args.applicationId,
         previousValue: { status: previousStatus },

@@ -120,10 +120,14 @@ export const listTickets = query({
         throw new Error('University admin must be associated with a university');
       }
 
-      // Get all tickets and filter to university scope
-      const allTickets = await ctx.db.query('support_tickets').order('desc').collect();
+      // Use index-based filtering for efficiency and security
+      const universityTickets = await ctx.db
+        .query('support_tickets')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId))
+        .order('desc')
+        .collect();
 
-      return allTickets.filter((ticket) => ticket.university_id === universityId);
+      return universityTickets;
     }
 
     // Regular users see only their own tickets
@@ -167,9 +171,22 @@ export const listTicketsWithFilters = query({
 
     const membership = await getMembershipForUser(ctx, currentUser);
 
-    let query = ctx.db.query('support_tickets');
+    // SECURITY: Start with index-based scoping for university admins
+    let baseQuery;
+    if (isUniversityScopedAdmin) {
+      const universityId = currentUser.university_id;
+      if (!universityId) {
+        throw new Error('University admin must be associated with a university');
+      }
+      baseQuery = ctx.db
+        .query('support_tickets')
+        .withIndex('by_university', (q) => q.eq('university_id', universityId));
+    } else {
+      baseQuery = ctx.db.query('support_tickets');
+    }
 
-    // Apply filters
+    // Apply filters on top of scoped query
+    let query = baseQuery;
     if (args.status && args.status !== 'all') {
       query = query.filter((q) => q.eq(q.field('status'), args.status));
     }
@@ -187,20 +204,7 @@ export const listTicketsWithFilters = query({
       }
     }
 
-    const tickets = await query.order('desc').collect();
-
-    // SECURITY: Filter tickets by university scope for university admins/advisors
-    let filteredTickets = tickets;
-    if (isUniversityScopedAdmin) {
-      // University admins have university_id directly on their user record
-      const universityId = currentUser.university_id;
-
-      if (!universityId) {
-        throw new Error('University admin must be associated with a university');
-      }
-
-      filteredTickets = filteredTickets.filter((ticket) => ticket.university_id === universityId);
-    }
+    let filteredTickets = await query.order('desc').collect();
 
     // Apply text search and additional filters that can't be done in Convex easily
 

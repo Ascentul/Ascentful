@@ -64,7 +64,6 @@ export default function EditResumePage({ params }: PageProps) {
     setSaving(true);
     try {
       await updateResumeMutation({
-        clerkId: clerkUser.id,
         resumeId,
         updates: {
           title: title.trim(),

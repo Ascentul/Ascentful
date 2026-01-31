@@ -424,7 +424,16 @@ export const getDepartmentActivity = query({
     });
 
     // Calculate metrics per department
-    const departmentMetrics = departments.map((dept) => {
+    type DepartmentMetric = {
+      departmentId: Id<'departments'> | null;
+      departmentName: string;
+      totalStudents: number;
+      activeStudents: number;
+      totalEvents: number;
+      avgEventsPerStudent: number;
+    };
+
+    const departmentMetrics: DepartmentMetric[] = departments.map((dept) => {
       const deptStudents = students.filter((s) => s.department_id === dept._id);
       const deptStudentIds = new Set(deptStudents.map((s) => s._id));
 
@@ -454,7 +463,7 @@ export const getDepartmentActivity = query({
 
     if (unassignedStudents.length > 0) {
       departmentMetrics.push({
-        departmentId: undefined as unknown as Id<'departments'>,
+        departmentId: null,
         departmentName: 'Unassigned',
         totalStudents: unassignedStudents.length,
         activeStudents: unassignedActive,

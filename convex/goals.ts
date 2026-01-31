@@ -4,6 +4,7 @@ import { api } from './_generated/api';
 import { mutation, query } from './_generated/server';
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
+import { getAuthenticatedUser } from './lib/authorization';
 import { createLogContext, log, toErrorCode } from './lib/logger';
 import { requireMembership } from './lib/roles';
 
@@ -69,7 +70,6 @@ const checklistItem = v.object({
 // Create goal
 export const createGoal = mutation({
   args: {
-    clerkId: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
     status: v.optional(statusValidator),
@@ -78,6 +78,10 @@ export const createGoal = mutation({
     checklist: v.optional(v.array(checklistItem)),
     category: v.optional(v.string()),
     correlationId: v.optional(v.string()),
+    // SECURITY: Optional clerkId for server-side API routes that have already
+    // authenticated the user through their own mechanisms.
+    // Client-side calls should NOT pass this - JWT auth is preferred.
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const logCtx = createLogContext('goal', args.correlationId);
@@ -85,21 +89,27 @@ export const createGoal = mutation({
     log('info', 'Creating goal', {
       ...logCtx,
       event: 'operation.start',
-      clerkId: args.clerkId,
     });
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      log('warn', 'User not found for goal creation', {
-        ...logCtx,
-        event: 'operation.user_not_found',
-        clerkId: args.clerkId,
-      });
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     // Only require membership for university-affiliated students
@@ -135,7 +145,7 @@ export const createGoal = mutation({
 
     const now = Date.now();
     // Compute goal's university_id once for consistent attribution
-    const goalUniversityId = membership?.university_id ?? user.university_id;
+    const goalUniversityId = membership?.university_id ?? user.university_id ?? undefined;
     const id = await ctx.db.insert('goals', {
       user_id: user._id,
       university_id: goalUniversityId,
@@ -188,7 +198,7 @@ export const createGoal = mutation({
       action: 'goal.created',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'goal',
       targetId: id,
       metadata: {
@@ -205,7 +215,6 @@ export const createGoal = mutation({
 // Update goal
 export const updateGoal = mutation({
   args: {
-    clerkId: v.string(),
     goalId: v.id('goals'),
     updates: v.object({
       title: v.optional(v.string()),
@@ -219,6 +228,8 @@ export const updateGoal = mutation({
       completed_at: v.optional(v.union(v.number(), v.null())),
     }),
     correlationId: v.optional(v.string()),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const logCtx = createLogContext('goal', args.correlationId);
@@ -229,17 +240,24 @@ export const updateGoal = mutation({
       extra: { goalId: args.goalId },
     });
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      log('warn', 'User not found for goal update', {
-        ...logCtx,
-        event: 'operation.user_not_found',
-        clerkId: args.clerkId,
-      });
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     // Only require membership for university-affiliated students
@@ -305,7 +323,7 @@ export const updateGoal = mutation({
     try {
       await trackActivity(ctx, {
         userId: user._id,
-        universityId: goal.university_id,
+        universityId: goal.university_id ?? undefined,
         eventType: wasCompleted ? ACTIVITY_EVENTS.GOAL_COMPLETED : ACTIVITY_EVENTS.GOAL_UPDATED,
         eventCategory: 'goal',
         entityType: 'goal',
@@ -339,7 +357,7 @@ export const updateGoal = mutation({
       action: wasCompleted ? 'goal.completed' : 'goal.updated',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'goal',
       targetId: args.goalId,
       previousValue: args.updates.status ? { status: goal.status } : undefined,
@@ -357,9 +375,10 @@ export const updateGoal = mutation({
 // Delete goal
 export const deleteGoal = mutation({
   args: {
-    clerkId: v.string(),
     goalId: v.id('goals'),
     correlationId: v.optional(v.string()),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const logCtx = createLogContext('goal', args.correlationId);
@@ -370,17 +389,24 @@ export const deleteGoal = mutation({
       extra: { goalId: args.goalId },
     });
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      log('warn', 'User not found for goal deletion', {
-        ...logCtx,
-        event: 'operation.user_not_found',
-        clerkId: args.clerkId,
-      });
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     // Only require membership for university-affiliated students
@@ -429,7 +455,7 @@ export const deleteGoal = mutation({
       action: 'goal.deleted',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'goal',
       targetId: args.goalId,
       previousValue: {

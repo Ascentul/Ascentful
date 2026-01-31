@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { getAuthenticatedUser } from './lib/authorization';
 import { requireMembership } from './lib/roles';
 
 // Get projects for a user
@@ -70,25 +71,15 @@ export const generateProjectImageUploadUrl = mutation({
 // Update project image with storage ID after upload
 export const updateProjectImage = mutation({
   args: {
-    clerkId: v.string(),
     projectId: v.id('projects'),
     storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('Unauthorized');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
+    // SECURITY: Ownership check - users can only update images on their own projects
+    // This provides implicit tenant isolation since only the owner can modify their project
     const project = await ctx.db.get(args.projectId);
     if (!project || project.user_id !== user._id) {
       throw new Error('Project not found or unauthorized');
@@ -123,7 +114,6 @@ export const updateProjectImage = mutation({
 // Create a new project
 export const createProject = mutation({
   args: {
-    clerkId: v.string(),
     title: v.string(),
     role: v.optional(v.string()),
     start_date: v.optional(v.number()),
@@ -136,15 +126,28 @@ export const createProject = mutation({
     image_url: v.optional(v.string()), // Legacy: base64 data URL
     image_storage_id: v.optional(v.id('_storage')), // Preferred: Convex storage ID
     technologies: v.array(v.string()),
+    // SECURITY: Optional clerkId for server-side API routes
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     const membership =
@@ -179,7 +182,7 @@ export const createProject = mutation({
 
     const projectId = await ctx.db.insert('projects', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: membership?.university_id ?? user.university_id ?? undefined,
       title: args.title,
       role: args.role,
       start_date: args.start_date,
@@ -203,7 +206,6 @@ export const createProject = mutation({
 // Update a project
 export const updateProject = mutation({
   args: {
-    clerkId: v.string(),
     projectId: v.id('projects'),
     updates: v.object({
       title: v.optional(v.string()),
@@ -221,14 +223,8 @@ export const updateProject = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -274,18 +270,11 @@ export const updateProject = mutation({
 // Delete a project
 export const deleteProject = mutation({
   args: {
-    clerkId: v.string(),
     projectId: v.id('projects'),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'

@@ -273,6 +273,139 @@ To grant super admin access:
 - `/dashboard/*` → All authenticated users
 - `/applications/*`, `/resumes/*`, `/goals/*` → All authenticated users
 
+### Tenant Isolation & Data Access
+
+**IMPORTANT: This section documents intentional design decisions about data isolation.**
+
+#### Multi-University Tenant Isolation
+
+University-affiliated data (students, advisors, applications within university context) is isolated by `university_id`:
+- ✅ University admins can only access users in their university
+- ✅ Advisors can only access students assigned to them via `student_advisors` table
+- ✅ Support tickets, inbox threads, sessions are scoped by `university_id`
+
+#### User-Owned Data: Historical Access Pattern
+
+**Design Decision**: Users retain access to their own data even if they change universities.
+
+Affected tables: `applications`, `resumes`, `cover_letters`, `contacts`, `goals`, `projects`, `ai_coach_conversations`
+
+```
+Query Pattern:
+.withIndex('by_user', (q) => q.eq('user_id', user._id))
+// No university_id filter - intentional
+```
+
+**Rationale**:
+- Students who transfer universities should retain their career history
+- Job applications, resumes, and networking contacts are personal assets
+- This mirrors how LinkedIn/career tools work - your history follows you
+
+**Security Implication**:
+- If a student leaves University A for University B, they can still query their applications from University A
+- This does NOT allow cross-user access - only the owning user can access their data
+- University A admins lose visibility into this student's data once they leave
+
+**If stricter isolation is needed**:
+Add `requireMembership()` check to read queries:
+```typescript
+// Strict mode: Only allow access if user has active membership
+const membership = await requireMembership(ctx, user._id);
+if (resource.university_id !== membership.university_id) {
+  throw new Error('Access denied');
+}
+```
+
+#### Authorization Helpers
+
+Key functions in `convex/lib/authorization.ts`:
+- `getAuthenticatedUser(ctx)` - Get user from JWT (preferred over client-supplied clerkId)
+- `requireSuperAdmin(ctx)` - Guard for super_admin only operations
+- `requireUniversityAccess(ctx, universityId)` - Verify caller can access university
+- `assertUserAccess(ctx, actingUser, targetUserId)` - Verify access to specific user
+- `assertResourceOwnership(actingUser, resourceOwnerId)` - Verify resource ownership
+- `assertCanAccessStudent(ctx, sessionCtx, studentId)` - Advisor-specific student access
+
+#### Convex Mutation Authentication (CRITICAL)
+
+**SECURITY REQUIREMENT**: All Convex mutations MUST authenticate users via JWT tokens, NOT client-supplied `clerkId` arguments.
+
+**Why this matters**: Client-supplied `clerkId` can be spoofed by malicious clients. JWT tokens are cryptographically verified by Convex and cannot be forged.
+
+**Pattern 1: Simple JWT Auth (for client-only mutations)**
+
+Use `getAuthenticatedUser(ctx)` when the mutation is only called from React components:
+
+```typescript
+import { getAuthenticatedUser } from './lib/authorization';
+
+export const createStage = mutation({
+  args: {
+    applicationId: v.id('applications'),
+    title: v.string(),
+    // NO clerkId arg - authentication comes from JWT
+  },
+  handler: async (ctx, args) => {
+    // SECURITY: Get user from JWT token
+    const user = await getAuthenticatedUser(ctx);
+
+    // ... rest of handler
+  },
+});
+```
+
+**Pattern 2: JWT with Optional clerkId Fallback (for mutations used by API routes)**
+
+Use this pattern when the mutation is called from both React components AND server-side API routes:
+
+```typescript
+export const createContact = mutation({
+  args: {
+    name: v.string(),
+    // SECURITY: Optional clerkId for server-side API routes only
+    clerkId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // SECURITY: Prefer JWT token authentication
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
+    if (!user) {
+      throw new Error('Unauthorized: User not found');
+    }
+
+    // ... rest of handler
+  },
+});
+```
+
+**When to use which pattern:**
+- **Pattern 1**: Mutation only called from React components via `useMutation()`
+- **Pattern 2**: Mutation called from both React components AND `/api/*` routes
+
+**React component changes**: When migrating, remove `clerkId` from mutation calls:
+```typescript
+// BEFORE (vulnerable)
+await createContact({ clerkId: user.id, name: 'John' });
+
+// AFTER (secure)
+await createContact({ name: 'John' });
+```
+
+**NEVER add new mutations with required `clerkId` args** - always use JWT authentication.
+
 ### TypeScript Paths
 ```typescript
 @/*           → ./src/*
@@ -712,14 +845,16 @@ These guidelines address common failure modes in AI-generated code. Follow them 
 const { userId } = await auth();
 if (!userId) return new Response("Unauthorized", { status: 401 });
 
-// Convex - ALWAYS verify user can access the resource
-const user = await getCurrentUser(ctx, args.clerkId);
+// Convex mutations - ALWAYS use JWT auth, NOT client-supplied clerkId
+// See "Convex Mutation Authentication" section above for full patterns
+const user = await getAuthenticatedUser(ctx);  // From JWT token
 if (resource.user_id !== user._id && user.role !== 'super_admin') {
   throw new Error('Unauthorized');
 }
 ```
 
 **Watch for:**
+- **CRITICAL**: Never accept `clerkId` as a required mutation arg - use JWT auth instead
 - Exposing user IDs or internal IDs in client-facing code unnecessarily
 - Missing role checks on admin-only operations
 - Leaking data through error messages

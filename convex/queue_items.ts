@@ -130,6 +130,17 @@ export const createQueueItem = mutation({
       if (!allowedRoles.includes(owner.role)) {
         throw new Error('Owner must be an advisor or admin');
       }
+      // Verify owner is linked to the student to prevent orphaned queue items
+      const ownerAssignment = await ctx.db
+        .query('student_advisors')
+        .withIndex('by_student', (q) =>
+          q.eq('student_id', args.studentId).eq('university_id', universityId),
+        )
+        .filter((q) => q.eq(q.field('advisor_id'), args.ownerId))
+        .first();
+      if (!ownerAssignment) {
+        throw new Error('Owner must already be assigned to this student');
+      }
     }
 
     const now = Date.now();
@@ -545,6 +556,17 @@ export const reassignQueueItem = mutation({
     const allowedRoles = ['advisor', 'university_admin', 'super_admin'];
     if (!allowedRoles.includes(newOwner.role)) {
       throw new Error('New owner must be an advisor or admin');
+    }
+    // Verify new owner is linked to the student to prevent orphaned queue items
+    const ownerAssignment = await ctx.db
+      .query('student_advisors')
+      .withIndex('by_student', (q) =>
+        q.eq('student_id', queueItem.student_id).eq('university_id', universityId),
+      )
+      .filter((q) => q.eq(q.field('advisor_id'), args.newOwnerId))
+      .first();
+    if (!ownerAssignment) {
+      throw new Error('New owner must already be assigned to this student');
     }
 
     const now = Date.now();

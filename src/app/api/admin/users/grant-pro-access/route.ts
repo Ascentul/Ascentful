@@ -139,7 +139,13 @@ export async function POST(request: NextRequest) {
     };
 
     if (grantAccess) {
-      // Grant pro access - set admin_granted_subscription
+      // Grant pro access - two metadata fields are set:
+      // 1. admin_granted_subscription: Audit trail for admin-granted access
+      //    - Records who granted access and when
+      //    - Used for tracking and potential revocation
+      // 2. billing: Standard subscription fields that the system uses for feature gating
+      //    - useSubscription() hook reads this for premium features
+      //    - Webhook also syncs this to Convex subscription_plan field
       newMetadata.admin_granted_subscription = {
         plan: 'premium_monthly',
         status: 'active',
@@ -147,7 +153,6 @@ export async function POST(request: NextRequest) {
         granted_at: new Date().toISOString(),
         reason: reason || 'Admin granted pro access',
       };
-      // Also set the billing fields that the webhook looks for
       newMetadata.billing = {
         plan: 'premium_monthly',
         status: 'active',

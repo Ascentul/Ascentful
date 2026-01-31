@@ -96,6 +96,9 @@ export default function QueueItemDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  // Type assertion: params.itemId is a string from the URL. If malformed,
+  // Convex queries will reject the invalid ID and return undefined, which
+  // is handled by the early return check below and the loading/error UI.
   const itemId = params.itemId as Id<'queue_items'> | undefined;
 
   // Dialog state - hooks must be called unconditionally

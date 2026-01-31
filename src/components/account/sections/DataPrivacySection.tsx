@@ -55,7 +55,7 @@ export function DataPrivacySection() {
         a.click();
       } finally {
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        a.remove();
       }
 
       toast({

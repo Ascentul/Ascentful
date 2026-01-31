@@ -15,6 +15,7 @@ import { v, ConvexError } from 'convex/values';
 import { internal } from './_generated/api';
 import { mutation, query } from './_generated/server';
 import { logUserAction } from './lib/auditLogger';
+import { priorityRank, toDescTimestamp } from './lib/inboxThreadUtils';
 import { getStudentAdvisor, requireUniversityStudent } from './student_advisor_auth';
 
 // ============================================================================
@@ -377,6 +378,7 @@ export const createThread = mutation({
     // Create thread
     const threadId = await ctx.db.insert('inbox_threads', {
       university_id: student.universityId,
+      thread_type: 'student',
       student_id: student.userId,
       identity_status: 'matched',
       subject: args.subject.trim(),
@@ -387,8 +389,10 @@ export const createThread = mutation({
       assigned_to: assignedTo,
       assigned_at: assignedTo ? now : undefined,
       priority,
+      priority_rank: priorityRank(priority),
       message_count: 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'student',
       has_unread: true,
       created_at: now,
@@ -552,6 +556,7 @@ export const sendMessage = mutation({
     await ctx.db.patch(args.threadId, {
       message_count: thread.message_count + 1,
       last_message_at: now,
+      last_message_at_desc: toDescTimestamp(now),
       last_message_sender_type: 'student',
       snippet,
       has_unread: true,

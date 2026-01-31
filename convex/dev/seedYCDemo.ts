@@ -14,8 +14,9 @@
  *   - Cleanup removes only demo data, never touches other universities
  */
 
-import { action, mutation, query } from '../_generated/server';
+import { internalAction, internalMutation, query } from '../_generated/server';
 import { v } from 'convex/values';
+import { priorityRank, toDescTimestamp } from '../lib/inboxThreadUtils';
 
 // ============================================================================
 // CONFIGURATION
@@ -187,7 +188,7 @@ const LAST_NAMES = [
 // SEED FUNCTION
 // ============================================================================
 
-export const seed = mutation({
+export const seed = internalMutation({
   args: {
     confirmProd: v.optional(v.boolean()),
     dryRun: v.optional(v.boolean()),
@@ -468,7 +469,7 @@ NEXT STEPS:
 // CLEANUP FUNCTION
 // ============================================================================
 
-export const cleanup = mutation({
+export const cleanup = internalMutation({
   args: {
     removeUniversity: v.optional(v.boolean()),
     dryRun: v.optional(v.boolean()),
@@ -543,10 +544,9 @@ export const cleanup = mutation({
         await ctx.db.patch(user._id, {
           university_id: undefined,
           department_id: undefined,
-          role: 'individual', // Reset role to maintain role/university invariant
           updated_at: Date.now(),
         });
-        console.log(`  Unlinked ${clerkUser.email} (role reset to individual)`);
+        console.log(`  Unlinked ${clerkUser.email}`);
       }
     }
 
@@ -648,7 +648,7 @@ export const status = query({
 // SEED ADVISOR DATA - Assigns students and creates queue/inbox items
 // ============================================================================
 
-export const seedAdvisorData = mutation({
+export const seedAdvisorData = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -822,6 +822,7 @@ export const seedAdvisorData = mutation({
         .first();
 
       if (!existingThread && !isDryRun) {
+        const lastMessageAt = now - i * 2 * 60 * 60 * 1000;
         const threadId = await ctx.db.insert('inbox_threads', {
           university_id: args.universityId,
           thread_type: 'student',
@@ -832,8 +833,10 @@ export const seedAdvisorData = mutation({
           assigned_to: advisor._id,
           status: i < 3 ? 'OPEN' : 'IN_PROGRESS',
           priority: 'P2',
+          priority_rank: priorityRank('P2'),
           message_count: 2, // One student msg + one advisor response
-          last_message_at: now - i * 2 * 60 * 60 * 1000, // Staggered messages
+          last_message_at: lastMessageAt, // Staggered messages
+          last_message_at_desc: toDescTimestamp(lastMessageAt),
           last_message_sender_type: i % 2 === 0 ? 'student' : 'advisor',
           has_unread: i < 2,
           created_at: now - (10 - i) * 24 * 60 * 60 * 1000,
@@ -993,7 +996,7 @@ const JOB_TITLES_LA = [
   'Project Coordinator',
 ];
 
-export const seedStudentProfiles = mutation({
+export const seedStudentProfiles = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -1219,7 +1222,7 @@ export const seedStudentProfiles = mutation({
 // ENABLE ADVISOR FEATURE FLAGS - Required for advisor pages to work
 // ============================================================================
 
-export const enableAdvisorFeatureFlags = mutation({
+export const enableAdvisorFeatureFlags = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -1281,7 +1284,7 @@ export const enableAdvisorFeatureFlags = mutation({
 // FIX EXISTING DATA - Updates applications with advisor assignment and creates follow-ups
 // ============================================================================
 
-export const fixExistingData = mutation({
+export const fixExistingData = internalMutation({
   args: {
     universityId: v.id('universities'),
     dryRun: v.optional(v.boolean()),
@@ -1399,7 +1402,7 @@ export const fixExistingData = mutation({
 // ONE-TIME MIGRATION: Clean up old 'yc-demo' slug data
 // ============================================================================
 
-export const cleanupOldYCDemo = mutation({
+export const cleanupOldYCDemo = internalMutation({
   args: {
     dryRun: v.optional(v.boolean()),
   },
@@ -1524,7 +1527,7 @@ export const cleanupOldYCDemo = mutation({
  *
  * Requires: CLERK_SECRET_KEY environment variable
  */
-export const syncDemoUsersToClerk = action({
+export const syncDemoUsersToClerk = internalAction({
   args: {
     universityId: v.id('universities'),
   },
@@ -1574,7 +1577,8 @@ export const syncDemoUsersToClerk = action({
         }
 
         const searchData = await searchResponse.json();
-        if (!searchData || searchData.length === 0) {
+        const users = Array.isArray(searchData) ? searchData : (searchData.data ?? []);
+        if (users.length === 0) {
           results.push({
             email: demoUser.email,
             status: 'not_found',
@@ -1583,7 +1587,7 @@ export const syncDemoUsersToClerk = action({
           continue;
         }
 
-        const clerkUser = searchData[0];
+        const clerkUser = users[0];
         const currentMetadata = clerkUser.public_metadata || {};
 
         // Update Clerk publicMetadata with role and university_id

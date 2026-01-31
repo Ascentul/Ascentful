@@ -76,7 +76,6 @@ export default function NewResumePage() {
     setSaving(true);
     try {
       const resumeId = await createResumeMutation({
-        clerkId: clerkUser.id,
         title: title.trim(),
         content: resumeContent,
         source: 'manual' as any,

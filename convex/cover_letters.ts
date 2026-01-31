@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { safeLogAudit } from './lib/auditLogger';
+import { getAuthenticatedUser } from './lib/authorization';
 import { requireMembership } from './lib/roles';
 
 // Get cover letters for a user
@@ -34,7 +35,6 @@ export const getUserCoverLetters = query({
 // Create a new cover letter
 export const createCoverLetter = mutation({
   args: {
-    clerkId: v.string(),
     name: v.string(),
     job_title: v.string(),
     company_name: v.optional(v.string()),
@@ -49,15 +49,31 @@ export const createCoverLetter = mutation({
         v.literal('pdf_upload'),
       ),
     ),
+    // SECURITY: Optional clerkId for server-side API routes that have already
+    // authenticated the user through their own mechanisms.
+    // Client-side calls should NOT pass this - JWT auth is preferred.
+    clerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
+    // SECURITY: Prefer JWT token authentication for client-side calls.
+    // Fall back to clerkId lookup only for authenticated server-side API routes.
+    const identity = await ctx.auth.getUserIdentity();
+    let user;
+    if (identity) {
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+        .unique();
+    } else if (args.clerkId) {
+      // Server-side call with clerkId (API routes that verified auth separately)
+      const clerkIdForLookup = args.clerkId;
+      user = await ctx.db
+        .query('users')
+        .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkIdForLookup))
+        .unique();
+    }
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Unauthorized: User not found');
     }
 
     const membership =
@@ -67,7 +83,7 @@ export const createCoverLetter = mutation({
 
     const coverLetterId = await ctx.db.insert('cover_letters', {
       user_id: user._id,
-      university_id: membership?.university_id ?? user.university_id,
+      university_id: membership?.university_id ?? user.university_id ?? undefined,
       name: args.name,
       job_title: args.job_title,
       company_name: args.company_name,
@@ -85,7 +101,7 @@ export const createCoverLetter = mutation({
       action: 'cover_letter.created',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'cover_letter',
       targetId: coverLetterId,
       metadata: {
@@ -103,7 +119,6 @@ export const createCoverLetter = mutation({
 // Update a cover letter
 export const updateCoverLetter = mutation({
   args: {
-    clerkId: v.string(),
     coverLetterId: v.id('cover_letters'),
     updates: v.object({
       name: v.optional(v.string()),
@@ -123,14 +138,8 @@ export const updateCoverLetter = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -161,7 +170,7 @@ export const updateCoverLetter = mutation({
       action: 'cover_letter.updated',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'cover_letter',
       targetId: args.coverLetterId,
       metadata: {
@@ -177,18 +186,11 @@ export const updateCoverLetter = mutation({
 // Delete a cover letter
 export const deleteCoverLetter = mutation({
   args: {
-    clerkId: v.string(),
     coverLetterId: v.id('cover_letters'),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -232,7 +234,7 @@ export const deleteCoverLetter = mutation({
       action: 'cover_letter.deleted',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'cover_letter',
       targetId: args.coverLetterId,
       previousValue: {
@@ -248,21 +250,14 @@ export const deleteCoverLetter = mutation({
 // Generate cover letter content (AI-powered)
 export const generateCoverLetterContent = mutation({
   args: {
-    clerkId: v.string(),
     job_title: v.string(),
     company_name: v.string(),
     job_description: v.optional(v.string()),
     user_experience: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     // Mock AI-generated content for now
     // In production, this would integrate with OpenAI or another AI service

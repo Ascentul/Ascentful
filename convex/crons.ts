@@ -19,6 +19,32 @@ crons.daily(
   'audit log retention',
   { hourUTC: 3, minuteUTC: 0 },
   internal.audit_logs.deleteExpiredAuditLogs,
+  {},
+);
+
+// Daily platform metrics cache refresh
+crons.daily(
+  'platform metrics cache',
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.metrics.recomputePlatformMetricsCache,
+  {},
+);
+
+// Daily university engagement metrics cache refresh
+// Staggered to 03:10 UTC to avoid conflict with 'refresh university overview metrics' at 03:15
+crons.daily(
+  'university engagement metrics cache',
+  { hourUTC: 3, minuteUTC: 10 },
+  internal.admin_engagement_analytics.recomputeEngagementMetricsBatch,
+  {},
+);
+
+// Daily admin analytics cache refresh
+crons.daily(
+  'admin analytics cache',
+  { hourUTC: 3, minuteUTC: 20 },
+  internal.analytics.recomputeAdminAnalyticsCache,
+  {},
 );
 
 /**

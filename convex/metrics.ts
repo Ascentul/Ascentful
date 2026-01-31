@@ -13,7 +13,17 @@
 
 import { v } from 'convex/values';
 
-import { query } from './_generated/server';
+import { internalMutation, query } from './_generated/server';
+import { requireSuperAdmin } from './lib/roles';
+
+async function getLatestMetricsCache(ctx: any) {
+  const latest = await ctx.db
+    .query('platform_metrics_cache')
+    .withIndex('by_snapshot_at')
+    .order('desc')
+    .take(1);
+  return latest[0] ?? null;
+}
 
 /**
  * Total universities that have ever been created (excluding test universities)
@@ -28,17 +38,12 @@ import { query } from './_generated/server';
 export const getTotalUniversitiesAllTime = query({
   args: {},
   handler: async (ctx) => {
-    const universities = await ctx.db.query('universities').collect();
-
-    const count = universities.filter(
-      (u) =>
-        // Exclude test universities
-        u.is_test !== true &&
-        // Count trial, active, and archived universities
-        (u.status === 'trial' || u.status === 'active' || u.status === 'archived'),
-    ).length;
-
-    return count;
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return cache.total_universities_all_time;
   },
 });
 
@@ -55,17 +60,12 @@ export const getTotalUniversitiesAllTime = query({
 export const getActiveUniversitiesCurrent = query({
   args: {},
   handler: async (ctx) => {
-    const universities = await ctx.db.query('universities').collect();
-
-    const count = universities.filter(
-      (u) =>
-        // Exclude test universities
-        u.is_test !== true &&
-        // Count only trial and active universities
-        (u.status === 'trial' || u.status === 'active'),
-    ).length;
-
-    return count;
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return cache.active_universities_current;
   },
 });
 
@@ -82,17 +82,12 @@ export const getActiveUniversitiesCurrent = query({
 export const getArchivedUniversities = query({
   args: {},
   handler: async (ctx) => {
-    const universities = await ctx.db.query('universities').collect();
-
-    const count = universities.filter(
-      (u) =>
-        // Exclude test universities
-        u.is_test !== true &&
-        // Count only archived universities
-        u.status === 'archived',
-    ).length;
-
-    return count;
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return cache.archived_universities;
   },
 });
 
@@ -114,17 +109,12 @@ export const getArchivedUniversities = query({
 export const getTotalUsersAllTime = query({
   args: {},
   handler: async (ctx) => {
-    const users = await ctx.db.query('users').collect();
-
-    const count = users.filter(
-      (u) =>
-        // Exclude test users
-        u.is_test_user !== true &&
-        // Exclude internal users (super_admin is internal)
-        u.role !== 'super_admin',
-    ).length;
-
-    return count;
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return cache.total_users_all_time;
   },
 });
 
@@ -147,46 +137,12 @@ export const getTotalUsersAllTime = query({
 export const getActiveUsers30d = query({
   args: {},
   handler: async (ctx) => {
-    const users = await ctx.db.query('users').collect();
-    const universities = await ctx.db.query('universities').collect();
-
-    // Create a map of university IDs to universities for quick lookup
-    const universityMap = new Map(universities.map((u) => [u._id, u]));
-
-    // Calculate 30 days ago timestamp
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-    const count = users.filter((u) => {
-      // Exclude test users
-      if (u.is_test_user === true) return false;
-
-      // Exclude internal users
-      if (u.role === 'super_admin') return false;
-
-      // Must have logged in within last 30 days
-      if (!u.last_login_at || u.last_login_at < thirtyDaysAgo) return false;
-
-      // If user has a university, validate the university
-      if (u.university_id) {
-        const university = universityMap.get(u.university_id);
-
-        // Exclude if university doesn't exist (orphaned user)
-        if (!university) return false;
-
-        // Exclude if university is a test university
-        if (university.is_test === true) return false;
-
-        // Exclude if university is not active or trial
-        if (university.status !== 'trial' && university.status !== 'active') {
-          return false;
-        }
-      }
-
-      // User meets all criteria
-      return true;
-    }).length;
-
-    return count;
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return cache.active_users_30d;
   },
 });
 
@@ -203,35 +159,48 @@ export const getActiveUsers30d = query({
 export const getAllMetrics = query({
   args: {},
   handler: async (ctx) => {
-    // Fetch all data once for efficiency
+    await requireSuperAdmin(ctx);
+    const cache = await getLatestMetricsCache(ctx);
+    if (!cache) {
+      throw new Error('Metrics cache not available');
+    }
+    return {
+      totalUniversitiesAllTime: cache.total_universities_all_time,
+      activeUniversitiesCurrent: cache.active_universities_current,
+      archivedUniversities: cache.archived_universities,
+      totalUsersAllTime: cache.total_users_all_time,
+      activeUsers30d: cache.active_users_30d,
+    };
+  },
+});
+
+/**
+ * Internal: recompute platform metrics cache
+ * Scheduled via cron to avoid expensive on-demand scans.
+ */
+export const recomputePlatformMetricsCache = internalMutation({
+  args: {},
+  handler: async (ctx) => {
     const users = await ctx.db.query('users').collect();
     const universities = await ctx.db.query('universities').collect();
 
-    // Filter real universities (exclude test)
-    const realUniversities = universities.filter((u) => u.is_test !== true);
+    const now = Date.now();
 
-    // Total universities all time (trial, active, archived)
+    const realUniversities = universities.filter((u) => u.is_test !== true);
     const totalUniversitiesAllTime = realUniversities.filter(
       (u) => u.status === 'trial' || u.status === 'active' || u.status === 'archived',
     ).length;
-
-    // Active universities current (trial, active)
     const activeUniversitiesCurrent = realUniversities.filter(
       (u) => u.status === 'trial' || u.status === 'active',
     ).length;
-
-    // Archived universities
     const archivedUniversities = realUniversities.filter((u) => u.status === 'archived').length;
 
-    // Total users all time (exclude test and internal)
     const totalUsersAllTime = users.filter(
       (u) => u.is_test_user !== true && u.role !== 'super_admin',
     ).length;
 
-    // Active users 30d
     const universityMap = new Map(universities.map((u) => [u._id, u]));
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
     const activeUsers30d = users.filter((u) => {
       if (u.is_test_user === true) return false;
       if (u.role === 'super_admin') return false;
@@ -245,11 +214,22 @@ export const getAllMetrics = query({
           return false;
         }
       }
-
       return true;
     }).length;
 
+    await ctx.db.insert('platform_metrics_cache', {
+      snapshot_at: now,
+      total_universities_all_time: totalUniversitiesAllTime,
+      active_universities_current: activeUniversitiesCurrent,
+      archived_universities: archivedUniversities,
+      total_users_all_time: totalUsersAllTime,
+      active_users_30d: activeUsers30d,
+      created_at: now,
+      updated_at: now,
+    });
+
     return {
+      snapshot_at: now,
       totalUniversitiesAllTime,
       activeUniversitiesCurrent,
       archivedUniversities,

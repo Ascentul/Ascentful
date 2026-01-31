@@ -185,7 +185,6 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
       if (editingProject) {
         // Update existing project
         await updateProjectMutation({
-          clerkId: clerkUser.id,
           projectId: editingProject._id,
           updates: {
             title: formTitle,
@@ -208,7 +207,6 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
       } else {
         // Create new project
         await createProjectMutation({
-          clerkId: clerkUser.id,
           title: formTitle,
           role: formRole || undefined,
           type: formType,
@@ -247,7 +245,6 @@ export const ProjectsSection = forwardRef<ProjectsSectionRef, {}>((_, ref) => {
     setIsDeleting(true);
     try {
       await deleteProjectMutation({
-        clerkId: clerkUser.id,
         projectId: id,
       });
       toast({

@@ -295,7 +295,6 @@ export function CreateResumeFunnel({
       const content = buildResumeContent();
 
       const resumeId = await createResumeMutation({
-        clerkId,
         title: 'My Resume',
         intent: funnelData.intent || 'fulltime', // Default to fulltime if not set
         startSource: funnelData.startSource,

@@ -16,7 +16,7 @@ export interface Student {
   created_at?: number;
   activation_token?: string;
   imageUrl?: string;
-  engagement_status?: 'at_risk' | 'moderate' | 'active';
+  engagement_status?: 'at_risk' | 'moderate' | 'engaged';
 }
 
 export interface Department {

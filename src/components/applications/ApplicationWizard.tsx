@@ -83,7 +83,6 @@ export function ApplicationWizard({
     setSubmitting(true);
     try {
       const createdId = await createApp({
-        clerkId,
         company: job.company,
         job_title: job.title,
         status: markApplied ? ('applied' as const) : ('saved' as const),

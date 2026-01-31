@@ -303,7 +303,6 @@ export default function JobSearchPage() {
     }
     try {
       await createApplication({
-        clerkId,
         company: job.company,
         job_title: job.title,
         status: 'saved',

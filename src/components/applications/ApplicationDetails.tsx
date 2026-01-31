@@ -160,7 +160,6 @@ export function ApplicationDetails({
       } else {
         if (!clerkId) return;
         await updateApplication({
-          clerkId,
           applicationId: application.id as any,
           updates: {
             status: local.status,
@@ -188,7 +187,6 @@ export function ApplicationDetails({
       } else {
         if (!clerkId) return;
         await deleteApplicationMutation({
-          clerkId,
           applicationId: application.id as any,
         });
         onChanged?.(null);
@@ -230,7 +228,6 @@ export function ApplicationDetails({
           onChanged?.(updated);
         } else if (clerkId) {
           await updateApplication({
-            clerkId,
             applicationId: application.id as any,
             updates: { status: newStatus } as any,
           } as any);
@@ -272,7 +269,6 @@ export function ApplicationDetails({
         scheduled = date.getTime();
       }
       await createStage({
-        clerkId,
         applicationId: local.id as any,
         title: stageForm.title,
         scheduled_at: scheduled,
@@ -304,7 +300,7 @@ export function ApplicationDetails({
   ) => {
     if (!clerkId) return;
     try {
-      await updateStage({ clerkId, stageId, updates: { outcome } } as any);
+      await updateStage({ stageId, updates: { outcome } } as any);
     } catch (e) {
       console.error('Failed to update interview outcome:', e);
       toast({
@@ -319,7 +315,7 @@ export function ApplicationDetails({
     if (!clerkId) return;
     setDeleteStageId(null);
     try {
-      await deleteStage({ clerkId, stageId } as any);
+      await deleteStage({ stageId } as any);
     } catch (e) {
       console.error('Failed to delete interview stage:', e);
       toast({
@@ -345,7 +341,6 @@ export function ApplicationDetails({
         scheduled = date.getTime();
       }
       await updateStage({
-        clerkId,
         stageId: editingStage._id,
         updates: {
           title: editingStage.title,
@@ -636,7 +631,6 @@ export function ApplicationDetails({
       }
 
       await updateApplication({
-        clerkId,
         applicationId: local.id as any,
         updates: {
           resume_id: resumeValue,

@@ -75,9 +75,15 @@ export async function POST(request: NextRequest) {
       const result = verifyExtensionSessionToken(extensionToken);
       clerkId = result.clerkId;
     } catch (error) {
+      // Log token verification failure with request context for security monitoring
+      // Note: Never log the actual token value
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
+        extra: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          origin: origin || 'unknown',
+          userAgent: request.headers.get('User-Agent')?.slice(0, 100) || 'unknown',
+        },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
@@ -124,10 +130,10 @@ export async function POST(request: NextRequest) {
 
     // Create application using existing mutation
     // The mutation automatically includes university_id for advisor visibility
+    // SECURITY: User identity is derived from JWT token, not clerkId parameter
     const applicationId = await fetchMutation(
       api.applications.createApplication,
       {
-        clerkId,
         company,
         job_title: jobTitle,
         status: 'applied', // Default status for autofill
@@ -206,9 +212,15 @@ export async function GET(request: NextRequest) {
       const result = verifyExtensionSessionToken(extensionToken);
       clerkId = result.clerkId;
     } catch (error) {
+      // Log token verification failure with request context for security monitoring
+      // Note: Never log the actual token value
       log.warn('Token verification failed', {
         event: 'token.invalid',
-        extra: { error: error instanceof Error ? error.message : 'Unknown error' },
+        extra: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          origin: origin || 'unknown',
+          userAgent: request.headers.get('User-Agent')?.slice(0, 100) || 'unknown',
+        },
       });
       return NextResponse.json(
         { error: 'Invalid or expired token' },

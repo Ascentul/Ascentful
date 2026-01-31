@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { ACTIVITY_EVENTS, trackActivity } from './lib/activityTracker';
 import { safeLogAudit } from './lib/auditLogger';
+import { getAuthenticatedUser } from './lib/authorization';
 import { requireMembership } from './lib/roles';
 
 // Get resumes for a user
@@ -35,7 +36,6 @@ export const getUserResumes = query({
 // Create a new resume
 export const createResume = mutation({
   args: {
-    clerkId: v.string(),
     title: v.string(),
     content: v.any(),
     visibility: v.union(v.literal('private'), v.literal('public')),
@@ -52,14 +52,8 @@ export const createResume = mutation({
     analysis_result: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -67,7 +61,7 @@ export const createResume = mutation({
         : null;
 
     const now = Date.now();
-    const universityId = membership?.university_id ?? user.university_id;
+    const universityId = membership?.university_id ?? user.university_id ?? undefined;
 
     const resumeId = await ctx.db.insert('resumes', {
       user_id: user._id,
@@ -137,7 +131,6 @@ export const createResume = mutation({
 // Update a resume
 export const updateResume = mutation({
   args: {
-    clerkId: v.string(),
     resumeId: v.id('resumes'),
     updates: v.object({
       title: v.optional(v.string()),
@@ -149,16 +142,9 @@ export const updateResume = mutation({
       ai_suggestions: v.optional(v.any()),
     }),
   },
-  handler: async (ctx, { clerkId, resumeId, updates }) => {
-    // Get user by Clerk ID
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+  handler: async (ctx, { resumeId, updates }) => {
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     // Verify ownership
     const resume = await ctx.db.get(resumeId);
@@ -182,7 +168,7 @@ export const updateResume = mutation({
       action: 'resume.updated',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'resume',
       targetId: resumeId,
       metadata: {
@@ -198,18 +184,11 @@ export const updateResume = mutation({
 // Delete a resume
 export const deleteResume = mutation({
   args: {
-    clerkId: v.string(),
     resumeId: v.id('resumes'),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
@@ -244,7 +223,7 @@ export const deleteResume = mutation({
       action: 'resume.deleted',
       actorUserId: user._id,
       actorRole: user.role,
-      actorUniversityId: user.university_id,
+      actorUniversityId: user.university_id ?? undefined,
       targetType: 'resume',
       targetId: args.resumeId,
       previousValue: {
@@ -296,7 +275,6 @@ export const getResumeById = query({
 // Create resume from the 3-step funnel
 export const createResumeFromFunnel = mutation({
   args: {
-    clerkId: v.string(),
     title: v.string(),
     intent: v.union(
       v.literal('internship'),
@@ -343,14 +321,8 @@ export const createResumeFromFunnel = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const membership =
       user.role === 'student'
@@ -358,7 +330,7 @@ export const createResumeFromFunnel = mutation({
         : null;
 
     const now = Date.now();
-    const universityId = membership?.university_id ?? user.university_id;
+    const universityId = membership?.university_id ?? user.university_id ?? undefined;
 
     // Create the resume
     const resumeId = await ctx.db.insert('resumes', {
@@ -444,7 +416,6 @@ export const createResumeFromFunnel = mutation({
 // Autosave resume (debounced from frontend)
 export const autosaveResume = mutation({
   args: {
-    clerkId: v.string(),
     resumeId: v.id('resumes'),
     content: v.optional(v.any()),
     styleConfig: v.optional(
@@ -489,14 +460,8 @@ export const autosaveResume = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .first();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
@@ -567,7 +532,6 @@ export const autosaveResume = mutation({
 // Create a version snapshot (for undo support)
 export const createResumeVersion = mutation({
   args: {
-    clerkId: v.string(),
     resumeId: v.id('resumes'),
     versionLabel: v.optional(v.string()),
     trigger: v.union(
@@ -581,14 +545,8 @@ export const createResumeVersion = mutation({
     contentSnapshot: v.any(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {
@@ -624,19 +582,12 @@ export const createResumeVersion = mutation({
 // Restore a previous version
 export const restoreResumeVersion = mutation({
   args: {
-    clerkId: v.string(),
     resumeId: v.id('resumes'),
     versionNumber: v.number(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
-      .unique();
-
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // SECURITY: Get user from JWT token instead of client-supplied clerkId
+    const user = await getAuthenticatedUser(ctx);
 
     const resume = await ctx.db.get(args.resumeId);
     if (!resume || resume.user_id !== user._id) {

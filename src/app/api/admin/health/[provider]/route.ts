@@ -9,6 +9,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+import { hasPlatformAdminAccess } from '@/lib/constants/roles';
 import { ClerkPublicMetadata } from '@/types/clerk';
 
 export const runtime = 'nodejs';
@@ -221,12 +222,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Verify caller is super_admin
+  // Verify caller has platform admin access
   const client = await clerkClient();
   const caller = await client.users.getUser(userId);
   const callerRole = (caller.publicMetadata as ClerkPublicMetadata)?.role;
 
-  if (callerRole !== 'super_admin') {
+  if (!hasPlatformAdminAccess(callerRole)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
