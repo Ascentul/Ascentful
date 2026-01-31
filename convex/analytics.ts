@@ -2158,22 +2158,21 @@ export const getUniversityActiveUsersOverTime = query({
     const msPerDay = 24 * 60 * 60 * 1000;
 
     // Get all students in this university (include legacy 'user' role)
-    const students = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
-    );
+    // Note: Using .collect() instead of collectAll() because Convex only allows one paginated query per function
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
 
     const studentIds = new Set(students.map((s) => s._id));
 
     // Get advisors
-    const advisors = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.eq(q.field('role'), 'advisor')),
-    );
+    const advisors = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.eq(q.field('role'), 'advisor'))
+      .collect();
 
     const advisorIds = new Set(advisors.map((a) => a._id));
 
@@ -2267,31 +2266,29 @@ export const getUniversityFeatureUsage = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students in this university (include legacy 'user' role)
-    const students = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
-    );
+    // Note: Using .collect() instead of collectAll() because Convex only allows one paginated query per function
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
 
     const studentIdSet = new Set(students.map((s) => s._id.toString()));
 
     // Bulk fetch networking contacts for the university, filter to students
-    const allContacts = await collectAll(() =>
-      ctx.db
-        .query('networking_contacts')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const allContacts = await ctx.db
+      .query('networking_contacts')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
     const networkingContactsCount = allContacts.filter((c) =>
       studentIdSet.has(c.user_id.toString()),
     ).length;
 
     // Bulk fetch AI coach conversations for the university
-    const allConversations = await collectAll(() =>
-      ctx.db
-        .query('ai_coach_conversations')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const allConversations = await ctx.db
+      .query('ai_coach_conversations')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
     const aiCoachConversationsCount = allConversations.filter((c) =>
       studentIdSet.has(c.user_id.toString()),
     ).length;
@@ -2321,12 +2318,12 @@ export const getUniversityMonthlyTrends = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all students in the university (role-filtered)
-    const students = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
-    );
+    // Note: Using .collect() instead of collectAll() because Convex only allows one paginated query per function
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
     const studentIds = new Set(students.map((s) => s._id));
 
     // Build month boundaries
@@ -2350,21 +2347,20 @@ export const getUniversityMonthlyTrends = query({
 
     // Use university-scoped queries instead of per-student N+1 queries
     // This keeps query counts bounded regardless of student count
-    const applications = await collectAll(() =>
-      ctx.db
-        .query('applications')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const applications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
-    const goals = await collectAll(() =>
-      ctx.db.query('goals').withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const goals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
-    const resumes = await collectAll(() =>
-      ctx.db
-        .query('resumes')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const resumes = await ctx.db
+      .query('resumes')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
     // Aggregate by month (filtered to students only)
     const trends = monthBoundaries.map((month) => {
@@ -2410,36 +2406,35 @@ export const getUniversityDepartmentAnalytics = query({
     assertUniversityAccess(actingUser, universityId);
 
     // Get all departments
-    const departments = await collectAll(() =>
-      ctx.db
-        .query('departments')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    // Note: Using .collect() instead of collectAll() because Convex only allows one paginated query per function
+    const departments = await ctx.db
+      .query('departments')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
 
     // Get all students (include legacy 'user' role)
-    const students = await collectAll(() =>
-      ctx.db
-        .query('users')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId))
-        .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user'))),
-    );
+    const students = await ctx.db
+      .query('users')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .filter((q) => q.or(q.eq(q.field('role'), 'student'), q.eq(q.field('role'), 'user')))
+      .collect();
 
     // Collect all student IDs for bulk queries
     const allStudentIds = students.map((s) => s._id);
     const studentIdSet = new Set(allStudentIds.map((id) => id.toString()));
 
     // Bulk fetch all goals for the university and filter to students
-    const allGoals = await collectAll(() =>
-      ctx.db.query('goals').withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const allGoals = await ctx.db
+      .query('goals')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
     const studentGoals = allGoals.filter((g) => studentIdSet.has(g.user_id.toString()));
 
     // Bulk fetch all applications for the university and filter to students
-    const allApplications = await collectAll(() =>
-      ctx.db
-        .query('applications')
-        .withIndex('by_university', (q) => q.eq('university_id', universityId)),
-    );
+    const allApplications = await ctx.db
+      .query('applications')
+      .withIndex('by_university', (q) => q.eq('university_id', universityId))
+      .collect();
     const studentApplications = allApplications.filter((a) =>
       studentIdSet.has(a.user_id.toString()),
     );
